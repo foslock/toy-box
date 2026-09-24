@@ -1,0 +1,8 @@
+{
+  "title": "First Light",
+  "blurb": "A Mount Hood-ish peak painted at sunrise, in the manner of a certain soft-spoken TV painter. Clouds drift, and two tiny hikers climb the long ridge, reaching the summit about three and a half minutes after you arrive, just as the sun clears the shoulder.",
+  "added": "2026-09-24",
+  "tags": ["canvas", "ambient", "painting"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?t=214" }
+}
