@@ -1,0 +1,14 @@
+{
+  "name": "toy-box",
+  "private": true,
+  "type": "module",
+  "description": "Small, self-contained browser experiments with a generated index page.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && node scripts/dev.mjs",
+    "shots": "node scripts/shots.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

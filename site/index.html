@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toy Box</title>
+<meta name="description" content="A pegboard of small, self-contained browser experiments.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Martian+Mono:wdth,wght@75..112.5,500..800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light dark;
+    --board: #e3e5ea;
+    --hole: #adb3be;
+    --hole-rim: #f3f4f7;
+    --card: #fcfcfd;
+    --card-edge: rgba(20, 24, 33, .08);
+    --ink: #171a21;
+    --ink-2: #474d5b;
+    --ink-3: #6b7282;
+    --shadow: 0 1px 1px rgba(20, 24, 33, .06), 0 10px 24px -12px rgba(20, 24, 33, .3);
+    --shadow-lift: 0 2px 2px rgba(20, 24, 33, .06), 0 22px 38px -14px rgba(20, 24, 33, .4);
+    --focus: #2a4d9b;
+    --mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --board: #15171c;
+      --hole: #07080a;
+      --hole-rim: #23262e;
+      --card: #1e2128;
+      --card-edge: rgba(255, 255, 255, .07);
+      --ink: #eceef3;
+      --ink-2: #b0b6c3;
+      --ink-3: #8a91a1;
+      --shadow: 0 1px 1px rgba(0, 0, 0, .3), 0 10px 24px -12px rgba(0, 0, 0, .7);
+      --shadow-lift: 0 2px 2px rgba(0, 0, 0, .3), 0 22px 38px -14px rgba(0, 0, 0, .8);
+      --focus: #8fb0ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font: 16px/1.5 Figtree, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    /* pegboard: a dark hole with a lit lower lip */
+    background-color: var(--board);
+    background-image:
+      radial-gradient(circle, var(--hole) 0 2.6px, transparent 3.1px),
+      radial-gradient(circle, var(--hole-rim) 0 2.6px, transparent 3.1px);
+    background-size: 30px 30px;
+    background-position: 0 0, 0 1.5px;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: clamp(40px, 7vw, 80px) 64px; }
+
+  /* ---- label-maker tape ---- */
+  .tape {
+    --t: var(--tape, #c8323c);
+    display: inline-block;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-stretch: 85%;
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .94);
+    padding: .66em .8em .6em calc(.8em + .14em);
+    border-radius: 3px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 40%, rgba(0, 0, 0, .14)), var(--t);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14), 0 1px 1px rgba(0, 0, 0, .25), 0 5px 12px -5px rgba(0, 0, 0, .45);
+    text-shadow: 0 -1px 0 rgba(255, 255, 255, .22), 0 1px 1px rgba(0, 0, 0, .5);
+    transform: rotate(-1.4deg);
+    white-space: nowrap;
+  }
+  .tape-text span { display: inline-block; transform: translateY(calc(var(--j) * .35px)) rotate(calc(var(--j) * .7deg)); }
+  .tape--xl { --tape: #c8323c; font-size: clamp(26px, 6vw, 44px); font-weight: 800; transform: rotate(-2.2deg); padding: .34em .55em .3em calc(.55em + .14em); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* ---- header ---- */
+  .intro { display: grid; gap: 22px; justify-items: start; margin-bottom: clamp(36px, 6vw, 60px); }
+  .intro h1 { margin: 0; }
+  .intro p { margin: 0; max-width: 52ch; font-size: clamp(17px, 2.2vw, 19px); color: var(--ink-2); text-wrap: pretty; }
+  .count { font: 500 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ---- the board ---- */
+  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .toy a {
+    display: flex; flex-direction: column; height: 100%;
+    color: inherit; text-decoration: none;
+    background: var(--card); border-radius: 8px;
+    box-shadow: 0 0 0 1px var(--card-edge), var(--shadow);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .toy a:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift); }
+  .toy a:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+  .shot { aspect-ratio: 4 / 3; margin: 10px 10px 0; border-radius: 4px; overflow: hidden; background: #0b0c10; }
+  .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
+  .toy a:hover .shot img { transform: scale(1.03); }
+  .shot--blank { display: grid; place-items: center; background: repeating-linear-gradient(-45deg, var(--tape), var(--tape) 12px, color-mix(in srgb, var(--tape) 82%, #000) 12px 24px); }
+  .shot--blank span { font: 800 64px/1 var(--mono); color: rgba(255, 255, 255, .85); letter-spacing: .06em; }
+  .card-body { position: relative; flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 0 18px 18px; }
+  .card-body h2 { margin: -15px 0 0 -4px; font-size: inherit; }
+  .toy a:hover .tape { transform: rotate(-2.4deg); }
+  .blurb { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); text-wrap: pretty; }
+  .meta { margin: auto 0 0; padding-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 500 11px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .empty { color: var(--ink-3); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toy a, .shot img, .tape { transition: none; }
+    .toy a:hover, .toy a:hover .shot img { transform: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <header class="intro">
+      <h1><!--HEADER_TAPE--></h1>
+      <p>Small browser experiments pinned to one board: pixel scenes, simulations and odd little toys. Each one runs on its own page. Pick one up.</p>
+      <span class="count"><!--COUNT--></span>
+    </header>
+    <ul class="board"><!--TOYS-->
+    </ul>
+  </main>
+</body>
+</html>
