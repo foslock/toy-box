@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fidget Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { background: #cdd6df; color: #24313c; overflow: hidden; font-family: Fredoka, ui-rounded, "Segoe UI", system-ui, sans-serif; transition: background-color .8s, color .8s; }
+  body.night { background: #0c1220; color: #e3e9f3; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  .name { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 20px; margin: 0; font-weight: 600; font-size: 22px; pointer-events: none; }
+  .hint { position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; width: max-content; max-width: calc(100% - 32px);
+    text-align: center; font-weight: 500; font-size: 14px; opacity: .7; pointer-events: none; }
+  .sound { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
+    border-radius: 999px; border: 1.5px solid currentColor; background: transparent; color: inherit; font: 600 14px/1 Fredoka, ui-rounded, system-ui, sans-serif; cursor: pointer; opacity: .75; }
+  .sound:hover { opacity: 1; }
+  .sound:focus-visible { outline: 3px solid #ffb300; outline-offset: 2px; }
+  .sound svg { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="A wooden switchboard toy full of switches, buttons and dials. Press Tab to move between controls, then Space or Enter to use one, or the arrow keys to turn a dial."></canvas>
+<p class="name">Fidget Board</p>
+<button class="sound" id="sound" type="button" aria-pressed="true">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path id="cross" d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"/></svg>
+  <span id="soundLabel">Sound on</span>
+</button>
+<p class="hint">Click the switches, buttons and dials. Drag a dial to turn it.</p>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rr = (a, b) => a + Math.random() * (b - a);
+const ease = (cur, target, dt, speed) => cur + (target - cur) * (1 - Math.exp(-dt * speed));
+
+/* ---------- layout: board units are roughly centimetres; x right, y up, the face at z = 0 ---------- */
+const BW = 42, BH = 26, BT = 2.4;
+const L = {
+  beaconBtn: [-18.3, 10.2], plate: [-8.2, 10.2, 14, 3.8], seg: [1.6, 10.2], frame: [6.0, 10.2], numKnob: [11.4, 10.2], night: [17.6, 10.2],
+  toggles: [[-19, 2.6], [-16.4, 2.6], [-13.8, 2.6]], leds: [[-19, 6.0], [-16.4, 6.0], [-13.8, 6.0]],
+  gauge: [-6.6, 3.9], radar: [2.2, 3.9], dome: [10.6, 3.9], rocket: [17.7, 0.6, 4.4, 13.2],
+  traffic: [-19.3, -2.4], slider: [-16.4, [-6.0, -4.2, -2.4, -0.6]], gaugeKnob: [-6.6, -1.6], bars: [-6.6, -4.6],
+  key: [2.2, -1.9], domeRocker: [8.2, -1.9], colorKnob: [12.6, -1.9],
+  music: [[-18.6, -9.6], [-15.4, -9.6], [-12.2, -9.6], [-9.0, -9.6]], horn: [-4.6, -9.6], speaker: [-0.6, -9.6],
+  fan: [5.2, -9.2], fanRocker: [9.9, -9.6], lever: [14.4, -9.4], reset: [19.0, -10.2],
+};
+const TRAFFIC_Y = [-0.6, -2.4, -4.2];                       // red, yellow, green lamps
+const DOME_COLORS = ['#fff4e0', '#ff4d4d', '#ff9a1f', '#ffe135', '#3ddc6e', '#3aa0ff', '#b56bff'];
+const MUSIC = [{ col: '#ff4b4b', f: 523.25 }, { col: '#ffc629', f: 659.25 }, { col: '#3ccf68', f: 783.99 }, { col: '#3d8bff', f: 1046.5 }];
+
+/* ---------- sound: everything is synthesised, nothing is loaded ---------- */
+let ac = null, master = null, noiseBuf = null, muted = false;
+function audio() {
+  if (!ac) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ac = new AC();
+    master = ac.createGain(); master.gain.value = muted ? 0 : 0.6;
+    const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+function envelope(g, t, a, peak, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+function tone(f, { type = 'sine', dur = 0.25, vol = 0.2, a = 0.005, to = 0, delay = 0 } = {}) {
+  const c = audio(); if (!c) return;
+  const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+  envelope(g, t, a, vol, dur); o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+function hiss({ dur = 0.03, vol = 0.2, hp = 2000, lp = 9000, delay = 0 } = {}) {
+  const c = audio(); if (!c) return;
+  const t = c.currentTime + delay, s = c.createBufferSource(), h = c.createBiquadFilter(), l = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = noiseBuf; h.type = 'highpass'; h.frequency.value = hp; l.type = 'lowpass'; l.frequency.value = lp;
+  envelope(g, t, 0.002, vol, dur); s.connect(h); h.connect(l); l.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+}
+// A continuous sound whose loudness is set every frame (fan, rocket, horn).
+function sustained(build) {
+  let n = null;
+  return (level, param = 0) => {
+    if (!ac || (!n && level < 0.002)) return;
+    if (!n) n = build(ac);
+    n.gain.gain.setTargetAtTime(Math.max(0, level), ac.currentTime, 0.04);
+    if (n.update) n.update(param);
+  };
+}
+const noiseSource = c => { const s = c.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(); return s; };
+const fanSound = sustained(c => {
+  const f = c.createBiquadFilter(), g = c.createGain(); f.type = 'bandpass'; f.Q.value = 0.8; g.gain.value = 0;
+  noiseSource(c).connect(f); f.connect(g); g.connect(master);
+  return { gain: g, update: sp => f.frequency.setTargetAtTime(250 + 900 * sp, c.currentTime, 0.1) };
+});
+const rocketSound = sustained(c => {
+  const f = c.createBiquadFilter(), g = c.createGain(); f.type = 'lowpass'; f.frequency.value = 380; g.gain.value = 0;
+  noiseSource(c).connect(f); f.connect(g); g.connect(master);
+  return { gain: g, update: p => f.frequency.setTargetAtTime(260 + 700 * p, c.currentTime, 0.1) };
+});
+const hornSound = sustained(c => {
+  const f = c.createBiquadFilter(), g = c.createGain(); f.type = 'lowpass'; f.frequency.value = 1500; g.gain.value = 0;
+  for (const hz of [370, 466]) { const o = c.createOscillator(); o.type = 'square'; o.frequency.value = hz; o.connect(f); o.start(); }
+  f.connect(g); g.connect(master);
+  return { gain: g };
+});
+const SFX = {
+  toggle: on => { hiss({ dur: 0.02, vol: 0.5, hp: 3000 }); tone(on ? 2400 : 1900, { type: 'square', dur: 0.012, vol: 0.04 }); },
+  rocker: on => { hiss({ dur: 0.035, vol: 0.45, hp: 900, lp: 6000 }); tone(on ? 330 : 262, { type: 'triangle', dur: 0.07, vol: 0.14 }); },
+  press: () => hiss({ dur: 0.02, vol: 0.32, hp: 1500, lp: 7000 }),
+  tick: () => hiss({ dur: 0.012, vol: 0.28, hp: 4000 }),
+  key: on => { hiss({ dur: 0.05, vol: 0.35, hp: 2500 }); tone(on ? 3300 : 2700, { dur: 0.06, vol: 0.05 }); },
+  clunk: () => { hiss({ dur: 0.06, vol: 0.4, hp: 300, lp: 3000 }); tone(150, { type: 'triangle', dur: 0.1, vol: 0.2 }); },
+  note: f => { tone(f, { dur: 1.0, vol: 0.26, a: 0.004 }); tone(f * 2, { type: 'triangle', dur: 0.4, vol: 0.06 }); tone(f * 4, { dur: 0.12, vol: 0.04 }); },
+  ping: () => tone(1318, { dur: 0.55, vol: 0.05 }),
+  boing: () => tone(220, { to: 700, dur: 0.3, vol: 0.1, type: 'triangle' }),
+  night: on => [0, 1, 2].forEach(i => tone((on ? [784, 587, 392] : [392, 587, 784])[i], { dur: 0.22, vol: 0.12, delay: i * 0.09, type: 'triangle' })),
+  launch: () => hiss({ dur: 1.6, vol: 0.25, hp: 400, lp: 2500 }),
+  reset: () => [1046, 784, 659, 523, 392].forEach((f, i) => tone(f, { dur: 0.2, vol: 0.13, delay: i * 0.08, type: 'triangle' })),
+};
+$('sound').addEventListener('click', () => {
+  muted = !muted;
+  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.6, ac.currentTime, 0.02);
+  $('sound').setAttribute('aria-pressed', String(!muted));
+  $('soundLabel').textContent = muted ? 'Sound off' : 'Sound on';
+  $('waves').style.display = muted ? 'none' : ''; $('cross').style.display = muted ? '' : 'none';
+});
+
+/* ---------- renderer and a little photo studio ---------- */
+await Promise.race([document.fonts.load('700 64px Fredoka'), new Promise(r => setTimeout(r, 2500))]).catch(() => {});
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.NeutralToneMapping;
+const scene = new THREE.Scene();
+const DAY_BG = new THREE.Color('#cdd6df'), NIGHT_BG = new THREE.Color('#101a2e');
+scene.background = DAY_BG.clone();
+{ const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); }
+const camera = new THREE.PerspectiveCamera(30, 1, 1, 1200);
+const sun = new THREE.DirectionalLight('#fff6ea', 1.15);
+sun.position.set(-26, 62, 70);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -26, near: 10, far: 220 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+sun.target.position.set(0, 12, 0);
+scene.add(sun, sun.target);
+
+// A seamless curved backdrop: floor sweeping up into a wall.
+{
+  const prof = [];
+  for (let z = 150; z > -20; z -= 10) prof.push([z, 0]);
+  for (let i = 0; i <= 16; i++) { const a = -Math.PI / 2 - i / 16 * Math.PI / 2; prof.push([-20 + 30 * Math.cos(a), 30 + 30 * Math.sin(a)]); }
+  for (let y = 50; y <= 250; y += 25) prof.push([-50, y]);
+  const pos = [], idx = [], NX = 8, n = prof.length;
+  for (let i = 0; i <= NX; i++) { const x = -260 + i / NX * 520; for (const [z, y] of prof) pos.push(x, y, z); }
+  for (let i = 0; i < NX; i++) for (let j = 0; j < n - 1; j++) { const a = i * n + j, b = a + n; idx.push(a, a + 1, b, b, a + 1, b + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  var backdrop = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#c3cedb', roughness: 0.95, side: THREE.DoubleSide }));
+  backdrop.receiveShadow = true;
+  scene.add(backdrop);
+}
+// Stars that come out on the wall when the lights go off.
+const starPts = [];
+for (let i = 0; i < 420; i++) starPts.push(rr(-200, 200), rr(34, 170), -49 + rr(0, 0.5));
+const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPts, 3));
+const starMat = new THREE.PointsMaterial({ size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, color: new THREE.Color(3, 3, 3.3),
+  map: (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, '#fff'); gr.addColorStop(0.3, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })() });
+scene.add(new THREE.Points(starGeo, starMat));
+
+/* ---------- materials ---------- */
+const MAT = {
+  chrome: new THREE.MeshStandardMaterial({ color: '#f2f2f4', metalness: 1, roughness: 0.13 }),
+  steel: new THREE.MeshStandardMaterial({ color: '#c8cbd0', metalness: 1, roughness: 0.32 }),
+  black: new THREE.MeshStandardMaterial({ color: '#1a1a1c', roughness: 0.42 }),
+  gloss: new THREE.MeshPhysicalMaterial({ color: '#141416', roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 }),
+  brass: new THREE.MeshStandardMaterial({ color: '#d9b45f', metalness: 1, roughness: 0.24 }),
+  white: new THREE.MeshPhysicalMaterial({ color: '#f6f6f2', roughness: 0.3, clearcoat: 0.6 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.04, transparent: true, opacity: 0.16, clearcoat: 1, depthWrite: false }),
+  hit: new THREE.MeshBasicMaterial({ visible: false }),
+};
+const plastic = (hex, o = {}) => new THREE.MeshPhysicalMaterial({ color: hex, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.18, ...o });
+// A lamp lens: coloured plastic whose glow is turned up and down each frame.
+// `dim` darkens the unlit plastic so switching a lamp on is an obvious change.
+const lens = (hex, { dim = 0.38, ...o } = {}) => new THREE.MeshPhysicalMaterial({ color: new THREE.Color(hex).multiplyScalar(dim), roughness: 0.18, clearcoat: 1, emissive: new THREE.Color(hex), emissiveIntensity: 0, ...o });
+
+/* ---------- geometry helpers: everything stands on the board with its axis along +z ---------- */
+const G = {
+  cyl: (r, h, seg = 32, rTop = r) => new THREE.CylinderGeometry(rTop, r, h, seg).rotateX(Math.PI / 2).translate(0, 0, h / 2),
+  dome: (r, seg = 32) => new THREE.SphereGeometry(r, seg, seg / 2, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI / 2),
+  rbox: (w, h, d, r = 0.12, s = 3) => new RoundedBoxGeometry(w, h, d, s, Math.min(r, w / 2, h / 2, d / 2)).translate(0, 0, d / 2),
+  torus: (r, t, seg = 64) => new THREE.TorusGeometry(r, t, 12, seg),
+  knurl(r, h, ridges = 30) {
+    const g = new THREE.CylinderGeometry(r, r, h, ridges * 2, 1).rotateX(Math.PI / 2).translate(0, 0, h / 2), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), d = Math.hypot(x, y);
+      if (d > r * 0.9) { const k = Math.round(Math.atan2(y, x) / TAU * ridges * 2) % 2 ? 0.93 : 1; p.setXY(i, x * k, y * k); }
+    }
+    g.computeVertexNormals(); return g;
+  },
+};
+const mesh = (geo, mat, x = 0, y = 0, z = 0, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = shadow; m.receiveShadow = true; return m; };
+function canvasTex(w, h, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+const FONT = '"Fredoka", ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif';
+
+/* ---------- the board: birch plywood, leaning back a little ---------- */
+const LEAN = THREE.MathUtils.degToRad(9);
+const pivot = new THREE.Group(); pivot.rotation.x = -LEAN; scene.add(pivot);        // pivots on its back bottom edge
+const board = new THREE.Group(); board.position.set(0, BH / 2, BT); pivot.add(board);
+
+const PX = 48, TW = BW * PX, TH = BH * PX;
+const px = (x, y) => [(x + BW / 2) * PX, (BH / 2 - y) * PX];
+const polar = (cx, cy, r, deg) => [cx + r * Math.sin(deg * Math.PI / 180), cy + r * Math.cos(deg * Math.PI / 180)];   // deg clockwise from up
+// Burned-in lines that wire each control to the thing it drives, plus labels, notes and number rings.
+function engrave(g, ink, paint) {
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const path = pts => { g.beginPath(); pts.forEach(([x, y], i) => { const [u, v] = px(x, y); i ? g.lineTo(u, v) : g.moveTo(u, v); }); };
+  const stroke = (pts, w = 0.075) => { path(pts); g.lineWidth = w * PX; g.strokeStyle = ink; g.stroke(); };
+  const ring = (x, y, r, w = 0.06) => { const [u, v] = px(x, y); g.beginPath(); g.arc(u, v, r * PX, 0, TAU); g.lineWidth = w * PX; g.strokeStyle = ink; g.stroke(); };
+  const wire = pts => { stroke(pts); ring(...pts[0], 0.13); ring(...pts[pts.length - 1], 0.13); };
+  const text = (s, x, y, size = 0.5) => { const [u, v] = px(x, y); g.font = `600 ${size * PX}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = ink; g.fillText(s, u, v); };
+  const arc = (cx, cy, r, from, to) => { const pts = []; for (let i = 0; i <= 24; i++) pts.push(polar(cx, cy, r, lerp(from, to, i / 24))); stroke(pts); };
+  const rays = (cx, cy, r0, r1, from, to, n) => { for (let i = 0; i < n; i++) { const d = lerp(from, to, i / (n - 1)); stroke([polar(cx, cy, r0, d), polar(cx, cy, r1, d)], 0.07); } };
+  const note = (x, y, double) => {
+    const [u, v] = px(x, y); g.save(); g.translate(u, v); g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 0.07 * PX;
+    const head = (hx, hy) => { g.beginPath(); g.ellipse(hx, hy, 0.2 * PX, 0.14 * PX, -0.4, 0, TAU); g.fill(); g.beginPath(); g.moveTo(hx + 0.18 * PX, hy); g.lineTo(hx + 0.18 * PX, hy - 0.85 * PX); g.stroke(); };
+    head(0, 0);
+    if (double) { head(0.55 * PX, -0.12 * PX); g.lineWidth = 0.13 * PX; g.beginPath(); g.moveTo(0.18 * PX, -0.85 * PX); g.lineTo(0.73 * PX, -0.97 * PX); g.stroke(); }
+    else { g.beginPath(); g.moveTo(0.18 * PX, -0.85 * PX); g.quadraticCurveTo(0.55 * PX, -0.55 * PX, 0.42 * PX, -0.25 * PX); g.stroke(); }
+    g.restore();
+  };
+  { const [u, v] = px(-BW / 2 + 0.8, BH / 2 - 0.8); g.beginPath(); g.roundRect(u, v, (BW - 1.6) * PX, (BH - 1.6) * PX, 1.2 * PX); g.lineWidth = 0.05 * PX; g.strokeStyle = ink; g.stroke(); }
+  L.toggles.forEach(([x, y], i) => {
+    text('ON', x, y + 1.45, 0.42); text('OFF', x, y - 1.45, 0.42);
+    wire([[x, y + 1.85], [x, L.leds[i][1] - 0.75]]);
+    rays(x, L.leds[i][1], 0.9, 1.2, -70, 70, 5);
+  });
+  wire([[L.beaconBtn[0], L.beaconBtn[1] + 1.2], [L.beaconBtn[0], BH / 2 - 0.35]]);
+  for (let n = 0; n < 10; n++) text(String(n), ...polar(L.numKnob[0], L.numKnob[1], 2.05, -135 + n * 30), 0.55);
+  wire([[L.seg[0], 8.2], [L.seg[0], 7.7], [L.numKnob[0], 7.7], [L.numKnob[0], 8.55]]); stroke([[L.frame[0], 7.7], [L.frame[0], 8.95]]); ring(L.frame[0], 8.95, 0.13);
+  text('LIGHTS', L.night[0], 8.5, 0.46);
+  const [gx, gy] = L.gaugeKnob;
+  rays(gx, gy, 1.45, 1.72, -135, 135, 11); text('0', ...polar(gx, gy, 2.15, -135), 0.42); text('10', ...polar(gx, gy, 2.2, 135), 0.42);
+  wire([[gx - 1.75, gy], [-9.7, gy], [-9.7, 2.3]]); wire([[gx + 1.75, gy], [-3.2, gy], [-3.2, -3.95]]);
+  const [kx, ky] = L.key;
+  text('OFF', kx, ky + 1.5, 0.42); text('ON', kx + 1.6, ky, 0.42); arc(kx, ky, 1.25, 10, 80);
+  wire([[kx - 1.25, ky], [-0.3, ky], [-0.3, 1.35]]);
+  wire([[L.domeRocker[0], L.domeRocker[1] + 1.15], [L.domeRocker[0], 1.2]]);
+  wire([[L.colorKnob[0], L.colorKnob[1] + 2.1], [L.colorKnob[0], 1.25]]);
+  rays(L.dome[0], L.dome[1], 3.35, 3.85, -60, 60, 5);
+  TRAFFIC_Y.forEach(y => stroke([[L.slider[0] - 0.75, y], [L.traffic[0] + 1.05, y]]));
+  text('OFF', L.slider[0] + 1.35, L.slider[1][0], 0.4);
+  L.music.forEach(([x, y], i) => note(x + 1.2, y + 1.9, i % 2 === 1));
+  wire([[L.horn[0] + 1.25, L.horn[1]], [L.speaker[0] - 2.05, L.speaker[1]]]);
+  for (const r of [2.35, 2.75]) arc(L.speaker[0], L.speaker[1], r, 55, 125);
+  wire([[L.fanRocker[0] - 1.2, L.fanRocker[1]], [L.fan[0] + 2.8, L.fanRocker[1]]]);
+  wire([[L.lever[0], L.lever[1] + 1.95], [L.lever[0], -6.6], [16.3, -6.6], [16.3, -6.15]]);
+  text('RESET', L.reset[0], L.reset[1] - 2.2, 0.46);
+  if (paint) {
+    DOME_COLORS.forEach((c, n) => { const [u, v] = px(...polar(L.colorKnob[0], L.colorKnob[1], 1.75, -135 + n * 45)); g.beginPath(); g.arc(u, v, 0.23 * PX, 0, TAU); g.fillStyle = c; g.fill(); g.lineWidth = 2; g.strokeStyle = 'rgba(60,35,15,.6)'; g.stroke(); });
+    ['#ff4038', '#ffc21a', '#2fcf5f'].forEach((c, i) => { const [u, v] = px(L.slider[0] + 1.05, TRAFFIC_Y[i]); g.beginPath(); g.arc(u, v, 0.2 * PX, 0, TAU); g.fillStyle = c; g.fill(); });
+  }
+}
+const faceTex = canvasTex(TW, TH, g => {
+  g.fillStyle = '#e3c595'; g.fillRect(0, 0, TW, TH);
+  for (let i = 0; i < 16; i++) { const x = rr(0, TW), y = rr(0, TH), r = rr(250, 800), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, Math.random() < 0.5 ? 'rgba(210,160,95,.14)' : 'rgba(255,238,205,.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, TW, TH); }
+  for (let i = 0; i < 520; i++) {
+    const y0 = rr(0, TH), amp = rr(2, 14), f = rr(0.0008, 0.004), ph = rr(0, TAU);
+    g.beginPath(); for (let x = -24; x <= TW + 24; x += 24) { const y = y0 + Math.sin(x * f + ph) * amp + Math.sin(x * f * 3.1 + ph * 2) * amp * 0.3; x < 0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.strokeStyle = Math.random() < 0.7 ? `rgba(165,115,55,${rr(0.04, 0.12)})` : `rgba(255,242,215,${rr(0.05, 0.12)})`; g.lineWidth = rr(0.6, 2.6); g.stroke();
+  }
+  g.shadowColor = 'rgba(110,60,20,.55)'; g.shadowBlur = 3;
+  engrave(g, 'rgba(92,50,20,.9)', true);
+});
+const bumpTex = canvasTex(TW, TH, g => { g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, TW, TH); engrave(g, '#2a2a2a', false); }, false);
+const plies = cols => canvasTex(cols ? 256 : 32, cols ? 32 : 256, (g, w, h) => {
+  const n = 9;
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = i % 2 ? '#d7b680' : '#ecd4a6';
+    if (cols) g.fillRect(i * w / n, 0, w / n + 1, h); else g.fillRect(0, i * h / n, w, h / n + 1);
+    g.fillStyle = 'rgba(110,75,35,.6)';
+    if (cols) g.fillRect(i * w / n, 0, 1.5, h); else g.fillRect(0, i * h / n, w, 1.5);
+  }
+});
+{
+  const face = new THREE.MeshStandardMaterial({ map: faceTex, bumpMap: bumpTex, bumpScale: 1.4, roughness: 0.62 });
+  const edgeU = new THREE.MeshStandardMaterial({ map: plies(true), roughness: 0.75 }), edgeV = new THREE.MeshStandardMaterial({ map: plies(false), roughness: 0.75 });
+  const slab = mesh(new THREE.BoxGeometry(BW, BH, BT).translate(0, 0, -BT / 2), [edgeU, edgeU, edgeV, edgeV, face, new THREE.MeshStandardMaterial({ color: '#dcc293', roughness: 0.8 })]);
+  board.add(slab);
+}
+
+// The yellow and black name plate, screwed on.
+{
+  const tex = canvasTex(1024, 278, (g, w, h) => {
+    g.fillStyle = '#ffc21a'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1d1d1f';
+    for (let x = -h; x < w + h; x += 96) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 48, h); g.lineTo(x + 48 + h, 0); g.lineTo(x + h, 0); g.closePath(); g.fill(); }
+    const bw = 600, bh = 158, bx = (w - bw) / 2, by = (h - bh) / 2;
+    g.fillStyle = '#ffc21a'; g.beginPath(); g.roundRect(bx, by, bw, bh, 28); g.fill(); g.lineWidth = 10; g.strokeStyle = '#1d1d1f'; g.stroke();
+    g.fillStyle = '#1d1d1f'; g.beginPath();
+    [[62, 0], [18, 78], [52, 78], [30, 150], [100, 56], [62, 56], [86, 0]].forEach(([u, v], i) => (i ? g.lineTo : g.moveTo).call(g, bx + 40 + u * 0.8, by + 16 + v * 0.8)); g.closePath(); g.fill();
+    g.font = `700 108px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('FIDGET', bx + 150, h / 2 + 6);
+  });
+  const [x, y, w, h] = L.plate;
+  board.add(mesh(G.rbox(w, h, 0.28, 0.2), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.32, clearcoat: 0.8, clearcoatRoughness: 0.15 }), x, y, 0));
+  for (const [sx, sy] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const s = mesh(G.cyl(0.3, 0.1, 24), MAT.chrome, x + sx * (w / 2 - 0.55), y + sy * (h / 2 - 0.5), 0.28);
+    s.add(mesh(G.dome(0.3, 24), MAT.chrome, 0, 0, 0.1)); s.children[0].scale.z = 0.45;
+    const slot = mesh(new THREE.BoxGeometry(0.46, 0.07, 0.1), MAT.black, 0, 0, 0.21); slot.rotation.z = rr(0, Math.PI); s.add(slot);
+    board.add(s);
+  }
+}
+
+/* ---------- controls: each has a value, a hit area, a sound, and an animation ---------- */
+const controls = [], hits = [];
+function addControl(c) {
+  Object.assign(c, { value: c.value ?? 0, anim: c.value ?? 0, cont: null, pressed: false, glow: 0 });
+  c.hit.material = MAT.hit; c.hit.userData.ctrl = c; c.group.add(c.hit); hits.push(c.hit);
+  controls.push(c); return c;
+}
+function place([x, y]) { const g = new THREE.Group(); g.position.set(x, y, 0); board.add(g); return g; }
+const hitBox = (w, h, d = 2.6) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d).translate(0, 0, d / 2));
+function faceTexture(draw, w = 256, h = 256) { return canvasTex(w, h, (g, W, H) => { g.fillStyle = 'rgba(255,255,255,.95)'; g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineCap = 'round'; g.lineJoin = 'round'; draw(g, W, H); }); }
+const decal = (geo, map, z) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false })); m.position.z = z; return m; };
+
+function toggleSwitch(pos, name) {
+  const g = place(pos), lever = new THREE.Group();
+  g.add(mesh(G.rbox(1.35, 2.3, 0.14, 0.2), MAT.gloss), mesh(G.cyl(0.58, 0.32, 6), MAT.chrome, 0, 0, 0.14), mesh(G.cyl(0.36, 0.6, 24), MAT.steel, 0, 0, 0.46));
+  lever.position.z = 1.0; g.add(lever);
+  lever.add(mesh(G.cyl(0.13, 1.45, 20, 0.2), MAT.chrome), mesh(new THREE.SphereGeometry(0.22, 20, 12), MAT.chrome, 0, 0, 1.45));
+  return addControl({ name, kind: 'switch', group: g, hit: hitBox(2.4, 3.3), ring: [1.3, 1.9], sound: SFX.toggle,
+    apply(dt) { this.anim = ease(this.anim, this.value, dt, 22); lever.rotation.x = lerp(0.5, -0.5, this.anim); } });
+}
+function rocker(pos, name, { w = 2.0, h = 1.2, round = false, color, face, axis = 'x', glow = true }) {
+  const g = place(pos), pivotG = new THREE.Group(), mat = lens(color, { dim: 0.75 });
+  g.add(mesh(round ? G.cyl(w / 2 + 0.22, 0.3, 48) : G.rbox(w + 0.44, h + 0.44, 0.3, 0.2), MAT.gloss));
+  pivotG.position.z = 0.3; g.add(pivotG);
+  pivotG.add(mesh(round ? G.cyl(w / 2, 0.5, 48) : G.rbox(w, h, 0.5, 0.16), mat));
+  pivotG.add(decal(round ? new THREE.CircleGeometry(w / 2 * 0.9, 48) : new THREE.PlaneGeometry(w * 0.94, h * 0.9), face, 0.505));
+  return addControl({ name, kind: 'switch', group: g, hit: hitBox(w + 1.2, h + 1.4), ring: round ? w / 2 + 0.75 : [w / 2 + 0.75, h / 2 + 0.75], sound: SFX.rocker,
+    apply(dt) {
+      this.anim = ease(this.anim, this.value, dt, 20);
+      const r = lerp(0.17, -0.17, this.anim);
+      if (axis === 'x') pivotG.rotation.x = r; else pivotG.rotation.y = -r;
+      mat.emissiveIntensity = glow ? this.anim * 1.4 : 0;
+    } });
+}
+// Arcade-style push buttons. Momentary ones light while held and fade after; latching ones stay down and lit.
+function button(pos, name, { r = 1.0, color, latch = false, mushroom = false, icon = null, ringColor = null }) {
+  const g = place(pos), cap = new THREE.Group(), mat = mushroom ? MAT.gloss : lens(color, { dim: 0.9 });
+  g.add(mesh(G.cyl(r + 0.38, 0.35, 48), ringColor ? plastic(ringColor) : MAT.gloss), mesh(G.torus(r + 0.2, 0.06), MAT.chrome, 0, 0, 0.35));
+  cap.position.z = 0.3; g.add(cap);
+  if (mushroom) { cap.add(mesh(G.cyl(r * 0.5, 0.5, 32), MAT.gloss)); const d = mesh(G.dome(r, 40), mat, 0, 0, 0.45); d.scale.z = 0.55; cap.add(d); }
+  else { cap.add(mesh(G.cyl(r, 0.5, 48), mat)); const d = mesh(G.dome(r, 40), mat, 0, 0, 0.5); d.scale.z = 0.28; cap.add(d); }
+  if (icon) cap.add(decal(new THREE.CircleGeometry(r * 0.8, 48), icon, mushroom ? 1.0 : 0.79));
+  return addControl({ name, kind: latch ? 'switch' : 'push', group: g, hit: hitBox(r * 2 + 1.1, r * 2 + 1.1), ring: r + 0.75, sound: latch ? () => SFX.press() : null,
+    apply(dt) {
+      const down = this.pressed ? 0.26 : latch && this.value ? 0.13 : 0;
+      this.anim = ease(this.anim, down, dt, 30); cap.position.z = 0.3 - this.anim;
+      this.glow = latch ? ease(this.glow, this.value, dt, 12) : Math.max(this.pressed ? 1 : 0, this.glow - dt * 1.8);
+      if (!mushroom) mat.emissiveIntensity = this.glow * 2.2;
+    } });
+}
+// Dials: click to go to the next number, or drag round to turn. `n` stops spread over 270°.
+function knob(pos, name, { n, color = '#ffd21f', chicken = false }) {
+  const g = place(pos), body = new THREE.Group(), capMat = plastic(color);
+  g.add(mesh(G.cyl(1.32, 0.12, 48), MAT.steel)); body.position.z = 0.12; g.add(body);
+  if (chicken) {
+    const s = new THREE.Shape(), a = Math.atan2(0.55, 0.45);
+    s.moveTo(0, 1.6); s.lineTo(0.45, 0.55); s.absarc(0, 0, 0.74, a, Math.PI - a, true); s.lineTo(0, 1.6);
+    body.add(mesh(new THREE.ExtrudeGeometry(s, { depth: 0.8, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.07, bevelSegments: 3, curveSegments: 28 }).translate(0, 0, 0.08), MAT.gloss));
+    body.add(mesh(new THREE.BoxGeometry(0.12, 0.95, 0.05), MAT.white, 0, 0.95, 0.98));
+  } else {
+    body.add(mesh(G.knurl(1.0, 1.0), MAT.gloss), mesh(G.cyl(0.8, 0.14, 40), capMat, 0, 0, 1.0), mesh(new THREE.BoxGeometry(0.14, 0.72, 0.05), MAT.white, 0, 0.38, 1.16));
+  }
+  const step = 270 / (n - 1);
+  return addControl({ name, kind: 'step', n, group: g, hit: hitBox(3.9, 3.9), ring: 1.85, drag: 'rotate', capMat, sound: () => SFX.tick(),
+    apply(dt) { this.anim = ease(this.anim, this.cont ?? this.value, dt, this.cont === null ? 14 : 30); body.rotation.z = (135 - step * this.anim) * Math.PI / 180; } });
+}
+function keySwitch(pos, name) {
+  const g = place(pos), key = new THREE.Group();
+  g.add(mesh(G.cyl(1.02, 0.45, 48), MAT.chrome), mesh(G.cyl(0.72, 0.06, 40), MAT.steel, 0, 0, 0.45));
+  key.position.z = 0.45; g.add(key);
+  key.add(mesh(new THREE.BoxGeometry(0.16, 0.66, 0.03), MAT.black, 0, 0, 0.06), mesh(new THREE.BoxGeometry(0.24, 0.38, 0.5).translate(0, 0, 0.25), MAT.brass));
+  key.add(mesh(G.rbox(0.44, 1.5, 1.25, 0.18), plastic('#e8412c'), 0, 0, 0.45));
+  return addControl({ name, kind: 'switch', group: g, hit: hitBox(2.6, 2.6, 3), ring: 1.6, sound: SFX.key,
+    apply(dt) { this.anim = ease(this.anim, this.value, dt, 14); key.rotation.z = -this.anim * Math.PI / 2; } });
+}
+function slider(x, ys, name) {
+  const lo = Math.min(...ys), hi = Math.max(...ys), g = place([x, (lo + hi) / 2]), knobG = new THREE.Group();
+  g.add(mesh(G.rbox(1.4, hi - lo + 1.9, 0.14, 0.25), MAT.gloss), mesh(new THREE.BoxGeometry(0.28, hi - lo + 0.3, 0.04), MAT.black, 0, 0, 0.16));
+  g.add(knobG);
+  knobG.add(mesh(G.rbox(1.2, 0.9, 0.6, 0.16), plastic('#ff8a1f')));
+  for (const dy of [-0.22, 0, 0.22]) knobG.add(mesh(new THREE.BoxGeometry(0.95, 0.07, 0.06), plastic('#d9650c'), 0, dy, 0.62));
+  const at = v => { const i = clamp(Math.floor(v), 0, ys.length - 2), t = clamp(v - i, 0, 1); return lerp(ys[i], ys[i + 1], t) - (lo + hi) / 2; };
+  return addControl({ name, kind: 'step', n: ys.length, group: g, hit: hitBox(3.0, hi - lo + 2.6), ring: [1.2, (hi - lo) / 2 + 1.3], drag: 'axis', axis: [[x, ys[0]], [x, ys[ys.length - 1]]], sound: () => SFX.tick(),
+    apply(dt) { this.anim = ease(this.anim, this.cont ?? this.value, dt, this.cont === null ? 16 : 30); knobG.position.y = at(this.anim); } });
+}
+function lever(pos, name) {
+  const g = place(pos), arm = new THREE.Group();
+  g.add(mesh(G.rbox(1.9, 3.6, 0.5, 0.25), MAT.gloss), mesh(new THREE.BoxGeometry(0.36, 2.6, 0.04), MAT.black, 0, 0, 0.51));
+  arm.position.z = 0.5; g.add(arm);
+  arm.add(mesh(G.cyl(0.16, 2.7, 20, 0.12), MAT.chrome), mesh(new THREE.SphereGeometry(0.52, 32, 20), plastic('#e8412c'), 0, 0, 2.7));
+  return addControl({ name, kind: 'switch', group: g, hit: hitBox(3.0, 5.4, 4), ring: [1.5, 2.3], drag: 'axis', axis: [[pos[0], pos[1] + 1.5], [pos[0], pos[1] - 1.5]], sound: () => SFX.clunk(),
+    apply(dt) { this.anim = ease(this.anim, this.cont ?? this.value, dt, this.cont === null ? 12 : 30); arm.rotation.x = lerp(-0.62, 0.62, this.anim); } });
+}
+
+/* ---------- things the controls light up and move ---------- */
+function led(pos, color, r = 0.42) {
+  const g = place(pos), m = lens(color, { transparent: true, opacity: 0.94 });
+  g.add(mesh(G.cyl(r * 1.35, 0.12, 32), MAT.gloss), mesh(G.cyl(r, r * 0.9, 32), m, 0, 0, 0.12), mesh(G.dome(r, 32), m, 0, 0, 0.12 + r * 0.9));
+  return { level: 0, set(v) { this.level = v; m.emissiveIntensity = v * 4.5; } };
+}
+const gaugeTex = canvasTex(1024, 1024, (g, w) => {
+  const c = w / 2, ang = d => (d - 90) * Math.PI / 180;
+  const gr = g.createRadialGradient(c, c * 0.8, 0, c, c, c); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#e4e7ea'); g.fillStyle = gr; g.fillRect(0, 0, w, w);
+  [['#3ccf68', -135, 45], ['#ffc629', 45, 99], ['#ff4b4b', 99, 135]].forEach(([col, a, b]) => { g.beginPath(); g.arc(c, c, c * 0.8, ang(a), ang(b)); g.lineWidth = c * 0.09; g.strokeStyle = col; g.stroke(); });
+  g.strokeStyle = '#1d2530'; g.lineCap = 'round';
+  for (let i = 0; i <= 50; i++) {
+    const d = -135 + i * 5.4, major = i % 5 === 0, r0 = c * (major ? 0.62 : 0.68), r1 = c * 0.75;
+    g.lineWidth = major ? 10 : 4; g.beginPath(); g.moveTo(c + r0 * Math.cos(ang(d)), c + r0 * Math.sin(ang(d))); g.lineTo(c + r1 * Math.cos(ang(d)), c + r1 * Math.sin(ang(d))); g.stroke();
+    if (major) { g.fillStyle = '#1d2530'; g.font = `600 ${c * 0.13}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i / 5), c + c * 0.5 * Math.cos(ang(d)), c + c * 0.5 * Math.sin(ang(d))); }
+  }
+  g.fillStyle = '#ffb000'; g.beginPath();
+  [[0.05, -0.2], [-0.07, 0.03], [0.0, 0.03], [-0.04, 0.2], [0.08, -0.04], [0.01, -0.04], [0.05, -0.2]].forEach(([u, v], i) => (i ? g.lineTo : g.moveTo).call(g, c + u * c, c * 1.42 + v * c));
+  g.fill(); g.lineWidth = 6; g.strokeStyle = '#1d2530'; g.stroke();
+});
+function gauge(pos, r = 3.3) {
+  const g = place(pos), needle = new THREE.Group();
+  g.add(mesh(G.cyl(r + 0.1, 0.35, 64), MAT.gloss), mesh(G.torus(r, 0.24), MAT.chrome, 0, 0, 0.42));
+  g.add(mesh(new THREE.CircleGeometry(r - 0.1, 64), new THREE.MeshStandardMaterial({ map: gaugeTex, roughness: 0.5 }), 0, 0, 0.36, false));
+  needle.position.z = 0.42; g.add(needle);
+  needle.add(mesh(new THREE.BoxGeometry(0.14, r * 0.95, 0.05).translate(0, r * 0.95 / 2 - 0.45, 0), plastic('#e8322c'), 0, 0, 0, false), mesh(G.cyl(0.32, 0.22, 32), MAT.gloss));
+  g.add(mesh(new THREE.CircleGeometry(r - 0.05, 64), MAT.glass, 0, 0, 0.68, false));
+  return { needle, angle: 135, vel: 0 };
+}
+function barGraph(pos) {
+  const g = place(pos), segs = [];
+  g.add(mesh(G.rbox(7.4, 1.15, 0.3, 0.22), MAT.gloss));
+  for (let i = 0; i < 10; i++) { const m = lens(i < 6 ? '#3ccf68' : i < 8 ? '#ffc629' : '#ff4b4b'); g.add(mesh(G.rbox(0.56, 0.72, 0.14, 0.06), m, -3.15 + i * 0.7, 0, 0.3)); segs.push(m); }
+  return { set(level, t) { segs.forEach((m, i) => { const on = clamp(level - i, 0, 1); m.emissiveIntensity = on * (i >= 8 && level >= 9.5 ? 2 + 2 * Math.sin(t * 18) : 3.2); }); } };
+}
+function radar(pos, r = 3.3) {
+  const g = place(pos), U = { uOn: { value: 0 }, uSweep: { value: 0 }, uBlips: { value: Array.from({ length: 6 }, () => new THREE.Vector3(rr(0, TAU), rr(0.25, 0.85), 1)) } };
+  g.add(mesh(G.cyl(r + 0.1, 0.35, 64), MAT.gloss), mesh(G.torus(r, 0.24), MAT.chrome, 0, 0, 0.42));
+  g.add(mesh(new THREE.CircleGeometry(r - 0.1, 64), new THREE.ShaderMaterial({ uniforms: U,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: /* glsl */`
+      uniform float uOn, uSweep; uniform vec3 uBlips[6]; varying vec2 vUv;
+      void main() {
+        vec2 p = vUv * 2.0 - 1.0; float r = length(p), a = atan(p.y, p.x);
+        float grid = max(smoothstep(0.018, 0.0, abs(fract(r * 3.0 + 0.5) - 0.5) / 3.0), max(smoothstep(0.01, 0.0, abs(p.x)), smoothstep(0.01, 0.0, abs(p.y))));
+        float d = mod(a - uSweep, 6.2831853);
+        float glow = exp(-d * 2.4) * 0.55 + smoothstep(0.06, 0.0, d) * 1.4;
+        float blips = 0.0;
+        for (int i = 0; i < 6; i++) { vec3 b = uBlips[i]; vec2 bp = b.y * vec2(cos(b.x), sin(b.x)); blips += exp(-mod(b.x - uSweep, 6.2831853) * 0.9) * smoothstep(0.075, 0.0, length(p - bp)) * b.z; }
+        vec3 col = vec3(0.015, 0.05, 0.03) + vec3(0.25, 1.0, 0.45) * (grid * 0.28 + glow * (1.0 - r * 0.35) + blips * 3.0) * uOn;
+        col += vec3(0.01, 0.03, 0.02) * (1.0 - uOn) * grid;
+        gl_FragColor = vec4(col * (1.0 - smoothstep(0.86, 1.0, r) * 0.6), 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }` }), 0, 0, 0.36, false));
+  g.add(mesh(new THREE.CircleGeometry(r - 0.05, 64), MAT.glass, 0, 0, 0.68, false));
+  return { U, on: 0, lastSweep: 0 };
+}
+function domeLight(pos, r = 2.8) {
+  const g = place(pos), mat = new THREE.MeshPhysicalMaterial({ color: '#f5f5f2', roughness: 0.42, clearcoat: 0.7, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0 });
+  g.add(mesh(G.cyl(r + 0.28, 0.42, 64), MAT.chrome));
+  const d = mesh(G.dome(r, 56), mat, 0, 0, 0.42); d.scale.z = 0.92; g.add(d);
+  const light = new THREE.PointLight('#ffffff', 0, 26, 2); light.position.z = r + 1.4; g.add(light);
+  return { mat, light, level: 0, color: new THREE.Color('#fff4e0') };
+}
+function trafficLight(pos) {
+  const g = place(pos), lamps = [];
+  g.add(mesh(G.rbox(2.05, 5.95, 0.9, 0.32), MAT.gloss));
+  ['#ff3b30', '#ffc21a', '#2fd35f'].forEach((col, i) => {
+    const y = TRAFFIC_Y[i] - pos[1], m = lens(col);
+    g.add(mesh(G.cyl(0.64, 0.18, 40), MAT.black, 0, y, 0.9), mesh(G.dome(0.58, 32), m, 0, y, 1.0));
+    g.children[g.children.length - 1].scale.z = 0.45;
+    const hood = mesh(G.rbox(1.6, 0.14, 0.7, 0.05), MAT.black, 0, y + 0.74, 0.9); hood.rotation.x = -0.25; g.add(hood);
+    lamps.push({ m, level: 0 });
+  });
+  return lamps;
+}
+// Seven-segment digit, redrawn into a glowing texture whenever the number changes.
+function sevenSeg(pos) {
+  const g = place(pos), cv = document.createElement('canvas'); cv.width = 240; cv.height = 320;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const SEG = { a: [[0.2, 0.1], [0.8, 0.1]], b: [[0.9, 0.2], [0.9, 0.9]], c: [[0.9, 1.1], [0.9, 1.8]], d: [[0.2, 1.9], [0.8, 1.9]], e: [[0.1, 1.1], [0.1, 1.8]], f: [[0.1, 0.2], [0.1, 0.9]], g: [[0.2, 1.0], [0.8, 1.0]] };
+  const DIG = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgedc', 'abc', 'abcdefg', 'abfgcd'];
+  const draw = n => {
+    const c = cv.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 240, 320); c.lineCap = 'round';
+    const P = ([x, y]) => [40 + x * 150 + (1 - y / 2) * 22, 22 + y * 138];
+    for (const [k, [p0, p1]] of Object.entries(SEG)) {
+      const on = DIG[n].includes(k);
+      c.shadowBlur = on ? 18 : 0; c.shadowColor = '#ff2a14'; c.strokeStyle = on ? '#ff3b26' : 'rgba(255,60,40,.09)'; c.lineWidth = 26;
+      c.beginPath(); c.moveTo(...P(p0)); c.lineTo(...P(p1)); c.stroke();
+    }
+    tex.needsUpdate = true;
+  };
+  draw(0);
+  g.add(mesh(G.rbox(3.0, 3.8, 0.35, 0.25), MAT.gloss));
+  g.add(mesh(new THREE.PlaneGeometry(2.3, 3.1), new THREE.MeshStandardMaterial({ color: '#160404', roughness: 0.3, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 2.6 }), 0, 0, 0.36, false));
+  g.add(mesh(new THREE.PlaneGeometry(2.4, 3.2), MAT.glass, 0, 0, 0.4, false));
+  return { draw, shown: 0 };
+}
+function fan(pos, r = 2.6) {
+  const g = place(pos), rotor = new THREE.Group();
+  g.add(mesh(G.cyl(r + 0.15, 0.25, 64), MAT.gloss), mesh(G.cyl(r - 0.12, 0.02, 64), MAT.black, 0, 0, 0.25));
+  rotor.position.z = 0.55; g.add(rotor);
+  rotor.add(mesh(G.cyl(0.5, 0.35, 32), MAT.chrome)); rotor.add(mesh(G.dome(0.5, 32), MAT.chrome, 0, 0, 0.35));
+  ['#ff4b4b', '#ffc629', '#3ccf68', '#3d8bff'].forEach((col, i) => {
+    const arm = new THREE.Group(); arm.rotation.z = i * Math.PI / 2; rotor.add(arm);
+    const blade = mesh(G.rbox(1.0, 1.95, 0.08, 0.35), plastic(col), 0, 1.3, 0.1); blade.rotation.y = 0.45; arm.add(blade);
+  });
+  const blurTex = canvasTex(256, 256, (c, w) => {
+    const gr = c.createConicGradient ? c.createConicGradient(0, w / 2, w / 2) : null;
+    if (gr) { ['#ff4b4b', '#ffc629', '#3ccf68', '#3d8bff', '#ff4b4b'].forEach((col, i) => gr.addColorStop(i / 4, col)); c.fillStyle = gr; } else c.fillStyle = '#c9a0c0';
+    c.beginPath(); c.arc(w / 2, w / 2, w / 2, 0, TAU); c.fill();
+    c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.arc(w / 2, w / 2, w * 0.1, 0, TAU); c.fill();
+  });
+  const blur = mesh(new THREE.CircleGeometry(r - 0.25, 64), new THREE.MeshStandardMaterial({ map: blurTex, transparent: true, opacity: 0, depthWrite: false, roughness: 0.5 }), 0, 0, 0.75, false);
+  g.add(blur);
+  g.add(mesh(G.torus(r, 0.17), MAT.chrome, 0, 0, 1.15));
+  for (const rr2 of [1.85, 1.1]) g.add(mesh(G.torus(rr2, 0.05, 48), MAT.chrome, 0, 0, 1.15));
+  for (let i = 0; i < 4; i++) { const s = mesh(new THREE.BoxGeometry(0.09, r * 2, 0.09), MAT.chrome, 0, 0, 1.15); s.rotation.z = i * Math.PI / 4; g.add(s); }
+  const ribbons = ['#ff4b4b', '#ffc629', '#3d8bff'].map((col, i) => {
+    const geo = new THREE.PlaneGeometry(0.3, 1.7, 1, 14), m = mesh(geo, new THREE.MeshStandardMaterial({ color: col, roughness: 0.55, side: THREE.DoubleSide }));
+    m.position.set(pos[0] - 0.85 + i * 0.85, pos[1] - r + 0.15, 1.2); board.add(m);
+    return { m, geo, ph: i * 1.7 };
+  });
+  return { rotor, blur, ribbons, speed: 0 };
+}
+function flutter(rb, speed, t) {
+  const p = rb.geo.attributes.position, rows = 15, len = 1.7;
+  let y = 0, z = 0;
+  for (let j = 0; j < rows; j++) {
+    const s = j / (rows - 1), a = speed * (0.45 + 0.4 * s) + Math.sin(t * 13 + s * 5 + rb.ph) * 0.35 * speed * s + Math.sin(t * 1.4 + rb.ph) * 0.05;
+    if (j) { y -= Math.cos(a) * len / (rows - 1); z += Math.sin(a) * len / (rows - 1); }
+    const tw = Math.sin(t * 9 + s * 4 + rb.ph) * 0.5 * speed * s;
+    for (let k = 0; k < 2; k++) { const sx = (k ? 0.15 : -0.15); p.setXYZ(j * 2 + k, sx * Math.cos(tw) + Math.sin(t * 7 + rb.ph + s * 3) * 0.35 * speed * s, y, z + sx * Math.sin(tw)); }
+  }
+  p.needsUpdate = true; rb.geo.computeVertexNormals();
+}
+function speaker(pos, r = 1.9) {
+  const g = place(pos), cone = new THREE.Group();
+  g.add(mesh(G.cyl(r + 0.22, 0.3, 48), MAT.gloss), mesh(G.torus(r, 0.16), MAT.chrome, 0, 0, 0.34));
+  cone.position.z = 0.3; g.add(cone);
+  cone.add(mesh(new THREE.ConeGeometry(r * 0.86, 0.5, 48, 1, true).rotateX(-Math.PI / 2).translate(0, 0, -0.05), new THREE.MeshStandardMaterial({ color: '#232326', roughness: 0.85, side: THREE.DoubleSide })));
+  const cap = mesh(G.dome(0.5, 32), MAT.gloss, 0, 0, -0.2); cap.scale.z = 0.6; cone.add(cap);
+  const rings = Array.from({ length: 6 }, () => { const m = new THREE.Mesh(G.torus(1, 0.05, 64), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })); m.position.z = 0.5; g.add(m); return { m, t: 9 }; });
+  return { cone, rings, next: 0, emit: 0 };
+}
+// A spinning warning beacon on the top edge; a real spotlight sweeps its beam around the room.
+function beacon(x) {
+  const g = new THREE.Group(); g.position.set(x, BH / 2, -BT / 2); board.add(g);
+  const lampMat = lens('#ff9c1a', { dim: 0.7, transparent: true, opacity: 0.82 });
+  g.add(mesh(new THREE.CylinderGeometry(1.2, 1.3, 0.55, 40).translate(0, 0.275, 0), MAT.gloss));
+  g.add(mesh(new THREE.CylinderGeometry(1.0, 1.0, 1.3, 40).translate(0, 1.2, 0), lampMat), mesh(new THREE.SphereGeometry(1.0, 40, 20, 0, TAU, 0, Math.PI / 2).translate(0, 1.85, 0), lampMat));
+  const spin = new THREE.Group(); spin.position.y = 1.2; g.add(spin);
+  const bulbMat = new THREE.MeshBasicMaterial({ color: '#000000' });
+  spin.add(new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), bulbMat));
+  spin.add(mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.0, 24, 1, true, Math.PI, Math.PI), new THREE.MeshStandardMaterial({ color: '#f4f4f4', metalness: 1, roughness: 0.1, side: THREE.DoubleSide }), 0, 0, 0, false));
+  const beamU = { uLevel: { value: 0 } };
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(2.4, 13, 32, 1, true).rotateZ(Math.PI / 2).translate(6.5, 0, 0), new THREE.ShaderMaterial({
+    uniforms: beamU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: 'varying float vX; void main() { vX = position.x / 13.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uLevel; varying float vX; void main() { float a = uLevel * 0.22 * pow(1.0 - clamp(vX, 0.0, 1.0), 1.6) * smoothstep(0.0, 0.08, vX); gl_FragColor = vec4(vec3(1.0, 0.62, 0.22) * a, a); }' }));
+  beam.frustumCulled = false; spin.add(beam);
+  const spot = new THREE.SpotLight('#ffab3d', 0, 0, 0.3, 0.6, 1);
+  const target = new THREE.Object3D(); target.position.set(10, -0.8, 0); spin.add(spot, target); spot.target = target;
+  return { spin, lampMat, bulbMat, spot, beamU, angle: 0, level: 0 };
+}
+// The rocket window: a starry sky drawn by a shader, a little rocket, its flame and smoke.
+function rocketWindow([x, y, w, h]) {
+  const g = place([x, y]), U = { uScroll: { value: 0 }, uTime: { value: 0 }, uSize: { value: new THREE.Vector2(w - 0.7, h - 0.7) } };
+  g.add(mesh(G.rbox(w, h, 0.6, 0.35), MAT.gloss));
+  g.add(mesh(new THREE.PlaneGeometry(w - 0.7, h - 0.7), new THREE.ShaderMaterial({ uniforms: U,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: /* glsl */`
+      uniform float uScroll, uTime; uniform vec2 uSize; varying vec2 vUv;
+      float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main() {
+        vec2 p = vUv * uSize;
+        vec3 col = mix(vec3(0.02, 0.03, 0.12), vec3(0.1, 0.05, 0.25), vUv.y);
+        for (int L = 0; L < 2; L++) {
+          float sc = L == 0 ? 2.2 : 4.0, sp = L == 0 ? 1.0 : 0.55;
+          vec2 q = vec2(p.x, p.y + uScroll * sp) * sc, c = floor(q), f = fract(q);
+          float h = h21(c + float(L) * 7.3);
+          if (h > 0.72) { float d = length(f - (vec2(h21(c + 1.3), h21(c + 2.7)) * 0.7 + 0.15)); col += vec3(1.0, 0.95, 0.85) * smoothstep(0.13, 0.0, d) * (0.65 + 0.35 * sin(uTime * 3.0 + h * 40.0)) * (L == 0 ? 1.6 : 0.9); }
+        }
+        float gy = 0.75 - uScroll * 0.8, ground = p.y - (gy + 0.18 * sin(p.x * 1.6 + 0.5));
+        col = mix(col, mix(vec3(0.25, 0.7, 0.35), vec3(0.15, 0.45, 0.25), smoothstep(0.0, -0.5, ground)), smoothstep(0.03, -0.03, ground));
+        float pad = step(abs(p.x - uSize.x * 0.5), 1.0) * step(abs(p.y - gy - 0.1), 0.12);
+        col = mix(col, vec3(0.55, 0.58, 0.62), pad);
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }` }), 0, 0, 0.61, false));
+  const rocket = new THREE.Group(); rocket.position.z = 1.1; g.add(rocket);
+  const white = MAT.white, red = plastic('#e8412c');
+  rocket.add(mesh(new THREE.CylinderGeometry(0.42, 0.46, 1.5, 32), white), mesh(new THREE.ConeGeometry(0.42, 0.8, 32).translate(0, 1.15, 0), red));
+  for (let i = 0; i < 3; i++) { const f = mesh(new THREE.BoxGeometry(0.08, 0.62, 0.5), red); const a = i * TAU / 3 + Math.PI / 2; f.position.set(Math.cos(a) * 0.48, -0.55, Math.sin(a) * 0.48); f.rotation.y = -a; rocket.add(f); }
+  rocket.add(mesh(G.cyl(0.2, 0.06, 24), lens('#6fc8ff', { dim: 1 }), 0, 0.25, 0.41), mesh(G.torus(0.21, 0.04, 32), MAT.chrome, 0, 0.25, 0.46));
+  rocket.add(mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.26, 24).translate(0, -0.88, 0), MAT.steel));
+  const flame = new THREE.Group(); flame.position.y = -1.0; rocket.add(flame);
+  const fm = (c, rad, len, op) => new THREE.Mesh(new THREE.ConeGeometry(rad, len, 20, 1, true).rotateZ(Math.PI).translate(0, -len / 2, 0),
+    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  flame.add(fm(new THREE.Color(3, 1.2, 0.25), 0.3, 1.0, 0.85), fm(new THREE.Color(3, 2.6, 1.4), 0.16, 0.6, 0.9));
+  const glow = new THREE.PointLight('#ffae4a', 0, 7, 2); glow.position.y = -1.3; rocket.add(glow);
+  g.add(mesh(new THREE.PlaneGeometry(w - 0.7, h - 0.7), MAT.glass, 0, 0, 1.9, false));
+  const puffTex = canvasTex(64, 64, (c) => { const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); });
+  const puffs = Array.from({ length: 10 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, opacity: 0, depthWrite: false })); s.position.z = 1.3; g.add(s); return { s, t: 9, vx: 0 }; });
+  const yMin = -h / 2 + 1.95, yMax = h / 2 - 2.1;
+  rocket.position.y = yMin;
+  return { U, rocket, flame, glow, puffs, yMin, yMax, alt: 0, fire: 0, t: 0, shake: 0 };
+}
+// Music notes that pop out of the buttons.
+const noteTex = [false, true].map(double => canvasTex(128, 128, (c) => {
+  c.fillStyle = '#fff'; c.strokeStyle = '#fff'; c.lineWidth = 9; c.lineCap = 'round';
+  const head = (x, y) => { c.beginPath(); c.ellipse(x, y, 17, 12, -0.4, 0, TAU); c.fill(); c.beginPath(); c.moveTo(x + 15, y); c.lineTo(x + 15, y - 62); c.stroke(); };
+  if (double) { head(38, 96); head(84, 84); c.lineWidth = 14; c.beginPath(); c.moveTo(53, 34); c.lineTo(99, 22); c.stroke(); }
+  else { head(52, 94); c.beginPath(); c.moveTo(67, 32); c.quadraticCurveTo(96, 50, 86, 76); c.stroke(); }
+}));
+const notes = Array.from({ length: 18 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, opacity: 0, depthWrite: false })); board.add(s); return { s, t: 9, vx: 0 }; });
+let noteNext = 0;
+function popNote([x, y], color) {
+  const n = notes[noteNext++ % notes.length];
+  n.s.material.map = noteTex[Math.random() < 0.5 ? 0 : 1]; n.s.material.color.set(color).multiplyScalar(1.4); n.s.material.needsUpdate = true;
+  n.s.position.set(x + rr(-0.3, 0.3), y + 1.2, 1.6); n.t = 0; n.vx = rr(-0.8, 0.8);
+}
+
+/* ---------- build the board ---------- */
+const ioFace = (w, h) => faceTexture((g, W, H) => { g.lineWidth = W * 0.08; g.beginPath(); g.moveTo(W / 2, H * 0.14); g.lineTo(W / 2, H * 0.36); g.stroke(); g.beginPath(); g.arc(W / 2, H * 0.72, W * 0.13, 0, TAU); g.stroke(); }, w, h);
+const nightFace = faceTexture((g, W, H) => {
+  g.fillStyle = '#ffd34d'; g.strokeStyle = '#ffd34d'; g.lineWidth = 10;
+  const sx = W * 0.27, sy = H / 2; g.beginPath(); g.arc(sx, sy, H * 0.16, 0, TAU); g.fill();
+  for (let i = 0; i < 8; i++) { const a = i * TAU / 8; g.beginPath(); g.moveTo(sx + Math.cos(a) * H * 0.24, sy + Math.sin(a) * H * 0.24); g.lineTo(sx + Math.cos(a) * H * 0.33, sy + Math.sin(a) * H * 0.33); g.stroke(); }
+  g.fillStyle = '#f2f4ff'; const mx = W * 0.73; g.beginPath(); g.arc(mx, sy, H * 0.26, 0, TAU); g.fill();
+  g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(mx + H * 0.13, sy - H * 0.09, H * 0.23, 0, TAU); g.fill();
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(W / 2 - 2, H * 0.15, 4, H * 0.7);
+}, 512, 256);
+const resetIcon = faceTexture((g, W) => {
+  g.lineWidth = W * 0.09; g.beginPath(); g.arc(W / 2, W / 2, W * 0.28, -Math.PI * 0.35, Math.PI * 1.35); g.stroke();
+  const a = -Math.PI * 0.35, tx = W / 2 + Math.cos(a) * W * 0.28, ty = W / 2 + Math.sin(a) * W * 0.28;
+  g.beginPath(); g.moveTo(tx + W * 0.14, ty - W * 0.02); g.lineTo(tx - W * 0.03, ty - W * 0.14); g.lineTo(tx - W * 0.02, ty + W * 0.1); g.closePath(); g.fill();
+});
+
+// Controls, in reading order (this is also the keyboard Tab order).
+const beaconBtn = button(L.beaconBtn, 'beacon button', { r: 1.0, color: '#3d8bff', latch: true });
+const numKnob = knob(L.numKnob, 'number dial', { n: 10, chicken: true });
+const nightSw = rocker(L.night, 'lights switch', { w: 3.2, h: 1.6, color: '#28337e', face: nightFace, axis: 'y', glow: false });
+const toggles = L.toggles.map((p, i) => toggleSwitch(p, `switch ${i + 1}`));
+const trafficSlider = slider(L.slider[0], L.slider[1], 'traffic slider');
+const gaugeKnob = knob(L.gaugeKnob, 'power dial', { n: 11, color: '#ffd21f' });
+const keySw = keySwitch(L.key, 'radar key');
+const domeSw = rocker(L.domeRocker, 'lamp switch', { w: 1.35, h: 2.1, color: '#2fd35f', face: ioFace(160, 256) });
+const colorKnob = knob(L.colorKnob, 'colour dial', { n: DOME_COLORS.length, color: DOME_COLORS[0] });
+const musicBtns = L.music.map((p, i) => button(p, `music button ${i + 1}`, { r: 1.15, color: MUSIC[i].col }));
+const hornBtn = button(L.horn, 'horn', { r: 1.15, mushroom: true });
+const fanSw = rocker(L.fanRocker, 'fan switch', { w: 2.0, round: true, color: '#ff3b30', face: ioFace(256, 256) });
+const rocketLever = lever(L.lever, 'rocket lever');
+const resetBtn = button(L.reset, 'reset', { r: 1.25, color: '#e8322c', icon: resetIcon, ringColor: '#ffc21a' });
+
+// What they drive.
+const leds = L.leds.map((p, i) => led(p, ['#ff3b30', '#ffb000', '#2fd35f'][i], 0.5));
+const gaugeFx = gauge(L.gauge), bars = barGraph(L.bars), radarFx = radar(L.radar), dome = domeLight(L.dome);
+const lamps = trafficLight(L.traffic), seg = sevenSeg(L.seg);
+const frameDots = Array.from({ length: 10 }, (_, i) => led([L.frame[0] + (i % 5 - 2) * 0.88, L.frame[1] + (i < 5 ? 0.6 : -0.6)],
+  ['#ff4b4b', '#ff8a1f', '#ffc629', '#3ccf68', '#2fc6d6', '#3d8bff', '#6b6bff', '#b56bff', '#ff6bd5', '#ff4b8b'][i], 0.3));
+const fanFx = fan(L.fan), speakerFx = speaker(L.speaker), beaconFx = beacon(L.beaconBtn[0]), rocketFx = rocketWindow(L.rocket);
+
+// A braided power cable out of the right-hand edge, like the real thing.
+{
+  board.add(mesh(new THREE.TorusGeometry(0.5, 0.22, 16, 32).rotateY(Math.PI / 2), MAT.gloss, BW / 2 + 0.05, -3.5, -BT / 2));
+  scene.updateMatrixWorld(true);
+  const s0 = board.localToWorld(new THREE.Vector3(BW / 2 + 0.1, -3.5, -BT / 2)), V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const curve = new THREE.CatmullRomCurve3([s0, V(s0.x + 1.8, s0.y - 0.4, s0.z + 0.2), V(s0.x + 4.6, s0.y * 0.45, s0.z + 2.2), V(s0.x + 6.4, 0.55, s0.z + 7), V(s0.x + 4.4, 0.5, s0.z + 13), V(s0.x + 0.8, 0.5, s0.z + 15.5)]);
+  const braid = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#2346c8'; g.fillRect(0, 0, w, h); for (let i = -64; i < 128; i += 16) { g.strokeStyle = '#4570f5'; g.lineWidth = 6; g.beginPath(); g.moveTo(0, i); g.lineTo(w, i + 32); g.stroke(); } });
+  braid.wrapS = braid.wrapT = THREE.RepeatWrapping; braid.repeat.set(90, 2);
+  scene.add(mesh(new THREE.TubeGeometry(curve, 200, 0.36, 14), new THREE.MeshStandardMaterial({ map: braid, roughness: 0.75 })));
+  const plug = new THREE.Group(); plug.position.copy(curve.getPoint(1)); plug.quaternion.setFromUnitVectors(V(0, 0, 1), curve.getTangent(1)); scene.add(plug);
+  plug.add(mesh(G.cyl(0.5, 1.8, 24, 0.42), plastic('#ffc21a')), mesh(G.cyl(0.26, 1.1, 20), MAT.chrome, 0, 0, 1.8), mesh(G.cyl(0.12, 1.12, 12), MAT.black, 0, 0, 1.8));
+  for (let i = 0; i < 4; i++) plug.add(mesh(G.torus(0.47, 0.05, 24), plastic('#e6a800'), 0, 0, 0.35 + i * 0.3));
+}
+
+/* ---------- interaction ---------- */
+function setValue(c, v, silent = false) {
+  v = c.kind === 'step' ? ((v % c.n) + c.n) % c.n : v ? 1 : 0;
+  if (v === c.value) return;
+  c.value = v;
+  if (!silent && c.sound) c.sound(v);
+  c.onChange?.(v);
+}
+function activate(c) { if (c.kind === 'switch') setValue(c, 1 - c.value); else if (c.kind === 'step') setValue(c, c.value + 1); }
+function press(c, down) { if (c.pressed === down) return; c.pressed = down; if (down) { SFX.press(); c.onPress?.(); } }
+function resetAll() {
+  SFX.reset();
+  controls.filter(c => c !== resetBtn && c.value !== 0).forEach((c, i) => setTimeout(() => setValue(c, 0), 110 + i * 90));
+}
+musicBtns.forEach((b, i) => { b.onPress = () => { SFX.note(MUSIC[i].f); popNote(L.music[i], MUSIC[i].col); }; });
+resetBtn.onPress = resetAll;
+nightSw.onChange = v => SFX.night(v);
+gaugeKnob.onChange = v => { if (v === 10) SFX.boing(); };
+rocketLever.onChange = v => { if (v) SFX.launch(); };
+
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), _p = new THREE.Vector3();
+function pick(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const h = raycaster.intersectObjects(hits, false)[0];
+  return h ? h.object.userData.ctrl : null;
+}
+function toScreen(x, y, z = 0.8) {
+  _p.set(x, y, z); board.localToWorld(_p); _p.project(camera);
+  const r = canvas.getBoundingClientRect(); return [r.left + (_p.x + 1) / 2 * r.width, r.top + (1 - _p.y) / 2 * r.height];
+}
+let drag = null, hovered = null, focusIdx = -1, idle = 0;
+function setHover(c) { hovered = c; canvas.style.cursor = drag ? 'grabbing' : c ? (c.drag === 'rotate' ? 'grab' : 'pointer') : 'default'; }
+canvas.addEventListener('pointerdown', e => {
+  audio(); idle = 0;
+  const c = pick(e); if (!c) return;
+  e.preventDefault(); focusIdx = -1;
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
+  drag = { c, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false, v0: c.value };
+  if (c.drag === 'rotate') { const [cx, cy] = toScreen(c.group.position.x, c.group.position.y, 1); drag.center = [cx, cy]; drag.last = Math.atan2(e.clientY - cy, e.clientX - cx); drag.acc = 0; }
+  if (c.drag === 'axis') { const [ax, ay] = toScreen(...c.axis[0]), [bx, by] = toScreen(...c.axis[1]); drag.axis = [bx - ax, by - ay]; }
+  if (c.kind === 'push') press(c, true);
+  setHover(c);
+});
+canvas.addEventListener('pointermove', e => {
+  idle = 0;
+  if (!drag || e.pointerId !== drag.id) { if (e.pointerType === 'mouse') setHover(pick(e)); return; }
+  const c = drag.c;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 7) drag.moved = true;
+  if (!drag.moved || !c.drag) return;
+  let v;
+  if (c.drag === 'rotate') {                                   // turn the dial with the pointer, clockwise = up
+    const a = Math.atan2(e.clientY - drag.center[1], e.clientX - drag.center[0]);
+    let d = a - drag.last; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU;
+    drag.last = a; drag.acc += d;
+    v = clamp(drag.v0 + drag.acc / (270 / (c.n - 1) * Math.PI / 180), 0, c.n - 1);
+  } else {                                                     // slide along the control's track
+    const [ax, ay] = drag.axis, n = c.kind === 'step' ? c.n : 2;
+    v = clamp(drag.v0 + ((e.clientX - drag.x0) * ax + (e.clientY - drag.y0) * ay) / (ax * ax + ay * ay || 1) * (n - 1), 0, n - 1);
+  }
+  if (c.cont !== null && Math.round(v) !== Math.round(c.cont)) SFX.tick();
+  c.cont = v;
+});
+function endDrag(e, cancel) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const c = drag.c;
+  if (c.kind === 'push') press(c, false);
+  else if (drag.moved && c.drag) { if (c.cont !== null) { const v = Math.round(c.cont); c.cont = null; setValue(c, v); } }
+  else if (!cancel) activate(c);                                // a wobbly click still counts as a click
+  drag = null; setHover(e.pointerType === 'mouse' ? pick(e) : null);
+}
+canvas.addEventListener('pointerup', e => endDrag(e, false));
+canvas.addEventListener('pointercancel', e => endDrag(e, true));
+canvas.addEventListener('pointerleave', () => { if (!drag) setHover(null); });
+
+// Keyboard: Tab between controls, Space/Enter to use one, arrows to turn a dial.
+canvas.addEventListener('focus', () => { if (canvas.matches(':focus-visible') && focusIdx < 0) focusIdx = 0; });
+canvas.addEventListener('blur', () => { focusIdx = -1; controls.forEach(c => c.kind === 'push' && press(c, false)); });
+canvas.addEventListener('keydown', e => {
+  idle = 0;
+  if (e.key === 'Tab') {
+    const n = focusIdx + (e.shiftKey ? -1 : 1);
+    if (n < 0 || n >= controls.length) { focusIdx = -1; return; }   // let focus move on to the rest of the page
+    focusIdx = n; e.preventDefault(); return;
+  }
+  const c = controls[focusIdx]; if (!c) return;
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (e.repeat) return; audio(); if (c.kind === 'push') press(c, true); else activate(c); return; }
+  const dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+  if (dir) { e.preventDefault(); audio(); if (c.kind === 'step') setValue(c, clamp(c.value + dir, 0, c.n - 1)); else if (c.kind === 'switch') setValue(c, dir > 0 ? 1 : 0); }
+});
+canvas.addEventListener('keyup', e => { const c = controls[focusIdx]; if (c && c.kind === 'push' && (e.key === ' ' || e.key === 'Enter')) press(c, false); });
+
+// Soft glowing rings: one follows the pointer, one shows keyboard focus, and when nobody has
+// touched anything for a while the pointer ring wanders between controls as an invitation.
+const ringMat = col => new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+const hoverRing = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 72), ringMat(new THREE.Color(1.5, 1.2, 0.5)));
+const focusRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 72), ringMat(new THREE.Color(0.5, 1.1, 2.0)));
+hoverRing.position.z = focusRing.position.z = 0.05;
+board.add(hoverRing, focusRing);
+const ringSize = c => Array.isArray(c.ring) ? c.ring : [c.ring, c.ring];
+// Round controls get a round ring; rectangular ones (switch plates, rockers, slider, lever) get a rounded rectangle.
+function roundRect(p, w, h, r) {
+  p.moveTo(-w + r, -h); p.lineTo(w - r, -h); p.quadraticCurveTo(w, -h, w, -h + r); p.lineTo(w, h - r); p.quadraticCurveTo(w, h, w - r, h);
+  p.lineTo(-w + r, h); p.quadraticCurveTo(-w, h, -w, h - r); p.lineTo(-w, -h + r); p.quadraticCurveTo(-w, -h, -w + r, -h); return p;
+}
+function ringGeo(c, focus) {
+  const key = focus ? '_focusRing' : '_hoverRing';
+  if (c[key]) return c[key];
+  const [sx, sy] = ringSize(c), pad = focus ? 0.15 : 0, t = focus ? 0.24 : 0.17;
+  if (!Array.isArray(c.ring)) return (c[key] = new THREE.RingGeometry(sx + pad - t, sx + pad, 72));
+  const w = sx + pad, h = sy + pad, r = Math.min(w, h) * 0.45;
+  const shape = roundRect(new THREE.Shape(), w, h, r);
+  shape.holes.push(roundRect(new THREE.Path(), w - t, h - t, Math.max(0.05, r - t)));
+  return (c[key] = new THREE.ShapeGeometry(shape, 12));
+}
+let attract = null, attractT = 0;
+function updateRings(dt, t) {
+  attractT -= dt;
+  if (idle > 7 && !hovered && attractT <= 0) { attractT = 2.4; attract = controls[Math.floor(Math.random() * controls.length)]; }
+  if (idle <= 7) attract = null;
+  const hc = hovered || attract;
+  if (hc) { hoverRing.position.x = hc.group.position.x; hoverRing.position.y = hc.group.position.y; hoverRing.geometry = ringGeo(hc, false); }
+  hoverRing.material.opacity = ease(hoverRing.material.opacity, hc ? (hovered ? 0.55 : 0.35) + 0.15 * Math.sin(t * 5) : 0, dt, 10);
+  const fc = controls[focusIdx];
+  if (fc) { focusRing.position.x = fc.group.position.x; focusRing.position.y = fc.group.position.y; focusRing.geometry = ringGeo(fc, true); }
+  focusRing.material.opacity = ease(focusRing.material.opacity, fc ? 0.8 : 0, dt, 14);
+  for (const c of controls) { const s = ease(c.group.scale.x, c === hovered ? 1.04 : 1, dt, 14); c.group.scale.setScalar(s); }
+}
+
+/* ---------- render ---------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.4, 1.3);   // only things that really glow
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const _q = new THREE.Quaternion();
+function fit() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); composer.setSize(w, h);
+  camera.aspect = w / h;
+  const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  const dist = Math.max((BH + 7) / 2 / Math.tan(vf / 2), (BW + 5) / 2 / Math.tan(hf / 2));
+  const c = board.localToWorld(new THREE.Vector3(0, 0.9, 0)), n = new THREE.Vector3(0, 0, 1).applyQuaternion(board.getWorldQuaternion(_q));
+  camera.position.copy(c).addScaledVector(n, dist); camera.lookAt(c); camera.updateProjectionMatrix();
+}
+addEventListener('resize', fit);
+fit();
+// ?demo switches a few things on (used for the preview image).
+if (new URLSearchParams(location.search).has('demo')) {
+  [toggles[0], toggles[2], keySw, domeSw, fanSw, beaconBtn, rocketLever].forEach(c => setValue(c, 1, true));
+  setValue(gaugeKnob, 7, true); setValue(numKnob, 5, true); setValue(trafficSlider, 1, true); setValue(colorKnob, 5, true);
+}
+
+Object.assign(rocketFx, { vel: 0, puffT: 0, pn: 0 });
+function puff(R) {
+  const p = R.puffs[R.pn++ % R.puffs.length];
+  p.t = 0; p.vx = rr(-1.3, 1.3); p.s.position.set(rr(-0.25, 0.25), R.rocket.position.y - 1.05, 1.3);
+}
+const WALL_DAY = new THREE.Color('#c3cedb'), WALL_NIGHT = new THREE.Color('#4a5870');
+const SUN_DAY = new THREE.Color('#fff4e6'), SUN_NIGHT = new THREE.Color('#7f9cff'), _a = new THREE.Vector3(), _b = new THREE.Vector3();
+let last = performance.now(), T = 0, night = 0, nightClass = false;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; T += dt; idle += dt;
+  for (const c of controls) c.apply(dt);
+  updateRings(dt, T);
+
+  // switches → LEDs
+  leds.forEach((l, i) => l.set(ease(l.level, toggles[i].value, dt, 20)));
+  // power dial → a springy needle that overshoots, and the bar graph
+  const gv = gaugeKnob.anim, target = 135 - 27 * gv;
+  gaugeFx.vel += ((target - gaugeFx.angle) * 110 - gaugeFx.vel * 9) * dt; gaugeFx.angle += gaugeFx.vel * dt;
+  gaugeFx.needle.rotation.z = (gaugeFx.angle + (gv > 8.5 ? Math.sin(T * 47) * (gv - 8.5) * 0.9 : 0)) * Math.PI / 180;
+  bars.set(gv, T);
+  // key → radar sweep, with a ping each time the beam passes the top
+  radarFx.on = ease(radarFx.on, keySw.value, dt, 4); radarFx.U.uOn.value = radarFx.on;
+  if (radarFx.on > 0.01) {
+    const prev = radarFx.U.uSweep.value, next = (prev - dt * 2.6 + TAU) % TAU;
+    radarFx.U.uSweep.value = next;
+    if (prev > Math.PI / 2 && next <= Math.PI / 2 && keySw.value) { SFX.ping(); radarFx.U.uBlips.value[Math.floor(Math.random() * 6)].set(rr(0, TAU), rr(0.2, 0.85), 1); }
+  }
+  // lamp switch and colour dial → the dome, which lights up the board around it
+  const want = new THREE.Color(DOME_COLORS[colorKnob.value]);
+  colorKnob.capMat.color.lerp(want, 1 - Math.exp(-dt * 10)); dome.color.lerp(want, 1 - Math.exp(-dt * 8));
+  dome.level = ease(dome.level, domeSw.value, dt, 8);
+  dome.mat.emissive.copy(dome.color); dome.mat.emissiveIntensity = dome.level * lerp(1.9, 1.05, night);
+  dome.light.color.copy(dome.color); dome.light.intensity = dome.level * lerp(40, 22, night);
+  // slider → traffic light (positions: off, green, yellow, red)
+  lamps.forEach((lp, i) => { lp.level = ease(lp.level, trafficSlider.value === 3 - i ? 1 : 0, dt, 16); lp.m.emissiveIntensity = lp.level * 3.4; });
+  // number dial → digit and the same number of dots
+  if (seg.shown !== numKnob.value) { seg.shown = numKnob.value; seg.draw(numKnob.value); }
+  frameDots.forEach((d, i) => d.set(ease(d.level, i < numKnob.value ? 1 : 0, dt, 18)));
+  // fan: spins up quickly, winds down slowly; the ribbons blow out toward you
+  fanFx.speed = ease(fanFx.speed, fanSw.value, dt, fanSw.value ? 1.6 : 0.8);
+  fanFx.rotor.rotation.z -= fanFx.speed * dt * 22;
+  fanFx.blur.material.opacity = THREE.MathUtils.smoothstep(fanFx.speed, 0.35, 1) * 0.8;
+  fanFx.ribbons.forEach(rb => flutter(rb, fanFx.speed, T));
+  fanSound(fanFx.speed * 0.16, fanFx.speed);
+  // horn: the speaker cone thumps and sound rings spread out
+  const honk = hornBtn.pressed;
+  hornSound(honk ? 0.12 : 0);
+  speakerFx.cone.position.z = 0.3 + (honk ? Math.sin(T * 70) * 0.07 : 0);
+  if (honk && (speakerFx.emit -= dt) <= 0) { speakerFx.emit = 0.22; speakerFx.rings[speakerFx.next++ % 6].t = 0; }
+  speakerFx.rings.forEach(r => { r.t += dt; const k = r.t / 0.9; r.m.visible = k < 1; if (k < 1) { r.m.scale.setScalar(1.9 + k * 2.6); r.m.material.opacity = (1 - k) * 0.7; } });
+  // beacon: the reflector spins; the dome flares when the beam points at you
+  beaconFx.level = ease(beaconFx.level, beaconBtn.value, dt, 5);
+  beaconFx.angle += dt * 5 * beaconFx.level; beaconFx.spin.rotation.y = beaconFx.angle;
+  beaconFx.spin.getWorldPosition(_a); beaconFx.spot.target.getWorldPosition(_b); _b.sub(_a).normalize();
+  const facing = Math.pow(Math.max(0, _b.dot(_a.clone().sub(camera.position).normalize().negate())), 6);
+  beaconFx.spot.intensity = beaconFx.level * 1400;
+  beaconFx.lampMat.emissiveIntensity = beaconFx.level * (1.4 + 3.5 * facing);
+  beaconFx.beamU.uLevel.value = beaconFx.level;
+  beaconFx.bulbMat.color.setRGB(3, 1.8, 0.6).multiplyScalar(beaconFx.level);
+  // lever → rocket: rumble on the pad, climb, cruise among the stars, and come back down to land
+  const R = rocketFx, range = R.yMax - R.yMin;
+  if (rocketLever.value) {
+    R.t += dt;
+    if (R.t < 0.9) { R.fire = ease(R.fire, 0.45, dt, 8); R.shake = 1; if ((R.puffT -= dt) <= 0) { R.puffT = 0.06; puff(R); } }
+    else { R.shake = ease(R.shake, 0, dt, 3); R.vel = Math.min(6, R.vel + dt * 7); R.alt = Math.min(80, R.alt + R.vel * dt * (R.alt > range ? 0.3 : 1)); R.fire = ease(R.fire, 1, dt, 6); }
+  } else {
+    R.t = 0; R.shake = 0; R.vel = 0;
+    if (R.alt > 0) { R.alt = Math.max(0, R.alt - Math.max(2.2, R.alt * 0.9) * dt); R.fire = ease(R.fire, 0.4, dt, 6); if (R.alt === 0) for (let i = 0; i < 6; i++) puff(R); }
+    else R.fire = ease(R.fire, 0, dt, 10);
+  }
+  const hgt = Math.min(R.alt, range);
+  R.rocket.position.y = R.yMin + hgt + (R.alt > range ? Math.sin(T * 2.2) * 0.12 : 0);
+  R.rocket.position.x = Math.sin(T * 63) * 0.04 * R.shake;
+  R.U.uScroll.value = R.alt * 0.6; R.U.uTime.value = T;
+  R.flame.visible = R.fire > 0.02;
+  R.flame.scale.set(1 + 0.08 * Math.sin(T * 33), Math.max(0.001, Math.min(R.fire * (0.85 + 0.15 * Math.sin(T * 41)) * 1.6, hgt + 0.7)), 1);
+  R.glow.intensity = R.fire * 4;
+  rocketSound(R.fire * 0.2, R.fire);
+  R.puffs.forEach(p => { p.t += dt; const k = p.t / 1.3; p.s.visible = k < 1; if (k < 1) { p.s.position.x += p.vx * dt; p.s.position.y += 0.35 * dt; p.s.scale.setScalar(0.5 + k * 1.8); p.s.material.opacity = (1 - k) * 0.55; } });
+  // music notes float up and fade
+  notes.forEach(n => { n.t += dt; const k = n.t / 1.5; n.s.visible = k < 1; if (k < 1) { n.s.position.y += dt * 2.2; n.s.position.x += n.vx * dt; n.s.material.opacity = Math.min(1, k * 6) * (1 - k); n.s.scale.setScalar(1.0 + k * 0.7); n.s.material.rotation = Math.sin(n.t * 6) * 0.3; } });
+  // lights switch → the room goes dark, the stars come out, and everything that glows really glows
+  night = ease(night, nightSw.value, dt, 2.2);
+  scene.environmentIntensity = lerp(0.3, 0.14, night);
+  sun.intensity = lerp(1.15, 0.55, night);
+  renderer.toneMappingExposure = lerp(1.0, 1.12, night); sun.color.lerpColors(SUN_DAY, SUN_NIGHT, night);
+  scene.background.lerpColors(DAY_BG, NIGHT_BG, night);
+  backdrop.material.color.lerpColors(WALL_DAY, WALL_NIGHT, night);   // the walls fall away into the dark; the board stays moonlit
+  starMat.opacity = night * (0.85 + 0.15 * Math.sin(T * 2));
+  bloom.strength = lerp(0.3, 0.75, night);
+  if ((night > 0.5) !== nightClass) { nightClass = night > 0.5; document.body.classList.toggle('night', nightClass); }
+
+  composer.render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

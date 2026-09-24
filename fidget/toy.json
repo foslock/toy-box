@@ -1,0 +1,8 @@
+{
+  "title": "Fidget Board",
+  "blurb": "A wooden busy board for small hands learning the mouse. Every switch, button, key and dial does something you can see: LEDs, a gauge, radar, a colour lamp, a fan with streamers, a rocket launch, a beacon, music notes. The big red button puts everything back.",
+  "added": "2026-09-23",
+  "tags": ["three.js", "sound", "for kids"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 7000, "query": "?demo" }
+}
