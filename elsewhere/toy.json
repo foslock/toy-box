@@ -1,0 +1,8 @@
+{
+  "title": "Elsewhere",
+  "blurb": "Walk through rolling alien hills. Walking is the clock: about 30 seconds of walking is 12 hours, so the sun sets, the moon and Milky Way come out, and the strange plants fold up into glowing cactus shapes. Walk back to turn time back.",
+  "added": "2026-09-23",
+  "tags": ["three.js", "shaders", "generative"],
+  "tape": "purple",
+  "capture": { "width": 1200, "height": 900, "wait": 5000, "query": "?demo&hour=17.7" }
+}
