@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pools of Cash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #16202a; --ink-2: #4b5764; --ink-3: #6f7a86; --line: rgba(22, 32, 42, .13); --blue: #1c79b8; --a: #1c79b8; --b: #d0612b; --green: #2c7a4b; }
+  html, body { height: 100%; margin: 0; }
+  body { overflow: hidden; background: #bfe3f7; color: var(--ink); font-family: "Bricolage Grotesque", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .name { position: fixed; top: max(15px, env(safe-area-inset-top)); left: 60px; margin: 0; font-weight: 800; font-size: 26px; line-height: 34px; letter-spacing: -.015em;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, .7); pointer-events: none; }
+  .panel { position: fixed; top: calc(max(15px, env(safe-area-inset-top)) + 48px); left: 14px; width: 348px; max-height: calc(100% - max(15px, env(safe-area-inset-top)) - 64px);
+    overflow: auto; box-sizing: border-box; padding: 16px 16px 14px; border-radius: 16px; background: rgba(255, 255, 255, .93);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 12px 32px -14px rgba(10, 40, 60, .45), 0 0 0 1px rgba(22, 32, 42, .06); }
+  .lede { margin: 0 0 12px; font-size: 15px; line-height: 1.35; color: var(--ink-2); }
+  form { display: grid; gap: 8px; margin: 0; }
+  .slot { display: flex; align-items: center; gap: 8px; }
+  .slot[hidden] { display: none; }
+  .tag { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; color: #fff; font-weight: 800; font-size: 13px; }
+  .tag.a { background: var(--a); } .tag.b { background: var(--b); }
+  .solo .tag { display: none; }
+  .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 12px; border-radius: 10px; background: #fff;
+    box-shadow: 0 0 0 1px var(--line) inset; font-size: 17px; font-weight: 600; cursor: text; }
+  .field:focus-within { box-shadow: 0 0 0 2px var(--blue) inset; }
+  .slot.active .field { box-shadow: 0 0 0 2px var(--blue) inset; }
+  .slot[data-slot="1"].active .field { box-shadow: 0 0 0 2px var(--b) inset; }
+  .field span { color: var(--ink-3); }
+  .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: inherit; padding: 0; }
+  .x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); font: 600 20px/1 system-ui, sans-serif; cursor: pointer; }
+  .x:hover { background: rgba(22, 32, 42, .06); color: var(--ink); }
+  .row { display: flex; gap: 8px; margin-top: 2px; }
+  .go, .ghost { height: 40px; padding: 0 16px; border-radius: 10px; font: 700 15px/1 "Bricolage Grotesque", system-ui, sans-serif; cursor: pointer; }
+  .go { flex: 1; border: 0; color: #fff; background: linear-gradient(180deg, #3aa15f, #2c7a4b); box-shadow: 0 1px 0 rgba(255, 255, 255, .25) inset, 0 4px 10px -4px rgba(20, 90, 50, .6); }
+  .go:hover { filter: brightness(1.06); }
+  .ghost { border: 0; background: rgba(22, 32, 42, .06); color: var(--ink); }
+  .ghost:hover { background: rgba(22, 32, 42, .1); }
+  .ghost[aria-pressed="true"] { background: rgba(208, 97, 43, .14); color: #a4461a; }
+  button:focus-visible, .chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .sub { margin: 14px 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 10px; border: 0; border-radius: 999px; background: rgba(22, 32, 42, .06); color: var(--ink);
+    font: 600 13.5px/1.1 "Bricolage Grotesque", system-ui, sans-serif; cursor: pointer; }
+  .chip:hover { background: rgba(22, 32, 42, .11); }
+  .chip small { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+  .seg { display: inline-flex; padding: 3px; border-radius: 10px; background: rgba(22, 32, 42, .06); }
+  .seg button { height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); font: 700 14px/1 "Bricolage Grotesque", system-ui, sans-serif; cursor: pointer; }
+  .seg button[aria-checked="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(10, 40, 60, .2); }
+  .readout { display: grid; gap: 10px; margin-top: 14px; }
+  .res { padding: 10px 12px; border-radius: 12px; background: rgba(28, 121, 184, .08); border-left: 4px solid var(--a); }
+  .res.b { background: rgba(208, 97, 43, .09); border-left-color: var(--b); }
+  .res .who { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .res .who b { color: var(--ink); }
+  .res .big { margin: 2px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+  .res .detail { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); }
+  .res .facts { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-3); }
+  .ratio { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+  .fine { margin: 14px 0 0; font-size: 11.5px; line-height: 1.4; color: var(--ink-3); }
+  .hint { position: fixed; left: calc(50% + 180px); bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; padding: 7px 14px; border-radius: 999px;
+    background: rgba(255, 255, 255, .78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+    white-space: nowrap; pointer-events: none; transition: opacity .6s ease; }
+  .hint.gone { opacity: 0; }
+  .label { position: fixed; left: 0; top: 0; transform: translate(-50%, -100%); pointer-events: none; text-align: center; white-space: nowrap; }
+  .label b { display: block; padding: 5px 10px; border-radius: 9px; color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .35); }
+  .label i { display: block; width: 2px; height: 16px; margin: 0 auto; background: currentColor; transform: translateX(var(--pin, 0px)); }
+  .label.a { color: var(--a); } .label.a b { background: var(--a); }
+  .label.b { color: var(--b); } .label.b b { background: var(--b); }
+  .note { position: fixed; left: 50%; top: max(18px, env(safe-area-inset-top)); transform: translateX(-50%); margin: 0; padding: 7px 14px; border-radius: 999px;
+    background: rgba(22, 32, 42, .78); color: #fff; font-size: 13.5px; font-weight: 600; pointer-events: none; opacity: 0; transition: opacity .5s ease; }
+  .note.on { opacity: 1; }
+  @media (max-width: 720px) {
+    .panel { top: auto; bottom: 0; left: 0; width: 100%; max-height: 46%; border-radius: 16px 16px 0 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+    .lede, .fine { display: none; }
+    .hint { left: 50%; bottom: auto; top: calc(max(15px, env(safe-area-inset-top)) + 46px); font-size: 12.5px; white-space: normal; text-align: center; width: max-content; max-width: calc(100% - 32px); box-sizing: border-box; }
+    .note { top: calc(max(15px, env(safe-area-inset-top)) + 84px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .hint, .note { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Backyard swimming pools filled with dollar bills"></canvas>
+<p class="name">Pools of Cash</p>
+<section class="panel" aria-label="Controls">
+  <p class="lede">How many backyard pools would a fortune fill with cash?</p>
+  <form id="form" class="solo" autocomplete="off">
+    <div class="slot active" data-slot="0">
+      <span class="tag a">A</span>
+      <label class="field"><span>$</span><input id="in0" inputmode="decimal" enterkeyhint="go" aria-label="Net worth" placeholder="250,000 or 3.5 billion"></label>
+    </div>
+    <div class="slot" data-slot="1" hidden>
+      <span class="tag b">B</span>
+      <label class="field"><span>$</span><input id="in1" inputmode="decimal" enterkeyhint="go" aria-label="Net worth to compare" placeholder="or pick someone below"></label>
+      <button type="button" class="x" id="noCompare" aria-label="Stop comparing">×</button>
+    </div>
+    <div class="row">
+      <button class="go" type="submit">Fill the pools</button>
+      <button class="ghost" type="button" id="compare" aria-pressed="false">Compare</button>
+    </div>
+  </form>
+  <p class="sub">Famous fortunes</p>
+  <div class="chips" id="chips"></div>
+  <p class="sub">Bills</p>
+  <div class="seg" role="radiogroup" aria-label="Bill denomination">
+    <button type="button" role="radio" aria-checked="true" data-denom="1">$1 bills</button>
+    <button type="button" role="radio" aria-checked="false" data-denom="100">$100 bills</button>
+  </div>
+  <div class="readout" id="readout" aria-live="polite"></div>
+  <p class="fine">One pool is 16 × 32 ft with rounded corners and 5 ft deep, and holds about <span id="perPool">62.5 million</span> bills packed flat. Every bill weighs about a gram. Fortunes are rough estimates (Forbes, September 2026) and move daily; the median household is from the Fed's 2022 Survey of Consumer Finances.</p>
+</section>
+<p class="hint" id="hint">Click a pool to cannonball in · drag to look around · scroll to zoom</p>
+<p class="note" id="note"></p>
+<div id="labels"></div>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const rr = (a, b) => a + Math.random() * (b - a);
+const Q = new URLSearchParams(location.search);
+
+/* ---------- the numbers (metres) ---------- */
+const FT = 0.3048, IN = 0.0254;
+const POOL_L = 32 * FT, POOL_W = 16 * FT, POOL_D = 5 * FT;        // a 16 × 32 ft pool, 5 ft deep; its length runs along x
+const BILL_L = 6.14 * IN, BILL_W = 2.61 * IN, BILL_T = 0.0043 * IN; // every US bill is the same size
+const POOL_R = 4 * FT, LOT_R = 2.0;                                  // corner radii: the pool, and the deck around it
+const BILLS_PER_POOL = (POOL_L * POOL_W - (4 - Math.PI) * POOL_R ** 2) * POOL_D / (BILL_L * BILL_W * BILL_T);   // ≈ 62.5 million, packed flat
+const DECK = 1.5, COPING = 0.3, LAWN = 2.2;
+// Signed distance to a rounded rectangle centred on the origin: negative inside.
+function sdRound(x, z, hx, hz, r) { const qx = Math.abs(x) - hx + r, qz = Math.abs(z) - hz + r; return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - r; }
+// The outline of a rounded rectangle, counter-clockwise from the +x side (as x, z pairs).
+function roundOutline(hx, hz, r, n = 10) {
+  const pts = [];
+  for (const [cx, cz, a0] of [[hx - r, hz - r, 0], [r - hx, hz - r, Math.PI / 2], [r - hx, r - hz, Math.PI], [hx - r, r - hz, Math.PI * 1.5]])
+    for (let i = 0; i <= n; i++) { const a = a0 + i / n * Math.PI / 2; pts.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r]); }
+  return pts;
+}
+const LOT_X = POOL_L + 2 * DECK, LOT_Z = POOL_W + 2 * DECK, CELL_X = LOT_X + LAWN, CELL_Z = LOT_Z + LAWN;
+const GROUP_GAP = 24;                                              // lawn between two compared fortunes
+const MAX_POOLS = 2_000_000;
+const TILE = 1.6;                                                  // metres of heaped bills per texture repeat
+
+const PRESETS = [
+  { name: 'Elon Musk', worth: 900e9 },
+  { name: 'Jeff Bezos', worth: 268e9 },
+  { name: 'Mark Zuckerberg', worth: 255e9 },
+  { name: 'Bill Gates', worth: 110e9 },
+  { name: 'Tim Cook', worth: 3e9 },
+  { name: 'Median US household', worth: 192_900 },
+];
+
+// "$3.5 billion", "250k", "1,200,000", "2t", "900e9" → dollars
+function parseMoney(s) {
+  const m = String(s).toLowerCase().replace(/usd|dollars?|[$,\s]/g, '').match(/^(\d*\.?\d+(?:e\d+)?)([a-z]*)$/);
+  if (!m) return NaN;
+  const mult = { '': 1, k: 1e3, thousand: 1e3, m: 1e6, mm: 1e6, mil: 1e6, million: 1e6, b: 1e9, bn: 1e9, bil: 1e9, billion: 1e9, t: 1e12, tn: 1e12, trillion: 1e12 }[m[2]];
+  return mult === undefined ? NaN : parseFloat(m[1]) * mult;
+}
+const fmtInt = n => Math.round(n).toLocaleString('en-US');
+const trim = (x, d) => { const t = x.toFixed(d); return t.includes('.') ? t.replace(/\.?0+$/, '') : t; };
+function fmtBig(v, long) {                                         // 900e9 → "900 billion" / "900B"
+  for (const [u, w, s] of [[1e12, ' trillion', 'T'], [1e9, ' billion', 'B'], [1e6, ' million', 'M']]) {
+    if (v >= u * 0.9995) { const x = v / u; return (x >= 1000 ? fmtInt(x) : trim(x, x >= 100 ? 0 : x >= 10 ? 1 : 2)) + (long ? w : s); }
+  }
+  return fmtInt(v);
+}
+const fmtMoney = (v, long = false) => '$' + (v < 1e6 && !long ? (v >= 1e4 ? trim(v / 1e3, 1) + 'K' : fmtInt(v)) : fmtBig(v, long));
+function fmtWeight(g) { const lb = g / 453.592; return lb < 2000 ? fmtInt(lb) + ' lb' : (lb / 2000 < 1e6 ? fmtInt(lb / 2000) : fmtBig(lb / 2000, true)) + ' tons'; }
+function fmtLength(inches) {
+  if (inches < 12) return trim(inches, inches < 1 ? 2 : 1) + ' in';
+  const ft = inches / 12;
+  return ft < 5280 ? fmtInt(ft) + ' ft' : fmtInt(ft / 5280) + ' miles';
+}
+function fmtDepth(m) { const inches = m / IN; if (inches < 12) return trim(inches, inches < 1 ? 2 : 1) + ' in'; const all = Math.round(inches), f = Math.floor(all / 12), i = all - f * 12; return i ? `${f} ft ${i} in` : `${f} ft`; }
+
+// Integer hash, written identically here and in the shaders so a pool's bills line up between the two.
+function hashU(x) { x = (x ^ (x >>> 16)) >>> 0; x = Math.imul(x, 0x7feb352d) >>> 0; x = (x ^ (x >>> 15)) >>> 0; x = Math.imul(x, 0x846ca68b) >>> 0; return (x ^ (x >>> 16)) >>> 0; }
+const hash01 = (i, salt) => (hashU(((i >>> 0) * 2 + salt) >>> 0) & 0xffffff) / 16777216;
+
+/* ---------- paper money ---------- */
+function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+// One bill, loosely after the real designs: the $1 in grey-green with its two seals, the $100 in beige with the blue ribbon.
+function paintBill(denom, w = 512) {
+  const h = Math.round(w * BILL_W / BILL_L), c = mk(w, h), g = c.getContext('2d'), hundred = denom === 100;
+  const paper = hundred ? '#e7dfcc' : '#dadcc5', ink = hundred ? '#3c5048' : '#3b5a44';
+  g.fillStyle = paper; g.fillRect(0, 0, w, h);
+  const glow = g.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, w * 0.6);
+  glow.addColorStop(0, 'rgba(255,255,255,.25)'); glow.addColorStop(1, hundred ? 'rgba(214,170,120,.18)' : 'rgba(120,150,110,.18)');
+  g.fillStyle = glow; g.fillRect(0, 0, w, h);
+  g.strokeStyle = ink; g.lineWidth = h * 0.05; g.strokeRect(h * 0.07, h * 0.07, w - h * 0.14, h - h * 0.14);
+  g.lineWidth = h * 0.012; g.strokeRect(h * 0.14, h * 0.14, w - h * 0.28, h - h * 0.28);
+  g.globalAlpha = 0.28; g.lineWidth = 1;
+  for (let x = -h; x < w; x += 5) { g.beginPath(); g.moveTo(x, h * 0.14); g.lineTo(x + h * 0.72, h * 0.86); g.stroke(); }
+  g.globalAlpha = 1;
+  const px = hundred ? w * 0.4 : w * 0.5, rx = h * 0.24, ry = h * 0.31;
+  g.fillStyle = paper; g.beginPath(); g.ellipse(px, h / 2, rx * 1.18, ry * 1.12, 0, 0, TAU); g.fill();
+  g.lineWidth = h * 0.025; g.stroke();
+  const pg = g.createRadialGradient(px, h * 0.42, 0, px, h / 2, ry);
+  pg.addColorStop(0, hundred ? '#7a7466' : '#6f7c68'); pg.addColorStop(1, hundred ? '#4b4a42' : '#3f4d40');
+  g.fillStyle = pg; g.beginPath(); g.ellipse(px, h / 2, rx, ry, 0, 0, TAU); g.fill();
+  g.fillStyle = hundred ? '#2f2d28' : '#2b362d';                      // a head and shoulders
+  g.beginPath(); g.ellipse(px, h * 0.43, rx * 0.36, ry * 0.4, 0, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(px, h * 0.8, rx * 0.8, ry * 0.42, 0, Math.PI, TAU); g.fill();
+  g.font = `700 ${h * 0.085}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = ink;
+  g.fillText('THE UNITED STATES OF AMERICA', w * 0.5, h * 0.2);
+  g.font = `700 ${h * (hundred ? 0.17 : 0.2)}px Georgia, serif`;
+  for (const [x, y] of [[0.1, 0.25], [0.9, 0.25], [0.1, 0.77], [0.9, 0.77]]) g.fillText(hundred ? '100' : '1', w * x, h * y);
+  if (hundred) {
+    g.fillStyle = '#3f78c6'; g.fillRect(w * 0.6, 0, w * 0.035, h);                    // the security ribbon
+    g.fillStyle = '#b98a3e'; g.font = `800 ${h * 0.3}px Georgia, serif`; g.fillText('100', w * 0.8, h * 0.66);
+    g.fillStyle = '#9a6c3a'; g.beginPath(); g.arc(w * 0.7, h * 0.5, h * 0.09, 0, TAU); g.fill();
+  } else {
+    g.fillStyle = '#2d302d'; g.beginPath(); g.arc(w * 0.26, h * 0.5, h * 0.13, 0, TAU); g.fill();   // black seal
+    g.fillStyle = '#4f8a58'; g.beginPath(); g.arc(w * 0.74, h * 0.5, h * 0.13, 0, TAU); g.fill();   // green seal
+    g.fillStyle = paper; g.font = `700 ${h * 0.12}px Georgia, serif`; g.fillText('ONE', w * 0.74, h * 0.51);
+  }
+  return c;
+}
+// A tileable heap of loose bills, each casting a soft shadow on the ones beneath. Alongside it, a normal map
+// giving every bill its own tilt (x, z in red and green, up in blue), so up close the heap has relief;
+// shrunk for distant pools, the tilts average out to flat.
+function paintHeap(denom, size = 1024) {
+  const c = mk(size, size), g = c.getContext('2d'), bill = paintBill(denom, 256);
+  const nc = mk(size, size), ng = nc.getContext('2d');
+  ng.fillStyle = 'rgb(128,128,255)'; ng.fillRect(0, 0, size, size);
+  g.fillStyle = denom === 100 ? '#9c9383' : '#8b977e'; g.fillRect(0, 0, size, size);
+  const bg = bill.getContext('2d'); bg.fillStyle = denom === 100 ? 'rgba(231,223,204,.35)' : 'rgba(214,220,196,.35)'; bg.fillRect(0, 0, bill.width, bill.height);
+  const bl = size * BILL_L / TILE, bw = size * BILL_W / TILE;
+  for (let i = 0; i < 760; i++) {
+    const x = Math.random() * size, y = Math.random() * size, a = Math.random() * TAU, s = rr(0.93, 1.07), shade = Math.random();
+    const ta = Math.random() * TAU, tm = Math.sqrt(Math.random()) * 0.42, nx = Math.cos(ta) * tm, nz = Math.sin(ta) * tm, ny = Math.sqrt(1 - tm * tm);
+    const across = Math.random() < 0.5 ? 1 : -1, curl = rr(0.05, 0.22);                  // bills curl a little across their width
+    const enc = (x, z) => `rgb(${Math.round((x * 0.5 + 0.5) * 255)},${Math.round((z * 0.5 + 0.5) * 255)},${Math.round((Math.sqrt(Math.max(0, 1 - x * x - z * z)) * 0.5 + 0.5) * 255)})`;
+    for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) {
+      const X = x + ox, Y = y + oy;
+      if (X < -bl || X > size + bl || Y < -bl || Y > size + bl) continue;
+      g.save(); g.translate(X, Y); g.rotate(a); g.scale(s, s);
+      g.shadowColor = 'rgba(20,30,15,.28)'; g.shadowBlur = bw * 0.3; g.shadowOffsetY = bw * 0.05;
+      g.drawImage(bill, -bl / 2, -bw / 2, bl, bw);
+      g.shadowColor = 'transparent';
+      g.fillStyle = shade < 0.5 ? `rgba(0,0,0,${(0.5 - shade) * 0.2})` : `rgba(255,255,240,${(shade - 0.5) * 0.18})`;
+      g.fillRect(-bl / 2, -bw / 2, bl, bw);
+      g.restore();
+      ng.save(); ng.translate(X, Y); ng.rotate(a); ng.scale(s, s);
+      const px = -Math.sin(a) * across * curl, pz = Math.cos(a) * across * curl, gr = ng.createLinearGradient(0, -bw / 2, 0, bw / 2);
+      gr.addColorStop(0, enc(nx - px, nz + pz)); gr.addColorStop(1, enc(nx + px, nz - pz));
+      ng.fillStyle = gr; ng.fillRect(-bl / 2, -bw / 2, bl, bw);
+      ng.restore();
+    }
+  }
+  c.normals = nc;
+  return c;
+}
+function tex(canvas, { repeat = true, srgb = true } = {}) {
+  const t = new THREE.CanvasTexture(canvas);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8; return t;
+}
+const HEAPS = {}, BILLS = {};
+const HEAPC = {}, HEAPN = {};
+const heapCanvas = d => HEAPC[d] ??= paintHeap(d);
+const heapTex = d => HEAPS[d] ??= tex(heapCanvas(d));
+const heapNrm = d => HEAPN[d] ??= tex(heapCanvas(d).normals, { srgb: false });
+const billTex = d => BILLS[d] ??= tex(paintBill(d, 256), { repeat: false });
+// One whole cell seen from above (lawn margin, deck, coping, and the pool full of bills or empty).
+// Far away the GPU shrinks this picture smoothly, so huge fields read as fields of pools without shimmering.
+function paintCell(denom, full) {
+  const w = 512, pxm = w / CELL_X, h = Math.round(CELL_Z * pxm), c = mk(w, h), g = c.getContext('2d');
+  const shape = (x, z, r) => { g.beginPath(); g.roundRect(w / 2 - x / 2 * pxm, h / 2 - z / 2 * pxm, x * pxm, z * pxm, r * pxm); };
+  const rect = (x, z, r, col) => { shape(x, z, r); g.fillStyle = col; g.fill(); };
+  g.fillStyle = '#608f38'; g.fillRect(0, 0, w, h);
+  rect(LOT_X, LOT_Z, LOT_R, '#a2988a'); rect(LOT_X - 0.24, LOT_Z - 0.24, LOT_R - 0.12, '#cfc6b6');
+  rect(POOL_L + 2 * COPING, POOL_W + 2 * COPING, POOL_R + COPING, '#e2dbce');
+  if (full) {
+    const pat = g.createPattern(paintHeap(denom, 512), 'repeat');
+    pat.setTransform(new DOMMatrix().scale(TILE * pxm / 512));
+    rect(POOL_L, POOL_W, POOL_R, pat);
+    shape(POOL_L, POOL_W, POOL_R); g.strokeStyle = 'rgba(40,50,30,.35)'; g.lineWidth = 0.25 * pxm; g.stroke();
+  } else {
+    rect(POOL_L, POOL_W, POOL_R, '#1f6f9f'); rect(POOL_L - 0.9, POOL_W - 0.9, POOL_R - 0.45, '#3f9bcc'); rect(POOL_L - 2.4, 0.25, 0, '#1b4d73');   // an empty pool reads deep blue from afar
+  }
+  return c;
+}
+const CELLS = {};
+const cellTex = (d, full) => CELLS[d + (full ? 'f' : 'e')] ??= (t => (t.anisotropy = 16, t))(tex(paintCell(d, full)));
+// Pool tiles: light blue with white grout, a band of dark blue at the top, and a painted floor with a lane line.
+const TILE_SIZE = 0.15;
+function paintWall() {
+  const pxm = 200, w = Math.round(1.2 * pxm), h = Math.round(POOL_D * pxm), c = mk(w, h), g = c.getContext('2d'), t = TILE_SIZE * pxm;
+  g.fillStyle = '#eaf5f8'; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += t) for (let x = 0; x < w; x += t) {
+    const band = y < t * 0.99, v = Math.random() * 10 - 5;
+    g.fillStyle = band ? `hsl(205 62% ${31 + v * 0.4}%)` : `hsl(194 55% ${79 + v * 0.5}%)`;
+    g.fillRect(x + 1.5, y + 1.5, t - 3, t - 3);
+  }
+  return c;
+}
+function paintFloor() {
+  const pxm = 60, w = Math.round(POOL_L * pxm), h = Math.round(POOL_W * pxm), c = mk(w, h), g = c.getContext('2d');
+  g.fillStyle = '#8fcfe4'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1600; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '40,90,120'},${Math.random() * 0.06})`; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, rr(4, 30), 0, TAU); g.fill(); }
+  g.fillStyle = '#23577f'; const lw = 0.25 * pxm, x0 = 1.0 * pxm, x1 = w - 1.0 * pxm;
+  g.fillRect(x0, h / 2 - lw / 2, x1 - x0, lw); g.fillRect(x0, h / 2 - lw * 2, lw, lw * 4); g.fillRect(x1 - lw, h / 2 - lw * 2, lw, lw * 4);
+  return c;
+}
+
+/* ---------- scene ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.3, 4000);
+const controls = new OrbitControls(camera, canvas);
+Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, screenSpacePanning: false, maxPolarAngle: THREE.MathUtils.degToRad(84), minDistance: 4, zoomToCursor: true });
+
+const SUN_DIR = new THREE.Vector3(0.42, 0.8, 0.42).normalize();
+const hemi = new THREE.HemisphereLight('#d3e9ff', '#71894a', 1.15);
+const sun = new THREE.DirectionalLight('#fff3df', 2.7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 90 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(hemi, sun, sun.target);
+const HORIZON = new THREE.Color('#d9eef8'), ZENITH = new THREE.Color('#4f9fdc');
+
+// Lighting and haze for the custom shaders, matched to three.js's own (Lambert over π, hemisphere + sun).
+const SHARED = {
+  uSunDir: { value: SUN_DIR }, uSunCol: { value: sun.color.clone().multiplyScalar(sun.intensity) },
+  uSkyCol: { value: hemi.color.clone().multiplyScalar(hemi.intensity) }, uGroundCol: { value: hemi.groundColor.clone().multiplyScalar(hemi.intensity) },
+  uFogCol: { value: HORIZON }, uFogDensity: { value: 0.002 },
+};
+const LIGHT_GLSL = /* glsl */`
+  uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uFogCol; uniform float uFogDensity;
+  vec3 lit(vec3 albedo, vec3 n, float sh) {
+    return albedo * (uSunCol * max(dot(n, uSunDir), 0.0) * sh + mix(uGroundCol, uSkyCol, 0.5 + 0.5 * n.y)) * 0.31831;
+  }
+  vec3 fogged(vec3 c, vec3 wp) { float d = length(wp - cameraPosition) * uFogDensity; return mix(c, uFogCol, 1.0 - exp(-d * d)); }
+  vec3 srgb(vec3 c) { return pow(c, vec3(2.2)); }
+  uint hashU(uint x) { x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; x ^= x >> 16u; return x; }
+  float hash01(float i, uint salt) { return float(hashU(uint(i) * 2u + salt) & 0xffffffu) / 16777216.0; }
+  float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+    float a = hash01(mod(i.x, 4096.0) + mod(i.y, 4096.0) * 4096.0, 7u), b = hash01(mod(i.x + 1.0, 4096.0) + mod(i.y, 4096.0) * 4096.0, 7u);
+    float c = hash01(mod(i.x, 4096.0) + mod(i.y + 1.0, 4096.0) * 4096.0, 7u), d = hash01(mod(i.x + 1.0, 4096.0) + mod(i.y + 1.0, 4096.0) * 4096.0, 7u);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y); }
+  // Mown stripes and patchy greens, sun-dried patches and darker clover, and (up close) little flowers;
+  // the fine detail fades to its average as it gets too small to draw.
+  vec3 lawnAlbedo(vec2 p) {
+    vec2 fw2 = fwidth(p);
+    float fw = fw2.x + fw2.y, fade = 1.0 - smoothstep(0.15, 0.8, fw), stripe = smoothstep(-0.25, 0.25, sin(p.x * 3.14159 / 2.4));
+    float n = vnoise(p / 6.0) * 0.6 + vnoise(p / 37.0) * 0.4;
+    vec3 c = mix(srgb(vec3(0.33, 0.52, 0.2)), srgb(vec3(0.42, 0.6, 0.24)), n) * (0.98 + 0.1 * (stripe - 0.5) * fade);
+    float dry = smoothstep(0.66, 0.82, vnoise(p / 19.0 + 31.0)) * smoothstep(0.3, 0.7, vnoise(p / 3.1 + 7.0));
+    c = mix(c, srgb(vec3(0.52, 0.56, 0.3)), dry * 0.32);
+    float clover = smoothstep(0.58, 0.85, vnoise(p / 8.0 + 11.0));
+    c = mix(c, srgb(vec3(0.28, 0.47, 0.21)), clover * 0.3);
+    float close = 1.0 - smoothstep(0.012, 0.04, fw);
+    if (close > 0.0) {                                     // scattered flowers: dandelions, daisies, clover heads
+      vec2 g = p * 2.2, id = floor(g), f = fract(g) - 0.5;
+      float h = hash01(mod(id.x, 4096.0) + mod(id.y, 4096.0) * 4096.0, 19u);
+      if (h > 0.9 - clover * 0.12) {
+        vec2 o = vec2(hash01(id.x * 7.0 + id.y, 21u), hash01(id.y * 5.0 + id.x, 23u)) - 0.5;
+        float d = length(f - o * 0.6), k = hash01(id.x + id.y * 13.0, 29u);
+        vec3 fc = k < 0.45 ? srgb(vec3(0.96, 0.8, 0.18)) : k < 0.8 ? srgb(vec3(0.97, 0.96, 0.9)) : srgb(vec3(0.72, 0.55, 0.85));
+        c = mix(c, fc, (1.0 - smoothstep(0.035, 0.06, d)) * close);
+      }
+    }
+    return c;
+  }
+`;
+
+// Sky dome
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uTop: { value: ZENITH }, uHorizon: { value: HORIZON }, uSun: { value: SUN_DIR } },
+  vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: /* glsl */`
+    uniform vec3 uTop, uHorizon, uSun; varying vec3 vDir;
+    void main() {
+      vec3 d = normalize(vDir);
+      vec3 c = mix(uHorizon, uTop, pow(clamp(d.y, 0.0, 1.0), 0.55));
+      c += vec3(1.0, 0.92, 0.75) * pow(max(dot(d, uSun), 0.0), 64.0) * 0.8;
+      gl_FragColor = vec4(c, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+}));
+sky.frustumCulled = false; sky.renderOrder = -2;
+scene.add(sky);
+
+// The lawn: mown stripes and patchy greens that fade out to a flat average as they get too small to see.
+const lawn = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+  uniforms: { ...SHARED, uHole: { value: new THREE.Vector4(0, 0, -1, -1) } }, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2,
+  vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: /* glsl */`
+    ${LIGHT_GLSL}
+    uniform vec4 uHole;                                      // the pool drawn for real sits below the lawn: leave it open
+    varying vec3 vW;
+    void main() {
+      vec2 p = vW.xz;
+      if (all(lessThan(abs(p - uHole.xy), uHole.zw))) discard;
+      gl_FragColor = vec4(fogged(lit(lawnAlbedo(p), vec3(0.0, 1.0, 0.0), 1.0), vW), 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+}));
+// Drawn first and without depth, like a backdrop: nothing is below ground except inside pools, which must show through.
+lawn.scale.set(200000, 1, 200000); lawn.position.y = -0.03; lawn.renderOrder = -1; lawn.material.depthWrite = false;
+scene.add(lawn);
+
+/* ---------- plants on the lawn ----------
+   Tufts of tall grass, clumps of flowers and the odd bush, grown only around where you're looking. Each 2 m patch of
+   lawn decides what grows in it from a hash of its position, so plants stay put as the camera moves. */
+const plantTime = { value: 0 };
+function swaying(mat, amount) {                           // a breeze, stronger toward the tips
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = plantTime;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float sw = position.y * position.y * ${amount.toFixed(3)};
+      vec2 ph = instanceMatrix[3].xz;
+      transformed.x += sin(uTime * 1.9 + ph.x * 0.45 + ph.y * 0.3) * sw;
+      transformed.z += sin(uTime * 1.3 + ph.y * 0.4) * sw * 0.6;`);
+  };
+  return mat;
+}
+// Triangles are added in both windings with upward normals, so blades light like the lawn from either side.
+function plantBuilder() {
+  const pos = [], col = [], nrm = [];
+  const tri = (a, b, c, ca, cb, cc, n = [0, 1, 0]) => {
+    for (const [v, k] of [[a, ca], [b, cb], [c, cc], [a, ca], [c, cc], [b, cb]]) { pos.push(...v); col.push(...k); nrm.push(...n); }
+  };
+  const blade = (a, r, h, w, lean, c0, c1, c2) => {
+    const bx = Math.cos(a) * r, bz = Math.sin(a) * r, dx = Math.cos(a), dz = Math.sin(a), px = -dz * w, pz = dx * w;
+    const m = [bx + dx * lean * h * 0.35, h * 0.55, bz + dz * lean * h * 0.35], t = [bx + dx * lean * h, h, bz + dz * lean * h];
+    const bl = [bx - px, 0, bz - pz], br = [bx + px, 0, bz + pz], ml = [m[0] - px * 0.6, m[1], m[2] - pz * 0.6], mr = [m[0] + px * 0.6, m[1], m[2] + pz * 0.6];
+    tri(bl, br, mr, c0, c0, c1); tri(bl, mr, ml, c0, c1, c1); tri(ml, mr, t, c1, c1, c2);
+    return t;
+  };
+  const head = (at, radius, c) => {                       // a little flower, squashed flat
+    const g = new THREE.IcosahedronGeometry(radius, 0), p = g.attributes.position, n = g.attributes.normal;
+    for (let i = 0; i < p.count; i += 3) {
+      const v = k => [at[0] + p.getX(i + k), at[1] + p.getY(i + k) * 0.45, at[2] + p.getZ(i + k)];
+      tri(v(0), v(1), v(2), c, c, c, [n.getX(i), Math.abs(n.getY(i)) + 0.3, n.getZ(i)]);
+    }
+  };
+  const build = () => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    return g;
+  };
+  return { blade, head, build };
+}
+const linear = hexc => new THREE.Color(hexc).toArray();
+const GRASS = [linear('#34541d'), linear('#5c8a2f'), linear('#b3c563')];
+function tuftGeo() {
+  const b = plantBuilder();
+  for (let i = 0; i < 16; i++) b.blade(Math.random() * TAU, Math.random() * 0.11, rr(0.32, 0.85), rr(0.016, 0.028), rr(0.12, 0.5), ...GRASS);
+  return b.build();
+}
+function flowerGeo(petal, centre) {
+  const b = plantBuilder();
+  for (let i = 0; i < 7; i++) b.blade(Math.random() * TAU, Math.random() * 0.05, rr(0.08, 0.16), rr(0.02, 0.03), rr(0.3, 0.8), ...GRASS);
+  for (let i = 0; i < 6; i++) {
+    const top = b.blade(Math.random() * TAU, Math.random() * 0.13, rr(0.18, 0.4), 0.005, rr(0.05, 0.3), GRASS[0], GRASS[1], GRASS[1]);
+    b.head(top, 0.045, petal); if (centre) b.head([top[0], top[1] + 0.016, top[2]], 0.018, centre);
+  }
+  return b.build();
+}
+function bushGeo() {                                      // a few leafy lumps, lighter where the sun hits the top
+  const pos = [], col = [], dark = new THREE.Color('#2f5a1e'), light = new THREE.Color('#93b955');
+  for (let b = 0; b < 5; b++) {
+    const r = rr(0.28, 0.46), ox = rr(-0.35, 0.35), oz = rr(-0.3, 0.3), oy = r * rr(0.55, 0.9) + (b === 0 ? 0.12 : 0);
+    const g = new THREE.IcosahedronGeometry(r, 1), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.16 * Math.sin(x * 19 + z * 13 + b) * Math.cos(y * 17 + x * 7);
+      const Y = Math.max(y * k + oy, 0);
+      pos.push(x * k + ox, Y, z * k + oz);
+      col.push(...dark.clone().lerp(light, clamp(0.25 + Y * 0.9 + 0.12 * Math.sin(x * 31 + z * 23), 0, 1)).toArray());
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+// Slow value noise over the lawn, so tall grass grows in clumps rather than evenly.
+function lawnNoise(x, z) {
+  const i = Math.floor(x), j = Math.floor(z), u = smoothstep(0, 1, x - i), v = smoothstep(0, 1, z - j);
+  const g = (a, b) => hk((((a & 0xffff) << 16) | (b & 0xffff)) >>> 0, 99);
+  return lerp(lerp(g(i, j), g(i + 1, j), u), lerp(g(i, j + 1), g(i + 1, j + 1), u), v);
+}
+const plantMat = swaying(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.35);
+const FLOWERS = [[linear('#f4c92f'), null], [linear('#f5f2e8'), linear('#f2c230')], [linear('#9d6fca'), null]];
+const PLANTS = {
+  tuft: new THREE.InstancedMesh(tuftGeo(), plantMat, 14000),
+  flowers: FLOWERS.map(([a, b]) => new THREE.InstancedMesh(flowerGeo(a, b), plantMat, 2500)),
+  bush: new THREE.InstancedMesh(bushGeo(), new THREE.MeshLambertMaterial({ vertexColors: true }), 600),
+};
+const plantMeshes = [PLANTS.tuft, ...PLANTS.flowers, PLANTS.bush];
+plantMeshes.forEach(m => { m.count = 0; m.frustumCulled = false; scene.add(m); });
+PLANTS.bush.castShadow = true;
+const plantState = { x: NaN, z: NaN, r: 0, gen: -1 };
+let layoutGen = 0;
+const hk = (key, salt) => hashU((key ^ Math.imul(salt + 1, 0x9e3779b1)) >>> 0) / 4294967296;
+const _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion(), _pp = new THREE.Vector3(), _ps = new THREE.Vector3(), _pc = new THREE.Color(), _up = new THREE.Vector3(0, 1, 0);
+function lawnClear(x, z, margin) {                        // not on anyone's deck or in their pool
+  const hit = poolAt(x, z);
+  return !hit || sdRound(hit.lx, hit.lz, LOT_X / 2, LOT_Z / 2, LOT_R) > margin;
+}
+function growPlants() {
+  const d = camera.position.distanceTo(controls.target), on = d < 190;
+  plantMeshes.forEach(m => { m.visible = on; });
+  if (!on) return;
+  const R = clamp(d * 1.4, 28, 120), cx = lerp(controls.target.x, camera.position.x, 0.3), cz = lerp(controls.target.z, camera.position.z, 0.3);
+  if (plantState.gen === layoutGen && Math.hypot(cx - plantState.x, cz - plantState.z) < R * 0.2 && Math.abs(R - plantState.r) < R * 0.25) return;
+  Object.assign(plantState, { x: cx, z: cz, r: R, gen: layoutGen });
+  const n = { tuft: 0, flowers: [0, 0, 0], bush: 0 }, C = 2;
+  const put = (mesh, i, x, z, yaw, s, sy = s, tint) => {
+    _pp.set(x, 0, z); _pq.setFromAxisAngle(_up, yaw); _ps.set(s, sy, s); mesh.setMatrixAt(i, _pm.compose(_pp, _pq, _ps));
+    if (tint) mesh.setColorAt(i, tint);
+  };
+  for (let j = Math.floor((cz - R) / C); j <= Math.ceil((cz + R) / C); j++) for (let i = Math.floor((cx - R) / C); i <= Math.ceil((cx + R) / C); i++) {
+    const x0 = i * C, z0 = j * C;
+    if ((x0 - cx) ** 2 + (z0 - cz) ** 2 > R * R) continue;
+    const key = (((i & 0xffff) << 16) | (j & 0xffff)) >>> 0, h = s => hk(key, s);
+    const clump = smoothstep(0.42, 0.78, lawnNoise(x0 / 13, z0 / 13));   // tall grass grows in patches
+    for (let t = 0; t < 3; t++) {
+      if (h(1 + t * 20) > 0.12 + 0.8 * clump - t * 0.35 || n.tuft >= 14000) continue;
+      const x = x0 + h(2 + t * 20) * C, z = z0 + h(3 + t * 20) * C;
+      if (!lawnClear(x, z, 0.2)) continue;
+      const dry = h(7 + t * 20) < 0.22, g = h(8 + t * 20);
+      _pc.setRGB(dry ? 1.3 : 0.8 + 0.35 * g, dry ? 1.12 : 0.85 + 0.3 * g, dry ? 0.62 : 0.8 + 0.3 * g);
+      put(PLANTS.tuft, n.tuft++, x, z, h(4 + t * 20) * TAU, 0.75 + 0.6 * h(5 + t * 20), (0.6 + 0.9 * h(6 + t * 20)) * (0.7 + 0.5 * clump), _pc);
+    }
+    if (h(9) < 0.11) {
+      const k = Math.floor(h(10) * 3), x = x0 + h(11) * C, z = z0 + h(12) * C;
+      if (n.flowers[k] < 2500 && lawnClear(x, z, 0.2)) put(PLANTS.flowers[k], n.flowers[k]++, x, z, h(13) * TAU, 0.8 + 0.5 * h(14));
+    }
+    if (h(15) < 0.014 && n.bush < 600) {
+      const x = x0 + C / 2, z = z0 + C / 2;
+      if (lawnClear(x, z, 1.1)) put(PLANTS.bush, n.bush++, x, z, h(16) * TAU, 0.7 + 0.9 * h(17), 0.6 + 0.6 * h(18));
+    }
+  }
+  PLANTS.tuft.count = n.tuft; PLANTS.flowers.forEach((m, k) => { m.count = n.flowers[k]; }); PLANTS.bush.count = n.bush;
+  plantMeshes.forEach(m => { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; });
+}
+
+/* ---------- the pools ----------
+   Every pool is one flat quad, positioned on a grid from gl_InstanceID, so millions cost almost nothing.
+   Over the opening the fragment shader traces the view ray into an imaginary basin (interior mapping): it hits
+   either the tiled walls or the heap of bills at that pool's fill level, lit and shadowed by the pool's own walls. */
+const FIELD_VS = /* glsl */`
+  uniform float uCols; uniform vec2 uOrigin, uCell, uLot;
+  varying vec3 vWorld; varying vec2 vLocal; flat varying float vIndex;
+  void main() {
+    int cols = int(uCols + 0.5), row = gl_InstanceID / cols, col = gl_InstanceID - row * cols;
+    vec2 c = uOrigin + vec2((float(col) + 0.5) * uCell.x, (float(row) + 0.5) * uCell.y);
+    vLocal = position.xz * uCell;
+    vWorld = vec3(c.x + vLocal.x, 0.0, c.y + vLocal.y);
+    vIndex = float(gl_InstanceID);
+    gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.0);
+  }`;
+const FIELD_FS = /* glsl */`
+  ${LIGHT_GLSL}
+  uniform mat4 projectionMatrix;                          // (three.js only declares it for the vertex stage)
+  uniform sampler2D uBills, uBillsN; uniform vec2 uHalf, uLot; uniform float uDepth, uCoping, uTile, uRadius, uLotRadius;
+  uniform float uFull, uPart, uTotal, uClock, uSpread, uDur, uActive, uSeed;
+  varying vec3 vWorld; varying vec2 vLocal; flat varying float vIndex;
+
+  float i_target(float i) { return i < uFull ? 1.0 : uPart; }
+  float fillK(float i) { return clamp((uClock - (uTotal > 1.0 ? i / (uTotal - 1.0) * uSpread : 0.0)) / uDur, 0.0, 1.0); }
+  float fillOf(float i) {                                  // pools fill in a wave across the grid
+    float k = fillK(i);
+    return (i < uFull ? 1.0 : uPart) * k * k * (3.0 - 2.0 * k);
+  }
+  float lines(vec2 p, float size, float w) {               // anti-aliased grid lines, fading out when too fine to draw
+    vec2 fw = fwidth(p) + 1e-5, g = abs(fract(p / size + 0.5) - 0.5) * size;
+    vec2 l = 1.0 - smoothstep(w - fw, w + fw, g);
+    float fade = 1.0 - smoothstep(w, w * 6.0, max(fw.x, fw.y));
+    return max(l.x, l.y) * fade + (1.0 - fade) * (2.0 * w / size);
+  }
+  float sdRound(vec2 p, vec2 h, float r) { vec2 q = abs(p) - h + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
+  // How far along d (from p, inside the pool outline) until it meets a wall; n is that wall's inward normal.
+  float exitRound(vec2 p, vec2 d, out vec2 n) {
+    vec2 s = vec2(d.x >= 0.0 ? 1.0 : -1.0, d.y >= 0.0 ? 1.0 : -1.0);
+    d = s * max(abs(d), vec2(1e-6));
+    vec2 tb = (s * uHalf - p) / d;
+    float t = min(tb.x, tb.y);
+    n = tb.x < tb.y ? vec2(-s.x, 0.0) : vec2(0.0, -s.y);
+    vec2 e = p + d * t, k = uHalf - uRadius;
+    if (abs(e.x) > k.x && abs(e.y) > k.y) {                // it reaches a rounded corner first: leave through the arc
+      vec2 c = sign(e) * k, o = p - c;
+      float a = dot(d, d), b = dot(o, d), cc = dot(o, o) - uRadius * uRadius;
+      t = (-b + sqrt(max(b * b - a * cc, 0.0))) / a;
+      n = -normalize(p + d * t - c);
+    }
+    return t;
+  }
+  float sunShade(vec3 h) {                                 // does the pool wall block the sun from this point inside?
+    vec2 n;
+    return smoothstep(-0.04, 0.04, exitRound(h.xz, uSunDir.xz, n) - (-h.y / uSunDir.y));
+  }
+  vec3 wallTiles(float along, float below) {
+    vec3 base = below < 0.15 ? srgb(vec3(0.13, 0.36, 0.53)) : srgb(vec3(0.66, 0.85, 0.9));
+    return mix(base, srgb(vec3(0.92, 0.96, 0.97)), lines(vec2(along, below), 0.15, 0.006));
+  }
+  vec3 floorPaint(vec2 p) {
+    float lane = step(abs(p.y), 0.125) * step(abs(p.x), uHalf.x - 1.0) + step(abs(abs(p.x) - (uHalf.x - 1.12)), 0.125) * step(abs(p.y), 0.5);
+    return mix(srgb(vec3(0.56, 0.81, 0.89)), srgb(vec3(0.14, 0.34, 0.5)), clamp(lane, 0.0, 1.0));
+  }
+  vec3 gHit;                                               // where inside() found a surface, pool-local
+  vec3 inside(vec2 p, float fill) {
+    vec3 rd = normalize(vWorld - cameraPosition), o = vec3(p.x, 0.0, p.y);
+    float yc = -uDepth * (1.0 - fill);
+    vec2 nw;
+    float tw = exitRound(o.xz, rd.xz, nw), tc = rd.y < -1e-5 ? yc / rd.y : 1e9;
+    if (tc <= tw) {                                        // the heap (or the bare floor)
+      vec3 h = o + rd * tc; gHit = h;
+      vec3 c, nb = vec3(0.0, 1.0, 0.0);
+      if (fill < 0.003) c = floorPaint(h.xz);
+      else {
+        vec2 uv = (vWorld.xz - p + h.xz + vec2(hash01(vIndex + uSeed, 1u), hash01(vIndex + uSeed, 2u)) * uTile) / uTile;
+        c = texture(uBills, uv).rgb;
+        vec3 tn = texture(uBillsN, uv).xyz * 2.0 - 1.0;   // each bill's own tilt
+        nb = normalize(vec3(tn.x, max(tn.z, 0.2), tn.y));
+      }
+      float edge = -sdRound(h.xz, uHalf, uRadius);
+      return lit(c, nb, sunShade(h)) * mix(0.62, 1.0, smoothstep(0.0, 0.45, edge));
+    }
+    vec3 h = o + rd * tw, n = vec3(nw.x, 0.0, nw.y);      // a wall (straight, or round a corner)
+    gHit = h;
+    float along = abs(nw.x) > 0.999 ? h.z : abs(nw.y) > 0.999 ? h.x : atan(nw.y, nw.x) * uRadius;
+    vec3 c = wallTiles(along, -h.y);
+    float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, h.y - yc)) * mix(1.0, 0.8, -h.y / uDepth);
+    return lit(c, n, sunShade(h + n * 0.002)) * ao;
+  }
+  uniform vec2 uCell, uOrigin; uniform sampler2D uCellFull, uCellEmpty;
+  void main() {
+    vec2 p = vLocal, q = abs(p) - uHalf + uRadius;
+    float out_ = sdRound(p, uHalf, uRadius), lotIn = -sdRound(p, uLot * 0.5, uLotRadius), fill = fillOf(vIndex);
+    // Far away a whole cell is a few pixels: draw its average colour instead, so big fields don't shimmer.
+    vec2 fw2 = fwidth(p);
+    float far = smoothstep(0.12, 0.4, max(fw2.x, fw2.y));
+    if (out_ < 0.0 && far < 0.99 && abs(vIndex - uActive) < 0.5) discard;   // that pool is being drawn for real
+    vec3 col = vec3(0.0);
+    float depth = gl_FragCoord.z;
+    if (far > 0.01) {                                      // the painted cell, filtered properly by the GPU
+      vec2 cuv = (vWorld.xz - uOrigin) / uCell, dx = dFdx(cuv), dy = dFdy(cuv);
+      vec3 a = textureGrad(uCellFull, cuv, dx, dy).rgb, b = textureGrad(uCellEmpty, cuv, dx, dy).rgb;
+      col = lit(mix(b, a, fill), vec3(0.0, 1.0, 0.0), 1.0);
+      col += vec3(0.32, 0.38, 0.16) * sin(3.14159 * fillK(vIndex)) * (i_target(vIndex) > 0.0 ? 1.0 : 0.0);   // the fill front, a glow sweeping the field
+    }
+    if (far > 0.99) { /* the average will do */ }
+    else if (lotIn < 0.0) {                                // the lawn between lots
+      col = mix(lit(lawnAlbedo(vWorld.xz), vec3(0.0, 1.0, 0.0), 1.0), col, far);
+    } else if (out_ < 0.0) {
+      col = mix(inside(p, fill), col, far);
+      vec4 cp = projectionMatrix * viewMatrix * vec4(vWorld.x - p.x + gHit.x, gHit.y, vWorld.z - p.y + gHit.z, 1.0);
+      depth = far > 0.5 ? depth : cp.z / cp.w * 0.5 + 0.5;
+    } else if (out_ < uCoping) {                           // bullnose coping stones
+      float r = out_ / uCoping;
+      vec3 c = srgb(vec3(0.9, 0.87, 0.81)) * (0.93 + 0.07 * vnoise(vWorld.xz * 3.0));
+      bool corner = q.x > 0.0 && q.y > 0.0;
+      c = mix(c, c * 0.8, lines(vec2(corner ? atan(q.y, q.x) * (uRadius + uCoping * 0.5) : q.x > q.y ? p.y : p.x, 0.5), 0.6, 0.008));
+      vec2 away = (corner ? normalize(q) : q.x > q.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0)) * sign(p);
+      vec3 n = normalize(vec3(-away.x * (1.0 - r) * 0.9, 1.0, -away.y * (1.0 - r) * 0.9));
+      col = mix(lit(c, n, 1.0) * mix(0.8, 1.0, smoothstep(0.0, 0.25, r)), col, far);
+    } else {                                               // concrete deck with control joints and a darker kerb
+      vec3 c = srgb(vec3(0.83, 0.79, 0.72)) * (0.92 + 0.1 * vnoise(vWorld.xz * 1.7) + 0.04 * vnoise(vWorld.xz * 9.0));
+      c *= 1.0 - 0.3 * lines(p + uLot * 0.5, 1.5, 0.012);
+      c *= mix(mix(0.72, 1.0, smoothstep(0.0, 0.12, lotIn)), 0.97, smoothstep(0.03, 0.12, max(fw2.x, fw2.y)));
+      col = mix(lit(c, vec3(0.0, 1.0, 0.0), 1.0), col, far);
+    }
+    gl_FragColor = vec4(fogged(col, vWorld), 1.0);
+    gl_FragDepth = depth;
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`;
+function makeField(slotIndex) {
+  const base = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), geo = new THREE.InstancedBufferGeometry();
+  geo.index = base.index; geo.setAttribute('position', base.getAttribute('position')); geo.instanceCount = 0;
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: FIELD_VS, fragmentShader: FIELD_FS,
+    uniforms: {
+      ...SHARED, uBills: { value: heapTex(1) }, uBillsN: { value: heapNrm(1) }, uHalf: { value: new THREE.Vector2(POOL_L / 2, POOL_W / 2) }, uLot: { value: new THREE.Vector2(LOT_X, LOT_Z) },
+      uCell: { value: new THREE.Vector2(CELL_X, CELL_Z) }, uDepth: { value: POOL_D }, uCoping: { value: COPING }, uTile: { value: TILE },
+      uRadius: { value: POOL_R }, uLotRadius: { value: LOT_R },
+      uCols: { value: 1 }, uOrigin: { value: new THREE.Vector2() }, uFull: { value: 0 }, uPart: { value: 0 }, uTotal: { value: 1 },
+      uClock: { value: 0 }, uSpread: { value: 0 }, uDur: { value: 2 }, uActive: { value: -1 }, uSeed: { value: slotIndex * 7919 },
+      uCellFull: { value: cellTex(1, true) }, uCellEmpty: { value: cellTex(1, false) },
+    },
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  return { mesh, geo, mat, u: mat.uniforms };
+}
+
+/* ---------- the pool you clicked, drawn for real ----------
+   A tiled basin, a diving board, and a surface of bills that moves like thick water:
+   a small wave simulation (height and velocity on a 10 cm grid) that splashes, rings and settles. */
+const HX = 97, HZ = 49, DXH = POOL_L / (HX - 1);
+const hf = new Float32Array(HX * HZ), hv = new Float32Array(HX * HZ);
+const active = { slot: -1, index: -1, x: 0, z: 0, fill: 0, level: -POOL_D, depth: 0, ox: 0, oz: 0 };
+const act = new THREE.Group(); act.visible = false; scene.add(act);
+{
+  // Walls: one strip following the rounded outline, tiles running continuously round the corners.
+  const outline = roundOutline(POOL_L / 2, POOL_W / 2, POOL_R, 12);
+  outline.push(outline[0]);
+  const kx = POOL_L / 2 - POOL_R, kz = POOL_W / 2 - POOL_R, pos = [], nrm = [], uv = [], idx = [];
+  let run = 0;
+  outline.forEach(([x, z], i) => {
+    if (i) run += Math.hypot(x - outline[i - 1][0], z - outline[i - 1][1]);
+    const dx = x - clamp(x, -kx, kx), dz = z - clamp(z, -kz, kz), d = Math.hypot(dx, dz) || 1;
+    pos.push(x, 0, z, x, -POOL_D, z); nrm.push(-dx / d, 0, -dz / d, -dx / d, 0, -dz / d); uv.push(run / 1.2, 1, run / 1.2, 0);
+    if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }   // wound to face into the pool
+  });
+  const wallGeo = new THREE.BufferGeometry();
+  wallGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); wallGeo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  wallGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); wallGeo.setIndex(idx);
+  const wallTex = tex(paintWall()); wallTex.wrapT = THREE.ClampToEdgeWrapping;
+  const walls = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.3 }));
+  walls.receiveShadow = true; act.add(walls);
+  // Floor: a fan over the same outline.
+  const fp = [0, -POOL_D, 0], fu = [0.5, 0.5], fi = [];
+  outline.forEach(([x, z], i) => { fp.push(x, -POOL_D, z); fu.push(x / POOL_L + 0.5, z / POOL_W + 0.5); if (i) fi.push(0, i + 1, i); });
+  const floorGeo = new THREE.BufferGeometry();
+  floorGeo.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); floorGeo.setAttribute('uv', new THREE.Float32BufferAttribute(fu, 2)); floorGeo.setIndex(fi);
+  floorGeo.computeVertexNormals();
+  const floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ map: tex(paintFloor(), { repeat: false }), roughness: 0.6 }));
+  floor.receiveShadow = true; act.add(floor);
+  // Shadows cast on the deck: the rounded lot with the rounded pool cut out of it.
+  const lotShape = new THREE.Shape(roundOutline(LOT_X / 2, LOT_Z / 2, LOT_R).map(([x, z]) => new THREE.Vector2(x, z)));
+  lotShape.holes.push(new THREE.Path(roundOutline(POOL_L / 2, POOL_W / 2, POOL_R).map(([x, z]) => new THREE.Vector2(x, z))));
+  const catcher = new THREE.Mesh(new THREE.ShapeGeometry(lotShape, 8).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ opacity: 0.28 }));
+  catcher.position.y = 0.004; catcher.receiveShadow = true; act.add(catcher);
+}
+const surfGeo = new THREE.PlaneGeometry(POOL_L, POOL_W, HX - 1, HZ - 1).rotateX(-Math.PI / 2);
+const surfMat = new THREE.MeshStandardMaterial({ map: heapTex(1), normalMap: heapNrm(1), roughness: 0.85 });
+surfMat.onBeforeCompile = sh => {                         // trim the square wave grid to the pool's rounded outline
+  sh.uniforms.uRR = { value: new THREE.Vector3(POOL_L / 2, POOL_W / 2, POOL_R) };
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vPool;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPool = position.xz;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vPool; uniform vec3 uRR;')
+    .replace('#include <clipping_planes_fragment>', 'vec2 qq = abs(vPool) - uRR.xy + uRR.z;\nif (length(max(qq, 0.0)) + min(max(qq.x, qq.y), 0.0) - uRR.z > 0.0) discard;\n#include <clipping_planes_fragment>');
+};
+const surface = new THREE.Mesh(surfGeo, surfMat);
+surface.receiveShadow = true; act.add(surface);
+// The diving board, at the deep (-x) end: a stand on the deck and a springy board that pivots at its front edge.
+const BOARD_Y = 0.55, BOARD_BACK = -POOL_L / 2 - 1.1, BOARD_TIP = -POOL_L / 2 + 1.8, PIVOT = -POOL_L / 2 - 0.35;
+const board = new THREE.Group(); board.position.set(PIVOT, BOARD_Y, 0); act.add(board);
+{
+  const white = new THREE.MeshStandardMaterial({ color: '#eef2f3', roughness: 0.4 }), grip = new THREE.MeshStandardMaterial({ color: '#8fb8c8', roughness: 0.9 });
+  const plank = new THREE.Mesh(new THREE.BoxGeometry(BOARD_TIP - BOARD_BACK, 0.06, 0.52), white);
+  plank.position.x = (BOARD_BACK + BOARD_TIP) / 2 - PIVOT; plank.position.y = -0.03; plank.castShadow = plank.receiveShadow = true;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(BOARD_TIP - BOARD_BACK - 0.1, 0.004, 0.46), grip);
+  top.position.set(plank.position.x, 0.002, 0); board.add(plank, top);
+  const steel = new THREE.MeshStandardMaterial({ color: '#b9c2c8', metalness: 0.8, roughness: 0.35 });
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(0.9, BOARD_Y - 0.06, 0.46), steel);
+  stand.position.set((BOARD_BACK + PIVOT) / 2 + 0.05, (BOARD_Y - 0.06) / 2, 0); stand.castShadow = true; act.add(stand);
+}
+const boardSpring = { a: 0, v: 0 };
+
+function poke(x, z, radius, dv) {                         // push the surface (m/s) in a soft circle
+  const r2 = radius * radius, span = Math.ceil(radius * 2.5 / DXH);
+  const ci = Math.round((x + POOL_L / 2) / DXH), cj = Math.round((z + POOL_W / 2) / DXH);
+  for (let j = Math.max(0, cj - span); j <= Math.min(HZ - 1, cj + span); j++) for (let i = Math.max(0, ci - span); i <= Math.min(HX - 1, ci + span); i++) {
+    const dx = i * DXH - POOL_L / 2 - x, dz = j * DXH - POOL_W / 2 - z;
+    hv[j * HX + i] += dv * Math.exp(-(dx * dx + dz * dz) / r2);
+  }
+}
+function heightAt(x, z) {
+  const fx = clamp((x + POOL_L / 2) / DXH, 0, HX - 1.001), fz = clamp((z + POOL_W / 2) / DXH, 0, HZ - 1.001), i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, k = j * HX + i;
+  return lerp(lerp(hf[k], hf[k + 1], u), lerp(hf[k + HX], hf[k + HX + 1], u), v);
+}
+const surfaceY = (x, z) => active.level + heightAt(x, z);   // pool-local x, z
+function simulate(dt) {
+  const c2 = 2.3 * 2.3 / (DXH * DXH), damp = 1.5, lo = -active.depth + 0.03, n = Math.ceil(dt / (1 / 120)), h = dt / n;
+  for (let s = 0; s < n; s++) {
+    for (let j = 0; j < HZ; j++) for (let i = 0; i < HX; i++) {
+      const k = j * HX + i, c = hf[k];
+      const lap = hf[i > 0 ? k - 1 : k] + hf[i < HX - 1 ? k + 1 : k] + hf[j > 0 ? k - HX : k] + hf[j < HZ - 1 ? k + HX : k] - 4 * c;
+      hv[k] += (c2 * lap - damp * hv[k] - 0.6 * c) * h;
+    }
+    for (let k = 0; k < hf.length; k++) hf[k] = clamp(hf[k] + hv[k] * h, lo, 1.2);
+  }
+  const pos = surfGeo.attributes.position;
+  for (let k = 0; k < hf.length; k++) pos.setY(k, active.level + hf[k]);
+  pos.needsUpdate = true; surfGeo.computeVertexNormals();
+}
+function setActive(slot, index) {
+  active.slot = slot; active.index = index;
+  for (const s of slots) s.field.u.uActive.value = -1;
+  if (slot < 0) { act.visible = false; lawn.material.uniforms.uHole.value.set(0, 0, -1, -1); return; }
+  const S = slots[slot], c = poolCenter(S, index);
+  active.x = c.x; active.z = c.y; active.fill = fillNow(S, index);
+  active.depth = POOL_D * active.fill; active.level = -POOL_D + active.depth;
+  active.ox = hash01(index + S.seed, 1) * TILE; active.oz = hash01(index + S.seed, 2) * TILE;
+  S.field.u.uActive.value = index;
+  hf.fill(0); hv.fill(0);
+  act.position.set(c.x, 0, c.y); act.visible = true;
+  lawn.material.uniforms.uHole.value.set(c.x, c.y, POOL_L / 2, POOL_W / 2);
+  surface.visible = active.fill > 0.003;
+  surfMat.map = heapTex(denom); surfMat.normalMap = heapNrm(denom); surfMat.needsUpdate = true;
+  const uv = surfGeo.attributes.uv, pos = surfGeo.attributes.position;
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, (c.x + pos.getX(k) + active.ox) / TILE, (c.y + pos.getZ(k) + active.oz) / TILE);
+  uv.needsUpdate = true;
+  simulate(0);
+  sun.target.position.set(c.x, 0, c.y); sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 45);
+}
+
+/* ---------- flying bills ---------- */
+const MAXP = 1000;
+const partMats = {};
+// Thin paper glows a little when the sun is behind it, so flying bills never go dark.
+const partMat = d => partMats[d] ??= new THREE.MeshStandardMaterial({ map: billTex(d), side: THREE.DoubleSide, roughness: 0.8, emissive: '#ffffff', emissiveMap: billTex(d), emissiveIntensity: 0.28 });
+const parts = new THREE.InstancedMesh(new THREE.PlaneGeometry(BILL_L, BILL_W), partMat(1), MAXP);
+parts.instanceMatrix.setUsage(THREE.DynamicDrawUsage); parts.castShadow = true; parts.frustumCulled = false; parts.count = 0;
+scene.add(parts);
+const P = Array.from({ length: MAXP }, () => ({ on: false, p: new THREE.Vector3(), v: new THREE.Vector3(), r: new THREE.Euler(), w: new THREE.Vector3(), rest: -1, ph: 0, s: 1, pool: false }));
+let pNext = 0;
+function spawnBill(x, y, z, vx, vy, vz) {                 // world coordinates
+  const b = P[pNext]; pNext = (pNext + 1) % MAXP;
+  Object.assign(b, { on: true, rest: -1, ph: Math.random() * TAU, s: 1 });
+  b.p.set(x, y, z); b.v.set(vx, vy, vz);
+  b.r.set(Math.random() * TAU, Math.random() * TAU, Math.random() * TAU); b.w.set(rr(-9, 9), rr(-6, 6), rr(-9, 9));
+}
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+function updateBills(dt, t) {
+  let n = 0;
+  for (const b of P) {
+    if (!b.on) continue;
+    const [ground, inPool] = groundAt(b.p.x, b.p.z);
+    if (b.rest < 0) {
+      b.v.y -= 9.8 * dt;
+      const drag = Math.exp(-1.4 * dt); b.v.x *= drag; b.v.z *= drag;
+      if (b.v.y < -1.4) b.v.y = lerp(b.v.y, -1.4, 1 - Math.exp(-4 * dt));   // paper doesn't fall fast
+      const fl = b.v.y < 0 ? 0.9 : 0.2;                                        // it flutters on the way down
+      b.p.x += (b.v.x + Math.cos(t * 3.1 + b.ph) * fl) * dt; b.p.z += (b.v.z + Math.sin(t * 2.3 + b.ph) * fl) * dt; b.p.y += b.v.y * dt;
+      b.r.x += b.w.x * dt; b.r.y += b.w.y * dt; b.r.z += b.w.z * dt;
+      if (b.p.y <= ground + 0.004 && b.v.y < 0) { b.rest = 0; b.pool = inPool; b.r.set(-Math.PI / 2 + rr(-0.15, 0.15), Math.random() * TAU, rr(-0.15, 0.15), 'YXZ'); }
+    } else {
+      b.rest += dt;
+      b.p.y = ground + 0.004 - (b.pool ? smoothstep(2.5, 5, b.rest) * 0.08 : 0);  // settles into the heap
+      if (!b.pool) b.s = 1 - smoothstep(7, 8, b.rest);
+      if ((b.pool && b.rest > 5) || b.s <= 0.01) { b.on = false; continue; }
+    }
+    _q.setFromEuler(b.r); _s.setScalar(b.s); _m.compose(b.p, _q, _s);
+    parts.setMatrixAt(n++, _m);
+  }
+  parts.count = n; parts.instanceMatrix.needsUpdate = true;
+}
+
+/* ---------- loose bills on top, when only a few pools are close ----------
+   Up close the heaps get a scattering of real, gently arched bills lying at odd angles on top of the texture. They rise
+   with the fill, ride the waves in the pool you jump into, and scatter from the splash. Past ~80 m they would be a
+   pixel or two, so they aren't drawn at all. */
+const LOOSE_MAX = 6000, LOOSE_PER_POOL = 460;
+const looseGeo = (() => {
+  const g = new THREE.PlaneGeometry(BILL_L, BILL_W, 6, 1), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const u = p.getX(i) / (BILL_L / 2); p.setZ(i, 0.007 * (1 - u * u)); }   // arched along its length
+  g.rotateX(-Math.PI / 2); g.computeVertexNormals();
+  return g;
+})();
+const loose = new THREE.InstancedMesh(looseGeo, partMat(1), LOOSE_MAX);
+loose.count = 0; loose.frustumCulled = false; loose.receiveShadow = true; scene.add(loose);
+const looseBills = [], looseState = { x: NaN, z: NaN, r: 0, gen: -1, denom: 0 };
+function layLoose() {                                     // (re)choose which bills to draw, around what's in view
+  const d = camera.position.distanceTo(controls.target), on = d < 80;
+  loose.visible = on;
+  if (!on) return false;
+  const R = clamp(d * 0.9, 14, 50), cx = lerp(controls.target.x, camera.position.x, 0.25), cz = lerp(controls.target.z, camera.position.z, 0.25);
+  if (looseState.gen === layoutGen && looseState.denom === denom && Math.hypot(cx - looseState.x, cz - looseState.z) < R * 0.25 && Math.abs(R - looseState.r) < R * 0.3) return false;
+  Object.assign(looseState, { x: cx, z: cz, r: R, gen: layoutGen, denom });
+  loose.material = partMat(denom);
+  looseBills.length = 0;
+  for (const S of slots) {
+    if (!S.used) continue;
+    const c0 = Math.max(0, Math.floor((cx - R - S.ox) / CELL_X)), c1 = Math.min(S.cols - 1, Math.floor((cx + R - S.ox) / CELL_X));
+    const r0 = Math.max(0, Math.floor((cz - R - S.oz) / CELL_Z)), r1 = Math.min(S.rows - 1, Math.floor((cz + R - S.oz) / CELL_Z));
+    for (let row = r0; row <= r1; row++) for (let col = c0; col <= c1; col++) {
+      const i = row * S.cols + col;
+      if (i >= S.total || (i < S.full ? 1 : S.part) < 0.004) continue;
+      const c = poolCenter(S, i);
+      for (let k = 0; k < LOOSE_PER_POOL && looseBills.length < LOOSE_MAX; k++) {
+        const key = ((i + S.seed) * 1024 + k) >>> 0, h = s => hk(key, s + 40);
+        const lx = (h(1) - 0.5) * (POOL_L - 0.3), lz = (h(2) - 0.5) * (POOL_W - 0.3);
+        if (sdRound(lx, lz, POOL_L / 2, POOL_W / 2, POOL_R) > -0.12) continue;
+        looseBills.push({ S, i, x: c.x + lx, z: c.y + lz, lx, lz, yaw: h(3) * TAU, tx: (h(4) - 0.5) * 0.5, tz: (h(5) - 0.5) * 0.5, lift: 0.004 + h(6) * 0.02, gone: false });
+      }
+    }
+  }
+  return true;
+}
+const _lm = new THREE.Matrix4(), _lq = new THREE.Quaternion(), _le = new THREE.Euler(0, 0, 0, 'YXZ'), _lp = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
+function updateLoose() {
+  const relaid = layLoose();
+  if (!loose.visible || !(relaid || act.visible || slots.some(S => S.used && S.clock < S.spread + S.dur + 0.1))) return;   // nothing moving
+  let n = 0;
+  for (const b of looseBills) {
+    if (b.gone) continue;
+    const mine = act.visible && b.S.i === active.slot && b.i === active.index, f = mine ? active.fill : fillNow(b.S, b.i);
+    if (f < 0.004) continue;
+    const y = (mine && surface.visible ? surfaceY(b.lx, b.lz) : -POOL_D * (1 - f)) + b.lift;
+    _lq.setFromEuler(_le.set(b.tx, b.yaw, b.tz));
+    loose.setMatrixAt(n++, _lm.compose(_lp.set(b.x, y, b.z), _lq, _one));
+  }
+  loose.count = n; loose.instanceMatrix.needsUpdate = true;
+}
+
+/* ---------- the swimmer ----------
+   A little tycoon in a top hat, built from capsules on a joint hierarchy and posed by blending named poses.
+   Facing +z in its own frame; angles are "forward" swings in radians. */
+const guyMats = {
+  skin: new THREE.MeshStandardMaterial({ color: '#e2ad88', roughness: 0.6 }),
+  trunks: new THREE.MeshStandardMaterial({ color: '#d63e36', roughness: 0.55 }),
+  hat: new THREE.MeshStandardMaterial({ color: '#1c1c21', roughness: 0.35 }),
+  band: new THREE.MeshStandardMaterial({ color: '#2f7d4c', roughness: 0.5 }),
+};
+Object.values(guyMats).forEach(m => { m.transparent = true; });
+const guy = new THREE.Group(), J = {};
+{
+  const part = (parent, geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  const joint = (parent, name, x, y, z) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); J[name] = g; return g; };
+  const limb = (r, len) => new THREE.CapsuleGeometry(r, len, 4, 10).translate(0, -len / 2 - r * 0.3, 0);
+  const hips = joint(guy, 'hips', 0, 0.94, 0);
+  part(hips, new THREE.SphereGeometry(0.16, 16, 12).scale(1.05, 0.8, 0.8), guyMats.trunks, 0, -0.02, 0);
+  const spine = joint(hips, 'spine', 0, 0.04, 0);
+  part(spine, new THREE.CapsuleGeometry(0.15, 0.26, 4, 12).scale(1.05, 1, 0.78), guyMats.skin, 0, 0.24, 0);
+  part(spine, new THREE.SphereGeometry(0.13, 12, 10).scale(1.1, 0.8, 0.9), guyMats.skin, 0, 0.1, 0.04);   // a bit of a belly
+  const head = joint(spine, 'head', 0, 0.5, 0);
+  part(head, new THREE.CylinderGeometry(0.05, 0.055, 0.08, 10), guyMats.skin, 0, 0.02, 0);
+  part(head, new THREE.SphereGeometry(0.105, 16, 12).scale(0.95, 1.08, 1), guyMats.skin, 0, 0.14, 0.01);
+  part(head, new THREE.SphereGeometry(0.022, 8, 6), guyMats.skin, 0, 0.13, 0.11);
+  part(head, new THREE.CylinderGeometry(0.15, 0.15, 0.012, 20), guyMats.hat, 0, 0.235, 0);
+  part(head, new THREE.CylinderGeometry(0.085, 0.09, 0.19, 18), guyMats.hat, 0, 0.33, 0);
+  part(head, new THREE.CylinderGeometry(0.092, 0.092, 0.035, 18), guyMats.band, 0, 0.26, 0);
+  for (const [side, sx] of [['L', 1], ['R', -1]]) {
+    const sh = joint(spine, 'sh' + side, 0.19 * sx, 0.38, 0);
+    part(sh, limb(0.048, 0.22), guyMats.skin);
+    const el = joint(sh, 'el' + side, 0, -0.29, 0);
+    part(el, limb(0.042, 0.2), guyMats.skin);
+    part(el, new THREE.SphereGeometry(0.048, 10, 8), guyMats.skin, 0, -0.29, 0.01);
+    const hp = joint(hips, 'hp' + side, 0.09 * sx, -0.04, 0);
+    part(hp, limb(0.072, 0.3), guyMats.skin);
+    part(hp, new THREE.CylinderGeometry(0.088, 0.082, 0.16, 12), guyMats.trunks, 0, -0.07, 0);
+    const kn = joint(hp, 'kn' + side, 0, -0.43, 0);
+    part(kn, limb(0.055, 0.32), guyMats.skin);
+    part(kn, new THREE.BoxGeometry(0.09, 0.05, 0.22), guyMats.skin, 0, -0.43, 0.05);
+  }
+}
+guy.visible = false; scene.add(guy);
+// Named poses: spine lean, head nod, shoulders [forward, out], elbows, hips [forward, out], knees, and how far the hips drop.
+const POSE = {
+  stand:  { spine: 0.02, head: 0, shL: [0.05, 0.12], shR: [0.05, 0.12], elL: 0.15, elR: 0.15, hpL: [0, 0.03], hpR: [0, 0.03], knL: 0.05, knR: 0.05, drop: 0 },
+  runA:   { spine: 0.22, head: -0.1, shL: [-0.7, 0.1], shR: [0.8, 0.1], elL: 1.3, elR: 1.3, hpL: [0.75, 0.02], hpR: [-0.45, 0.02], knL: 0.5, knR: 1.3, drop: 0.05 },
+  runB:   { spine: 0.22, head: -0.1, shL: [0.8, 0.1], shR: [-0.7, 0.1], elL: 1.3, elR: 1.3, hpL: [-0.45, 0.02], hpR: [0.75, 0.02], knL: 1.3, knR: 0.5, drop: 0.05 },
+  crouch: { spine: 0.45, head: -0.15, shL: [-0.9, 0.15], shR: [-0.9, 0.15], elL: 0.3, elR: 0.3, hpL: [1.0, 0.05], hpR: [1.0, 0.05], knL: 1.7, knR: 1.7, drop: 0.3 },
+  launch: { spine: -0.1, head: -0.2, shL: [2.9, 0.2], shR: [2.9, 0.2], elL: 0.1, elR: 0.1, hpL: [-0.1, 0.03], hpR: [-0.1, 0.03], knL: 0.15, knR: 0.15, drop: 0 },
+  tuck:   { spine: 0.6, head: 0.35, shL: [1.05, 0.12], shR: [1.05, 0.12], elL: 1.9, elR: 1.9, hpL: [2.3, 0.12], hpR: [2.3, 0.12], knL: 2.5, knR: 2.5, drop: 0 },
+  float:  { spine: -0.05, head: -0.12, shL: [0.3, 1.25], shR: [0.3, 1.25], elL: 0.35, elR: 0.35, hpL: [0.5, 0.1], hpR: [0.4, 0.1], knL: 0.7, knR: 0.8, drop: 0 },
+  sit:    { spine: -0.25, head: 0.1, shL: [-0.5, 0.35], shR: [-0.5, 0.35], elL: 0.1, elR: 0.1, hpL: [1.45, 0.2], hpR: [1.45, 0.2], knL: 0.3, knR: 0.3, drop: 0.5 },
+};
+function blend(a, b, t) {
+  const o = {};
+  for (const k in a) o[k] = Array.isArray(a[k]) ? [lerp(a[k][0], b[k][0], t), lerp(a[k][1], b[k][1], t)] : lerp(a[k], b[k], t);
+  return o;
+}
+function applyPose(p) {
+  J.hips.position.y = 0.94 - p.drop;
+  J.spine.rotation.x = p.spine; J.head.rotation.x = p.head;
+  J.shL.rotation.set(-p.shL[0], 0, p.shL[1]); J.shR.rotation.set(-p.shR[0], 0, -p.shR[1]);
+  J.elL.rotation.x = -p.elL; J.elR.rotation.x = -p.elR;
+  J.hpL.rotation.set(-p.hpL[0], 0, p.hpL[1]); J.hpR.rotation.set(-p.hpR[0], 0, -p.hpR[1]);
+  J.knL.rotation.x = p.knL; J.knR.rotation.x = p.knR;
+}
+function setGuyOpacity(a) { for (const m of Object.values(guyMats)) { m.opacity = a; m.depthWrite = a > 0.98; } guy.visible = a > 0.01; }
+
+/* ---------- fortunes, laid out as grids of pools ---------- */
+let denom = Q.get('bills') === '100' ? 100 : 1, comparing = false, focusSlot = 0;
+const slots = [0, 1].map(i => ({ i, seed: i * 7919, name: '', worth: NaN, used: false, field: makeField(i), pools: 0, full: 0, part: 0, total: 0, cols: 1, rows: 1, ox: 0, oz: 0, clock: 0, spread: 0, dur: 2 }));
+function layoutSlot(S) {
+  const pools = S.worth / denom / BILLS_PER_POOL;
+  S.pools = pools;
+  S.full = Math.min(Math.floor(pools), MAX_POOLS);
+  S.part = pools >= MAX_POOLS ? 0 : pools - Math.floor(pools);
+  S.total = Math.max(1, Math.min(MAX_POOLS, S.full + (S.part > 1e-12 ? 1 : 0)));
+  S.cols = Math.max(1, Math.ceil(Math.sqrt(S.total * CELL_Z / CELL_X)));
+  S.rows = Math.ceil(S.total / S.cols);
+  S.clock = 0; S.spread = S.total > 1 ? Math.min(3.5, 0.5 + Math.log10(S.total) * 0.8) : 0; S.dur = S.total > 1 ? 1.5 : 2.6;
+}
+function place() {
+  const used = slots.filter(s => s.used), w = s => s.cols * CELL_X, d = s => s.rows * CELL_Z;
+  if (used.length === 1) { const S = used[0]; S.ox = -w(S) / 2; S.oz = -d(S) / 2; }
+  else {
+    const [A, B] = slots, front = Math.max(d(A), d(B)) / 2, shift = (w(A) - w(B)) / 2;
+    A.ox = -GROUP_GAP / 2 - w(A) + shift; B.ox = GROUP_GAP / 2 + shift;
+    A.oz = front - d(A); B.oz = front - d(B);
+  }
+  for (const S of slots) {
+    const u = S.field.u;
+    S.field.geo.instanceCount = S.used ? S.total : 0;
+    u.uCols.value = S.cols; u.uOrigin.value.set(S.ox, S.oz); u.uFull.value = S.full; u.uPart.value = S.part; u.uTotal.value = S.total;
+    u.uClock.value = 0; u.uSpread.value = S.spread; u.uDur.value = S.dur; u.uBills.value = heapTex(denom); u.uBillsN.value = heapNrm(denom);
+    u.uCellFull.value = cellTex(denom, true); u.uCellEmpty.value = cellTex(denom, false);
+  }
+}
+function poolCenter(S, i) { const row = Math.floor(i / S.cols), col = i - row * S.cols; return new THREE.Vector2(S.ox + (col + 0.5) * CELL_X, S.oz + (row + 0.5) * CELL_Z); }
+function fillNow(S, i) {                                  // same as fillOf() in the shader
+  const target = i < S.full ? 1 : S.part, k = clamp((S.clock - (S.total > 1 ? i / (S.total - 1) * S.spread : 0)) / S.dur, 0, 1);
+  return target * k * k * (3 - 2 * k);
+}
+function poolAt(x, z) {                                   // which pool's lot is this point on?
+  for (const S of slots) {
+    if (!S.used) continue;
+    const col = Math.floor((x - S.ox) / CELL_X), row = Math.floor((z - S.oz) / CELL_Z), i = row * S.cols + col;
+    if (col < 0 || col >= S.cols || row < 0 || i >= S.total) continue;
+    const c = poolCenter(S, i);
+    return { S, i, lx: x - c.x, lz: z - c.y };
+  }
+  return null;
+}
+function groundAt(x, z) {                                 // where a falling bill comes to rest
+  const hit = poolAt(x, z);
+  if (!hit || sdRound(hit.lx, hit.lz, POOL_L / 2, POOL_W / 2, POOL_R) > 0) return [0, false];
+  if (act.visible && hit.S.i === active.slot && hit.i === active.index) return [surface.visible ? surfaceY(hit.lx, hit.lz) : -POOL_D, true];
+  return [-POOL_D * (1 - fillNow(hit.S, hit.i)), true];
+}
+
+/* ---------- the fence ----------
+   A white picket fence around each fortune's pools, planted section by section: each one drops out of the air and
+   thunks into the ground, the planting running round the perimeter just before the pools start to fill. */
+const FENCE_M = 1.6, SECTION = 2.4;                       // how far outside the grid it runs; one section between posts
+function sectionGeo() {                                   // 16 pointed pickets on two rails, pickets in both windings
+  const pos = [], nrm = [], face = (pts, n) => { for (const i of [0, 1, 2, 0, 2, 3]) { pos.push(...pts[i]); nrm.push(...n); } };
+  const box = (x0, x1, y0, y1, z0, z1) => {
+    face([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1]); face([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1]);
+    face([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0]); face([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [0, -1, 0]);
+  };
+  box(-SECTION / 2, SECTION / 2, 0.24, 0.32, -0.05, -0.015); box(-SECTION / 2, SECTION / 2, 0.78, 0.86, -0.05, -0.015);
+  for (let i = 0; i < 16; i++) {
+    const x0 = -SECTION / 2 + (i + 0.25) * SECTION / 16, x1 = x0 + SECTION / 16 * 0.55, xm = (x0 + x1) / 2;
+    for (const [z, n] of [[0.01, 1], [-0.012, -1]]) {
+      const pts = [[x0, 0, z], [x1, 0, z], [x1, 1.0, z], [xm, 1.08, z], [x0, 1.0, z]], tris = n > 0 ? [0, 1, 2, 0, 2, 4, 4, 2, 3] : [0, 2, 1, 0, 4, 2, 4, 3, 2];
+      for (const k of tris) { pos.push(...pts[k]); nrm.push(0, 0, n); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  return g;
+}
+const postGeo = (() => {
+  const g = new THREE.BoxGeometry(0.11, 1.22, 0.11).translate(0, 0.61, 0), cap = new THREE.ConeGeometry(0.09, 0.08, 4).rotateY(Math.PI / 4).translate(0, 1.26, 0);
+  const merged = new THREE.BufferGeometry(), a = g.toNonIndexed(), b = cap.toNonIndexed();
+  for (const k of ['position', 'normal']) merged.setAttribute(k, new THREE.Float32BufferAttribute([...a.attributes[k].array, ...b.attributes[k].array], 3));
+  return merged;
+})();
+const SECTION_GEO = sectionGeo();
+function fenceMaterial() {
+  const m = new THREE.MeshStandardMaterial({ color: '#f3f1ea', roughness: 0.55 }), u = { uT: { value: 0 }, uSpread: { value: 1.8 } };
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'attribute float aOrder;\nuniform float uT, uSpread;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float fk = clamp((uT - aOrder * uSpread) / 0.42, 0.0, 1.0);
+      transformed.y += fk <= 0.0 ? -60.0 : fk < 0.72 ? 2.6 * pow(1.0 - fk / 0.72, 2.0) : -0.07 * sin((fk - 0.72) / 0.28 * 3.14159);`);
+  };
+  return { m, u };
+}
+const fences = [0, 1].map(() => ({ mat: fenceMaterial(), sections: null, posts: null }));
+function buildFence(S) {
+  const F = fences[S.i];
+  for (const k of ['sections', 'posts']) if (F[k]) { scene.remove(F[k]); F[k].geometry.dispose(); F[k].dispose(); F[k] = null; }
+  if (!S.used) return;
+  const x0 = S.ox - FENCE_M, x1 = S.ox + S.cols * CELL_X + FENCE_M, z0 = S.oz - FENCE_M, z1 = S.oz + S.rows * CELL_Z + FENCE_M;
+  // walk the rectangle from the front-left corner, round the front, right, back and left sides
+  const sides = [[x0, z1, x1, z1], [x1, z1, x1, z0], [x1, z0, x0, z0], [x0, z0, x0, z1]], perim = 2 * (x1 - x0 + z1 - z0);
+  const secs = [], posts = [];
+  let run = 0;
+  for (const [ax, az, bx, bz] of sides) {
+    const len = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(len / SECTION)), yaw = Math.atan2(-(bz - az), bx - ax);
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, tm = (i + 0.5) / n;
+      posts.push([lerp(ax, bx, t0), lerp(az, bz, t0), (run + len * t0) / perim]);
+      secs.push([lerp(ax, bx, tm), lerp(az, bz, tm), yaw, len / n / SECTION, (run + len * tm) / perim]);
+    }
+    run += len;
+  }
+  const make = (geo, list, place) => {
+    const g = geo.clone(), mesh = new THREE.InstancedMesh(g, F.mat.m, list.length), order = new Float32Array(list.length);
+    list.forEach((it, i) => { mesh.setMatrixAt(i, place(it)); order[i] = it[it.length - 1]; });
+    g.setAttribute('aOrder', new THREE.InstancedBufferAttribute(order, 1));
+    mesh.frustumCulled = false; mesh.receiveShadow = true; scene.add(mesh);
+    return mesh;
+  };
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  F.sections = make(SECTION_GEO, secs, ([x, z, yaw, sx]) => m4.compose(v.set(x, 0, z), q.setFromAxisAngle(up, yaw), sc.set(sx, 1, 1)));
+  F.posts = make(postGeo, posts, ([x, z]) => m4.compose(v.set(x, 0, z), q.identity(), sc.set(1, 1, 1)));
+  F.mat.u.uSpread.value = clamp(0.9 + 0.35 * Math.log10(secs.length), 1.1, 2.4);
+}
+
+/* ---------- camera ---------- */
+const view = { left: 0, bottom: 0 };                      // screen taken by the panel, so the scene centres in what's left
+let tween = null, autoFit = true;
+controls.addEventListener('start', () => { autoFit = false; });
+function flyTo(pos, target, dur = 1.4) {
+  tween = { t: 0, dur, p0: camera.position.clone(), p1: pos.clone(), q0: controls.target.clone(), q1: target.clone() };
+  controls.enabled = false;
+}
+// Frame a box of ground (x0..x1, z0..z1) in the part of the screen the panel leaves free, looking down at `elev`.
+function frameBox(x0, x1, z0, z1, elev, side = 0) {
+  const W = innerWidth, H = innerHeight - view.bottom, vfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * H / (innerHeight + view.bottom));   // fov spans screen + offset
+  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * (W - view.left) / H), e = THREE.MathUtils.degToRad(elev);
+  // the front edge is nearer the camera, so it is the widest thing on screen
+  const dist = Math.max((x1 - x0) / (2 * Math.tan(hfov / 2)) + (z1 - z0) / 2 * Math.cos(e), ((z1 - z0) * Math.sin(e) + 1.5) / (2 * Math.tan(vfov / 2))) * 1.08;
+  const tgt = new THREE.Vector3((x0 + x1) / 2, 0, (z0 + z1) / 2);
+  return [tgt.clone().add(new THREE.Vector3(side, Math.sin(e), Math.cos(e)).normalize().multiplyScalar(dist)), tgt];
+}
+const poolShot = c => frameBox(c.x - LOT_X / 2 - 0.4, c.x + LOT_X / 2 + 0.4, c.y - LOT_Z / 2, c.y + LOT_Z / 2, 34, 0.18);
+function fitView(instant = false) {
+  const used = slots.filter(s => s.used);
+  let pos, tgt;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;       // every fence, and all it holds
+  for (const S of used) { x0 = Math.min(x0, S.ox - FENCE_M); x1 = Math.max(x1, S.ox + S.cols * CELL_X + FENCE_M); z0 = Math.min(z0, S.oz - FENCE_M); z1 = Math.max(z1, S.oz + S.rows * CELL_Z + FENCE_M); }
+  [pos, tgt] = used.length === 1 && used[0].total === 1 ? frameBox(x0, x1, z0, z1, 34, 0.18) : frameBox(x0, x1, z0, z1, 52);
+  controls.maxDistance = Math.max(250, pos.distanceTo(tgt) * 4);
+  autoFit = true;
+  const d = pos.distanceTo(tgt);
+  if (instant || (camera.position.distanceTo(pos) < d * 0.04 && controls.target.distanceTo(tgt) < d * 0.04)) { camera.position.copy(pos); controls.target.copy(tgt); return 0; }
+  flyTo(pos, tgt, 1.6);
+  return 1.6;                                             // how long until the new view is in place
+}
+function updateCamera(dt) {
+  if (tween) {
+    tween.t += dt; const k = smoothstep(0, 1, tween.t / tween.dur);
+    camera.position.lerpVectors(tween.p0, tween.p1, k); controls.target.lerpVectors(tween.q0, tween.q1, k);
+    if (tween.t >= tween.dur) { tween = null; controls.enabled = true; }
+  }
+  controls.update();
+  const d = camera.position.distanceTo(controls.target);
+  camera.near = clamp(d * 0.015, 0.1, 150); camera.far = Math.max(3000, d * 40); camera.updateProjectionMatrix();
+  SHARED.uFogDensity.value = 0.75 / (d * 3.5 + 400);
+  sky.position.copy(camera.position); sky.scale.setScalar(camera.far * 0.85);
+}
+
+/* ---------- the cannonball ---------- */
+const jump = { phase: 'idle', t: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, a: 0, next: null, shallow: false, surfaced: false, jet: -1 };
+function goJump(slot, index) {
+  $('hint').classList.add('gone');
+  if (jump.phase !== 'idle' && guy.visible) { jump.next = [slot, index]; jump.phase = 'fadeOut'; jump.t = 0; return; }
+  const S = slots[slot], c = poolCenter(S, index);
+  const far = camera.position.distanceTo(new THREE.Vector3(c.x, 0, c.y)) > 34;
+  setActive(slot, index);
+  if (far) { const [p, t] = poolShot(c); flyTo(p, t, 1.5); }
+  Object.assign(jump, { phase: 'wait', t: 0, x: BOARD_BACK + 0.25, y: BOARD_Y, z: 0, a: 0, next: null, surfaced: false, jet: -1 });
+}
+const boardTop = x => BOARD_Y + (x - PIVOT) * Math.tan(boardSpring.a);
+function splash(x, z, power) {                            // pool-local impact point
+  for (const b of looseBills) if (b.S.i === active.slot && b.i === active.index && Math.hypot(b.lx - x, b.lz - z) < 1.1 + 0.7 * power) b.gone = true;
+  const n = Math.round(90 + 420 * power);
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * TAU, r = rr(0.15, 0.6), up = rr(2.5, 7.5) * (0.5 + 0.5 * power), out = rr(0.6, 3.2) * (0.6 + 0.4 * power);
+    spawnBill(active.x + x + Math.cos(a) * r, surfaceY(x, z) + 0.05, active.z + z + Math.sin(a) * r, Math.cos(a) * out, up, Math.sin(a) * out);
+  }
+}
+function updateJump(dt) {
+  const J2 = jump;
+  J2.t += dt;
+  let pose = POSE.stand, opacity = 1;
+  switch (J2.phase) {
+    case 'idle': setGuyOpacity(0); return;
+    case 'wait': opacity = 0; if (!tween) { J2.phase = 'fadeIn'; J2.t = 0; } break;
+    case 'fadeIn': opacity = smoothstep(0, 0.5, J2.t); J2.y = boardTop(J2.x); if (J2.t > 0.6) { J2.phase = 'run'; J2.t = 0; } break;
+    case 'run': {
+      const x0 = BOARD_BACK + 0.25, x1 = BOARD_TIP - 0.3, k = clamp(J2.t / 1.0, 0, 1);
+      J2.x = lerp(x0, x1, k * k * (1.4 - 0.4 * k)); J2.y = boardTop(J2.x);
+      const c = Math.sin((J2.x - x0) / 0.55 * Math.PI);
+      pose = blend(POSE.runA, POSE.runB, 0.5 + 0.5 * c); pose = blend(POSE.stand, pose, smoothstep(0, 0.15, J2.t));
+      boardSpring.v -= 1.2 * Math.abs(c) * dt;
+      if (k >= 1) { J2.phase = 'crouch'; J2.t = 0; }
+      break;
+    }
+    case 'crouch':
+      pose = blend(POSE.runA, POSE.crouch, smoothstep(0, 0.2, J2.t)); J2.y = boardTop(J2.x);
+      boardSpring.v -= 9 * dt;
+      if (J2.t > 0.28) { J2.phase = 'air'; J2.t = 0; J2.vx = 2.5; J2.vy = 4.8; boardSpring.v += 2.5; }
+      break;
+    case 'air': {
+      J2.vy -= 9.8 * dt; J2.x += J2.vx * dt; J2.y += J2.vy * dt;
+      pose = J2.t < 0.2 ? blend(POSE.crouch, POSE.launch, smoothstep(0, 0.12, J2.t)) : blend(POSE.launch, POSE.tuck, smoothstep(0.2, 0.42, J2.t));
+      J2.a = -0.35 * smoothstep(0.2, 0.5, J2.t);
+      const surf = surface.visible ? surfaceY(J2.x, J2.z) : -POOL_D;
+      if (J2.vy < 0 && J2.y + 0.78 <= surf) {
+        const power = clamp(active.depth / 1.0, 0.25, 1);
+        J2.shallow = active.depth < 1.1;
+        poke(J2.x, J2.z, 0.55, -4.5 * power); splash(J2.x, J2.z, power);
+        J2.jet = J2.shallow ? -1 : 0.32;
+        J2.phase = 'plunge'; J2.t = 0; J2.vy *= 0.6;
+        if (J2.shallow) note(active.depth < 0.05 ? 'Ouch. Not much of a pool yet.' : 'Oof, shallow end!');
+      }
+      break;
+    }
+    case 'plunge': {
+      pose = J2.shallow ? blend(POSE.tuck, POSE.sit, smoothstep(0, 0.3, J2.t)) : POSE.tuck;
+      J2.vy = lerp(J2.vy, 0, 1 - Math.exp(-3.5 * dt)); J2.x += J2.vx * Math.exp(-6 * J2.t) * dt; J2.y += J2.vy * dt;
+      J2.y = Math.max(J2.y, J2.shallow ? -POOL_D - 0.44 : -POOL_D - 0.72);
+      if (J2.jet >= 0 && J2.t > J2.jet) { poke(J2.x, J2.z, 0.3, 3.6); J2.jet = -1; }
+      if (J2.t > (J2.shallow ? 1.5 : 0.9)) { J2.phase = J2.shallow ? 'stand' : 'rise'; J2.t = 0; }
+      break;
+    }
+    case 'rise': {
+      const target = surfaceY(J2.x, J2.z) - 1.34;
+      J2.y = lerp(J2.y, target, 1 - Math.exp(-3.5 * dt));
+      pose = blend(POSE.tuck, POSE.float, smoothstep(0.1, 0.8, J2.t)); J2.a = lerp(-0.35, 0, smoothstep(0, 0.6, J2.t));
+      if (!J2.surfaced && J2.y + 1.5 > surfaceY(J2.x, J2.z)) { J2.surfaced = true; poke(J2.x, J2.z, 0.4, 1.2); }
+      if (J2.t > 1.1) { J2.phase = 'float'; J2.t = 0; }
+      break;
+    }
+    case 'float': {
+      J2.x = lerp(J2.x, 0, 1 - Math.exp(-0.12 * dt)); J2.z = lerp(J2.z, 0, 1 - Math.exp(-0.12 * dt));
+      J2.y = surfaceY(J2.x, J2.z) - 1.34 + Math.sin(J2.t * 2.1) * 0.03;
+      const scull = Math.sin(J2.t * 2.6) * 0.25;
+      pose = { ...POSE.float, shL: [0.3 + scull, 1.25], shR: [0.3 - scull, 1.25] };
+      if (J2.t > 3 && J2.t < 5.5) { const w = smoothstep(3, 3.4, J2.t) * (1 - smoothstep(5.1, 5.5, J2.t)); pose.shR = [lerp(pose.shR[0], 0.3, w), lerp(1.25, 2.7, w)]; pose.elR = lerp(0.35, 0.5 + Math.sin(J2.t * 12) * 0.35, w); }
+      if (Math.random() < dt * 3) poke(J2.x + rr(-0.5, 0.5), J2.z + rr(-0.4, 0.4), 0.3, 0.3);
+      if (J2.t > 9) { J2.phase = 'fadeOut'; J2.t = 0; }
+      break;
+    }
+    case 'stand': {                                       // got up in the shallow bills
+      J2.y = lerp(J2.y, -POOL_D, 1 - Math.exp(-5 * dt));
+      pose = blend(POSE.sit, POSE.stand, smoothstep(0, 0.6, J2.t)); J2.a = lerp(J2.a, 0, 1 - Math.exp(-4 * dt));
+      if (J2.t > 1.2 && J2.t < 3.6) { const w = smoothstep(1.2, 1.6, J2.t) * (1 - smoothstep(3.2, 3.6, J2.t)); pose = { ...pose, shR: [0.2, lerp(0.12, 2.7, w)], elR: 0.5 + Math.sin(J2.t * 12) * 0.35 * w }; }
+      if (J2.t > 6) { J2.phase = 'fadeOut'; J2.t = 0; }
+      break;
+    }
+    case 'fadeOut':
+      opacity = 1 - smoothstep(0, 0.4, J2.t);
+      pose = null;
+      if (J2.t > 0.45) {
+        J2.phase = 'idle';
+        if (J2.next) { const [s, i] = J2.next; J2.next = null; goJump(s, i); }
+      }
+      break;
+  }
+  if (pose) applyPose(pose);
+  guy.rotation.set(J2.a, Math.PI / 2, 0, 'YXZ');
+  guy.position.set(active.x + J2.x, J2.y, active.z + J2.z);
+  setGuyOpacity(opacity);
+}
+function updateBoard(dt) {
+  const s = boardSpring; s.v += (-260 * s.a - 5 * s.v) * dt; s.a = clamp(s.a + s.v * dt, -0.16, 0.12);
+  board.rotation.z = s.a;
+}
+
+/* ---------- controls ---------- */
+const form = $('form'), inputs = [$('in0'), $('in1')], slotEls = [...document.querySelectorAll('.slot')];
+let noteTimer = 0;
+function note(msg, ms = 2600) { const n = $('note'); n.textContent = msg; n.classList.add('on'); clearTimeout(noteTimer); noteTimer = setTimeout(() => n.classList.remove('on'), ms); }
+function setFocus(i) { focusSlot = i; slotEls.forEach((el, k) => el.classList.toggle('active', k === i && comparing)); }
+inputs.forEach((inp, i) => {
+  inp.addEventListener('focus', () => setFocus(i));
+  inp.addEventListener('input', () => { slots[i].name = ''; });
+});
+const chips = $('chips');
+for (const p of PRESETS) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'chip';
+  b.innerHTML = `${p.name} <small>${fmtMoney(p.worth)}</small>`;
+  b.addEventListener('click', () => {
+    const i = comparing ? focusSlot : 0;
+    inputs[i].value = fmtBig(p.worth, true); slots[i].name = p.name;
+    if (comparing && i === 0 && !inputs[1].value) { setFocus(1); inputs[1].focus({ preventScroll: true }); return; }
+    fill();
+  });
+  chips.appendChild(b);
+}
+function setComparing(on) {
+  comparing = on;
+  form.classList.toggle('solo', !on); slotEls[1].hidden = !on;
+  $('compare').setAttribute('aria-pressed', on); $('compare').textContent = on ? 'Comparing' : 'Compare';
+  form.querySelector('.go').textContent = on ? 'Fill and compare' : 'Fill the pools';
+  inputs[0].setAttribute('aria-label', on ? 'Net worth A' : 'Net worth');
+}
+$('compare').addEventListener('click', () => {
+  if (comparing) return;
+  setComparing(true); setFocus(1); inputs[1].focus();
+  if (inputs[1].value) fill();
+});
+$('noCompare').addEventListener('click', () => { setComparing(false); setFocus(0); fill(); });
+form.addEventListener('submit', e => { e.preventDefault(); fill(); inputs.forEach(i => i.blur()); });
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  denom = +b.dataset.denom;
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-checked', x === b));
+  parts.material = partMat(denom); surfMat.map = heapTex(denom); surfMat.normalMap = heapNrm(denom); surfMat.needsUpdate = true;
+  fill();
+}));
+
+function fill() {
+  const want = comparing ? [0, 1] : [0];
+  for (const S of slots) {
+    const v = parseMoney(inputs[S.i].value);
+    S.used = want.includes(S.i) && Number.isFinite(v) && v >= 0;
+    if (want.includes(S.i) && inputs[S.i].value.trim() && !S.used) { note('Try an amount like 250,000 or 3.5 billion'); inputs[S.i].focus(); }
+    if (S.used) { S.worth = Math.min(v, 1e18); layoutSlot(S); }
+  }
+  if (!slots.some(s => s.used)) return;
+  place();
+  slots.forEach(buildFence);
+  setActive(-1); jump.phase = 'idle'; jump.next = null; setGuyOpacity(0);
+  for (const b of P) b.on = false;
+  layoutGen++;
+  const wait = fitView();
+  for (const S of slots) S.clock = -wait;                 // start filling once the camera has them all in view
+  readout();
+  if (slots.some(s => s.used && s.pools > MAX_POOLS)) note(`Showing the first ${fmtInt(MAX_POOLS)} pools`, 4000);
+}
+
+function readout() {
+  const out = [], used = slots.filter(s => s.used);
+  for (const S of used) {
+    const who = S.name || (comparing ? (S.i ? 'B' : 'A') : 'You'), bills = S.worth / denom;
+    let big, detail;
+    if (S.pools < 1) {
+      big = S.pools < 0.001 ? 'A sprinkle in one pool' : `${trim(S.pools * 100, S.pools < 0.1 ? 2 : 1)}% of one pool`;
+      detail = S.pools <= 0 ? 'Not a single bill.' : `A layer of bills ${fmtDepth(S.pools * POOL_D)} deep.`;
+    } else {
+      const n = S.pools >= MAX_POOLS ? S.pools : S.full + (S.part > 1e-9 ? 1 : 0);
+      big = `${S.pools < 10 && S.part > 0.005 ? trim(S.pools, 1) : fmtInt(Math.max(1, Math.round(S.pools)))} pool${S.pools >= 1.5 ? 's' : ''}`;
+      detail = S.part > 0.005 && S.pools < MAX_POOLS ? `${fmtInt(S.full)} full to the brim, and one ${Math.max(1, Math.round(S.part * 100))}% full.` : `${fmtInt(n)} pool${n > 1 ? 's' : ''}, all full to the brim.`;
+      if (S.pools >= MAX_POOLS) detail = `Too many to show: here are the first ${fmtInt(MAX_POOLS)}.`;
+    }
+    out.push(`<div class="res ${S.i ? 'b' : 'a'}"><p class="who"><b>${who}</b> · ${fmtMoney(S.worth, true)}</p><p class="big">${big}</p><p class="detail">${detail}</p>` +
+      `<p class="facts">${bills >= 1e6 ? fmtBig(bills, true) : fmtInt(bills)} $${denom} bills · ${fmtWeight(bills)} · stacked ${fmtLength(bills * 0.0043)} high</p></div>`);
+  }
+  if (used.length === 2) {
+    const [A, B] = slots, hi = A.worth >= B.worth ? A : B, lo = hi === A ? B : A, name = S => S.name || (S.i ? 'B' : 'A');
+    const r = lo.worth > 0 ? hi.worth / lo.worth : Infinity;
+    out.push(`<p class="ratio">${r === Infinity ? `${name(hi)} has all the cash here.` : r < 1.005 ? 'Dead even.' : `${name(hi)}'s cash fills ${r < 10 ? trim(r, 1) : fmtInt(r)}× as many pools as ${name(lo)}'s.`}</p>`);
+  }
+  $('readout').innerHTML = out.join('');
+}
+
+/* ---------- labels over compared fortunes ---------- */
+const labelEls = [0, 1].map(i => { const d = document.createElement('div'); d.className = 'label ' + (i ? 'b' : 'a'); d.innerHTML = '<b></b><i></i>'; d.hidden = true; $('labels').appendChild(d); return d; });
+const _v = new THREE.Vector3();
+function updateLabels() {
+  for (const S of slots) {
+    const el = labelEls[S.i];
+    if (!comparing || !S.used) { el.hidden = true; continue; }
+    const w = S.cols * CELL_X;
+    _v.set(S.ox + w / 2, 3, S.oz).project(camera);
+    if (_v.z > 1) { el.hidden = true; continue; }
+    el.hidden = false;
+    el.firstChild.textContent = `${S.name || (S.i ? 'B' : 'A')} · ${S.pools < 1 ? trim(S.pools * 100, S.pools < 0.1 ? 2 : 1) + '% of a pool' : fmtInt(Math.round(S.pools)) + (Math.round(S.pools) === 1 ? ' pool' : ' pools')}`;
+    const x = (_v.x * 0.5 + 0.5) * innerWidth, half = el.offsetWidth / 2, cx = clamp(x, half + 8, innerWidth - half - 8);
+    el.style.setProperty('--pin', `${clamp(x - cx, -half + 6, half - 6)}px`);
+    el.style.transform = `translate(${cx}px, ${(-_v.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -100%)`;
+  }
+}
+
+/* ---------- bills pouring in while a few pools fill ---------- */
+function pour(dt) {
+  const used = slots.filter(s => s.used);
+  if (used.reduce((a, s) => a + s.total, 0) > 4) return;
+  for (const S of used) for (let i = 0; i < S.total; i++) {
+    if ((i < S.full ? 1 : S.part) < 0.002 || S.clock < 0 || S.clock > S.dur + S.spread - 0.3) continue;
+    const c = poolCenter(S, i), n = dt * 110;
+    for (let k = 0; k < n; k++) if (Math.random() < n / Math.ceil(n)) spawnBill(c.x + rr(-POOL_L / 2 + 0.4, POOL_L / 2 - 0.4), rr(4, 7), c.y + rr(-POOL_W / 2 + 0.4, POOL_W / 2 - 0.4), rr(-0.3, 0.3), rr(-1, 0), rr(-0.3, 0.3));
+  }
+}
+
+/* ---------- clicking a pool ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitP = new THREE.Vector3();
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+canvas.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6 || performance.now() - down.t > 600) return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  if (!ray.ray.intersectPlane(ground, hitP)) return;
+  const hit = poolAt(hitP.x, hitP.z);
+  if (hit) goJump(hit.S.i, hit.i);
+});
+
+/* ---------- layout and loop ---------- */
+function resize() {
+  const W = innerWidth, H = innerHeight, r = document.querySelector('.panel').getBoundingClientRect();
+  const bottomSheet = r.bottom >= H - 2 && r.width >= W - 2, was = view.left + ',' + view.bottom;
+  view.left = bottomSheet ? 0 : Math.round(r.right); view.bottom = bottomSheet ? Math.round(H - r.top) : 0;
+  if (was !== view.left + ',' + view.bottom && autoFit && jump.phase === 'idle' && slots.some(s => s.used)) requestAnimationFrame(() => fitView(!tween));
+  renderer.setSize(W, H, false);
+  camera.aspect = (W + view.left) / (H + view.bottom);
+  camera.setViewOffset(W + view.left, H + view.bottom, 0, view.bottom, W, H);
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+new ResizeObserver(resize).observe(document.querySelector('.panel'));
+
+let last = performance.now(), T = 0;
+function tick(dt) {
+  T += dt;
+  for (const S of slots) if (S.used) { S.clock += dt; S.field.u.uClock.value = S.clock; fences[S.i].mat.u.uT.value = S.clock + 0.4; }
+  updateCamera(dt);
+  if (act.visible) { updateBoard(dt); if (surface.visible) simulate(dt); }
+  updateJump(dt);
+  pour(dt);
+  updateBills(dt, T);
+  updateLabels();
+  plantTime.value = T; growPlants(); updateLoose();
+  renderer.render(scene, camera);
+}
+function frame(now) {
+  tick(Math.min(0.05, (now - last) / 1000)); last = now;
+  requestAnimationFrame(frame);
+}
+
+// Start with one pool's worth: $62 million in $1 bills, almost to the brim.
+document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-checked', +x.dataset.denom === denom));
+parts.material = partMat(denom);
+inputs[0].value = Q.get('amount') || '62 million';
+$('perPool').textContent = trim(BILLS_PER_POOL / 1e6, 1) + ' million';
+if (Q.get('vs')) { setComparing(true); inputs[1].value = Q.get('vs'); }
+resize();
+fill();
+fitView(true);
+tween = null; controls.enabled = true;
+for (const S of slots) S.clock = 0;                      // the first view is set instantly, so fill straight away
+if (matchMedia('(pointer: coarse)').matches) $('hint').textContent = 'Tap a pool to cannonball in · drag to look around · pinch to zoom';
+if (Q.has('demo')) setTimeout(() => goJump(0, 0), 2800);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

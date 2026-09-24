@@ -1,0 +1,8 @@
+{
+  "title": "Pools of Cash",
+  "blurb": "How many backyard pools would a fortune fill with dollar bills? Type a net worth or pick a billionaire and watch the pools fill, compare two fortunes side by side, then click any pool to watch a tycoon cannonball into the cash.",
+  "added": "2026-09-24",
+  "tags": ["three.js", "shaders", "money"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 6400, "query": "?demo" }
+}
