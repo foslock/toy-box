@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Switchboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { background: #15110d; color: #eee2c4; overflow: hidden; font-family: Oswald, "Arial Narrow", system-ui, sans-serif; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  .name { position: fixed; top: max(16px, env(safe-area-inset-top)); left: 60px; margin: 0; font-weight: 500; font-size: 23px; line-height: 1.2; letter-spacing: .1em; text-transform: uppercase; pointer-events: none; }
+  .hud { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 16px;
+    font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: rgba(238, 226, 196, .72); }
+  .hud b { font-weight: 600; font-size: 21px; letter-spacing: 0; color: #fff4d8; margin-right: 5px; }
+  .pips { display: inline-flex; gap: 5px; align-items: center; }
+  .pips i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(238, 226, 196, .5); box-sizing: border-box; }
+  .pips i.on { background: #ff5238; border-color: #ff5238; box-shadow: 0 0 8px #ff5238; }
+  .sound { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; box-sizing: border-box; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3);
+    background: rgba(16, 12, 20, .38); color: rgba(255, 255, 255, .88); cursor: pointer; transition: background-color .15s, border-color .15s; }
+  .sound:hover { background: rgba(16, 12, 20, .6); border-color: rgba(255, 255, 255, .65); color: #fff; }
+  .sound:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .sound svg { width: 18px; height: 18px; }
+  .hint { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; width: max-content; max-width: calc(100% - 32px);
+    text-align: center; font: 14px/1.35 "Special Elite", "Courier New", monospace; color: rgba(238, 226, 196, .75); pointer-events: none; }
+  .card { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(10, 8, 6, .5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .card[hidden] { display: none; }
+  .paper { width: min(450px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 24px 28px 20px; border-radius: 3px; color: #2c2219;
+    background: #f1e8d0 repeating-linear-gradient(transparent 0 23px, rgba(70, 110, 170, .14) 23px 24px); box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
+    font: 15px/24px "Special Elite", "Courier New", monospace; -webkit-user-select: text; user-select: text; }
+  .paper h1 { margin: 0 0 8px; font: 600 30px/40px Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #a8322a; border-bottom: 2px solid #a8322a; }
+  .paper p { margin: 0 0 12px; }
+  .paper ol { margin: 0 0 16px; padding-left: 1.4em; }
+  .paper .big { font: 600 24px/32px Oswald, sans-serif; letter-spacing: .04em; margin-bottom: 6px; }
+  .paper .fine { margin: 12px 0 0; font-size: 12px; text-align: center; opacity: .7; }
+  #go { display: block; width: 100%; padding: 12px 16px; border: 0; border-radius: 5px; background: #b3342b; color: #fbf1dc; cursor: pointer;
+    font: 600 17px/1 Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .25); }
+  #go:hover { background: #c43d33; }
+  #go:focus-visible { outline: 3px solid #2f86d2; outline-offset: 3px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (max-width: 600px) { .name { display: none; } .hud { gap: 11px; font-size: 11px; } .hud b { font-size: 18px; } .hint { font-size: 12px; } .paper { padding: 18px 18px 16px; font-size: 14px; } }
+  @media (max-height: 520px) { .hint { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="A telephone operator's cord switchboard with two boards of jacks and a shelf of cords. Arrow keys move between jacks, Space plugs your headset in to listen, Enter plugs in a cord, Escape lets go."></canvas>
+<p class="name">Switchboard</p>
+<div class="hud">
+  <span><b id="made">0</b>put through</span>
+  <span><b id="crossed">0</b>crossed</span>
+  <span class="pips" id="pips" role="img" aria-label="No missed calls"></span>
+  <button class="sound" id="sound" type="button" aria-pressed="false" aria-label="Mute sound">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path id="cross" d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"/></svg>
+  </button>
+</div>
+<p class="hint" id="hint"></p>
+<p class="sr" id="live" aria-live="polite"></p>
+<div class="card" id="card">
+  <div class="paper" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
+    <h1 id="cardTitle">Switchboard</h1>
+    <div id="cardBody"></div>
+    <button id="go" type="button">Start shift</button>
+    <p class="fine" id="cardFine">Sound on · headphones help</p>
+  </div>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+function mulberry(a) { return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const DEMO = new URLSearchParams(location.search).has('demo');   // ?demo sets up a busy board with no sound (used for the preview image)
+let rand = DEMO ? mulberry(12) : Math.random;
+const rr = (a, b) => a + rand() * (b - a);
+const pick = arr => arr[rand() * arr.length | 0];
+
+const COLS = 8, ROWS = 5, PAIRS = 8, STRIKES = 5;
+const BOARDS = ['Klondike', 'Butterfield'];
+const ROW_NAMES = 'ABCDE';
+const BLINK = 1.2;             // seconds for every ringing lamp on a board to take its turn
+const WRONG_PENALTY = 8;       // seconds of patience a caller loses when you cross their line
+const TAP = matchMedia('(pointer: coarse)').matches ? 'Tap' : 'Click';
+
+/* ---------- voices ----------
+   A call has one voice, and both ends of it talk in that voice: that's how the operator knows who goes with whom.
+   A voice is six traits. Voices ringing at the same time always sit at least 2 apart (about two clear traits), and
+   as the shift wears on, new callers are more often picked to sit just past that line from someone already waiting:
+   same pitch and same pattern, say, but a buzzier tone and a faster clip. */
+const REGISTERS = [98, 134, 180, 238];            // Hz: low, low-middle, high-middle, high
+const TEMPOS = [.25, .185, .14];                  // seconds per short syllable: unhurried, chatty, gabbling
+// gains: loudness by register, measured so every voice comes down the line at about the same level
+// (the line cuts the bottom out of low voices, and the resonant filters ring hotter on some than others).
+const TIMBRES = [
+  // trombone with a plunger mute: the classic wah
+  { wave: 'saw', q: 5, open: 1500, fHz: 1100, fQ: 1.2, fGain: 3, scoop: 2.5, gains: [.88, .72, .64, .52] },
+  // buzzy and nasal, like talking through a comb and paper
+  { wave: 'pulse', q: 2.5, open: 2300, fHz: 1350, fQ: 3.5, fGain: 10, scoop: 1, gains: [.8, .71, .55, .5] },
+  // hollow and hooty, with breath in it
+  { wave: 'hoot', q: 11, open: 800, fHz: 600, fQ: 1, fGain: 4, scoop: 3.5, gains: [.88, .52, .43, .29], breath: .25 },
+  // gravelly: the same horn, rattling
+  { wave: 'saw', q: 4, open: 1150, fHz: 900, fQ: 1, fGain: 2, scoop: 2, gains: [1.23, 1.07, .93, .8], breath: .1, growl: .6 },
+];
+// Syllable lengths in short-syllable units; each inner list is said in one breath.
+const RHYTHMS = [
+  [[1, 1, 2], [1, 1, 2]],        // wa-wa-WAAH, wa-wa-WAAH
+  [[2], [1, 1, 1, 1, 2]],        // WAAH, wa-wa-wa-wa-WAAH
+  [[1, 1, 1], [1, 1, 1], [3]],   // wa-wa-wa, wa-wa-wa, WAAAH
+  [[1, 2, 1, 2, 1, 2]],          // wa-WAH-wa-WAH-wa-WAH
+  [[2, 2], [1, 1, 1, 1]],        // WAAH WAAH, wa-wa-wa-wa
+  [[1, 1, 1, 1, 1, 1, 1, 2]],    // one long breathless run
+];
+const CHAT_RHYTHMS = [...RHYTHMS, [[1, 2]], [[2, 1, 1]], [[1, 1, 3]], [[1, 1], [1, 1, 2]]];
+const MELODIES = 4;              // level, question, sing-song, tumbling down
+
+function voiceDistance(a, b) {
+  const dr = Math.abs(a.reg - b.reg), dt = Math.abs(a.tempo - b.tempo);
+  return (dr ? (dr > 1 ? 1.5 : 1) : 0) + (dt ? (dt > 1 ? 1.3 : .9) : 0)
+    + (a.timbre !== b.timbre) * 1.1 + (a.melody !== b.melody) * .9 + (a.rhythm !== b.rhythm) * 1 + (a.wobble !== b.wobble) * .5;
+}
+function pickVoice(others, nearP, far) {
+  const near = others.length > 0 && rand() < nearP;
+  let best = null, bestScore = -Infinity;
+  for (let k = 0; k < 400; k++) {
+    const t = { reg: rand() * 4 | 0, tempo: rand() * 3 | 0, timbre: rand() * 4 | 0, melody: rand() * MELODIES | 0, rhythm: rand() * RHYTHMS.length | 0, wobble: rand() < .3 ? 1 : 0 };
+    const d = others.length ? Math.min(...others.map(o => voiceDistance(t, o))) : 9;
+    if (d < 2) continue;
+    const score = near ? -Math.abs(d - 2.2) + rand() * .3 : Math.min(d, far) + rand() * .5;
+    if (score > bestScore) { bestScore = score; best = t; }
+  }
+  return makeVoice(best || { reg: 0, tempo: 0, timbre: 0, melody: 0, rhythm: 0, wobble: 0 });
+}
+function makeVoice(t) {
+  const seed = rand() * 2 ** 31 | 0, R = mulberry(seed), T = TIMBRES[t.timbre];
+  const v = { ...t, seed, f0: REGISTERS[t.reg] * 2 ** ((R() - .5) * 1.2 / 12), open: T.open * (1 + t.reg * .07) * (.9 + R() * .22), level: T.gains[t.reg] };
+  v.phrase = phrase(v, 0);
+  return v;
+}
+// The phrase a voice keeps repeating while it waits (variant 0), or one line of a conversation (variant 1, 2, …).
+function phrase(v, variant) {
+  const R = mulberry(v.seed * 31 + variant * 7919);
+  const rhythm = variant ? CHAT_RHYTHMS[R() * CHAT_RHYTHMS.length | 0] : RHYTHMS[v.rhythm];
+  const melody = variant ? R() * MELODIES | 0 : v.melody, unit = TEMPOS[v.tempo], n = rhythm.flat().length;
+  const syl = [];
+  rhythm.forEach((group, g) => group.forEach((u, j) => {
+    const i = syl.length, last = i === n - 1;
+    let st = 0, glide = 0;
+    if (melody === 0) { st = (u > 1 ? 1.2 : 0) + (R() - .5) * 1.4; if (last) glide = -2.5; }
+    else if (melody === 1) { st = (R() - .5) + (g === rhythm.length - 1 ? j * 1.6 : 0); if (last) glide = 6; }
+    else if (melody === 2) { st = (i % 2 ? 4 : 0) + (R() - .5) * .8; if (last) glide = -1.5; }
+    else { st = 7 - 10 * i / Math.max(1, n - 1) + (R() - .5) * 1.2; if (last) glide = -3; }
+    syl.push({ d: u * unit * (.9 + R() * .2), st, glide, acc: u > 1 ? 1 : j === 0 ? .85 : .62 + R() * .2, vow: .82 + R() * .36,
+      gap: j === group.length - 1 ? unit * 1.3 : .012, onset: j === 0 });
+  }));
+  syl[n - 1].gap = variant ? 0 : unit * 3 + .45;
+  const starts = []; let t = 0;
+  for (const s of syl) { starts.push(t); t += s.d + s.gap; }
+  return { syl, starts, cycle: t };
+}
+
+/* ---------- sound: everything is synthesised ---------- */
+let ac = null, master = null, noiseBuf = null, WAVES = null, SHAPE = null, muted = false, line = null;
+try { muted = localStorage.getItem('switchboard.muted') === '1'; } catch {}
+function audio() {
+  if (DEMO) return null;
+  if (!ac) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    ac = new AC();
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 5; comp.attack.value = .004; comp.release.value = .2;
+    master = ac.createGain(); master.gain.value = muted ? 0 : .85;
+    master.connect(comp); comp.connect(ac.destination);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const wave = (re, im) => ac.createPeriodicWave(Float32Array.from(re), Float32Array.from(im));
+    const pulse = [0], hoot = [0, 1, .5, .32, .14, .07, .03];
+    for (let n = 1; n < 48; n++) pulse.push(2 / (n * Math.PI) * Math.sin(n * Math.PI * .2));
+    WAVES = { pulse: wave(pulse, pulse.map(() => 0)), hoot: wave(hoot.map(() => 0), hoot) };
+    SHAPE = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; SHAPE[i] = Math.tanh(1.8 * x) / Math.tanh(1.8); }
+  }
+  if (ac.state === 'suspended' && !G.paused) ac.resume();
+  return ac;
+}
+function biquad(type, f, q, gain) { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; if (gain != null) b.gain.value = gain; return b; }
+function out(pan) {
+  if (!ac.createStereoPanner) return master;
+  const p = ac.createStereoPanner(); p.pan.value = clamp(pan || 0, -1, 1); p.connect(master); return p;
+}
+function tone(f, t, dur, { type = 'sine', vol = .2, attack = .004, to = 0, dest = master } = {}) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + .02);
+}
+function noise(t, dur, { f = 2000, q = 1, vol = .2, attack = 0, to = 0, type = 'bandpass', dest = master } = {}) {
+  const s = ac.createBufferSource(), b = biquad(type, f, q), g = ac.createGain();
+  s.buffer = noiseBuf; if (to) b.frequency.exponentialRampToValueAtTime(to, t + dur);
+  if (attack) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); } else g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(.0005, t + dur);
+  s.connect(b); b.connect(g); g.connect(dest); s.start(t, Math.random() * 1.5); s.stop(t + dur + .02);
+}
+function bell(f, t, dur, vol, dest) { tone(f, t, dur, { vol, dest }); tone(f * 2.76, t, dur * .35, { vol: vol * .25, dest }); tone(f * 5.4, t, dur * .12, { vol: vol * .08, dest }); }
+const panX = x => clamp((x / innerWidth) * 2 - 1, -1, 1) * .6;
+function play(fn) { return pan => { const c = audio(); if (c && c.state === 'running') fn(c.currentTime, out(pan)); }; }
+const sfx = {
+  plug: play((t, d) => { noise(t, .03, { f: 3000, q: 1.2, vol: .5, dest: d }); tone(170, t, .09, { vol: .45, to: 70, dest: d }); }),
+  unplug: play((t, d) => { noise(t, .04, { f: 1600, q: 2, vol: .3, dest: d }); tone(620, t, .05, { vol: .08, to: 300, dest: d }); }),
+  lift: play((t, d) => noise(t, .02, { f: 5200, q: 3, vol: .18, dest: d })),
+  home: play((t, d) => { noise(t, .36, { f: 2400, to: 500, q: .9, vol: .1, attack: .08, dest: d }); tone(120, t + .34, .1, { vol: .35, to: 60, dest: d }); noise(t + .34, .03, { f: 1200, vol: .25, dest: d }); }),
+  ring: play((t, d) => { noise(t, .012, { f: 2800, q: 5, vol: .4, dest: d }); noise(t + .08, .012, { f: 2400, q: 5, vol: .3, dest: d }); tone(880, t, .16, { type: 'square', vol: .012, dest: d }); }),
+  ok: play((t, d) => { noise(t, .02, { f: 2000, vol: .3, dest: d }); bell(1175, t + .02, 1.1, .17, d); bell(1568, t + .14, 1.3, .15, d); }),
+  bad: play((t, d) => {
+    const lp = biquad('lowpass', 1400, .7); lp.connect(d);
+    for (const f of [104, 111]) tone(f, t, .5, { type: 'sawtooth', vol: .12, attack: .01, dest: lp });
+    noise(t, .03, { f: 1500, vol: .3, dest: d });
+  }),
+  hang: play((t, d) => { noise(t, .05, { f: 900, vol: .35, dest: d }); tone(494, t + .06, .2, { vol: .07, dest: d }); tone(370, t + .26, .32, { vol: .07, dest: d }); }),
+  done: play((t, d) => { noise(t, .02, { f: 2600, q: 3, vol: .25, dest: d }); tone(1320, t, .09, { vol: .03, dest: d }); }),
+  nope: play((t, d) => tone(92, t, .14, { type: 'square', vol: .06, dest: d })),
+  tick: play((t, d) => { noise(t, .012, { f: 2200, q: 3, vol: .22, dest: d }); tone(900, t, .015, { vol: .03, dest: d }); }),
+  over: play((t, d) => { [523, 415, 330].forEach((f, i) => bell(f, t + i * .28, .9, .14, d)); }),
+};
+
+// The headset line: whoever is on it goes through a narrow, slightly overdriven telephone band, over a little hiss.
+class Line {
+  constructor() {
+    const t = ac.currentTime;
+    this.in = ac.createGain();
+    this.out = ac.createGain(); this.out.gain.setValueAtTime(0, t); this.out.gain.linearRampToValueAtTime(1, t + .06);
+    this.pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    const hp = biquad('highpass', 290, .7), lp = biquad('lowpass', 3200, .9), pk = biquad('peaking', 1800, 1, 4), sh = ac.createWaveShaper();
+    sh.curve = SHAPE;
+    this.in.connect(hp); hp.connect(lp); lp.connect(pk); pk.connect(sh); sh.connect(this.out);
+    if (this.pan) { this.out.connect(this.pan); this.pan.connect(master); } else this.out.connect(master);
+    this.hiss = ac.createBufferSource(); this.hiss.buffer = noiseBuf; this.hiss.loop = true;
+    const hb = biquad('bandpass', 2200, .5), hg = ac.createGain(); hg.gain.value = .012;
+    this.hiss.connect(hb); hb.connect(hg); hg.connect(this.out); this.hiss.start(t, Math.random());
+    this.talker = null; this.key = null; this.nextPop = t + rr(.3, 1.5);
+  }
+  setPan(v) { if (this.pan) this.pan.pan.setTargetAtTime(v, ac.currentTime, .03); }
+  set(src) {
+    const key = src ? src.key : null;
+    if (key === this.key) return;
+    this.key = key;
+    if (this.talker) { this.talker.stop(); this.talker = null; noise(ac.currentTime, .015, { f: 2500, q: 2, vol: .12, dest: this.in }); }
+    if (src) this.talker = new Talker(this, src.voice, src.gen(), src.delay);
+  }
+  tick() {
+    if (this.talker) this.talker.tick();
+    const now = ac.currentTime;
+    if (now > this.nextPop) { noise(now + .02, rr(.003, .012), { f: rr(1200, 3000), q: .7, vol: rr(.05, .16), dest: this.in }); this.nextPop = now + rr(.2, 2.2); }
+  }
+  close() {
+    const t = ac.currentTime;
+    if (this.talker) this.talker.stop();
+    this.out.gain.setTargetAtTime(0, t, .02); this.hiss.stop(t + .15);
+    setTimeout(() => { try { (this.pan || this.out).disconnect(); } catch {} }, 300);
+  }
+}
+
+// One voice on the line. Its syllables are scheduled a moment ahead on a single oscillator, so the pitch slides
+// between them like a trombone; a resonant low-pass that opens and closes on every syllable is the plunger mute.
+class Talker {
+  constructor(line, v, gen, delay) {
+    const t = ac.currentTime, T = TIMBRES[v.timbre];
+    this.v = v; this.T = T; this.gen = gen; this.nextT = t + delay; this.nodes = [];
+    const osc = this.osc = ac.createOscillator();
+    if (T.wave === 'saw') osc.type = 'sawtooth'; else osc.setPeriodicWave(WAVES[T.wave]);
+    osc.frequency.value = v.f0;
+    const lfo = ac.createOscillator(), lfoG = ac.createGain();
+    lfo.frequency.value = v.wobble ? 6.2 : 4.8; lfoG.gain.value = v.wobble ? 40 : 7;   // cents: a quaver, or a hint of life
+    lfo.connect(lfoG); lfoG.connect(osc.detune);
+    this.mute = biquad('lowpass', 300, T.q);
+    const form = biquad('peaking', T.fHz * (1 + v.reg * .06), T.fQ, T.fGain);
+    this.env = ac.createGain(); this.env.gain.value = 0;
+    let src = osc;
+    if (T.growl) {
+      const am = ac.createGain(), amo = ac.createOscillator(), amd = ac.createGain();
+      am.gain.value = 1 - T.growl / 2; amd.gain.value = T.growl / 2; amo.frequency.value = 29 + v.reg * 5;
+      amo.connect(amd); amd.connect(am.gain); osc.connect(am); src = am; amo.start(t); this.nodes.push(amo);
+    }
+    src.connect(this.mute);
+    if (T.breath) {
+      const n = ac.createBufferSource(), bp = biquad('bandpass', 1300, .8), bg = ac.createGain();
+      n.buffer = noiseBuf; n.loop = true; bg.gain.value = T.breath;
+      n.connect(bp); bp.connect(bg); bg.connect(this.mute); n.start(t, Math.random()); this.nodes.push(n);
+    }
+    this.mute.connect(form); form.connect(this.env);
+    this.out = ac.createGain();
+    this.pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    if (this.pan) { this.env.connect(this.pan); this.pan.connect(this.out); } else this.env.connect(this.out);
+    this.out.connect(line.in);
+    osc.start(t); lfo.start(t); this.nodes.push(osc, lfo);
+  }
+  tick() {
+    const now = ac.currentTime;
+    if (this.nextT < now - .1) this.nextT = now + .05;
+    while (this.nextT < now + .3) { const s = this.gen.next().value; this.say(s, this.nextT); this.nextT += s.d + s.gap; }
+  }
+  say(s, t) {
+    const v = this.v, fr = this.osc.frequency, mu = this.mute.frequency, g = this.env.gain;
+    const f = v.f0 * 2 ** (s.st / 12), d = s.d;
+    if (s.onset) fr.setValueAtTime(f * 2 ** (-this.T.scoop / 12), t);
+    fr.setTargetAtTime(f, t, s.onset ? .03 : .02);
+    if (s.glide) fr.setTargetAtTime(f * 2 ** (s.glide / 12), t + d * .3, d * .3);
+    const peak = .4 * v.level * s.acc * (s.lvl || 1);
+    g.setTargetAtTime(peak, t, .012);
+    g.setTargetAtTime(peak * .7, t + d * .45, d * .3);
+    g.setTargetAtTime(s.gap > .05 ? 0 : peak * .28, t + d * .84, .02);
+    const closed = Math.max(240, f * 1.15), open = Math.max(closed * 1.6, v.open * s.vow * (.72 + .38 * s.acc));
+    mu.setTargetAtTime(open, t + .004, d * .15);
+    mu.setTargetAtTime(closed, t + d * .6, d * .17);
+    if (this.pan && s.pan != null) this.pan.pan.setValueAtTime(s.pan, t);
+  }
+  stop() {
+    const t = ac.currentTime;
+    this.out.gain.setTargetAtTime(0, t, .015);
+    for (const n of this.nodes) n.stop(t + .15);
+    setTimeout(() => { try { this.out.disconnect(); } catch {} }, 300);
+  }
+}
+// A waiting caller says the same phrase over and over; you join wherever they've got to.
+function* repeat(ph, i) { for (;;) { yield ph.syl[i]; i = (i + 1) % ph.syl.length; } }
+// Once they're connected, the two of them take turns, one in each ear.
+function* chatter(v) {
+  for (let k = 0; ; k++) {
+    const ph = phrase(v, k + 1), pan = k % 2 ? .45 : -.45, lvl = k % 2 ? .9 : 1;
+    for (let i = 0; i < ph.syl.length; i++) {
+      const s = ph.syl[i];
+      yield { ...s, pan, lvl, gap: i === ph.syl.length - 1 ? .3 + (v.seed + k * 7) % 5 * .1 : s.gap };
+    }
+  }
+}
+
+/* ---------- layout: everything is measured in S, the spacing of the jacks ---------- */
+const cv = $('c'), ctx = cv.getContext('2d');
+const stat = document.createElement('canvas'), sctx = stat.getContext('2d');
+let VW = 0, VH = 0, DPR = 1, S = 40, L = null;
+const jacks = [];
+for (let p = 0; p < 2; p++) for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) jacks.push({ i: jacks.length, p, r, c, x: 0, y: 0, end: null, plug: null, flash: null, freedAt: -99 });
+const jackAt = (p, c, r) => p * ROWS * COLS + r * COLS + c;
+const jackName = j => `${BOARDS[jacks[j].p]} ${ROW_NAMES[jacks[j].r]}${jacks[j].c + 1}`;
+
+function layout() {
+  VW = innerWidth; VH = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
+  cv.width = stat.width = Math.round(VW * DPR); cv.height = stat.height = Math.round(VH * DPR);
+  const short = VH < 520, top = short ? 50 : 60, bottom = short ? 8 : 46, side = 12;
+  const PW = 9.6, PH = 7.1, FR = .45, DIV = .4;
+  // Side by side, or one board above the other: whichever gives bigger jacks.
+  const fit = portrait => {
+    const bw = portrait ? PW + 2 * FR : 2 * PW + DIV + 2 * FR, bh = portrait ? 2 * PH + DIV + 2 * FR : PH + 2 * FR, sh = portrait ? 3.4 : 3.3;
+    return { portrait, bw, bh, sh, s: Math.max(4, Math.min((VW - 2 * side) / bw, (VH - top - bottom) / (bh + sh), 80)) };
+  };
+  const a = fit(false), b = fit(true), F = b.s > a.s * 1.05 ? b : a;
+  S = F.s;
+  const w = F.bw * S, bh = F.bh * S, h = (F.bh + F.sh) * S;
+  const x0 = (VW - w) / 2, y0 = top + Math.max(0, (VH - top - bottom - h) / 2);
+  L = { portrait: F.portrait, x0, y0, w, bh, h, panels: [] };
+  for (let p = 0; p < 2; p++) {
+    const px = x0 + FR * S + (F.portrait ? 0 : p * (PW + DIV) * S), py = y0 + FR * S + (F.portrait ? p * (PH + DIV) * S : 0);
+    const rowRight = !F.portrait && p === 1;       // side by side, each board keeps its row lamps on the outside
+    const gx = px + (rowRight ? .35 : 1.25) * S, gy = py + 1.75 * S;
+    L.panels.push({ p, x: px, y: py, w: PW * S, h: PH * S, gx, gy, rowRight, rowX: rowRight ? gx + COLS * S + .5 * S : gx - .5 * S, colY: gy - .5 * S });
+  }
+  for (const J of jacks) { const P = L.panels[J.p]; J.x = P.gx + (J.c + .5) * S; J.y = P.gy + (J.r + .5) * S; }
+  const sy = y0 + bh, dr = (F.portrait ? .95 : 1.15) * S;
+  L.dial = { x: x0 + w - dr - .5 * S, y: sy + 1.5 * S, r: dr };
+  const lo = x0 + 1.9 * S, hi = L.dial.x - dr - .45 * S, sp = Math.min(1.5 * S, (hi - lo) / PAIRS), mid = (lo + hi) / 2;
+  L.shelf = { x: x0, y: sy, w, h: F.sh * S, sp, px: [...Array(PAIRS)].map((_, i) => mid + (i - PAIRS / 2 + .5) * sp),
+    tip: [sy + .32 * S, sy + 1.1 * S], lampY: sy + 2.05 * S, keyY: sy + 2.48 * S, hs: { x: x0 + .95 * S, tip: sy + .72 * S } };
+  L.plugW = Math.min(.23 * S, sp * .42);
+  drawStatic();
+}
+const holeY = J => J.y + .13 * S;       // each cell has a lamp cap on top and the jack below it
+const capY = J => J.y - .21 * S;
+const PLUG_LEN = () => .6 * S;
+
+/* ---------- drawing helpers ---------- */
+const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const WARM = [255, 226, 160], AMBER = [255, 150, 40], RED = [255, 62, 42], GREEN = [80, 240, 120], WHITE = [255, 255, 250];
+const CORD = { red: ['#c2382c', '#6b1a12', '#f08a7a'], blue: ['#2e87d4', '#153e68', '#9ad0f7'], black: ['#2a2a2a', '#0a0a0a', '#7a7a7a'] };
+function box(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function glow(g, x, y, R, rgb, k) {
+  if (k < .01) return;
+  g.save(); g.globalCompositeOperation = 'lighter';
+  const gr = g.createRadialGradient(x, y, 0, x, y, R);
+  gr.addColorStop(0, rgba(rgb, .5 * k)); gr.addColorStop(.3, rgba(rgb, .18 * k)); gr.addColorStop(1, rgba(rgb, 0));
+  g.fillStyle = gr; g.fillRect(x - R, y - R, 2 * R, 2 * R); g.restore();
+}
+function litLamp(g, x, y, rgb, k) {
+  if (k < .01) return;
+  const r = S * .165;
+  glow(g, x, y, S * .95, rgb, k);
+  const gr = g.createRadialGradient(x - r * .3, y - r * .35, 0, x, y, r);
+  gr.addColorStop(0, rgba(WHITE, k)); gr.addColorStop(.45, rgba(mix(rgb, WHITE, .45), k)); gr.addColorStop(1, rgba(rgb, k * .95));
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.fillStyle = gr; g.fill();
+}
+function litCap(g, x, y, rgb, k) {
+  if (k < .01) return;
+  const w = S * .42, h = S * .2;
+  glow(g, x, y, S * .6, rgb, k * .8);
+  box(g, x - w / 2, y - h / 2, w, h, S * .04);
+  const gr = g.createLinearGradient(0, y - h / 2, 0, y + h / 2);
+  gr.addColorStop(0, rgba(mix(rgb, WHITE, .6), k)); gr.addColorStop(1, rgba(rgb, k));
+  g.fillStyle = gr; g.fill();
+}
+function cordPath(g, sx, sy, ax, ay) {
+  const dx = ax - sx, len = Math.hypot(dx, ay - sy);
+  g.beginPath(); g.moveTo(sx, sy);
+  g.bezierCurveTo(sx + dx * .08, sy - Math.min(len * .45, 1.8 * S), ax, ay + Math.min(len * .4, 1.6 * S), ax, ay);
+}
+function drawCord(g, sx, sy, ax, ay, col) {
+  const c = CORD[col];
+  g.lineCap = 'round';
+  g.save(); g.translate(S * .05, S * .09); cordPath(g, sx, sy, ax, ay); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = S * .1; g.stroke(); g.restore();
+  cordPath(g, sx, sy, ax, ay);
+  g.strokeStyle = c[1]; g.lineWidth = S * .1; g.stroke();
+  g.strokeStyle = c[0]; g.lineWidth = S * .066; g.stroke();
+  g.save(); g.translate(-S * .014, -S * .01); cordPath(g, sx, sy, ax, ay); g.globalAlpha = .5; g.strokeStyle = c[2]; g.lineWidth = S * .02; g.stroke(); g.restore();
+}
+function bootPath(g, x, top, bot, w) {
+  g.beginPath(); g.moveTo(x - w * .5, top); g.lineTo(x + w * .5, top); g.lineTo(x + w * .33, bot);
+  g.quadraticCurveTo(x, bot + w * .3, x - w * .33, bot); g.closePath();
+}
+function bootFill(g, x, w, col) {
+  const c = CORD[col], gr = g.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+  gr.addColorStop(0, c[1]); gr.addColorStop(.35, c[2]); gr.addColorStop(.6, c[0]); gr.addColorStop(1, c[1]);
+  return gr;
+}
+function nickel(g, x, w) {
+  const gr = g.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+  gr.addColorStop(0, '#5f5f5f'); gr.addColorStop(.35, '#f4f4f4'); gr.addColorStop(.7, '#a9a9a9'); gr.addColorStop(1, '#555');
+  return gr;
+}
+// A plug standing up, tip at (x, y): on the shelf, in your hand, or on its way home.
+function drawPlugUpright(g, x, y, col) {
+  const w = L.plugW;
+  box(g, x - w * .2, y, w * .4, S * .1, w * .18);
+  const br = g.createLinearGradient(x - w * .2, 0, x + w * .2, 0);
+  br.addColorStop(0, '#7a5a1c'); br.addColorStop(.45, '#f6d67f'); br.addColorStop(1, '#86651f');
+  g.fillStyle = br; g.fill();
+  g.fillStyle = '#111'; g.fillRect(x - w * .24, y + S * .1, w * .48, S * .025);
+  box(g, x - w * .36, y + S * .125, w * .72, S * .15, w * .08); g.fillStyle = nickel(g, x, w * .72); g.fill();
+  bootPath(g, x, y + S * .27, y + S * .57, w); g.fillStyle = bootFill(g, x, w, col); g.fill();
+  if (col === 'black') { g.fillStyle = '#e9e0c6'; g.fillRect(x - w * .44, y + S * .33, w * .88, S * .05); }
+}
+// A plug pushed into a jack, seen from the front: a nickel collar at the hole and the boot drooping under the cord's weight.
+function drawPlugInJack(g, x, y, col) {
+  const w = L.plugW * 1.05, bot = y + S * .36;
+  g.save(); g.translate(S * .04, S * .06); bootPath(g, x, y, bot, w); g.fillStyle = 'rgba(0,0,0,.4)'; g.fill(); g.restore();
+  bootPath(g, x, y, bot, w); g.fillStyle = bootFill(g, x, w, col); g.fill();
+  if (col === 'black') { g.fillStyle = '#e9e0c6'; g.fillRect(x - w * .4, y + S * .14, w * .8, S * .045); }
+  g.beginPath(); g.ellipse(x, y, w * .62, w * .4, 0, 0, TAU);
+  const gr = g.createRadialGradient(x - w * .2, y - w * .15, 0, x, y, w * .62);
+  gr.addColorStop(0, '#fbfbfb'); gr.addColorStop(.6, '#a2a2a2'); gr.addColorStop(1, '#4b4b4b');
+  g.fillStyle = gr; g.fill();
+}
+
+/* ---------- the board itself, drawn once per resize ---------- */
+function lampBezel(g, x, y) {
+  const r = S * .22;
+  g.beginPath(); g.arc(x, y, r, 0, TAU);
+  const gr = g.createRadialGradient(x - r * .3, y - r * .4, 0, x, y, r);
+  gr.addColorStop(0, '#f2f2f2'); gr.addColorStop(.7, '#8d8d8d'); gr.addColorStop(1, '#3c3c3c');
+  g.fillStyle = gr; g.fill();
+  g.beginPath(); g.arc(x, y, S * .165, 0, TAU);
+  const gl = g.createRadialGradient(x - r * .25, y - r * .3, 0, x, y, S * .165);
+  gl.addColorStop(0, '#6a5a41'); gl.addColorStop(.5, '#3b3022'); gl.addColorStop(1, '#1b150e');
+  g.fillStyle = gl; g.fill();
+}
+function drawStatic() {
+  const g = sctx;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  let gr = g.createRadialGradient(VW * .5, VH * .38, 0, VW * .5, VH * .38, Math.hypot(VW, VH) * .62);
+  gr.addColorStop(0, '#3d3229'); gr.addColorStop(.55, '#221b15'); gr.addColorStop(1, '#0c0907');
+  g.fillStyle = gr; g.fillRect(0, 0, VW, VH);
+  const { x0, y0, w, bh } = L, Sh = L.shelf;
+  // the cabinet, cream enamel
+  g.save(); g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = S * .9; g.shadowOffsetY = S * .3;
+  box(g, x0, y0, w, bh + Sh.h, S * .3); g.fillStyle = '#bdb5a2'; g.fill(); g.restore();
+  gr = g.createLinearGradient(0, y0, 0, y0 + bh);
+  gr.addColorStop(0, '#ece6d6'); gr.addColorStop(.5, '#d9d2c0'); gr.addColorStop(1, '#c2baa6');
+  box(g, x0, y0, w, bh, S * .3); g.fillStyle = gr; g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; box(g, x0 + 1.5, y0 + 1.5, w - 3, bh - 3, S * .28); g.stroke();
+  // both boards
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const P of L.panels) {
+    box(g, P.x, P.y, P.w, P.h, S * .1);
+    gr = g.createLinearGradient(0, P.y, 0, P.y + P.h); gr.addColorStop(0, '#1f1e1b'); gr.addColorStop(1, '#0d0c0b');
+    g.fillStyle = gr; g.fill();
+    g.strokeStyle = '#8b8371'; g.lineWidth = Math.max(1, S * .045); g.stroke();
+    g.save(); box(g, P.x, P.y, P.w, P.h, S * .1); g.clip();
+    const R = mulberry(P.p + 5);
+    for (let i = 0; i < P.w * P.h / (S * S) * 30; i++) { g.fillStyle = R() < .5 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.25)'; g.fillRect(P.x + R() * P.w, P.y + R() * P.h, 1.2, 1.2); }
+    gr = g.createLinearGradient(0, P.y, 0, P.y + S * .5); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(P.x, P.y, P.w, S * .5);
+    g.restore();
+    g.fillStyle = '#d9cfb2'; g.font = `500 ${S * .3}px Oswald, sans-serif`;
+    g.letterSpacing = `${S * .06}px`; g.fillText(BOARDS[P.p].toUpperCase(), P.gx + COLS * S / 2, P.y + .45 * S); g.letterSpacing = '0px';
+    g.font = `500 ${S * .22}px Oswald, sans-serif`; g.fillStyle = 'rgba(217,207,178,.75)';
+    for (let c = 0; c < COLS; c++) { const x = P.gx + (c + .5) * S; lampBezel(g, x, P.colY); g.fillStyle = 'rgba(217,207,178,.75)'; g.fillText(String(c + 1), x, P.colY - .38 * S); }
+    for (let r = 0; r < ROWS; r++) {
+      const y = P.gy + (r + .5) * S; lampBezel(g, P.rowX, y);
+      g.fillStyle = 'rgba(217,207,178,.75)'; g.fillText(ROW_NAMES[r], P.rowX + (P.rowRight ? .42 : -.42) * S, y + S * .01);
+    }
+  }
+  for (const J of jacks) {
+    const cw = S * .42, ch = S * .2, cy = capY(J);
+    box(g, J.x - cw / 2, cy - ch / 2, cw, ch, S * .04);
+    gr = g.createLinearGradient(0, cy - ch / 2, 0, cy + ch / 2); gr.addColorStop(0, '#aaa38f'); gr.addColorStop(1, '#6c6759');
+    g.fillStyle = gr; g.fill();
+    const hy = holeY(J);
+    g.beginPath(); g.arc(J.x, hy, S * .15, 0, TAU);
+    gr = g.createRadialGradient(J.x - S * .05, hy - S * .06, 0, J.x, hy, S * .15);
+    gr.addColorStop(0, '#f0f0f0'); gr.addColorStop(.6, '#8a8a8a'); gr.addColorStop(1, '#383838');
+    g.fillStyle = gr; g.fill();
+    g.beginPath(); g.arc(J.x, hy, S * .085, 0, TAU); g.fillStyle = '#050505'; g.fill();
+  }
+  // the shelf, where the cords live
+  gr = g.createLinearGradient(0, Sh.y, 0, Sh.y + Sh.h);
+  gr.addColorStop(0, '#0f0d0b'); gr.addColorStop(.25, '#2b2520'); gr.addColorStop(.85, '#241f1a'); gr.addColorStop(1, '#171411');
+  g.save(); box(g, x0, y0, w, bh + Sh.h, S * .3); g.clip();
+  g.fillStyle = gr; g.fillRect(x0, Sh.y, w, Sh.h);
+  gr = g.createLinearGradient(0, Sh.y + Sh.h - .42 * S, 0, Sh.y + Sh.h);
+  gr.addColorStop(0, '#e6dfcd'); gr.addColorStop(.3, '#d3cbb7'); gr.addColorStop(1, '#9d9582');
+  g.fillStyle = gr; g.fillRect(x0, Sh.y + Sh.h - .42 * S, w, .42 * S);
+  g.restore();
+  const socket = (x, y) => {
+    g.beginPath(); g.ellipse(x, y, L.plugW * .8, L.plugW * .3, 0, 0, TAU); g.fillStyle = '#8f8f8f'; g.fill();
+    g.beginPath(); g.ellipse(x, y, L.plugW * .6, L.plugW * .2, 0, 0, TAU); g.fillStyle = '#050505'; g.fill();
+  };
+  for (let i = 0; i < PAIRS; i++) {
+    const x = Sh.px[i];
+    socket(x, Sh.tip[0] + PLUG_LEN()); socket(x, Sh.tip[1] + PLUG_LEN());
+    for (const dx of [-.16, .16]) {
+      g.beginPath(); g.arc(x + dx * S, Sh.lampY, S * .1, 0, TAU); g.fillStyle = '#7d7d7d'; g.fill();
+      g.beginPath(); g.arc(x + dx * S, Sh.lampY, S * .07, 0, TAU); g.fillStyle = '#1f2a1f'; g.fill();
+    }
+    const kw = Math.min(S * .42, Sh.sp * .6), kh = S * .24;
+    box(g, x - kw / 2, Sh.keyY - kh / 2, kw, kh, S * .05);
+    gr = g.createLinearGradient(0, Sh.keyY - kh / 2, 0, Sh.keyY + kh / 2); gr.addColorStop(0, '#f2c860'); gr.addColorStop(1, '#a8741b');
+    g.fillStyle = gr; g.fill();
+    g.fillStyle = 'rgba(60,40,10,.6)'; g.fillRect(x - kw * .3, Sh.keyY - S * .015, kw * .6, S * .03);
+  }
+  // the operator's own jack, for the headset, with a little pair of headphones on its label
+  const hs = Sh.hs;
+  socket(hs.x, hs.tip + PLUG_LEN());
+  g.fillStyle = 'rgba(217,207,178,.7)'; g.font = `500 ${S * .2}px Oswald, sans-serif`; g.letterSpacing = `${S * .03}px`;
+  g.fillText('HEADSET', hs.x, hs.tip + PLUG_LEN() + .36 * S); g.letterSpacing = '0px';
+  g.strokeStyle = 'rgba(217,207,178,.7)'; g.lineWidth = Math.max(1, S * .035);
+  const iy = hs.tip + PLUG_LEN() + .78 * S;
+  g.beginPath(); g.arc(hs.x, iy, S * .17, Math.PI, 0); g.stroke();
+  for (const dx of [-.17, .17]) { box(g, hs.x + dx * S - S * .05, iy - S * .02, S * .1, S * .15, S * .03); g.fillStyle = 'rgba(217,207,178,.7)'; g.fill(); }
+  // the dial's base and its number plate; the finger wheel turns over it
+  const D = L.dial;
+  g.save(); g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = S * .3; g.shadowOffsetY = S * .08;
+  g.beginPath(); g.arc(D.x, D.y, D.r * 1.08, 0, TAU); g.fillStyle = '#121212'; g.fill(); g.restore();
+  g.beginPath(); g.arc(D.x, D.y, D.r, 0, TAU); g.fillStyle = '#e9e2cf'; g.fill();
+  g.fillStyle = '#1c1c1c'; g.font = `600 ${D.r * .2}px Oswald, sans-serif`;
+  for (let d = 1; d <= 10; d++) { const a = holeAngle(d); g.fillText(String(d % 10), D.x + Math.cos(a) * D.r * .68, D.y + Math.sin(a) * D.r * .68); }
+}
+
+/* ---------- game state ---------- */
+const cords = [];
+for (let i = 0; i < PAIRS; i++) { const cord = { i, color: i % 2 ? 'blue' : 'red', ends: [], state: 'free', call: null, until: 0 }; for (let k = 0; k < 2; k++) cord.ends.push({ cord, k, jack: -1, st: 'rest', t0: 0, from: null }); cords.push(cord); }
+const headset = { jack: -1, st: 'rest', t0: 0, from: null };
+const G = { running: false, paused: false, over: false, t: 0, calls: [], seq: 0, nextSpawn: 0, made: 0, crossed: 0, missed: 0, heardAny: false, heardPair: false };
+let hand = null, rt = 0;                        // what you're holding; real time, for animations
+const floaters = [];
+const kbd = { on: false, used: false, j: jackAt(0, 0, 0) };
+const IN_T = .1, BACK_T = .42;
+let best = 0;
+try { best = Number(localStorage.getItem('switchboard.best')) || 0; } catch {}
+
+const ramp = (a, b, t0, t1) => lerp(a, b, clamp((G.t - t0) / (t1 - t0), 0, 1));
+const waiting = () => G.calls.filter(c => c.state === 'wait');
+const ringing = p => { const out = []; for (const c of G.calls) if (c.state === 'wait') for (const e of c.ends) if (e.p === p && e.shown) out.push(e); return out; };
+
+function freeJack(p) {
+  const usedR = new Set(), usedC = new Set();
+  for (const c of waiting()) for (const e of c.ends) if (e.p === p) { usedR.add(jacks[e.jack].r); usedC.add(jacks[e.jack].c); }
+  const ok = jacks.filter(J => J.p === p && !J.end && !J.plug && !usedR.has(J.r) && !usedC.has(J.c) && G.t - J.freedAt > 4 && headset.jack !== J.i);
+  return ok.length ? pick(ok).i : -1;
+}
+function trySpawn() {
+  const w = waiting();
+  const cap = Math.min(1 + G.made, G.t < 70 ? 2 : G.t < 140 ? 3 : G.t < 230 ? 4 : 5);
+  const ja = freeJack(0), jb = freeJack(1);
+  if (w.length >= cap || ja < 0 || jb < 0) { G.nextSpawn = G.t + 1; return; }
+  const voice = pickVoice(w.map(c => c.voice), ramp(.15, .8, 30, 300), G.made < 3 ? 3.2 : 2.6);
+  const call = { id: ++G.seq, voice, state: 'wait', deadline: Infinity, patience: ramp(50, 32, 20, 380), penalty: 0, ends: [], cord: null, until: 0 };
+  // The two ends ring in a few seconds apart, and in no particular order, so timing doesn't give the pair away.
+  const first = rand() < .5 ? 0 : 1, lag = G.seq === 1 ? 2.5 : rr(.8, 6);
+  for (const p of [0, 1]) {
+    const e = { call, p, jack: p ? jb : ja, appearAt: G.t + (p === first ? .2 : lag), shown: false, slot: -1, heard: false, phase: rr(0, 4) };
+    jacks[e.jack].end = e; call.ends.push(e);
+  }
+  G.calls.push(call);
+  G.nextSpawn = G.t + (w.length === 0 ? rr(3, 5) : rr(ramp(9, 4.5, 20, 320), ramp(13, 7, 20, 320)));
+}
+// Every ringing jack on a board takes a turn in a shared cycle, and its row lamp and column lamp light together,
+// so however many are ringing, only one row and one column are lit at any instant.
+function pickSlot(p) {
+  const used = ringing(p).map(e => e.slot).filter(s => s >= 0);
+  let bestS = [], bestD = -1;
+  for (let s = 0; s < 5; s++) {
+    if (used.includes(s)) continue;
+    const d = used.length ? Math.min(...used.map(u => Math.min((s - u + 5) % 5, (u - s + 5) % 5))) : 5;
+    if (d > bestD) { bestD = d; bestS = [s]; } else if (d === bestD) bestS.push(s);
+  }
+  return bestS.length ? pick(bestS) : 0;
+}
+function onFraction(p) {
+  const used = ringing(p).map(e => e.slot).filter(s => s >= 0).sort((a, b) => a - b);
+  if (used.length < 2) return .4;
+  let gap = 5;
+  for (let i = 0; i < used.length; i++) gap = Math.min(gap, (used[(i + 1) % used.length] - used[i] + 5) % 5 || 5);
+  return clamp(.6 * gap / 5, .12, .4);
+}
+function blink(e, on) {
+  if (DEMO) return 1;
+  const x = ((G.t / BLINK - e.slot / 5) % 1 + 1) % 1;
+  if (x < on) return x < .03 ? x / .03 : 1;
+  return Math.exp(-(x - on) * BLINK / .045);
+}
+function urgency(call) {
+  if (call.deadline === Infinity) return WARM;
+  const q = clamp((call.deadline - G.t) / call.patience, 0, 1);
+  return q > .5 ? WARM : q > .25 ? mix(AMBER, WARM, (q - .25) / .25) : mix(RED, AMBER, q / .25);
+}
+
+function showEnd(e) {
+  e.shown = true; e.slot = pickSlot(e.p);
+  const J = jacks[e.jack];
+  sfx.ring(panX(J.x));
+  announce(`Caller ringing on ${jackName(e.jack)}.`);
+}
+function update(dt) {
+  G.t += dt;
+  for (const call of G.calls) {
+    if (call.state === 'wait') {
+      for (const e of call.ends) if (!e.shown && G.t >= e.appearAt) showEnd(e);
+      if (call.deadline === Infinity && call.ends.every(e => e.shown)) call.deadline = G.t + call.patience - call.penalty;
+      if (G.t > call.deadline) miss(call);
+    } else if (call.state === 'talk' && G.t > call.until) finish(call);
+  }
+  G.calls = G.calls.filter(c => c.state !== 'gone');
+  for (const cord of cords) if (cord.state === 'wrong' && G.t > cord.until) sendHome(cord);
+  if (G.running && G.t >= G.nextSpawn) trySpawn();
+}
+function clearCall(call) {
+  call.state = 'gone';
+  for (const e of call.ends) { const J = jacks[e.jack]; if (J.end === e) J.end = null; J.freedAt = G.t; e.slot = -1; }
+}
+function miss(call) {
+  clearCall(call);
+  G.missed++;
+  for (const e of call.ends) { const J = jacks[e.jack]; J.flash = { rgb: RED, t0: rt, dur: 1, fade: true }; }
+  const J = jacks[call.ends[0].jack];
+  floaters.push({ x: J.x, y: J.y - S * .5, text: 'Hung up', rgb: RED, t0: rt });
+  sfx.hang(panX(J.x));
+  announce(`A caller on ${jackName(call.ends[0].jack)} hung up. ${STRIKES - G.missed} misses left.`);
+  hud();
+  if (G.missed >= STRIKES) endShift();
+}
+function finish(call) {
+  clearCall(call);
+  const J = jacks[call.ends[0].jack];
+  sfx.done(panX(J.x));
+  if (call.cord) sendHome(call.cord);
+}
+function judge(cord) {
+  const [a, b] = cord.ends.map(e => jacks[e.jack]), ea = a.end, eb = b.end;
+  const mid = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - S * .6 };
+  if (ea && eb && ea !== eb && ea.call === eb.call && ea.call.state === 'wait' && ea.shown && eb.shown) {
+    const call = ea.call;
+    call.state = 'talk'; call.until = G.t + rr(9, 22); call.cord = cord;
+    for (const e of call.ends) e.slot = -1;
+    cord.state = 'talk'; cord.call = call;
+    a.flash = b.flash = { rgb: GREEN, t0: rt, dur: 1.1 };
+    G.made++;
+    floaters.push({ ...mid, text: 'Connected', rgb: GREEN, t0: rt });
+    sfx.ok(panX(mid.x));
+    announce(`Connected ${jackName(a.i)} to ${jackName(b.i)}.`);
+  } else {
+    cord.state = 'wrong'; cord.until = G.t + 1.25;
+    a.flash = b.flash = { rgb: RED, t0: rt, dur: 1.25 };
+    const hurt = new Set([ea, eb].filter(e => e && e.call.state === 'wait').map(e => e.call));
+    for (const c of hurt) { if (c.deadline === Infinity) c.penalty += WRONG_PENALTY; else c.deadline -= WRONG_PENALTY; }
+    G.crossed++;
+    floaters.push({ ...mid, text: 'Crossed line', rgb: RED, t0: rt });
+    sfx.bad(panX(mid.x));
+    announce(`Wrong line: ${jackName(a.i)} and ${jackName(b.i)} don't go together.`);
+  }
+  hud();
+}
+
+/* ---------- plugs and cords ---------- */
+const restTip = e => ({ x: L.shelf.px[e.cord.i], y: L.shelf.tip[e.k] });
+const hsRest = () => ({ x: L.shelf.hs.x, y: L.shelf.hs.tip });
+const inJack = (j, isHeadset) => { const J = jacks[j]; return { x: J.x + (isHeadset && J.plug ? .2 * S : 0), y: holeY(J) + (isHeadset && J.plug ? .03 * S : 0) }; };
+// Where a plug is right now, whether it's in a jack, and where its cord comes out of the shelf.
+function plugState(o, isHeadset) {
+  const rest = isHeadset ? hsRest() : restTip(o), sock = { x: rest.x, y: rest.y + PLUG_LEN() };
+  let x = rest.x, y = rest.y, jack = false;
+  if (o.st === 'held') { x = ptr.x; y = ptr.y; }
+  else if (o.st === 'in') {
+    const to = inJack(o.jack, isHeadset), k = ease((rt - o.t0) / (isHeadset ? .16 : IN_T));
+    if (k >= 1) { x = to.x; y = to.y; jack = true; } else { x = lerp(o.from.x, to.x, k); y = lerp(o.from.y, to.y, k); }
+  } else if (o.st === 'back') {
+    const k = ease((rt - o.t0) / BACK_T);
+    x = lerp(o.from.x, rest.x, k); y = lerp(o.from.y, rest.y, k) - Math.sin(Math.PI * k) * .5 * S;
+  }
+  return { x, y, jack, sx: sock.x, sy: sock.y, ax: x, ay: y + (jack ? .38 * S : PLUG_LEN()), col: isHeadset ? 'black' : o.cord.color };
+}
+const tipNow = (o, isHeadset) => { const s = plugState(o, isHeadset); return { x: s.x, y: s.y }; };
+
+function grab(end) { hand = { kind: 'cord', end }; end.st = 'held'; end.cord.state = 'held'; sfx.lift(panX(ptr.x)); }
+function insert(end, j) {
+  end.from = tipNow(end); end.st = 'in'; end.jack = j; end.t0 = rt; jacks[j].plug = end;
+  sfx.plug(panX(jacks[j].x));
+  const other = end.cord.ends[1 - end.k];
+  if (other.st === 'rest') { hand = { kind: 'cord', end: other }; other.st = 'held'; end.cord.state = 'half'; }
+  else { hand = null; judge(end.cord); }
+}
+function sendHome(cord, quiet) {
+  for (const e of cord.ends) {
+    if (e.st === 'rest') continue;
+    e.from = tipNow(e); e.st = 'back'; e.t0 = rt;
+    if (e.jack >= 0) { if (jacks[e.jack].plug === e) jacks[e.jack].plug = null; e.jack = -1; }
+  }
+  if (hand && hand.kind === 'cord' && hand.end.cord === cord) hand = null;
+  cord.state = 'home'; cord.call = null;
+  if (!quiet) sfx.home(panX(L.shelf.px[cord.i]));
+}
+function plugHeadset(j) {
+  const J = jacks[j];
+  if (J.plug) {                                   // a jack with a cord in it has no room for the headset
+    sfx.nope(panX(J.x));
+    floaters.push({ x: J.x, y: J.y - S * .5, text: 'Line in use', rgb: AMBER, t0: rt });
+    announce(`${jackName(j)} already has a cord in it.`);
+    return;
+  }
+  headset.from = tipNow(headset, true); headset.st = 'in'; headset.jack = j; headset.t0 = rt;
+  if (hand && hand.kind === 'headset') hand = null;
+  sfx.plug(panX(jacks[j].x));
+  if (line) line.setPan(panX(jacks[j].x) * .6);
+}
+function unplugHeadset() {
+  if (headset.st === 'rest' || headset.st === 'back') return;
+  headset.from = tipNow(headset, true); headset.st = 'back'; headset.t0 = rt; headset.jack = -1;
+  if (hand && hand.kind === 'headset') hand = null;
+  sfx.unplug(panX(headset.from.x));
+}
+function dropHand() {
+  if (!hand) return;
+  if (hand.kind === 'headset') unplugHeadset(); else sendHome(hand.end.cord);
+}
+function animate() {
+  for (const cord of cords) {
+    for (const e of cord.ends) if (e.st === 'back' && rt - e.t0 >= BACK_T) e.st = 'rest';
+    if (cord.state === 'home' && cord.ends.every(e => e.st === 'rest')) cord.state = 'free';
+  }
+  if (headset.st === 'back' && rt - headset.t0 >= BACK_T) headset.st = 'rest';
+  dialStep();
+}
+
+// What the headset hears: a waiting caller's phrase on repeat, a connected pair chatting, or just the line.
+function lineSource() {
+  if (headset.st !== 'in') return null;
+  const e = jacks[headset.jack].end;
+  if (!e || !e.shown) return null;
+  if (e.call.state === 'wait') {
+    if (!e.heard) { e.heard = true; G.heardAny = true; if (e.call.ends.every(x => x.heard)) G.heardPair = true; }
+    const ph = e.call.voice.phrase, pos = (G.t - e.appearAt + e.phase) % ph.cycle;
+    let i = ph.starts.findIndex(s => s >= pos), delay;
+    if (i < 0) { i = 0; delay = ph.cycle - pos; } else delay = ph.starts[i] - pos;
+    return { key: `wait${e.call.id}:${e.p}`, voice: e.call.voice, gen: () => repeat(ph, i), delay: Math.min(delay, 1) + .04 };
+  }
+  if (e.call.state === 'talk') return { key: `talk${e.call.id}`, voice: e.call.voice, gen: () => chatter(e.call.voice), delay: .35 };
+  return null;
+}
+function updateLine() {
+  const want = G.running && !G.paused && headset.st === 'in' && ac && ac.state === 'running';
+  if (want) { if (!line) { line = new Line(); line.setPan(panX(jacks[headset.jack].x) * .6); } line.set(lineSource()); line.tick(); }
+  else if (line && !G.paused) { line.close(); line = null; }
+}
+
+/* ---------- the rotary dial: it doesn't call anyone, but it does turn ---------- */
+const STOP = Math.PI / 3;                                  // the finger stop, at about four o'clock
+function holeAngle(d) { return STOP - (d + 1) * TAU / 12; }
+const dial = { a: 0, target: 0, phase: 'idle', t0: 0, n: 0, ticks: 0 };
+function dialAt(x, y) {
+  if (dial.phase !== 'idle') return;
+  const D = L.dial; let bestD = 0, bd = Infinity;
+  for (let d = 1; d <= 10; d++) { const a = holeAngle(d), dd = Math.hypot(x - D.x - Math.cos(a) * D.r * .68, y - D.y - Math.sin(a) * D.r * .68); if (dd < bd) { bd = dd; bestD = d; } }
+  if (bd > D.r * .3) return;
+  Object.assign(dial, { n: bestD, target: (bestD + 1) * TAU / 12, phase: 'wind', t0: rt, ticks: 0 });
+  audio(); sfx.lift(panX(D.x));
+}
+function dialStep() {
+  if (dial.phase === 'wind') {
+    const k = (rt - dial.t0) / (.15 + dial.n * .05); dial.a = dial.target * ease(k);
+    if (k >= 1) { dial.phase = 'ret'; dial.t0 = rt; }
+  } else if (dial.phase === 'ret') {
+    dial.a = dial.target - (rt - dial.t0) * (TAU / 12) / .1;
+    const passed = Math.floor((dial.target - dial.a) / (TAU / 12));
+    while (dial.ticks < Math.min(passed, dial.n)) { dial.ticks++; sfx.tick(panX(L.dial.x)); }
+    if (dial.a <= 0) { dial.a = 0; dial.phase = 'idle'; }
+  }
+}
+function drawDial(g) {
+  const D = L.dial, R = D.r;
+  g.save(); g.translate(D.x, D.y); g.rotate(dial.a);
+  g.beginPath(); g.arc(0, 0, R * .96, 0, TAU);
+  for (let d = 1; d <= 10; d++) { const a = holeAngle(d), hx = Math.cos(a) * R * .68, hy = Math.sin(a) * R * .68; g.moveTo(hx + R * .15, hy); g.arc(hx, hy, R * .15, 0, TAU); }
+  g.moveTo(R * .4, 0); g.arc(0, 0, R * .4, 0, TAU);
+  const gr = g.createRadialGradient(-R * .35, -R * .45, R * .05, 0, 0, R);
+  gr.addColorStop(0, 'rgba(70,70,70,.97)'); gr.addColorStop(.7, 'rgba(22,22,22,.97)'); gr.addColorStop(1, 'rgba(8,8,8,.97)');
+  g.fillStyle = gr; g.fill('evenodd');
+  g.strokeStyle = 'rgba(255,255,255,.12)'; g.lineWidth = 1; g.stroke();
+  g.restore();
+  g.beginPath(); g.arc(D.x, D.y, R * .37, 0, TAU); g.fillStyle = '#f1ead8'; g.fill();
+  g.strokeStyle = '#9b9482'; g.lineWidth = Math.max(1, R * .03); g.stroke();
+  g.fillStyle = '#6f2a22'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `600 ${R * .13}px Oswald, sans-serif`; g.fillText('OPERATOR', D.x, D.y - R * .07);
+  g.font = `500 ${R * .11}px Oswald, sans-serif`; g.fillStyle = '#4a4238'; g.fillText('DIAL 0', D.x, D.y + R * .1);
+  const sa = STOP + .1, sx = D.x + Math.cos(sa) * R * .93, sy = D.y + Math.sin(sa) * R * .93;
+  g.save(); g.translate(sx, sy); g.rotate(sa + Math.PI / 2);
+  box(g, -R * .05, -R * .2, R * .1, R * .3, R * .04); g.fillStyle = nickel(g, 0, R * .1); g.fill(); g.restore();
+}
+
+/* ---------- drawing, every frame ---------- */
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(stat, 0, 0);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const g = ctx;
+  // guides from the lamps to the jack under the pointer (or keyboard focus)
+  const hj = kbd.on ? kbd.j : hover && hover.kind === 'jack' ? hover.j : -1;
+  if (hj >= 0 && G.running) {
+    const J = jacks[hj], P = L.panels[J.p];
+    g.strokeStyle = 'rgba(255,235,190,.18)'; g.lineWidth = Math.max(1, S * .03); g.setLineDash([S * .07, S * .09]);
+    g.beginPath(); g.moveTo(J.x, P.colY + .26 * S); g.lineTo(J.x, capY(J) - .14 * S);
+    g.moveTo(P.rowX + (P.rowRight ? -.26 : .26) * S, J.y); g.lineTo(J.x + (P.rowRight ? .24 : -.24) * S, J.y); g.stroke();
+    g.setLineDash([]);
+    box(g, J.x - S * .46, J.y - S * .46, S * .92, S * .92, S * .12); g.strokeStyle = kbd.on ? 'rgba(255,231,168,.9)' : 'rgba(255,235,190,.3)'; g.lineWidth = kbd.on ? 2 : 1; g.stroke();
+  }
+  // ringing: row and column lamps
+  for (const P of L.panels) {
+    const on = onFraction(P.p), col = [], row = [];
+    for (const e of ringing(P.p)) {
+      const k = blink(e, on), J = jacks[e.jack], rgb = urgency(e.call);
+      if (!col[J.c] || k > col[J.c].k) col[J.c] = { k, rgb };
+      if (!row[J.r] || k > row[J.r].k) row[J.r] = { k, rgb };
+    }
+    col.forEach((l, c) => l && litLamp(g, P.gx + (c + .5) * S, P.colY, l.rgb, l.k));
+    row.forEach((l, r) => l && litLamp(g, P.rowX, P.gy + (r + .5) * S, l.rgb, l.k));
+  }
+  // each jack's own lamp: green while talking, flashing green or red when you connect
+  for (const J of jacks) {
+    let k = 0, rgb = GREEN;
+    const f = J.flash;
+    if (f && rt - f.t0 < f.dur) { const a = (rt - f.t0) / f.dur; rgb = f.rgb; k = f.fade ? 1 - a : Math.floor((rt - f.t0) / .16) % 2 ? .12 : 1; }
+    else { if (f) J.flash = null; if (J.end && J.end.call.state === 'talk') k = .62; }
+    litCap(g, J.x, capY(J), rgb, k);
+  }
+  // plugs resting on the shelf
+  for (const cord of cords) for (const e of cord.ends) if (e.st === 'rest') { const p = restTip(e); drawPlugUpright(g, p.x, p.y, cord.color); }
+  if (headset.st === 'rest') { const p = hsRest(); drawPlugUpright(g, p.x, p.y, 'black'); }
+  // cords out on the board, then the plugs on top of them
+  const items = [];
+  for (const cord of cords) for (const e of cord.ends) if (e.st === 'in' || e.st === 'back') items.push(plugState(e));
+  if (headset.st === 'in' || headset.st === 'back') items.push(plugState(headset, true));
+  for (const it of items) drawCord(g, it.sx, it.sy, it.ax, it.ay, it.col);
+  for (const it of items) it.jack ? drawPlugInJack(g, it.x, it.y, it.col) : drawPlugUpright(g, it.x, it.y, it.col);
+  // supervisory lamps on the shelf, one per plug
+  for (const cord of cords) {
+    let k = 0, rgb = GREEN;
+    if (cord.state === 'talk') k = .8;
+    else if (cord.state === 'wrong') { rgb = RED; k = Math.floor(rt / .16) % 2 ? .15 : 1; }
+    if (k) for (const dx of [-.16, .16]) { const x = L.shelf.px[cord.i] + dx * S, y = L.shelf.lampY; glow(g, x, y, S * .35, rgb, k); g.beginPath(); g.arc(x, y, S * .07, 0, TAU); g.fillStyle = rgba(mix(rgb, WHITE, .4), k); g.fill(); }
+  }
+  drawDial(g);
+  // whatever you're holding goes on top of everything
+  if (hand) {
+    const it = hand.kind === 'headset' ? plugState(headset, true) : plugState(hand.end);
+    drawCord(g, it.sx, it.sy, it.ax, it.ay, it.col); glow(g, it.x, it.y + S * .3, S * .7, WARM, .45); drawPlugUpright(g, it.x, it.y, it.col);
+  }
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `500 ${Math.max(13, S * .3)}px Oswald, sans-serif`;
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i], a = (rt - f.t0) / 1.5;
+    if (a >= 1) { floaters.splice(i, 1); continue; }
+    g.globalAlpha = Math.min(1, (1 - a) * 2);
+    g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(f.text.toUpperCase(), f.x + 1, f.y - a * S * .6 + 1.5);
+    g.fillStyle = rgba(mix(f.rgb, WHITE, .35), 1); g.fillText(f.text.toUpperCase(), f.x, f.y - a * S * .6);
+    g.globalAlpha = 1;
+  }
+}
+
+/* ---------- input ---------- */
+const ptr = { x: -999, y: -999, type: 'mouse', down: null };
+let hover = null;
+function hitTest(x, y) {
+  for (const P of L.panels) if (x >= P.gx && x < P.gx + COLS * S && y >= P.gy - .1 * S && y < P.gy + ROWS * S) {
+    return { kind: 'jack', j: jackAt(P.p, Math.floor((x - P.gx) / S), clamp(Math.floor((y - P.gy) / S), 0, ROWS - 1)) };
+  }
+  const Sh = L.shelf;
+  if (Math.abs(x - Sh.hs.x) < .6 * S && y > Sh.hs.tip - .25 * S && y < Sh.hs.tip + 1.5 * S) return { kind: 'headset' };
+  for (let i = 0; i < PAIRS; i++) if (Math.abs(x - Sh.px[i]) < Sh.sp / 2) {
+    if (y > Sh.tip[0] - .25 * S && y < Sh.tip[1] - .08 * S) return { kind: 'rest', end: cords[i].ends[0] };
+    if (y >= Sh.tip[1] - .08 * S && y < Sh.tip[1] + .8 * S) return { kind: 'rest', end: cords[i].ends[1] };
+  }
+  if (Math.hypot(x - L.dial.x, y - L.dial.y) < L.dial.r) return { kind: 'dial' };
+  return null;
+}
+const cordFree = cord => cord.state === 'free' && cord.ends.every(e => e.st === 'rest');
+// One click (or tap, or the end of a drag) on whatever t is. Returns true if it picked something up.
+function act(t) {
+  if (!t && !hand) return false;
+  if (t && t.kind === 'dial' && !hand) { dialAt(ptr.x, ptr.y); return false; }
+  if (!G.running) return false;
+  if (!hand) {
+    if (t.kind === 'rest') { if (cordFree(t.end.cord)) { grab(t.end); return true; } sfx.nope(panX(ptr.x)); return false; }
+    if (t.kind === 'headset') {
+      if (headset.st === 'rest') { hand = { kind: 'headset' }; headset.st = 'held'; sfx.lift(panX(ptr.x)); return true; }
+      unplugHeadset(); return false;
+    }
+    if (t.kind === 'jack') { if (headset.st === 'in' && headset.jack === t.j) unplugHeadset(); else plugHeadset(t.j); }
+    return false;
+  }
+  if (hand.kind === 'headset') { if (t && t.kind === 'jack') plugHeadset(t.j); else unplugHeadset(); return false; }
+  const end = hand.end, cord = end.cord, other = cord.ends[1 - end.k];
+  if (t && t.kind === 'jack') {
+    const J = jacks[t.j];
+    if (J.plug) { if (J.plug === other) sendHome(cord); else sfx.nope(panX(J.x)); return false; }
+    insert(end, t.j); return false;
+  }
+  if (t && t.kind === 'rest' && other.st === 'rest' && t.end.cord !== cord && cordFree(t.end.cord)) { sendHome(cord, true); grab(t.end); return true; }
+  sendHome(cord);
+  return false;
+}
+function setPtr(e) { const r = cv.getBoundingClientRect(); ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top; ptr.type = e.pointerType || 'mouse'; }
+function setCursor() {
+  const live = hover && (hover.kind === 'dial' || G.running && !(hover.kind === 'rest' && !cordFree(hover.end.cord)));
+  cv.style.cursor = hand && ptr.type === 'mouse' ? 'none' : live ? 'pointer' : 'default';
+}
+cv.addEventListener('pointerdown', e => {
+  setPtr(e); kbd.on = false;
+  if (e.button === 2) { dropHand(); return; }
+  audio();
+  const t = hitTest(ptr.x, ptr.y);
+  ptr.down = { x: ptr.x, y: ptr.y, grabbed: act(t) };
+  try { cv.setPointerCapture(e.pointerId); } catch {}
+});
+cv.addEventListener('pointermove', e => { setPtr(e); if (ptr.type === 'mouse') kbd.on = false; hover = hitTest(ptr.x, ptr.y); setCursor(); });
+cv.addEventListener('pointerup', e => {
+  setPtr(e);
+  const d = ptr.down; ptr.down = null;
+  if (!d || !d.grabbed || !hand || Math.hypot(ptr.x - d.x, ptr.y - d.y) < 12) return;
+  const t = hitTest(ptr.x, ptr.y);                  // dragged a plug somewhere: drop it there if it's a jack
+  if (t && t.kind === 'jack') act(t);
+});
+cv.addEventListener('pointerleave', () => { hover = null; });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('keydown', e => {
+  if (!$('card').hidden || !G.running || e.metaKey || e.ctrlKey || e.altKey || e.target.closest('button')) return;
+  const J = jacks[kbd.j], k = e.key;
+  // The two boards are one big grid for the arrow keys.
+  let gc = L.portrait ? J.c : J.p * COLS + J.c, gr = L.portrait ? J.p * ROWS + J.r : J.r;
+  const move = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k];
+  if (move) {
+    e.preventDefault();
+    if (kbd.on) { gc = clamp(gc + move[0], 0, L.portrait ? COLS - 1 : 2 * COLS - 1); gr = clamp(gr + move[1], 0, L.portrait ? 2 * ROWS - 1 : ROWS - 1); }
+    const p = L.portrait ? Math.floor(gr / ROWS) : Math.floor(gc / COLS);
+    kbd.j = jackAt(p, gc % COLS, gr % ROWS); kbd.on = kbd.used = true;
+    if (hand) { const F = jacks[kbd.j]; ptr.x = F.x + S * .28; ptr.y = holeY(F) + S * .1; }   // the plug in hand follows the focus
+  } else if (k === ' ') {
+    e.preventDefault(); kbd.on = kbd.used = true;
+    if (headset.st === 'in' && headset.jack === kbd.j) unplugHeadset(); else plugHeadset(kbd.j);
+  } else if (k === 'Enter') {
+    e.preventDefault(); kbd.on = kbd.used = true;
+    const j = jacks[kbd.j]; ptr.x = j.x; ptr.y = holeY(j);
+    if (!hand || hand.kind === 'headset') {
+      const cord = cords.find(cordFree);
+      if (!cord) { sfx.nope(panX(j.x)); announce('Every cord is in use.'); return; }
+      if (hand) unplugHeadset();
+      grab(cord.ends[0]);
+    }
+    act({ kind: 'jack', j: kbd.j });
+  } else if (k === 'Escape') dropHand();
+  else if (k === 'p' || k === 'P') pause();
+});
+
+/* ---------- HUD, hints, cards ---------- */
+function hud() {
+  $('made').textContent = G.made; $('crossed').textContent = G.crossed;
+  $('pips').innerHTML = Array.from({ length: STRIKES }, (_, i) => `<i class="${i < G.missed ? 'on' : ''}"></i>`).join('');
+  $('pips').setAttribute('aria-label', `${G.missed} of ${STRIKES} missed calls`);
+}
+let hintShown = null;
+function hint() {
+  let h = '';
+  if (G.running && !DEMO) {
+    if (hand && hand.kind === 'cord') h = hand.end.cord.ends.some(e => e.st === 'in') ? `Now ${TAP.toLowerCase()} the caller on the other board who sounds the same` : `${TAP} a caller’s jack to plug in this end`;
+    else if (hand) h = `${TAP} a jack to listen in`;
+    else if (G.made === 0 && !G.heardAny) h = `A row lamp and a column lamp blink together: the caller is where they cross. ${TAP} that jack to listen`;
+    else if (G.made === 0 && !G.heardPair) h = 'Remember that voice, then find the one on the other board who talks just like it';
+    else if (G.made === 0) h = `That’s the pair! Pick up a cord from the shelf, then ${TAP.toLowerCase()} both of their jacks`;
+    else h = kbd.used ? 'Arrows move · Space listens · Enter plugs in a cord · Esc lets go' : `${TAP} a jack to listen · Pick up a cord and ${TAP.toLowerCase()} two jacks to connect them`;
+  }
+  if (h !== hintShown) { hintShown = h; $('hint').textContent = h; }
+}
+let liveTimer = 0;
+function announce(text) { clearTimeout(liveTimer); $('live').textContent = ''; liveTimer = setTimeout(() => { $('live').textContent = text; }, 50); }
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function showCard(kind) {
+  const body = $('cardBody');
+  if (kind === 'intro') {
+    $('cardTitle').textContent = 'Switchboard';
+    body.innerHTML = `<p>You're on the board tonight. Callers ring in on both boards, and each one wants the caller on the <em>other</em> board who talks just like them.</p>
+      <ol><li>A row lamp and a column lamp blink together: the caller is on the jack where they cross.</li>
+      <li>${TAP} it to plug in your headset and listen.</li>
+      <li>Found their match? Pick up a cord from the shelf and ${TAP.toLowerCase()} both jacks.</li>
+      <li>Callers hang up if they wait too long. ${STRIKES} missed calls and your shift is over.</li></ol>`;
+    $('go').textContent = 'Start shift'; $('cardFine').textContent = 'Sound on · headphones help';
+  } else if (kind === 'paused') {
+    $('cardTitle').textContent = 'On a break';
+    body.innerHTML = `<p>The callers will hold. ${G.made} put through so far.</p>`;
+    $('go').textContent = 'Back to the board'; $('cardFine').textContent = '';
+  } else {
+    $('cardTitle').textContent = 'Shift over';
+    const beat = G.made > 0 && G.made >= best;
+    body.innerHTML = `<p class="big">${G.made} ${G.made === 1 ? 'call' : 'calls'} put through</p>
+      <p>${[`${G.crossed} crossed ${G.crossed === 1 ? 'line' : 'lines'}`, `${mmss(G.t)} on the board`, beat ? 'your best yet' : best ? `best ${best}` : ''].filter(Boolean).join(' · ')}</p>`;
+    $('go').textContent = 'Another shift'; $('cardFine').textContent = '';
+  }
+  $('card').dataset.kind = kind; $('card').hidden = false;
+  setTimeout(() => $('go').focus(), 30);
+}
+$('go').addEventListener('click', () => { if ($('card').dataset.kind === 'paused') resume(); else startShift(); });
+function startShift() {
+  audio();
+  for (const J of jacks) { J.end = null; J.plug = null; J.flash = null; J.freedAt = -99; }
+  for (const cord of cords) { cord.state = 'free'; cord.call = null; for (const e of cord.ends) { e.st = 'rest'; e.jack = -1; } }
+  Object.assign(headset, { st: 'rest', jack: -1 }); hand = null; floaters.length = 0;
+  Object.assign(G, { running: true, paused: false, over: false, t: 0, calls: [], seq: 0, nextSpawn: 1.2, made: 0, crossed: 0, missed: 0, heardAny: false, heardPair: false });
+  $('card').hidden = true; hud(); cv.focus();
+}
+function endShift() {
+  G.running = false; G.over = true;
+  for (const c of G.calls) clearCall(c);
+  G.calls = [];
+  dropHand();
+  for (const cord of cords) if (cord.state !== 'free') sendHome(cord, true);
+  unplugHeadset();
+  if (G.made > best) { best = G.made; try { localStorage.setItem('switchboard.best', String(best)); } catch {} } else best = Math.max(best, G.made);
+  sfx.over(0);
+  announce(`Shift over. ${G.made} calls put through.`);
+  setTimeout(() => showCard('over'), 1200);
+}
+function pause() {
+  if (!G.running || G.paused) return;
+  G.paused = true; if (ac) ac.suspend();
+  showCard('paused');
+}
+function resume() {
+  G.paused = false; $('card').hidden = true;
+  if (ac) ac.resume();
+  cv.focus();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('sound').addEventListener('click', () => {
+  muted = !muted;
+  try { localStorage.setItem('switchboard.muted', muted ? '1' : '0'); } catch {}
+  if (master) master.gain.setTargetAtTime(muted ? 0 : .85, ac.currentTime, .02);
+  soundButton();
+});
+function soundButton() {
+  $('sound').setAttribute('aria-pressed', String(muted)); $('sound').setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  $('waves').style.display = muted ? 'none' : ''; $('cross').style.display = muted ? '' : 'none';
+}
+
+/* ---------- ?demo: a busy moment on the board ---------- */
+function demo() {
+  Object.assign(G, { running: true, t: 95, made: 14, crossed: 2, missed: 1, seq: 0 });
+  const call = (a, b, state) => {
+    const voice = pickVoice([], 0, 3), c = { id: ++G.seq, voice, state, deadline: Infinity, patience: 40, penalty: 0, ends: [], cord: null, until: 999 };
+    for (const [p, j] of [[0, a], [1, b]]) { const e = { call: c, p, jack: j, appearAt: 0, shown: true, slot: -1, heard: false, phase: 0 }; jacks[j].end = e; c.ends.push(e); }
+    G.calls.push(c); return c;
+  };
+  const plugIn = (end, j) => { end.st = 'in'; end.jack = j; end.t0 = -9; end.from = { x: 0, y: 0 }; jacks[j].plug = end; };
+  [[jackAt(0, 1, 3), jackAt(1, 5, 1), 0], [jackAt(0, 6, 0), jackAt(1, 2, 4), 1], [jackAt(0, 4, 4), jackAt(1, 7, 3), 3], [jackAt(0, 0, 1), jackAt(1, 3, 2), 6]].forEach(([a, b, ci]) => {
+    const c = call(a, b, 'talk'), cord = cords[ci];
+    plugIn(cord.ends[0], a); plugIn(cord.ends[1], b); cord.state = 'talk'; cord.call = c; c.cord = cord;
+  });
+  const w = [call(jackAt(0, 2, 2), jackAt(1, 0, 0), 'wait'), call(jackAt(0, 5, 1), jackAt(1, 6, 2), 'wait'), call(jackAt(0, 7, 3), jackAt(1, 4, 4), 'wait')];
+  w[0].deadline = G.t + 30; w[1].deadline = G.t + 14; w[2].deadline = G.t + 5;
+  const held = cords[2];
+  plugIn(held.ends[0], jackAt(0, 5, 1)); held.ends[1].st = 'held'; held.state = 'half'; hand = { kind: 'cord', end: held.ends[1] };
+  const tgt = jacks[jackAt(1, 6, 2)]; ptr.x = tgt.x - S * .7; ptr.y = holeY(tgt) + S * .35;
+  Object.assign(headset, { st: 'in', jack: jackAt(0, 2, 2), t0: -9, from: { x: 0, y: 0 } });
+  $('card').hidden = true; hud();
+}
+
+/* ---------- go ---------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now; rt += dt;
+  if (G.running && !G.paused && !DEMO) update(dt);
+  animate();
+  if (!DEMO) updateLine();
+  render(); hint();
+  requestAnimationFrame(frame);
+}
+addEventListener('resize', layout);
+layout();
+if (document.fonts) document.fonts.ready.then(() => drawStatic());
+soundButton(); hud();
+if (DEMO) demo(); else showCard('intro');
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
