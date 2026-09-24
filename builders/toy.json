@@ -1,0 +1,8 @@
+{
+  "title": "Builders",
+  "blurb": "Type, and scaffolding goes up around a ghost of each letter. Little crews in orange vests and white hard hats climb up and lay it brick by brick, in the order you typed, three crews at a time. Floodlights below throw their shadows up the wall. Share a phrase with ?text=HELLO|WORLD.",
+  "added": "2026-09-24",
+  "tags": ["canvas", "pixel art", "typing"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 7000, "query": "?text=BUILD|IT+UP!&speed=3" }
+}

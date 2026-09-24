@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Builders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { background: #000; overflow: hidden; color: #f2d7a6; font-family: Silkscreen, ui-monospace, monospace; -webkit-user-select: none; user-select: none; }
+  canvas { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); image-rendering: pixelated; image-rendering: crisp-edges; cursor: text; }
+  .name { position: fixed; top: max(19px, env(safe-area-inset-top)); left: 60px; margin: 0; font-size: 20px; line-height: 1; letter-spacing: .04em; color: #f2d7a6; pointer-events: none; }
+  .hint { position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; width: max-content; max-width: calc(100% - 32px);
+    text-align: center; font-size: 12px; letter-spacing: .06em; color: rgba(242, 215, 166, .6); pointer-events: none; transition: opacity .8s ease, color .2s ease; }
+  .hint.full { color: #ff9a5a; }
+  .hint.gone { opacity: 0; }
+  #keys { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+  @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" role="img" aria-label="Pixel-art builders in orange vests and white hard hats building the letters you type, lit from below"></canvas>
+<p class="name">Builders</p>
+<p class="hint" id="hint">Type to build · Enter for a new line · Backspace takes one down</p>
+<input id="keys" type="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="enter" aria-label="Type letters for the builders to build">
+<script>
+(() => {
+'use strict';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rr = (a, b) => a + Math.random() * (b - a);
+const Q = new URLSearchParams(location.search);
+const SPEED = clamp(Number(Q.get('speed')) || 1, 0.25, 8);   // ?speed=4 fast-forwards (used for the preview image)
+
+/* ---------- the font: 5×7 blocks, each block is one brick the builders lay ---------- */
+const B = 4, GAP = 8, LETTER_H = 7 * B, PITCH = 58, MAX_ROWS = 3;
+const GLYPHS = {
+  A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'], B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+  C: ['.####', '#....', '#....', '#....', '#....', '#....', '.####'], D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
+  E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'], F: ['#####', '#....', '#....', '####.', '#....', '#....', '#....'],
+  G: ['.####', '#....', '#....', '#.###', '#...#', '#...#', '.###.'], H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  I: ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'], J: ['..###', '...#.', '...#.', '...#.', '#..#.', '#..#.', '.##..'],
+  K: ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'], L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+  M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'], N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
+  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'], P: ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+  Q: ['.###.', '#...#', '#...#', '#...#', '#.#.#', '#..#.', '.##.#'], R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+  S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'], T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+  U: ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'], V: ['#...#', '#...#', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
+  W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'], X: ['#...#', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '#...#'],
+  Y: ['#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'], Z: ['#####', '....#', '...#.', '..#..', '.#...', '#....', '#####'],
+  0: ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'], 1: ['.#.', '##.', '.#.', '.#.', '.#.', '.#.', '###'],
+  2: ['.###.', '#...#', '....#', '..##.', '.#...', '#....', '#####'], 3: ['####.', '....#', '....#', '.###.', '....#', '....#', '####.'],
+  4: ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'], 5: ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
+  6: ['.###.', '#....', '#....', '####.', '#...#', '#...#', '.###.'], 7: ['#####', '....#', '...#.', '..#..', '..#..', '..#..', '..#..'],
+  8: ['.###.', '#...#', '#...#', '.###.', '#...#', '#...#', '.###.'], 9: ['.###.', '#...#', '#...#', '.####', '....#', '....#', '.###.'],
+  '!': ['#', '#', '#', '#', '#', '.', '#'], '?': ['.###.', '#...#', '....#', '...#.', '..#..', '.....', '..#..'],
+  '.': ['.', '.', '.', '.', '.', '.', '#'], ',': ['..', '..', '..', '..', '..', '.#', '#.'], "'": ['#', '#', '.', '.', '.', '.', '.'],
+  '-': ['...', '...', '...', '###', '...', '...', '...'], '+': ['...', '...', '.#.', '###', '.#.', '...', '...'], ':': ['.', '.', '#', '.', '.', '#', '.'],
+  '&': ['.##..', '#..#.', '#.#..', '.#...', '#.#.#', '#..#.', '.##.#'], '/': ['....#', '....#', '...#.', '..#..', '.#...', '#....', '#....'],
+  '#': ['.#.#.', '.#.#.', '#####', '.#.#.', '#####', '.#.#.', '.#.#.'], '$': ['..#..', '.####', '#.#..', '.###.', '..#.#', '####.', '..#..'],
+  '(': ['.#', '#.', '#.', '#.', '#.', '#.', '.#'], ')': ['#.', '.#', '.#', '.#', '.#', '.#', '#.'],
+  '♥': ['.....', '.#.#.', '#####', '#####', '.###.', '..#..', '.....'], ' ': ['..', '..', '..', '..', '..', '..', '..'],
+};
+const glyphOf = ch => {
+  const rows = GLYPHS[ch], cells = [];
+  rows.forEach((line, i) => [...line].forEach((p, c) => { if (p === '#') cells.push({ c, r: 6 - i }); }));
+  return { w: rows[0].length, cells };
+};
+
+/* ---------- the builders: 7×10 sprites composed from parts, facing right (mirrored for left) ---------- */
+const PAL = { W: '#f4f3ec', w: '#c9c8c0', S: '#e2a97c', e: '#2b1b12', h: '#5b3a22', O: '#f36c1d', o: '#b9480f', Y: '#f6e25a', G: '#7c8594', B: '#2f4a7a', K: '#3b2b20', M: '#9aa1ab', n: '#8b5a2b' };
+const HEAD = { side: ['..WWW..', '.WWWWWW', '..SSe..', '..SSS..'], front: ['..WWW..', '.WWWWW.', '..eSe..', '..SSS..'], back: ['..WWW..', '.WWWWW.', '..hhh..', '..SSS..'] };
+const TORSO = { side: ['..OOO..', '..YYY..', '..OOO..'], front: ['..OOO..', '..YYY..', '..OOO..'], back: ['..OYO..', '..YOY..', '..OOO..'] };
+const LEGS = {
+  stand: ['..B.B..', '..B.B..', '.KK.KK.'], walkA: ['..BBB..', '.B...B.', '.K...K.'], walkB: ['..BBB..', '..BB...', '..KK...'],
+  climbA: ['..B.B..', '..B.K..', '..K....'], climbB: ['..B.B..', '..K.B..', '....K..'], jump: ['..B.B..', '.B...B.', 'K.....K'], kneel: ['..BBB..', '.BB.BB.', '.KK.KK.'],
+};
+// Arms and tools as [x, y, colour] lists (y from the top of the sprite; negative is above the hat).
+const ARMS = {
+  sides: [[1, 4, 'G'], [1, 5, 'G'], [1, 6, 'S'], [5, 4, 'G'], [5, 5, 'G'], [5, 6, 'S']],
+  swingA: [[1, 4, 'G'], [0, 5, 'S'], [5, 4, 'G'], [5, 5, 'G'], [6, 6, 'S']],
+  swingB: [[1, 4, 'G'], [1, 5, 'G'], [2, 6, 'S'], [5, 4, 'G'], [6, 5, 'S']],
+  hammerUp: [[1, 4, 'G'], [1, 5, 'S'], [5, 3, 'G'], [5, 2, 'G'], [5, 1, 'S'], [5, 0, 'n'], [5, -1, 'n'], [4, -2, 'M'], [5, -2, 'M'], [6, -2, 'M']],
+  hammerDown: [[1, 4, 'G'], [1, 5, 'S'], [5, 4, 'G'], [6, 4, 'S'], [6, 3, 'n'], [7, 2, 'n'], [6, 1, 'M'], [7, 1, 'M'], [8, 1, 'M']],
+  climbA: [[1, 3, 'G'], [1, 2, 'S'], [5, 4, 'G'], [5, 5, 'S']], climbB: [[1, 4, 'G'], [1, 5, 'S'], [5, 3, 'G'], [5, 2, 'S']],
+  cheer: [[1, 3, 'G'], [0, 2, 'G'], [0, 1, 'S'], [5, 3, 'G'], [6, 2, 'G'], [6, 1, 'S']],
+  crankA: [[5, 4, 'G'], [6, 5, 'S'], [7, 4, 'n'], [1, 4, 'G'], [1, 5, 'G'], [1, 6, 'S']],
+  crankB: [[5, 4, 'G'], [6, 5, 'S'], [7, 6, 'n'], [1, 4, 'G'], [1, 5, 'G'], [1, 6, 'S']],
+};
+// Every pixel of a builder in a given pose, as [dx, dy, colour key] with (0, 0) at the feet.
+function spritePixels(pose, frame) {
+  const f = frame & 1, view = pose === 'hammer' || pose === 'climb' ? 'back' : pose === 'cheer' || pose === 'idle' ? 'front' : 'side';
+  const legs = pose === 'walk' ? (frame % 4 === 1 ? LEGS.walkA : frame % 4 === 3 ? LEGS.walkB : LEGS.stand)
+    : pose === 'climb' ? (f ? LEGS.climbB : LEGS.climbA) : pose === 'cheer' ? (f ? LEGS.jump : LEGS.stand) : pose === 'kneel' ? LEGS.kneel : LEGS.stand;
+  const arms = pose === 'walk' ? (frame % 4 === 1 ? ARMS.swingA : frame % 4 === 3 ? ARMS.swingB : ARMS.sides) : pose === 'hammer' || pose === 'kneel' ? (f ? ARMS.hammerDown : ARMS.hammerUp)
+    : pose === 'climb' ? (f ? ARMS.climbB : ARMS.climbA) : pose === 'cheer' ? ARMS.cheer : pose === 'crank' ? (f ? ARMS.crankB : ARMS.crankA) : ARMS.sides;
+  const out = [], rows = [...HEAD[view], ...TORSO[view], ...legs];
+  const lift = pose === 'cheer' && f ? -2 : pose === 'kneel' ? 1 : 0;
+  rows.forEach((line, y) => [...line].forEach((k, x) => { if (k !== '.') out.push([x - 3, y - 10 + lift, k]); }));
+  for (const [x, y, k] of arms) out.push([x - 3, y - 10 + lift, k]);
+  return out;
+}
+
+/* ---------- the site ----------
+   Everything on a row is positioned relative to the row (x from its left end, y up from its ledge, negative is up),
+   so a row can slide to stay centred while builders keep working on it. */
+const LEVELS = [0, -12, -22];                             // ground, and the two plank levels of the scaffold
+const levelFor = r => r < 3 ? 0 : r < 6 ? -12 : -22;      // where a builder stands to lay a block in row r
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const mask = document.createElement('canvas'), mctx = mask.getContext('2d');      // silhouettes, for shadows
+const lightLayer = document.createElement('canvas'), lctx = lightLayer.getContext('2d');
+let W = 400, H = 300, scale = 3, camY = 150, clock = 0;
+const rows = [{ letters: [], x: 200, i: 0 }];
+const crews = [], builders = [], dust = [];
+let seq = 0, urlTimer = 0;
+
+function layout() {
+  scale = Math.max(1, Math.floor(Math.min(innerWidth / 400, innerHeight / 250)));
+  W = Math.ceil(innerWidth / scale); H = Math.ceil(innerHeight / scale);
+  cv.width = mask.width = W; cv.height = mask.height = H;
+  cv.style.width = W * scale + 'px'; cv.style.height = H * scale + 'px';
+  ctx.imageSmoothingEnabled = mctx.imageSmoothingEnabled = false;
+  for (const row of rows) row.x = rowTarget(row);
+}
+const rowWidth = row => { const l = row.letters.at(-1); return l ? l.x + l.w * B : 0; };
+const rowTarget = row => Math.round((W - rowWidth(row)) / 2);
+const camTarget = () => Math.round(H / 2 - (rows.length - 1) * PITCH / 2 + LETTER_H / 2);
+const rowY = row => camY + row.i * PITCH;                  // screen y of a row's ledge
+
+/* ---------- scaffolds, fitted to each letter ----------
+   Only as tall as the letter needs (a hyphen gets one plank level, a full stop none), with either one ladder all the
+   way up or two staggered ones, standing in front of different columns. Chosen from the character and its place, so a
+   shared phrase always looks the same. */
+function planScaffold(L, seed) {
+  let h = seed >>> 0;
+  const rnd = () => { h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) + 0x6d2b79f5 >>> 0; return (h >>> 8) / 16777216; };
+  rnd(); rnd();
+  const maxRow = L.blocks.length ? Math.max(...L.blocks.map(k => k.r)) : 0;
+  L.topLevel = levelFor(maxRow);
+  L.planks = LEVELS.filter(y => y < 0 && y >= L.topLevel);
+  L.top = -(maxRow + 1) * B - 4;
+  const col = () => L.x + Math.floor(rnd() * L.w) * B + 2;
+  L.ladders = [];
+  if (L.topLevel === 0) return;                            // everything is within reach from the ground
+  const first = col();
+  if (L.topLevel === -22 && L.w >= 3 && rnd() < 0.55) {   // staggered: ground to the first plank, then on up elsewhere
+    let second = col();
+    for (let i = 0; i < 6 && Math.abs(second - first) < B * 2; i++) second = col();
+    L.ladders.push({ x: first, y0: 0, y1: -12 }, { x: second, y0: -12, y1: -22 });
+  } else L.ladders.push({ x: first, y0: 0, y1: L.topLevel });
+}
+// The ladder that joins two neighbouring levels.
+const ladderBetween = (L, a, b) => L.ladders.find(l => l.y0 >= Math.max(a, b) && l.y1 <= Math.min(a, b));
+const ladderX = L => (L.ladders[0] ? L.ladders[0].x : L.x + 2);
+
+/* ---------- typing ---------- */
+const hint = document.getElementById('hint');
+function flashFull() { hint.classList.remove('gone'); hint.classList.add('full'); setTimeout(() => hint.classList.remove('full'), 500); }
+function addChar(raw) {
+  let ch = raw.toUpperCase();
+  if (ch === '<3') ch = '♥';
+  if (!GLYPHS[ch]) return false;
+  let row = rows.at(-1);
+  const g = glyphOf(ch), x = row.letters.length ? rowWidth(row) + GAP : 0;
+  if (x + g.w * B > W - 24) {                             // wrap to a new row, if there's one left
+    if (ch === ' ') return false;
+    if (!newRow()) { flashFull(); return false; }
+    return addChar(raw);
+  }
+  if (ch === ' ' && !row.letters.length) return false;
+  const L = { id: seq++, ch, row, x, w: g.w, blocks: g.cells.map(c => ({ ...c, placed: false, claimed: null, t: 0 })), crew: null, done: g.cells.length === 0, up: 0, ghost: 0, light: 0 };
+  planScaffold(L, ch.codePointAt(0) * 31 + row.letters.length * 7 + row.i * 101);
+  row.letters.push(L);
+  changed();
+  return true;
+}
+function newRow() {
+  if (rows.length >= MAX_ROWS) return false;
+  rows.push({ letters: [], x: Math.round(W / 2), i: rows.length });
+  changed();
+  return true;
+}
+function backspace() {
+  const row = rows.at(-1);
+  if (!row.letters.length) {
+    if (rows.length > 1) { rows.pop(); changed(); }
+    return;
+  }
+  const L = row.letters.pop();
+  L.removed = true;
+  for (const b of L.blocks) if (b.placed) puff(row, L.x + b.c * B + 2, -b.r * B - 2, 3);
+  if (L.crew) release(L.crew);
+  changed();
+}
+const text = () => rows.map(r => r.letters.map(l => l.ch).join('')).join('|');
+function changed() {                                      // keep the URL shareable
+  clearTimeout(urlTimer);
+  urlTimer = setTimeout(() => {
+    const t = text().replace(/\|+$/, '');
+    history.replaceState(null, '', t ? `?text=${encodeURIComponent(t).replace(/%7C/g, '|').replace(/%20/g, '+')}` : location.pathname);
+  }, 400);
+}
+function setText(s) {
+  for (const ch of s.replace(/<3/g, '♥')) {
+    if (ch === '|' || ch === '\n') { if (!newRow()) break; }
+    else addChar(ch);
+  }
+}
+
+/* ---------- crews ----------
+   Up to three crews of three: a foreman who winds the hoist, and two climbers who lay the blocks, lowest row first.
+   Builders follow a plan of small steps (walk, climb, hammer, wait, cheer, leave for another row). */
+const WALK = 24, RUN = 46, CLIMB = 18, HAMMER = 0.36;
+const rightX = L => L.x + L.w * B + 4;
+const allLetters = () => rows.flatMap(r => r.letters);
+const nextLetter = () => allLetters().find(L => !L.done && !L.crew && L.blocks.length);
+function onScaffold(b, L, levelY, x) {                    // steps to reach (levelY, x) on letter L's scaffold
+  const p = [];
+  let at = b.y;
+  if (!LEVELS.includes(at)) {                              // caught partway up a ladder: finish the climb first
+    at = levelY > at ? Math.min(...LEVELS.filter(y => y > at)) : Math.max(...LEVELS.filter(y => y < at));
+    p.push({ k: 'climb', y: at });
+  }
+  while (at !== levelY) {                                  // one level at a time, by whichever ladder joins them
+    const i = LEVELS.indexOf(at), next = LEVELS[i + (levelY < at ? 1 : -1)], lad = ladderBetween(L, at, next);
+    if (!lad) break;
+    p.push({ k: 'walk', x: lad.x }, { k: 'climb', y: next });
+    at = next;
+  }
+  p.push({ k: 'walk', x });
+  return p;
+}
+function toRow(b, row, x) {                               // steps to walk to (row, x) on the ground
+  const p = b.row !== row ? [{ k: 'leave', to: row }] : [];
+  p.push({ k: 'walk', x, run: true });
+  return p;
+}
+function claim(crew, L) {
+  crew.letter = L; L.crew = crew; crew.state = 'travel'; crew.leaving = false; crew.idle = 0;
+  const [f, a, c] = crew.members;
+  f.plan = [...toRow(f, L.row, rightX(L)), { k: 'face', dir: -1 }, { k: 'crank' }];
+  a.plan = toRow(a, L.row, ladderX(L) - 3);
+  c.plan = toRow(c, L.row, L.x + L.w * B - 2);
+}
+function release(crew) {                                  // their letter was taken away
+  crew.letter = null; crew.state = 'none';
+  for (const b of crew.members) { b.plan = []; if (b.y < 0) b.falling = true; }
+}
+function spawnCrew(L) {
+  const side = L.row.x + L.x < W / 2 ? -1 : 1, crew = { id: seq++, members: [], state: 'none', letter: null, idle: 0, leaving: false };
+  ['fore', 'climb', 'climb'].forEach((role, k) => {
+    const x = side < 0 ? -L.row.x - 8 - k * 9 : W - L.row.x + 8 + k * 9;
+    const b = { crew, role, row: L.row, x, y: 0, dir: -side, pose: 'walk', frame: 0, dist: 0, t: 0, plan: [], vy: 0, falling: false, gone: false };
+    crew.members.push(b); builders.push(b);
+  });
+  crews.push(crew);
+  claim(crew, L);
+}
+function assignBlock(crew, b) {
+  const L = crew.letter, open = L.blocks.filter(k => !k.placed && !k.claimed);
+  if (!open.length) {                                     // nothing left for me: get down and wait for the others
+    b.plan = b.y !== 0 ? onScaffold(b, L, 0, ladderX(L) - 3) : [{ k: 'wait', t: 0.25 }];
+    return;
+  }
+  const low = Math.min(...open.map(k => k.r)), level = levelFor(low);
+  const pick = open.filter(k => levelFor(k.r) === level).sort((p, q) => (p.r - q.r) || Math.abs(L.x + p.c * B + 2 - b.x) - Math.abs(L.x + q.c * B + 2 - b.x))[0];
+  pick.claimed = b;
+  b.plan = [...onScaffold(b, L, level, L.x + pick.c * B + 2), { k: 'hammer', block: pick, L }];
+}
+let spawnWait = 0;
+function thinkCrews(dt) {
+  spawnWait -= dt;
+  const waiting = nextLetter();
+  if (waiting && !crews.some(c => !c.letter && !c.members.some(b => b.gone)) && crews.length < 3 && spawnWait <= 0) { spawnCrew(waiting); spawnWait = 1.1; }
+  for (const crew of crews) {
+    const L = crew.letter, [f, ...climbers] = crew.members;
+    if (!L) {
+      const next = nextLetter();
+      if (next && crew.members.every(b => !b.gone)) { claim(crew, next); continue; }
+      crew.idle += dt;
+      if (crew.idle > 3 && !crew.leaving) { crew.leaving = true; for (const b of crew.members) b.plan = [{ k: 'leave', to: null }]; }
+      continue;
+    }
+    const RIG = 1.5;                                      // seconds to put the scaffold up
+    if (crew.state === 'travel') {                        // walking over; once both climbers are there, rig it
+      if (climbers.every(b => !b.plan.length && !b.falling && b.row === L.row)) {
+        crew.state = L.up >= 1 ? 'build' : 'rig';
+        if (crew.state === 'rig') climbers.forEach((b, k) => { b.dir = k ? -1 : 1; b.plan = [{ k: 'rig' }]; });
+      }
+    } else if (crew.state === 'rig') {                    // hammering at the base while the poles and planks go up
+      L.up = Math.min(1, L.up + dt / RIG);
+      if (L.up >= 1) { crew.state = 'build'; for (const b of climbers) b.plan = []; }
+    } else if (crew.state === 'build') {
+      for (const b of climbers) if (!b.plan.length && !b.falling && b.row === L.row) assignBlock(crew, b);
+      if (L.blocks.every(k => k.placed)) {                // done: everyone down to the ground
+        crew.state = 'finish';
+        climbers.forEach((b, k) => { b.plan = onScaffold(b, L, 0, L.x + 2 + k * (L.w * B - 4)); });
+        f.plan = [];
+      }
+    } else if (crew.state === 'finish') {
+      for (const b of crew.members) if (!b.plan.length && b.y !== 0 && !b.falling) b.falling = true;   // never leave anyone up there
+      if (crew.members.every(b => !b.plan.length && b.y === 0 && !b.falling)) {
+        crew.state = 'cheer';
+        crew.members.forEach((b, k) => { b.plan = [{ k: 'wait', t: k * 0.08 }, { k: 'cheer', t: 0 }]; });
+        L.done = true; L.doneAt = clock;                  // the scaffold starts coming down
+      }
+    } else if (crew.state === 'cheer') {
+      if (crew.members.every(b => !b.plan.length)) { L.crew = null; crew.letter = null; crew.state = 'none'; }
+    }
+  }
+  for (let i = crews.length - 1; i >= 0; i--) if (crews[i].members.every(b => b.gone)) crews.splice(i, 1);
+  for (let i = builders.length - 1; i >= 0; i--) if (builders[i].gone) builders.splice(i, 1);
+}
+
+function stepBuilder(b, dt) {
+  if (b.falling) {                                        // their scaffold vanished under them
+    b.vy += 320 * dt; b.y = Math.min(0, b.y + b.vy * dt); b.pose = 'climb'; b.frame = 0;
+    if (b.y >= 0) { b.falling = false; b.vy = 0; puff(b.row, b.x, 0, 2); }
+    return;
+  }
+  const a = b.plan[0];
+  if (!a) { b.pose = 'idle'; b.frame = 0; return; }
+  switch (a.k) {
+    case 'walk': {
+      const d = a.x - b.x, v = (a.run && Math.abs(d) > 24 ? RUN : WALK) * dt;
+      b.pose = 'walk';
+      if (Math.abs(d) <= v) { b.x = a.x; b.plan.shift(); }
+      else { b.x += Math.sign(d) * v; b.dir = Math.sign(d); b.dist += v; }
+      b.frame = Math.floor(b.dist / 2.5);
+      break;
+    }
+    case 'climb': {
+      const d = a.y - b.y, v = CLIMB * dt;
+      b.pose = 'climb';
+      if (Math.abs(d) <= v) { b.y = a.y; b.plan.shift(); } else { b.y += Math.sign(d) * v; b.dist += v; }
+      b.frame = Math.floor(b.dist / 2.2);
+      break;
+    }
+    case 'hammer':
+      a.t = (a.t || 0) + dt; b.pose = 'hammer'; b.frame = Math.floor(a.t / 0.09);
+      if (a.L.removed) { b.plan = []; break; }
+      if (a.t >= HAMMER) {
+        a.block.placed = true; a.block.t = clock; a.block.claimed = null;
+        puff(b.row, a.L.x + a.block.c * B + 2, -a.block.r * B - 1, 2);
+        b.plan.shift();
+      }
+      break;
+    case 'wait': a.t -= dt; b.pose = 'idle'; b.frame = 0; if (a.t <= 0) b.plan.shift(); break;
+    case 'cheer': a.t += dt; b.pose = 'cheer'; b.frame = Math.floor(a.t / 0.18); if (a.t > 1.0) b.plan.shift(); break;
+    case 'face': b.dir = a.dir; b.plan.shift(); break;
+    case 'crank': b.pose = 'crank'; b.frame = Math.floor(clock * 5); break;
+    case 'rig': b.pose = 'hammer'; b.frame = Math.floor(clock / 0.09); break;
+    case 'leave': {                                       // walk off the nearer edge, then come in on the other row
+      if (a.side === undefined) a.side = b.row.x + b.x < W / 2 ? -1 : 1;
+      const edge = a.side < 0 ? -b.row.x - 12 : W - b.row.x + 12, d = edge - b.x, v = RUN * dt;
+      b.pose = 'walk'; b.dir = a.side; b.dist += v; b.frame = Math.floor(b.dist / 2.5);
+      if (Math.abs(d) > v) { b.x += Math.sign(d) * v; break; }
+      if (!a.to) { b.gone = true; break; }
+      b.row = a.to; b.x = a.side < 0 ? -a.to.x - 12 : W - a.to.x + 12;
+      b.plan.shift();
+      break;
+    }
+  }
+}
+function puff(row, x, y, n) {
+  for (let i = 0; i < n; i++) dust.push({ row, x: x + rr(-1.5, 1.5), y, vx: rr(-10, 10), vy: rr(-18, -4), life: rr(0.35, 0.7) });
+}
+
+/* ---------- light ----------
+   A floodlight under every letter throws a warm cone up the black wall behind, dithered like pixel art.
+   Each light cuts its own shadows out of its cone: everything in front (blocks, scaffolding, builders), projected up
+   from the lamp, bigger and higher, the way a light at your feet throws your shadow up the wall. */
+const GW = 34, GH = 104, BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const glow = (() => {
+  const c = document.createElement('canvas'); c.width = GW * 2 + 1; c.height = GH + 10;
+  const g = c.getContext('2d'), img = g.createImageData(c.width, c.height);
+  for (let py = 0; py < c.height; py++) for (let px = 0; px < c.width; px++) {
+    const dx = px - GW, dy = py - GH;
+    let I;
+    if (dy < 0) { const t = -dy / GH, half = 3 + 30 * t; I = Math.max(0, 1 - Math.abs(dx) / half) ** 0.9 * (1 - t) ** 1.7; }
+    else I = Math.max(0, 1 - Math.hypot(dx * 0.5, dy * 1.6) / 9) * 0.7;
+    const q = Math.floor(I * 7 + BAYER[(py & 3) * 4 + (px & 3)] / 16) / 7, i = (py * c.width + px) * 4;
+    img.data[i] = 255 * q * 0.26; img.data[i + 1] = 172 * q * 0.26; img.data[i + 2] = 92 * q * 0.26; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+})();
+lightLayer.width = glow.width; lightLayer.height = glow.height;
+function castLight(lx, ly, strength) {
+  const ox = lx - GW, oy = ly - GH, kx = 1.3, ky = 1.75;
+  lctx.globalCompositeOperation = 'copy'; lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.drawImage(glow, 0, 0);
+  lctx.globalCompositeOperation = 'destination-out';
+  lctx.setTransform(kx, 0, 0, ky, lx - ox - kx * lx, ly - oy - ky * ly - 5);
+  lctx.drawImage(mask, 0, 0);
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = strength;
+  ctx.drawImage(lightLayer, ox, oy);
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+}
+
+/* ---------- drawing ---------- */
+// Bricks, brighter toward the lights below; each has a lit lower edge and a shadowed top.
+const SHADE = Array.from({ length: 7 }, (_, r) => {
+  const f = 1 - r / 7 * 0.6, c = (k, m) => `rgb(${Math.min(255, 238 * f * m + k)},${Math.min(255, 220 * f * m + k * 0.7)},${Math.min(255, 188 * f * m)})`;
+  return { face: c(0, 1), lip: c(22, 1.12), top: c(0, 0.72), side: c(0, 0.86) };
+});
+function brick(g, x, y, r, flash) {
+  const s = SHADE[r];
+  g.fillStyle = flash ? '#fffbe8' : s.face; g.fillRect(x, y, B, B);
+  if (flash) return;
+  g.fillStyle = s.top; g.fillRect(x, y, B, 1);
+  g.fillStyle = s.side; g.fillRect(x + B - 1, y + 1, 1, B - 1);
+  g.fillStyle = s.lip; g.fillRect(x, y + B - 1, B - 1, 1);
+}
+function drawBuilder(g, b, X, Y, solid) {
+  for (const [dx, dy, k] of spritePixels(b.pose, b.frame)) {
+    g.fillStyle = solid || PAL[k];
+    g.fillRect(X + (b.dir < 0 ? -dx : dx), Y + dy, 1, 1);
+  }
+}
+function scaffoldVisible(L) { return L.done ? 1 - clamp((clock - L.doneAt) / 0.6, 0, 1) : clamp(L.up, 0, 1); }
+function drawScaffold(g, L, X, Y, solid) {
+  const vis = scaffoldVisible(L);
+  if (vis <= 0 || !L.blocks.length) return;
+  const top = L.top, cut = Y + top * vis;                 // grows up from the ledge, comes down from the top
+  const px = (x, y, c) => { if (y >= cut) { g.fillStyle = solid || c; g.fillRect(x, y, 1, 1); } };
+  const hline = (x0, x1, y, c) => { if (y >= cut) { g.fillStyle = solid || c; g.fillRect(x0, y, x1 - x0 + 1, 1); } };
+  const l = X + L.x - 2, r = X + L.x + L.w * B + 1;
+  for (let y = Y + top; y < Y; y++) { const lit = y > Y - 10 ? '#aab2bf' : '#7d8593'; px(l, y, lit); px(r, y, lit); }
+  for (const [y0, y1] of [[0, L.planks[0] ?? top], ...(L.planks.length > 1 ? [[L.planks[0], L.planks[1]]] : [])]) for (let s = 0; s <= 10; s += 2) {   // cross-bracing
+    const t = s / 10, y = Math.round(Y + lerp(y0, y1, t));
+    px(Math.round(lerp(l, r, t)), y, '#4d535e'); px(Math.round(lerp(r, l, t)), y, '#4d535e');
+  }
+  for (const lv of L.planks) { hline(l - 1, r + 1, Y + lv, '#c08a4c'); hline(l - 1, r + 1, Y + lv + 1, '#6d4522'); }
+  hline(l, r, Y + top, '#7d8593');
+  for (const lad of L.ladders) {                          // ladders, each reaching a little above the plank it serves
+    const lx = X + lad.x;
+    for (let y = Y + lad.y1 - 3; y < Y + lad.y0; y++) { px(lx - 2, y, '#d2a94d'); px(lx + 2, y, '#d2a94d'); if ((Y - y) % 3 === 0 && y > Y + lad.y1 - 2) hline(lx - 1, lx + 1, y, '#a37f33'); }
+  }
+  if (!solid && L.crew && !L.done && L.up >= 1) {                        // the hoist: pulley, rope, and a bucket of bricks going up and down
+    const rx = r + 2, phase = (clock * 0.45 + L.id * 0.37) % 1, by = Math.round(Y - 3 - (1 - Math.abs(phase * 2 - 1)) * Math.max(0, -L.top - 6));
+    hline(r, rx + 1, Y + top, '#7d8593'); px(rx, Y + top + 1, '#3b3f47');
+    for (let y = Y + top + 2; y < Y - 4; y++) px(rx, y, '#b8a27a');
+    g.fillStyle = '#5c616b'; g.fillRect(rx - 1, by, 3, 2); g.fillStyle = '#c9785a'; g.fillRect(rx - 1, by - 1, 3, 1);
+  }
+}
+function drawLedge(g, row) {
+  const w = rowWidth(row), X = row.x, Y = Math.round(rowY(row));
+  const x0 = X - 8, x1 = X + Math.max(w, 6) + 8;
+  g.fillStyle = '#6b6f78'; g.fillRect(x0, Y, x1 - x0, 1);
+  g.fillStyle = '#34363d'; g.fillRect(x0, Y + 1, x1 - x0, 3);
+  g.fillStyle = '#4c4f58'; for (let x = x0 + 2; x < x1; x += 6) g.fillRect(x, Y + 2, 1, 1);
+  for (const L of row.letters) {                           // a floodlight under each letter
+    if (!L.blocks.length) continue;
+    const cx = X + L.x + Math.floor(L.w * B / 2);
+    g.fillStyle = '#23252b'; g.fillRect(cx - 2, Y + 1, 5, 3);
+    g.fillStyle = L.light > 0.5 ? '#ffe2a8' : '#5a4a36'; g.fillRect(cx - 1, Y + 1, 3, 1);
+  }
+}
+function render() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  // 1. silhouettes of everything that casts a shadow
+  mctx.clearRect(0, 0, W, H);
+  for (const row of rows) {
+    const X = Math.round(row.x), Y = Math.round(rowY(row));
+    for (const L of row.letters) {
+      mctx.fillStyle = '#fff';
+      for (const k of L.blocks) if (k.placed) mctx.fillRect(X + L.x + k.c * B, Y - (k.r + 1) * B, B, B);
+      drawScaffold(mctx, L, X, Y, '#fff');
+    }
+  }
+  for (const b of builders) drawBuilder(mctx, b, Math.round(b.row.x + b.x), Math.round(rowY(b.row) + b.y), '#fff');
+  // 2. the lights on the wall, each with its own shadows
+  for (const row of rows) for (const L of row.letters) {
+    if (!L.blocks.length || L.light <= 0) continue;
+    const flicker = L.light < 1 ? (Math.random() < 0.3 ? 0.25 : 1) : 1;
+    castLight(Math.round(row.x + L.x + L.w * B / 2), Math.round(rowY(row)) + 1, L.light * flicker);
+  }
+  // 3. the site itself
+  for (const row of rows) {
+    drawLedge(ctx, row);
+    const X = Math.round(row.x), Y = Math.round(rowY(row));
+    for (const L of row.letters) {
+      for (const k of L.blocks) {
+        const x = X + L.x + k.c * B, y = Y - (k.r + 1) * B;
+        if (k.placed) brick(ctx, x, y, k.r, clock - k.t < 0.12);
+        else {                                             // where the letter will go: a faint, dithered ghost
+          ctx.fillStyle = `rgba(255,232,196,${0.24 * L.ghost})`;
+          for (let j = 0; j < B; j++) for (let i = (j & 1); i < B; i += 2) ctx.fillRect(x + i, y + j, 1, 1);
+        }
+      }
+      drawScaffold(ctx, L, X, Y);
+    }
+  }
+  for (const b of builders) drawBuilder(ctx, b, Math.round(b.row.x + b.x), Math.round(rowY(b.row) + b.y));
+  ctx.fillStyle = '#d9c7a6';
+  for (const d of dust) ctx.fillRect(Math.round(d.row.x + d.x), Math.round(rowY(d.row) + d.y), 1, 1);
+  // 4. a caret where the next letter goes
+  const last = rows.at(-1), cx = Math.round(last.x + rowWidth(last) + (last.letters.length ? GAP : 0) - (last.letters.length ? 0 : 2));
+  if ((clock * 1.6) % 1 < 0.6 && typedYet) { ctx.fillStyle = 'rgba(242,215,166,.55)'; ctx.fillRect(cx, Math.round(rowY(last)) - LETTER_H, 1, LETTER_H); }
+}
+
+/* ---------- loop ---------- */
+let last = performance.now(), typedYet = true;
+function frame(now) {
+  const real = Math.min(0.05, (now - last) / 1000), dt = real * SPEED; last = now;
+  clock += dt;
+  camY = lerp(camY, camTarget(), 1 - Math.exp(-6 * real));
+  for (const row of rows) row.x = lerp(row.x, rowTarget(row), 1 - Math.exp(-7 * real));
+  for (const L of allLetters()) { L.ghost = Math.min(1, L.ghost + real * 2); L.light = Math.min(1, L.light + real * 2.5); }
+  thinkCrews(dt);
+  for (const b of builders) stepBuilder(b, dt);
+  for (let i = dust.length - 1; i >= 0; i--) { const d = dust[i]; d.life -= dt; d.vy += 60 * dt; d.x += d.vx * dt; d.y = Math.min(0, d.y + d.vy * dt); if (d.life <= 0) dust.splice(i, 1); }
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- keys ---------- */
+const keys = document.getElementById('keys');
+const typed = () => { if (!hint.classList.contains('gone') && allLetters().length > 2) setTimeout(() => hint.classList.add('gone'), 2500); };
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Enter') { e.preventDefault(); if (!newRow()) flashFull(); return; }
+  if (e.key === 'Backspace') { e.preventDefault(); backspace(); return; }
+  if (e.target === keys) return;                          // characters typed into the hidden field arrive as input
+  if (e.key.length === 1 && addChar(e.key)) { e.preventDefault(); typed(); }
+});
+keys.value = '_';
+keys.addEventListener('input', () => {                   // phone keyboards
+  const v = keys.value;
+  if (v === '') backspace();
+  else for (const ch of v.slice(1)) { if (addChar(ch)) typed(); }
+  keys.value = '_';
+});
+cv.addEventListener('pointerdown', () => { keys.focus({ preventScroll: true }); keys.setSelectionRange(1, 1); });
+
+addEventListener('resize', layout);
+layout();
+camY = camTarget();
+if (Q.get('text')) { setText(Q.get('text')); for (const row of rows) row.x = rowTarget(row); camY = camTarget(); hint.classList.add('gone'); }
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
