@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swirl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500&family=Figtree:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { background: #060405; overflow: hidden; color: #e9dcd6; font-family: Figtree, system-ui, sans-serif; }
+  .backdrop { position: fixed; inset: 0; background:
+      radial-gradient(55% 48% at 45% 40%, rgba(150, 78, 40, .20), transparent 70%),
+      radial-gradient(38% 32% at 70% 30%, rgba(120, 40, 50, .12), transparent 70%),
+      radial-gradient(120% 90% at 50% 45%, #140c0b 0%, #060405 70%); }
+  .bokeh { position: fixed; inset: 0; filter: blur(16px); opacity: .5; background:
+      radial-gradient(circle at 83% 33%, rgba(255, 176, 96, .55) 0 18px, transparent 19px),
+      radial-gradient(circle at 11% 27%, rgba(255, 150, 80, .38) 0 26px, transparent 27px),
+      radial-gradient(circle at 91% 61%, rgba(255, 196, 140, .26) 0 14px, transparent 15px),
+      radial-gradient(circle at 20% 64%, rgba(200, 90, 70, .22) 0 20px, transparent 21px); }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  canvas.held { cursor: grabbing; }
+  .name { position: fixed; top: max(18px, env(safe-area-inset-top)); left: 22px; margin: 0; pointer-events: none;
+    font: italic 500 28px/1 "Cormorant Garamond", Georgia, serif; letter-spacing: .02em; color: rgba(240, 222, 214, .82); }
+  .hint { position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0;
+    width: max-content; max-width: calc(100% - 32px); text-align: center; pointer-events: none;
+    font-size: 14px; letter-spacing: .04em; color: rgba(233, 220, 214, .62); transition: opacity 1.2s ease; }
+  .hint.gone { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+</style>
+</head>
+<body>
+<div class="backdrop"></div>
+<div class="bokeh"></div>
+<canvas id="c" aria-label="A glass of deep red wine that swirls as you drag it"></canvas>
+<p class="name">Swirl</p>
+<p class="hint" id="hint">Drag in small circles to swirl the wine</p>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+const canvas = document.getElementById('c'), hint = document.getElementById('hint');
+const DEMO = new URLSearchParams(location.search).has('demo');   // auto-swirl, used for the preview image
+if (DEMO) hint.classList.add('gone');
+
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+/* ---------- the glass, in scene units (1 unit ≈ 7 cm, so the bowl is ~8.7 cm across) ---------- */
+const UNIT = 0.07;
+const G = 9.81 / UNIT;                                   // gravity in scene units / s²
+const H = 1.6, RW = 0.62, RR = 0.44, UW = 0.36;          // bowl height, widest radius, rim radius, widest point (fraction of H)
+const WALL = 0.014;                                      // ~1 mm crystal
+const FOOT_Y = -1.4;
+const LEVEL = 0.52;                                      // wine surface at rest, just under the widest point
+function Rin(y) {                                        // inner radius of the bowl at height y
+  const u = clamp(y / H, 0, 1);
+  if (u <= UW) { const k = (UW - u) / UW; return RW * Math.sqrt(Math.max(0, 1 - k * k)); }
+  return RR + (RW - RR) * Math.cos(Math.PI / 2 * (u - UW) / (1 - UW));
+}
+const R0 = Rin(LEVEL), C0 = R0 * R0 / 2;                 // C0 keeps the spun-up paraboloid volume-neutral
+
+function buildProfile() {
+  const inner = [];
+  for (let i = 0; i <= 44; i++) { const a = (i / 44) * Math.PI / 2; inner.push([RW * Math.sin(a), UW * H * (1 - Math.cos(a))]); }
+  for (let i = 1; i <= 48; i++) { const y = H * (UW + (1 - UW) * i / 48); inner.push([Rin(y), y]); }
+  const outer = inner.map((p, i) => {                     // offset the inner skin into the glass
+    const a = inner[Math.max(0, i - 1)], b = inner[Math.min(inner.length - 1, i + 1)];
+    let nx = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    const t = WALL + 0.07 * smoothstep(0.2, 0, p[0]);     // thicker where the stem joins
+    return [p[0] + nx * t, Math.min(H, p[1] + ny * t)];
+  });
+  const foot = [[0, -1.372], [0.18, -1.377], [0.36, -1.386], [0.5, -1.396], [0.54, -1.4], [0.556, -1.396], [0.562, -1.388],
+    [0.556, -1.38], [0.52, -1.376], [0.4, -1.369], [0.26, -1.358], [0.15, -1.345], [0.085, -1.328], [0.055, -1.305], [0.042, -1.27], [0.036, -1.2]];
+  const stem = []; for (let i = 0; i <= 10; i++) stem.push([0.034 - 0.006 * (i / 10), -1.12 + i * 0.09]);
+  const k = outer.findIndex(p => p[0] >= 0.1), [ex, ey] = outer[k], flare = [];
+  for (let i = 1; i < 8; i++) { const s = i / 8; flare.push([0.028 + (ex - 0.028) * Math.pow(s, 2.2), -0.22 + (ey + 0.22) * s * s * (3 - 2 * s)]); }
+
+  const P = [];                                           // [r, y, inner?, solid?]
+  for (const p of foot) P.push([p[0], p[1], 0, p[1] > -1.33 ? 1 : 0.5]);   // 0.5 = thin foot disk
+  for (const p of [...stem, ...flare]) P.push([p[0], p[1], 0, 1]);
+  for (const p of outer.slice(k)) P.push([p[0], p[1], 0, 0]);
+  const A = P[P.length - 1], B = inner[inner.length - 1];
+  const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, hx = (A[0] - B[0]) / 2, hy = (A[1] - B[1]) / 2;
+  for (let i = 1; i < 8; i++) { const a = Math.PI * i / 8; P.push([mx + hx * Math.cos(a) - hy * Math.sin(a), my + hy * Math.cos(a) + hx * Math.sin(a), 0, 0]); }
+  for (let i = inner.length - 1; i >= 0; i--) P.push([inner[i][0], inner[i][1], 1, 0]);
+  return P;
+}
+
+function lathe(P, a0, a1, segs) {
+  const n = P.length, cols = segs + 1;
+  const pos = new Float32Array(cols * n * 3), nor = new Float32Array(cols * n * 3), inner = new Float32Array(cols * n), solid = new Float32Array(cols * n);
+  const pn = P.map((p, j) => {
+    const a = P[Math.max(0, j - 1)], b = P[Math.min(n - 1, j + 1)];
+    let nr = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nr, ny) || 1; nr /= l; ny /= l;
+    if (p[0] < 1e-4) { nr = 0; ny = Math.sign(ny) || 1; }
+    return [nr, ny];
+  });
+  for (let i = 0; i < cols; i++) {
+    const a = a0 + (a1 - a0) * i / segs, c = Math.cos(a), s = Math.sin(a);
+    for (let j = 0; j < n; j++) {
+      const k = i * n + j, p = P[j];
+      pos.set([p[0] * c, p[1], p[0] * s], k * 3); nor.set([pn[j][0] * c, pn[j][1], pn[j][0] * s], k * 3);
+      inner[k] = p[2]; solid[k] = p[3];
+    }
+  }
+  const idx = [];
+  for (let i = 0; i < segs; i++) for (let j = 0; j < n - 1; j++) { const A = i * n + j, B = (i + 1) * n + j; idx.push(A, A + 1, B, B, A + 1, B + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('aInner', new THREE.BufferAttribute(inner, 1)); g.setAttribute('aSolid', new THREE.BufferAttribute(solid, 1));
+  g.setIndex(idx);
+  return g;
+}
+
+// A (angle, 0..1) grid; the wine's vertex shaders place it on the live surface every frame.
+function polarGrid(segs, rows) {
+  const cols = segs + 1, n = rows + 1, pol = new Float32Array(cols * n * 2);
+  for (let i = 0; i < cols; i++) for (let j = 0; j < n; j++) { const k = i * n + j; pol[k * 2] = (i / segs) * TAU; pol[k * 2 + 1] = j / rows; }
+  const idx = [];
+  for (let i = 0; i < segs; i++) for (let j = 0; j < rows; j++) { const A = i * n + j, B = (i + 1) * n + j; idx.push(A, A + 1, B, B, A + 1, B + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cols * n * 3), 3));
+  g.setAttribute('aPolar', new THREE.BufferAttribute(pol, 2));
+  g.setIndex(idx);
+  return g;
+}
+
+/* ---------- shaders ---------- */
+// Bowl shape and the live wine surface, shared by every shader (same math as Rin/surfY/contactY in JS).
+const GEOM = /* glsl */`
+uniform float uH, uRw, uRr, uUw, uLevel, uC, uCurv;
+uniform vec2 uTilt;
+float Rin(float y) {
+  float u = clamp(y / uH, 0.0, 1.0);
+  if (u <= uUw) { float k = (uUw - u) / uUw; return uRw * sqrt(max(0.0, 1.0 - k * k)); }
+  return uRr + (uRw - uRr) * cos(1.5707963 * (u - uUw) / (1.0 - uUw));
+}
+float surfY(vec2 xz) { return uLevel + dot(uTilt, xz) + uCurv * (dot(xz, xz) - uC); }
+float contactY(float phi) { vec2 d = vec2(cos(phi), sin(phi)); float y = uLevel; for (int i = 0; i < 6; i++) y = surfY(d * Rin(y)); return y; }
+`;
+const SHADE = /* glsl */`
+uniform samplerCube uEnv;
+uniform vec3 uCamLocal;
+uniform float uTime;
+vec3 env(vec3 d) { return textureCube(uEnv, d).rgb; }
+float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+`;
+// Red wine absorbs green and blue far more than red (Beer–Lambert), so colour depends on how far light travels through it.
+const WINE = /* glsl */`
+uniform vec3 uSigma;
+bool inWine(vec3 p) { return p.y > 0.0 && p.y < surfY(p.xz) && length(p.xz) < Rin(p.y); }
+float thickness(vec3 p, vec3 d) {
+  const float STEP = 0.022;
+  float t = STEP * fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453), acc = 0.0;
+  bool entered = false;
+  for (int i = 0; i < 72; i++) {
+    if (inWine(p + d * t)) { acc += STEP; entered = true; } else if (entered) break;
+    t += STEP;
+  }
+  return acc;
+}
+vec3 wineColor(float d, vec3 dir) {
+  vec3 T = exp(-uSigma * d);
+  vec3 back = env(dir) * 1.25 + vec3(0.04, 0.03, 0.03);
+  return T * back + vec3(0.075, 0.004, 0.011) * (1.0 - exp(-d * 2.5));
+}
+`;
+const OUT = /* glsl */`
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
+`;
+
+const GLASS_VS = /* glsl */`
+attribute float aInner; attribute float aSolid;
+varying vec3 vLocal; varying vec3 vN; varying float vInner; varying float vSolid;
+void main() {
+  vLocal = position; vN = normal; vInner = aInner; vSolid = aSolid;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const GLASS_FS = /* glsl */`
+${GEOM}${SHADE}
+uniform sampler2D uWet;
+varying vec3 vLocal; varying vec3 vN; varying float vInner; varying float vSolid;
+void main() {
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+  vec3 V = normalize(uCamLocal - vLocal);
+  float NdV = clamp(dot(N, V), 0.0, 1.0);
+  float fr = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
+  vec3 refl = env(reflect(-V, N));
+  float edge = pow(1.0 - NdV, 4.0);
+  vec3 col; float a;
+  if (vSolid > 0.5) {                     // solid stem and foot: you see the room bent through the glass
+    vec3 refr = env(refract(-V, N, 0.66)) * vec3(0.9, 0.94, 0.97);
+    col = refl * fr + refr * (1.0 - fr) * 0.45 + vec3(0.75, 0.8, 0.86) * edge * 0.2;
+    a = 0.22 + 0.4 * edge;
+  } else {                                // thin bowl and foot: mostly clear, reflections and bright grazing edges
+    col = refl * fr * 1.1 + vec3(0.75, 0.8, 0.86) * edge * 0.3;
+    a = clamp(0.03 + fr * 0.85 + edge * 0.25, 0.0, 0.95);
+    if (vSolid > 0.25) {                  // the foot is always seen at a grazing angle, so skip the silhouette glow
+      col = refl * fr * 0.9 + vec3(0.75, 0.8, 0.86) * pow(1.0 - NdV, 12.0) * 0.4;
+      a = (0.02 + fr * 0.6) * 0.35;
+    }
+  }
+  if (vInner > 0.5) {                     // wine left on the glass after a swirl: a draining sheet, a tide line, and legs
+    float phi = atan(vLocal.z, vLocal.x);
+    float u = phi / 6.2831853 + 0.5;
+    vec4 wt = texture2D(uWet, vec2(u, 0.5));
+    float top = wt.r * uH, age = wt.g * 40.0, y = vLocal.y, yc = contactY(phi);
+    if (y > yc - 0.004 && y < top + 0.015) {
+      float span = max(top - yc, 0.0);
+      float sheet = exp(-age * 1.1) * 0.6 * smoothstep(top + 0.004, top - 0.01, y);
+      // legs: sparse, irregularly spaced, each running down at its own pace
+      float xk = u * 64.0, id = floor(xk), colW = 6.2831853 * Rin(y) / 64.0;
+      float centre = 0.5 + (hash1(id + 1.3) - 0.5) * 0.6;
+      float dx = (fract(xk) - centre + sin(y * 14.0 + id * 2.7) * 0.05) * colW;
+      float wid = 0.0018 + 0.0026 * hash1(id + 3.1);
+      float legBot = top - min(span * (0.35 + 0.65 * hash1(id + 5.9)), age * (0.012 + 0.026 * hash1(id + 7.7)));
+      float on = step(0.68, hash1(id)) * smoothstep(0.6, 2.5, age) * exp(-age * 0.05);
+      float leg = on * smoothstep(wid, wid * 0.3, abs(dx)) * step(legBot, y) * step(y, top) * mix(0.5, 1.0, smoothstep(top, legBot, y));
+      float br = wid * 1.9;
+      float bead = on * smoothstep(br, br * 0.5, length(vec2(dx, (y - legBot - br * 0.5) * 0.8)));
+      float rim = smoothstep(0.006, 0.0, abs(y - top + 0.002)) * smoothstep(0.3, 1.2, age) * exp(-age * 0.05) * 0.2 * step(0.004, span);
+      float fa = clamp(sheet * 0.6 + leg * 0.4 + bead * 0.5 + rim, 0.0, 0.7);
+      col = col * (1.0 - fa * 0.5) + vec3(0.2, 0.008, 0.02) * fa + refl * (bead * 0.6 + leg * 0.2) * 0.5;
+      a += fa * 0.6 * (1.0 - a);
+    }
+  }
+  gl_FragColor = vec4(col, a);
+  ${OUT}
+}`;
+
+const TOP_VS = /* glsl */`
+${GEOM}
+attribute vec2 aPolar;
+varying vec3 vLocal; varying float vT;
+void main() {
+  float phi = aPolar.x, re = Rin(contactY(phi)) * 0.995;
+  vec2 xz = vec2(cos(phi), sin(phi)) * re * aPolar.y;
+  vec3 p = vec3(xz.x, surfY(xz), xz.y);
+  vLocal = p; vT = aPolar.y;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+const TOP_FS = /* glsl */`
+${GEOM}${SHADE}${WINE}
+uniform float uRipple;
+uniform vec4 uBub[12];
+varying vec3 vLocal; varying float vT;
+void main() {
+  vec2 g = uTilt + 2.0 * uCurv * vLocal.xz;                 // slope of the live surface
+  vec3 N = normalize(vec3(-g.x, 1.0, -g.y));
+  vec2 rg = vec2(0.0); float tt = uTime * 2.6;              // fine capillary ripples while it's moving
+  for (int i = 0; i < 5; i++) {
+    float fi = float(i), an = fi * 2.39996 + 0.7;
+    vec2 k = vec2(cos(an), sin(an)) * (26.0 + fi * 9.0);
+    rg += k / length(k) * cos(dot(vLocal.xz, k) - tt * (1.0 + fi * 0.37) + fi * 1.9) / (1.0 + fi * 0.5);
+  }
+  N = normalize(N + vec3(rg.x, 0.0, rg.y) * uRipple);
+  vec3 V = normalize(uCamLocal - vLocal);
+  float fr = 0.02 + 0.98 * pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 5.0);
+  vec3 refl = env(reflect(-V, N));
+  vec3 rd = refract(-V, N, 1.0 / 1.34);
+  vec3 col = mix(wineColor(thickness(vLocal, rd), rd), refl, fr);
+  float men = smoothstep(0.955, 1.0, vT);                   // meniscus where the wine climbs the glass
+  col += men * (refl * 0.25 + vec3(0.12, 0.01, 0.02));
+  for (int i = 0; i < 12; i++) {
+    vec4 b = uBub[i];
+    if (b.w <= 0.0) continue;
+    float d = length(vLocal.xz - b.xy);
+    float ring = smoothstep(b.z, b.z * 0.55, d) - 0.6 * smoothstep(b.z * 0.6, b.z * 0.2, d);
+    col += (vec3(0.9, 0.55, 0.55) * 0.5 + refl * 0.3) * ring * b.w;
+  }
+  gl_FragColor = vec4(col, 1.0);
+  ${OUT}
+}`;
+
+const BODY_VS = /* glsl */`
+${GEOM}
+attribute vec2 aPolar;
+varying vec3 vLocal;
+void main() {
+  float phi = aPolar.x, y = aPolar.y * contactY(phi), r = Rin(y) * 0.995;
+  vec3 p = vec3(cos(phi) * r, y, sin(phi) * r);
+  vLocal = p;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+const BODY_FS = /* glsl */`
+${GEOM}${SHADE}${WINE}
+varying vec3 vLocal;
+void main() {
+  vec3 dir = normalize(vLocal - uCamLocal);
+  gl_FragColor = vec4(wineColor(thickness(vLocal, dir), dir), 1.0);
+  ${OUT}
+}`;
+
+const TABLE_VS = /* glsl */`
+varying vec3 vW;
+void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const TABLE_FS = /* glsl */`
+uniform vec2 uGlass; uniform vec2 uTilt; uniform float uCurv;
+varying vec3 vW;
+void main() {
+  vec2 p = vW.xz;
+  float fade = smoothstep(7.0, 1.5, length((p - vec2(0.0, -0.6)) * vec2(0.55, 1.0)));
+  float shadow = smoothstep(0.7, 0.3, length(p - uGlass)) * 0.3;   // clear glass casts only a faint shadow
+  // The key light is high and front-left, so light focused through the wine lands behind and to the right.
+  vec2 q = p - (uGlass + vec2(0.45, -0.75) - uTilt * 1.2);
+  q = vec2(q.x * 1.2 + q.y * 0.3, q.y * 0.85 - q.x * 0.2);
+  float r = length(q);
+  float caustic = exp(-r * r * 7.0) * 0.55 + exp(-pow(r - 0.24 - uCurv * 0.3, 2.0) * 90.0) * 0.18;
+  vec3 col = vec3(0.018, 0.012, 0.011) * (1.0 - shadow) + vec3(0.5, 0.035, 0.06) * caustic * 0.1;
+  gl_FragColor = vec4(col, fade);
+  ${OUT}
+}`;
+
+/* ---------- renderer + a small photo studio for the glass to reflect ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+function buildStudio() {
+  const s = new THREE.Scene();
+  s.add(new THREE.Mesh(new THREE.SphereGeometry(60, 48, 24), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    vertexShader: `varying vec3 vD; void main() { vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying vec3 vD; void main() {
+      vec3 c = mix(vec3(0.012, 0.008, 0.008), vec3(0.05, 0.03, 0.024), smoothstep(-0.25, 0.12, vD.y));
+      gl_FragColor = vec4(mix(c, vec3(0.008, 0.007, 0.01), smoothstep(0.2, 0.9, vD.y)), 1.0); }`,
+  })));
+  const softbox = (w, h, x, y, z, rgb, soft = 0.2) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.ShaderMaterial({
+      side: THREE.DoubleSide, uniforms: { uC: { value: new THREE.Vector3(...rgb) } },
+      vertexShader: `varying vec2 vU; void main() { vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `uniform vec3 uC; varying vec2 vU; void main() {
+        vec2 e = smoothstep(0.0, ${soft.toFixed(2)}, vU) * smoothstep(1.0, ${(1 - soft).toFixed(2)}, vU);
+        gl_FragColor = vec4(uC * e.x * e.y, 1.0); }`,
+    }));
+    m.position.set(x, y, z); m.lookAt(0, 0.5, 0); s.add(m);
+  };
+  softbox(5, 14, -9, 4, 9, [3.0, 2.8, 2.55]);           // tall key strip, front-left
+  softbox(3, 12, 11, 3, -6, [1.7, 1.85, 2.1]);          // cool rim strip, back-right
+  softbox(12, 6, -1, -3.2, -14, [1.25, 0.8, 0.55], 0.35); // warm glow low behind the glass: shines through the wine
+  softbox(9, 3, 0, 14, 3, [1.2, 1.2, 1.25]);            // overhead
+  for (const [x, y, z, r] of [[6, -0.3, -12, 0.6], [-7.5, 0.2, -13, 0.8], [9, 1.2, -9, 0.4]]) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 3.4, 1.4) }));
+    b.position.set(x, y, z); s.add(b);
+  }
+  const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+  const cam = new THREE.CubeCamera(0.1, 100, rt);
+  cam.position.set(0, 0.5, 0); cam.update(renderer, s);
+  return rt.texture;
+}
+
+/* ---------- scene ---------- */
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
+const LOOK = new THREE.Vector3(0, 0.12, 0), ELEV = THREE.MathUtils.degToRad(16);
+
+const WET_N = 128;
+const wetData = new Uint16Array(WET_N * 4);
+const wetTex = new THREE.DataTexture(wetData, WET_N, 1, THREE.RGBAFormat, THREE.HalfFloatType);
+wetTex.wrapS = THREE.RepeatWrapping; wetTex.magFilter = wetTex.minFilter = THREE.LinearFilter; wetTex.needsUpdate = true;
+
+const U = {
+  uH: { value: H }, uRw: { value: RW }, uRr: { value: RR }, uUw: { value: UW },
+  uLevel: { value: LEVEL }, uC: { value: C0 }, uCurv: { value: 0 }, uTilt: { value: new THREE.Vector2() },
+  uEnv: { value: buildStudio() }, uCamLocal: { value: new THREE.Vector3() }, uTime: { value: 0 }, uRipple: { value: 0 },
+  uSigma: { value: new THREE.Vector3(4.4, 40, 31) }, uWet: { value: wetTex },
+  uBub: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) }, uGlass: { value: new THREE.Vector2() },
+};
+
+const PROFILE = buildProfile();
+const glassMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: GLASS_VS, fragmentShader: GLASS_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide, premultipliedAlpha: true });
+const glass = new THREE.Group();
+const farHalf = new THREE.Mesh(lathe(PROFILE, Math.PI, TAU, 64), glassMat);   // drawn before the near half so the layers blend back to front
+const nearHalf = new THREE.Mesh(lathe(PROFILE, 0, Math.PI, 64), glassMat);
+farHalf.renderOrder = 1; nearHalf.renderOrder = 3;
+const wineTop = new THREE.Mesh(polarGrid(128, 26), new THREE.ShaderMaterial({ uniforms: U, vertexShader: TOP_VS, fragmentShader: TOP_FS, side: THREE.DoubleSide }));
+const wineBody = new THREE.Mesh(polarGrid(128, 34), new THREE.ShaderMaterial({ uniforms: U, vertexShader: BODY_VS, fragmentShader: BODY_FS }));
+wineTop.frustumCulled = wineBody.frustumCulled = false;
+glass.add(farHalf, nearHalf, wineTop, wineBody);
+scene.add(glass);
+const table = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShaderMaterial({ uniforms: U, vertexShader: TABLE_VS, fragmentShader: TABLE_FS, transparent: true, depthWrite: false }));
+table.rotation.x = -Math.PI / 2; table.position.y = FOOT_Y - 0.001;
+scene.add(table);
+
+function fit() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const half = THREE.MathUtils.degToRad(camera.fov / 2), halfW = Math.atan(Math.tan(half) * camera.aspect);
+  const dist = Math.max(3.55 / 2 / Math.tan(half), 2.9 / 2 / Math.tan(halfW));   // tall enough for the glass, wide enough for its travel
+  camera.position.set(0, LOOK.y + dist * Math.sin(ELEV), dist * Math.cos(ELEV));
+  camera.lookAt(LOOK);
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', fit);
+fit();
+
+/* ---------- physics ---------- */
+const RANGE_X = 0.8, RANGE_Z = 0.65;                     // how far a drag can move the glass
+const HAND_W = 18, HAND_Z = 0.7;                         // the hand follows the pointer like a firm, damped spring
+// First sloshing mode of a bowl this size (~2.9 Hz): ω² = g·ξ/R·tanh(ξ·h/R), with ξ = 1.8412.
+const R0m = R0 * UNIT, depthM = LEVEL * UNIT * 0.75;
+const SLOSH_W = Math.sqrt(9.81 * 1.8412 / R0m * Math.tanh(1.8412 * depthM / R0m));
+const SLOSH_Z = 0.035;                                   // wine is thin: several visible sloshes before it settles
+const SPIN_K = 0.7, SPIN_TAU = 5, SPIN_MAX = 11, TILT_MAX = 0.72;
+
+const hand = { x: 0, z: 0, vx: 0, vz: 0, ax: 0, az: 0 };
+const wine = { tx: 0, tz: 0, vx: 0, vz: 0, spin: 0 };     // surface slope (x, z), its rate, and the wine's own rotation (rad/s)
+const pointer = { dragging: false, id: null, sx: 0, sy: 0, ox: 0, oz: 0, x: 0, z: 0, rx: 0, rz: 0, released: -1e9 };
+const now = () => performance.now() / 1000;
+
+// The glass only moves while it's being dragged. A drag picks the glass up where it is, so it never jumps.
+canvas.addEventListener('pointerdown', e => {
+  if (pointer.dragging) return;
+  Object.assign(pointer, { dragging: true, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: hand.x, oz: hand.z, x: hand.x, z: hand.z });
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
+  canvas.classList.add('held'); hint.classList.add('gone');
+});
+canvas.addEventListener('pointermove', e => {
+  if (!pointer.dragging || e.pointerId !== pointer.id) return;
+  const r = canvas.getBoundingClientRect();
+  pointer.x = clamp(pointer.ox + (e.clientX - pointer.sx) / r.width * 2 * RANGE_X, -RANGE_X, RANGE_X);
+  pointer.z = clamp(pointer.oz + (e.clientY - pointer.sy) / r.height * 2 * RANGE_Z, -RANGE_Z, RANGE_Z);
+});
+const release = e => {
+  if (!pointer.dragging || e.pointerId !== pointer.id) return;
+  Object.assign(pointer, { dragging: false, rx: pointer.x, rz: pointer.z, released: now() });
+  canvas.classList.remove('held');
+};
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+
+function step(dt, t) {
+  let tx, tz;
+  if (DEMO) { const w = TAU * 1.7, ramp = smoothstep(0, 1.5, t); tx = 0.24 * Math.cos(w * t) * ramp; tz = 0.2 * Math.sin(w * t) * ramp; }
+  else if (pointer.dragging) { tx = pointer.x; tz = pointer.z; }
+  else { const k = 1 - smoothstep(0, 0.9, now() - pointer.released); tx = pointer.rx * k; tz = pointer.rz * k; }   // let go → it glides back to centre
+  const n = 6, h = dt / n, w2 = SLOSH_W * SLOSH_W, c = 2 * SLOSH_Z * SLOSH_W;
+  for (let i = 0; i < n; i++) {
+    hand.ax = HAND_W * HAND_W * (tx - hand.x) - 2 * HAND_Z * HAND_W * hand.vx;
+    hand.az = HAND_W * HAND_W * (tz - hand.z) - 2 * HAND_Z * HAND_W * hand.vz;
+    hand.vx += hand.ax * h; hand.vz += hand.az * h; hand.x += hand.vx * h; hand.z += hand.vz * h;
+    // Equivalent-pendulum model: the surface leans toward the plane normal to (gravity − glass acceleration).
+    wine.vx += (w2 * (-hand.ax / G - wine.tx) - c * wine.vx) * h;
+    wine.vz += (w2 * (-hand.az / G - wine.tz) - c * wine.vz) * h;
+    wine.tx += wine.vx * h; wine.tz += wine.vz * h;
+    // A travelling (swirling) wave carries angular momentum that spins the wine up; wall friction spins it down.
+    const L = wine.tx * wine.vz - wine.tz * wine.vx;
+    wine.spin = clamp(wine.spin + (SPIN_K * L - wine.spin / SPIN_TAU) * h, -SPIN_MAX, SPIN_MAX);
+  }
+  const m = Math.hypot(wine.tx, wine.tz);
+  if (m > TILT_MAX) { const s = TILT_MAX / m; wine.tx *= s; wine.tz *= s; wine.vx *= s; wine.vz *= s; }
+}
+
+const curv = () => wine.spin * wine.spin / (2 * G);      // a spinning liquid's surface is a paraboloid: Ω²r²/2g
+const surfY = (x, z) => LEVEL + wine.tx * x + wine.tz * z + curv() * (x * x + z * z - C0);
+function contactY(phi) { const c = Math.cos(phi), s = Math.sin(phi); let y = LEVEL; for (let i = 0; i < 6; i++) { const r = Rin(y); y = surfY(c * r, s * r); } return y; }
+
+// How high the wine has climbed at each angle, and how long ago it left: drives the film and legs.
+const wetTop = new Float32Array(WET_N).fill(LEVEL), wetAge = new Float32Array(WET_N).fill(40);
+const half = THREE.DataUtils.toHalfFloat;
+function updWet(dt) {
+  for (let k = 0; k < WET_N; k++) {
+    const yc = contactY(((k + 0.5) / WET_N - 0.5) * TAU);
+    if (yc >= wetTop[k] - 0.003) { wetTop[k] = Math.max(wetTop[k], yc); wetAge[k] = 0; }
+    else { wetAge[k] += dt; if (wetAge[k] > 24) wetTop[k] = Math.max(yc, wetTop[k] - dt * 0.012); }
+    wetData[k * 4] = half(wetTop[k] / H); wetData[k * 4 + 1] = half(Math.min(wetAge[k], 40) / 40);
+  }
+  wetTex.needsUpdate = true;
+}
+
+const bubbles = Array.from({ length: 12 }, () => ({ on: false, phi: 0, q: 0, r: 0, t: 0, life: 0 }));
+function updBubbles(dt) {
+  const energy = Math.hypot(wine.vx, wine.vz);
+  bubbles.forEach((b, i) => {
+    if (!b.on) { if (Math.random() < dt * energy * 0.08) Object.assign(b, { on: true, phi: Math.random() * TAU, q: 0.8 + Math.random() * 0.17, r: 0.006 + Math.random() * 0.01, t: 0, life: 3 + Math.random() * 6 }); }
+    else { b.t += dt; b.phi += wine.spin * dt * (0.6 + 0.4 * b.q); if (b.t > b.life) b.on = false; }
+    const v = U.uBub.value[i];
+    if (!b.on) { v.set(0, 0, 0, 0); return; }
+    const re = Rin(contactY(b.phi)) * b.q;
+    v.set(Math.cos(b.phi) * re, Math.sin(b.phi) * re, b.r, Math.min(1, b.t / 0.3, (b.life - b.t) / 0.8));
+  });
+}
+
+/* ---------- loop ---------- */
+const t0 = now();
+let last = t0;
+function frame() {
+  const t = now(), dt = Math.min(1 / 30, t - last); last = t;
+  step(dt, t - t0);
+  updWet(dt); updBubbles(dt);
+  glass.position.set(hand.x, 0, hand.z);
+  U.uTilt.value.set(wine.tx, wine.tz);
+  U.uCurv.value = curv();
+  U.uCamLocal.value.copy(camera.position).sub(glass.position);
+  U.uGlass.value.set(hand.x, hand.z);
+  U.uRipple.value = Math.min(0.05, 0.006 * Math.hypot(wine.vx, wine.vz));
+  U.uTime.value = t - t0;
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

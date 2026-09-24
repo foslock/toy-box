@@ -1,0 +1,8 @@
+{
+  "title": "Swirl",
+  "blurb": "A thin crystal glass of deep red wine. Drag it in small circles and it sloshes like the real thing, spins up, climbs the glass and leaves legs as it drains. Let go and it settles.",
+  "added": "2026-09-23",
+  "tags": ["three.js", "shaders", "physics"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 5500, "query": "?demo" }
+}
