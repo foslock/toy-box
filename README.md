@@ -28,9 +28,10 @@ toy-box/
    }
    ```
 
-3. `npm run shots -- boids` captures `boids/preview.webp` with your installed Chrome.
-4. `npm run dev` builds the site and serves it at http://127.0.0.1:5173.
-5. Commit the folder (including the preview image) and push. Render rebuilds on every push.
+3. Leave the top-left corner of the page clear: the build adds a small Home button there (about 50px square) that links back to the board. Existing toys start their titles 60px in, beside it.
+4. `npm run shots -- boids` captures `boids/preview.webp` with your installed Chrome. Previews are taken from the source folder, so the Home button isn't in them.
+5. `npm run dev` builds the site and serves it at http://127.0.0.1:5173.
+6. Commit the folder (including the preview image) and push. Render rebuilds on every push.
 
 ### `toy.json` fields
 
@@ -51,7 +52,7 @@ toy-box/
 
 | Command | What it does |
 |---|---|
-| `npm run build` | Writes the site to `dist/`: every toy folder plus the generated home page. Stops with a clear message if a `toy.json` is invalid |
+| `npm run build` | Writes the site to `dist/`: every toy folder (with a Home button added to its page) plus the generated home page. Stops with a clear message if a `toy.json` is invalid |
 | `npm run dev` | Builds, then serves `dist/` locally (`PORT` overrides 5173) |
 | `npm run shots` | Captures previews for toys that don't have one yet. Name toys to re-capture them (`npm run shots -- cave`), or pass `--all`. Needs Node 22+ and Chrome (set `CHROME_PATH` if Chrome isn't found) |
 

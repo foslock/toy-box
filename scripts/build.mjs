@@ -28,6 +28,27 @@ const tape = (text, cls = '') => `<span class="tape${cls ? ' ' + cls : ''}"><spa
 const month = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 const initials = title => String(title).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
 
+// Every toy page gets a small Home button in its top-left corner, added here so toys don't each carry one.
+// Toys keep that corner clear (their titles start 60px in).
+const homeButton = href => `
+<a class="toybox-home" href="${href}" aria-label="Home" title="Back to the Toy Box">
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5"/></svg>
+</a>
+<style>
+  .toybox-home { position: fixed; z-index: 1000; top: max(15px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left));
+    display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box; border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .3); background: rgba(16, 12, 20, .38); color: rgba(255, 255, 255, .88);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); text-decoration: none; transition: background-color .15s, border-color .15s, color .15s; }
+  .toybox-home:hover { background: rgba(16, 12, 20, .6); border-color: rgba(255, 255, 255, .65); color: #fff; }
+  .toybox-home:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .toybox-home svg { width: 17px; height: 17px; }
+</style>
+`;
+function addHomeButton(file, depth) {
+  const html = readFileSync(file, 'utf8'), snippet = homeButton('../'.repeat(depth)), at = html.search(/<\/body>/i);
+  writeFileSync(file, at < 0 ? html + snippet : html.slice(0, at) + snippet + html.slice(at));
+}
+
 function card(t, i) {
   const color = TAPES[t.tape] || (/^#[0-9a-f]{6}$/i.test(t.tape || '') ? t.tape : TAPES[ROTATION[i % ROTATION.length]]);
   const href = encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry));
@@ -56,7 +77,10 @@ if (problems.length) {
 
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
-for (const t of toys) cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
+for (const t of toys) {
+  cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
+  addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
+}
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
 
 const count = `${toys.length} ${toys.length === 1 ? 'toy' : 'toys'} on the board`;
