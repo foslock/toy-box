@@ -149,7 +149,7 @@ function roundOutline(hx, hz, r, n = 10) {
 const LOT_X = POOL_L + 2 * DECK, LOT_Z = POOL_W + 2 * DECK, CELL_X = LOT_X + LAWN, CELL_Z = LOT_Z + LAWN;
 const GROUP_GAP = 24;                                              // lawn between two compared fortunes
 const MAX_POOLS = 2_000_000;
-const TILE = 1.6;                                                  // metres of heaped bills per texture repeat
+const TILE = 1.6, HEAP_BILLS = 760;                     // metres of heaped bills per texture repeat, and bills painted in it
 
 const PRESETS = [
   { name: 'Elon Musk', worth: 900e9 },
@@ -232,12 +232,14 @@ function paintBill(denom, w = 512) {
 // shrunk for distant pools, the tilts average out to flat.
 function paintHeap(denom, size = 1024) {
   const c = mk(size, size), g = c.getContext('2d'), bill = paintBill(denom, 256);
-  const nc = mk(size, size), ng = nc.getContext('2d');
+  const nc = mk(size, size), ng = nc.getContext('2d'), rc = mk(size, size), rg = rc.getContext('2d');
+  rg.fillStyle = '#fff'; rg.fillRect(0, 0, size, size);
   ng.fillStyle = 'rgb(128,128,255)'; ng.fillRect(0, 0, size, size);
   g.fillStyle = denom === 100 ? '#9c9383' : '#8b977e'; g.fillRect(0, 0, size, size);
   const bg = bill.getContext('2d'); bg.fillStyle = denom === 100 ? 'rgba(231,223,204,.35)' : 'rgba(214,220,196,.35)'; bg.fillRect(0, 0, bill.width, bill.height);
   const bl = size * BILL_L / TILE, bw = size * BILL_W / TILE;
-  for (let i = 0; i < 760; i++) {
+  for (let i = 0; i < HEAP_BILLS; i++) {
+    const rank = Math.round((1 - i / HEAP_BILLS) * 255);   // the top bills appear first as the amount grows
     const x = Math.random() * size, y = Math.random() * size, a = Math.random() * TAU, s = rr(0.93, 1.07), shade = Math.random();
     const ta = Math.random() * TAU, tm = Math.sqrt(Math.random()) * 0.42, nx = Math.cos(ta) * tm, nz = Math.sin(ta) * tm, ny = Math.sqrt(1 - tm * tm);
     const across = Math.random() < 0.5 ? 1 : -1, curl = rr(0.05, 0.22);                  // bills curl a little across their width
@@ -257,9 +259,10 @@ function paintHeap(denom, size = 1024) {
       gr.addColorStop(0, enc(nx - px, nz + pz)); gr.addColorStop(1, enc(nx + px, nz - pz));
       ng.fillStyle = gr; ng.fillRect(-bl / 2, -bw / 2, bl, bw);
       ng.restore();
+      rg.save(); rg.translate(X, Y); rg.rotate(a); rg.scale(s, s); rg.fillStyle = `rgb(${rank},${rank},${rank})`; rg.fillRect(-bl / 2, -bw / 2, bl, bw); rg.restore();
     }
   }
-  c.normals = nc;
+  c.normals = nc; c.ranks = rc;
   return c;
 }
 function tex(canvas, { repeat = true, srgb = true } = {}) {
@@ -273,6 +276,10 @@ const HEAPC = {}, HEAPN = {};
 const heapCanvas = d => HEAPC[d] ??= paintHeap(d);
 const heapTex = d => HEAPS[d] ??= tex(heapCanvas(d));
 const heapNrm = d => HEAPN[d] ??= tex(heapCanvas(d).normals, { srgb: false });
+const HEAPR = {}, heapRank = d => HEAPR[d] ??= tex(heapCanvas(d).ranks, { srgb: false });
+// Bills scattered at random cover 1 - e^(-layers) of the floor. The heap texture holds HEAP_BILLS bills, about
+// COVER_K layers' worth, so showing every bill ranked below fill × COVER_FILL reproduces that coverage.
+const COVER_FILL = BILLS_PER_POOL * BILL_L * BILL_W / (POOL_L * POOL_W - (4 - Math.PI) * POOL_R ** 2) / (HEAP_BILLS * BILL_L * BILL_W / TILE ** 2);
 const billTex = d => BILLS[d] ??= tex(paintBill(d, 256), { repeat: false });
 // One whole cell seen from above (lawn margin, deck, coping, and the pool full of bills or empty).
 // Far away the GPU shrinks this picture smoothly, so huge fields read as fields of pools without shimmering.
@@ -578,7 +585,7 @@ const FIELD_VS = /* glsl */`
 const FIELD_FS = /* glsl */`
   ${LIGHT_GLSL}
   uniform mat4 projectionMatrix;                          // (three.js only declares it for the vertex stage)
-  uniform sampler2D uBills, uBillsN; uniform vec2 uHalf, uLot; uniform float uDepth, uCoping, uTile, uRadius, uLotRadius;
+  uniform sampler2D uBills, uBillsN, uBillsR; uniform float uCoverFill; uniform vec2 uHalf, uLot; uniform float uDepth, uCoping, uTile, uRadius, uLotRadius;
   uniform float uFull, uPart, uTotal, uClock, uSpread, uDur, uActive, uSeed;
   varying vec3 vWorld; varying vec2 vLocal; flat varying float vIndex;
 
@@ -632,9 +639,9 @@ const FIELD_FS = /* glsl */`
     if (tc <= tw) {                                        // the heap (or the bare floor)
       vec3 h = o + rd * tc; gHit = h;
       vec3 c, nb = vec3(0.0, 1.0, 0.0);
-      if (fill < 0.003) c = floorPaint(h.xz);
+      vec2 uv = (vWorld.xz - p + h.xz + vec2(hash01(vIndex + uSeed, 1u), hash01(vIndex + uSeed, 2u)) * uTile) / uTile;
+      if (fill <= 0.0 || texture(uBillsR, uv).r > fill * uCoverFill) c = floorPaint(h.xz);   // bare floor between scattered bills
       else {
-        vec2 uv = (vWorld.xz - p + h.xz + vec2(hash01(vIndex + uSeed, 1u), hash01(vIndex + uSeed, 2u)) * uTile) / uTile;
         c = texture(uBills, uv).rgb;
         vec3 tn = texture(uBillsN, uv).xyz * 2.0 - 1.0;   // each bill's own tilt
         nb = normalize(vec3(tn.x, max(tn.z, 0.2), tn.y));
@@ -697,7 +704,7 @@ function makeField(slotIndex) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: FIELD_VS, fragmentShader: FIELD_FS,
     uniforms: {
-      ...SHARED, uBills: { value: heapTex(1) }, uBillsN: { value: heapNrm(1) }, uHalf: { value: new THREE.Vector2(POOL_L / 2, POOL_W / 2) }, uLot: { value: new THREE.Vector2(LOT_X, LOT_Z) },
+      ...SHARED, uBills: { value: heapTex(1) }, uBillsN: { value: heapNrm(1) }, uBillsR: { value: heapRank(1) }, uCoverFill: { value: COVER_FILL }, uHalf: { value: new THREE.Vector2(POOL_L / 2, POOL_W / 2) }, uLot: { value: new THREE.Vector2(LOT_X, LOT_Z) },
       uCell: { value: new THREE.Vector2(CELL_X, CELL_Z) }, uDepth: { value: POOL_D }, uCoping: { value: COPING }, uTile: { value: TILE },
       uRadius: { value: POOL_R }, uLotRadius: { value: LOT_R },
       uCols: { value: 1 }, uOrigin: { value: new THREE.Vector2() }, uFull: { value: 0 }, uPart: { value: 0 }, uTotal: { value: 1 },
@@ -751,12 +758,14 @@ const act = new THREE.Group(); act.visible = false; scene.add(act);
   catcher.position.y = 0.004; catcher.receiveShadow = true; act.add(catcher);
 }
 const surfGeo = new THREE.PlaneGeometry(POOL_L, POOL_W, HX - 1, HZ - 1).rotateX(-Math.PI / 2);
+const surfCover = { rank: { value: null }, cover: { value: 1 } };
 const surfMat = new THREE.MeshStandardMaterial({ map: heapTex(1), normalMap: heapNrm(1), roughness: 0.85 });
 surfMat.onBeforeCompile = sh => {                         // trim the square wave grid to the pool's rounded outline
   sh.uniforms.uRR = { value: new THREE.Vector3(POOL_L / 2, POOL_W / 2, POOL_R) };
+  sh.uniforms.uRank = surfCover.rank; sh.uniforms.uCover = surfCover.cover;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vPool;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPool = position.xz;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vPool; uniform vec3 uRR;')
-    .replace('#include <clipping_planes_fragment>', 'vec2 qq = abs(vPool) - uRR.xy + uRR.z;\nif (length(max(qq, 0.0)) + min(max(qq.x, qq.y), 0.0) - uRR.z > 0.0) discard;\n#include <clipping_planes_fragment>');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vPool; uniform vec3 uRR; uniform sampler2D uRank; uniform float uCover;')
+    .replace('#include <clipping_planes_fragment>', 'vec2 qq = abs(vPool) - uRR.xy + uRR.z;\nif (length(max(qq, 0.0)) + min(max(qq.x, qq.y), 0.0) - uRR.z > 0.0 || texture(uRank, vMapUv).r > uCover) discard;\n#include <clipping_planes_fragment>');
 };
 const surface = new THREE.Mesh(surfGeo, surfMat);
 surface.receiveShadow = true; act.add(surface);
@@ -814,8 +823,9 @@ function setActive(slot, index) {
   hf.fill(0); hv.fill(0);
   act.position.set(c.x, 0, c.y); act.visible = true;
   lawn.material.uniforms.uHole.value.set(c.x, c.y, POOL_L / 2, POOL_W / 2);
-  surface.visible = active.fill > 0.003;
+  surface.visible = active.fill > 0;
   surfMat.map = heapTex(denom); surfMat.normalMap = heapNrm(denom); surfMat.needsUpdate = true;
+  surfCover.rank.value = heapRank(denom); surfCover.cover.value = active.fill * COVER_FILL;
   const uv = surfGeo.attributes.uv, pos = surfGeo.attributes.position;
   for (let k = 0; k < uv.count; k++) uv.setXY(k, (c.x + pos.getX(k) + active.ox) / TILE, (c.y + pos.getZ(k) + active.oz) / TILE);
   uv.needsUpdate = true;
@@ -894,9 +904,10 @@ function layLoose() {                                     // (re)choose which bi
     const r0 = Math.max(0, Math.floor((cz - R - S.oz) / CELL_Z)), r1 = Math.min(S.rows - 1, Math.floor((cz + R - S.oz) / CELL_Z));
     for (let row = r0; row <= r1; row++) for (let col = c0; col <= c1; col++) {
       const i = row * S.cols + col;
-      if (i >= S.total || (i < S.full ? 1 : S.part) < 0.004) continue;
+      const real = Math.round((i < S.full ? 1 : S.part) * BILLS_PER_POOL);   // $50 in ones is 50 bills
+      if (i >= S.total || real < 1) continue;
       const c = poolCenter(S, i);
-      for (let k = 0; k < LOOSE_PER_POOL && looseBills.length < LOOSE_MAX; k++) {
+      for (let k = 0; k < Math.min(LOOSE_PER_POOL, real) && looseBills.length < LOOSE_MAX; k++) {
         const key = ((i + S.seed) * 1024 + k) >>> 0, h = s => hk(key, s + 40);
         const lx = (h(1) - 0.5) * (POOL_L - 0.3), lz = (h(2) - 0.5) * (POOL_W - 0.3);
         if (sdRound(lx, lz, POOL_L / 2, POOL_W / 2, POOL_R) > -0.12) continue;
@@ -914,7 +925,7 @@ function updateLoose() {
   for (const b of looseBills) {
     if (b.gone) continue;
     const mine = act.visible && b.S.i === active.slot && b.i === active.index, f = mine ? active.fill : fillNow(b.S, b.i);
-    if (f < 0.004) continue;
+    if (f <= 0) continue;
     const y = (mine && surface.visible ? surfaceY(b.lx, b.lz) : -POOL_D * (1 - f)) + b.lift;
     _lq.setFromEuler(_le.set(b.tx, b.yaw, b.tz));
     loose.setMatrixAt(n++, _lm.compose(_lp.set(b.x, y, b.z), _lq, _one));
@@ -1015,7 +1026,7 @@ function place() {
     const u = S.field.u;
     S.field.geo.instanceCount = S.used ? S.total : 0;
     u.uCols.value = S.cols; u.uOrigin.value.set(S.ox, S.oz); u.uFull.value = S.full; u.uPart.value = S.part; u.uTotal.value = S.total;
-    u.uClock.value = 0; u.uSpread.value = S.spread; u.uDur.value = S.dur; u.uBills.value = heapTex(denom); u.uBillsN.value = heapNrm(denom);
+    u.uClock.value = 0; u.uSpread.value = S.spread; u.uDur.value = S.dur; u.uBills.value = heapTex(denom); u.uBillsN.value = heapNrm(denom); u.uBillsR.value = heapRank(denom);
     u.uCellFull.value = cellTex(denom, true); u.uCellEmpty.value = cellTex(denom, false);
   }
 }
@@ -1076,7 +1087,8 @@ function fenceMaterial() {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = 'attribute float aOrder;\nuniform float uT, uSpread;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       float fk = clamp((uT - aOrder * uSpread) / 0.42, 0.0, 1.0);
-      transformed.y += fk <= 0.0 ? -60.0 : fk < 0.72 ? 2.6 * pow(1.0 - fk / 0.72, 2.0) : -0.07 * sin((fk - 0.72) / 0.28 * 3.14159);`);
+      if (fk <= 0.0) transformed = vec3(0.0);             // not planted yet: nothing to draw
+      else transformed.y += fk < 0.72 ? 2.6 * pow(1.0 - fk / 0.72, 2.0) : -0.07 * sin((fk - 0.72) / 0.28 * 3.14159);`);
   };
   return { m, u };
 }
@@ -1114,7 +1126,7 @@ function buildFence(S) {
 
 /* ---------- camera ---------- */
 const view = { left: 0, bottom: 0 };                      // screen taken by the panel, so the scene centres in what's left
-let tween = null, autoFit = true;
+let tween = null, autoFit = true, lastFit = null;
 controls.addEventListener('start', () => { autoFit = false; });
 function flyTo(pos, target, dur = 1.4) {
   tween = { t: 0, dur, p0: camera.position.clone(), p1: pos.clone(), q0: controls.target.clone(), q1: target.clone() };
@@ -1137,7 +1149,7 @@ function fitView(instant = false) {
   for (const S of used) { x0 = Math.min(x0, S.ox - FENCE_M); x1 = Math.max(x1, S.ox + S.cols * CELL_X + FENCE_M); z0 = Math.min(z0, S.oz - FENCE_M); z1 = Math.max(z1, S.oz + S.rows * CELL_Z + FENCE_M); }
   [pos, tgt] = used.length === 1 && used[0].total === 1 ? frameBox(x0, x1, z0, z1, 34, 0.18) : frameBox(x0, x1, z0, z1, 52);
   controls.maxDistance = Math.max(250, pos.distanceTo(tgt) * 4);
-  autoFit = true;
+  autoFit = true; lastFit = [pos.clone(), tgt.clone()];
   const d = pos.distanceTo(tgt);
   if (instant || (camera.position.distanceTo(pos) < d * 0.04 && controls.target.distanceTo(tgt) < d * 0.04)) { camera.position.copy(pos); controls.target.copy(tgt); return 0; }
   flyTo(pos, tgt, 1.6);
@@ -1335,7 +1347,8 @@ function readout() {
     let big, detail;
     if (S.pools < 1) {
       big = S.pools < 0.001 ? 'A sprinkle in one pool' : `${trim(S.pools * 100, S.pools < 0.1 ? 2 : 1)}% of one pool`;
-      detail = S.pools <= 0 ? 'Not a single bill.' : `A layer of bills ${fmtDepth(S.pools * POOL_D)} deep.`;
+      const cover = 1 - Math.exp(-S.pools * COVER_FILL * HEAP_BILLS * BILL_L * BILL_W / TILE ** 2);   // share of the floor bills land on
+      detail = S.pools <= 0 ? 'Not a single bill.' : cover < 0.97 ? `Scattered across the floor, covering about ${Math.max(1, Math.round(cover * 100))}% of it.` : `A layer of bills ${fmtDepth(S.pools * POOL_D)} deep.`;
     } else {
       const n = S.pools >= MAX_POOLS ? S.pools : S.full + (S.part > 1e-9 ? 1 : 0);
       big = `${S.pools < 10 && S.part > 0.005 ? trim(S.pools, 1) : fmtInt(Math.max(1, Math.round(S.pools)))} pool${S.pools >= 1.5 ? 's' : ''}`;
@@ -1392,7 +1405,8 @@ canvas.addEventListener('pointerup', e => {
   ray.setFromCamera(ndc, camera);
   if (!ray.ray.intersectPlane(ground, hitP)) return;
   const hit = poolAt(hitP.x, hitP.z);
-  if (hit) goJump(hit.S.i, hit.i);
+  if (hit && sdRound(hit.lx, hit.lz, LOT_X / 2, LOT_Z / 2, LOT_R) < 0) goJump(hit.S.i, hit.i);
+  else if (lastFit && camera.position.distanceTo(lastFit[0]) > lastFit[0].distanceTo(lastFit[1]) * 0.05) flyTo(lastFit[0], lastFit[1], 1.3);   // back out to the overview
 });
 
 /* ---------- layout and loop ---------- */
