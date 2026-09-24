@@ -85,6 +85,10 @@
   .intro h1 { margin: 0; }
   .intro p { margin: 0; max-width: 52ch; font-size: clamp(17px, 2.2vw, 19px); color: var(--ink-2); text-wrap: pretty; }
   .count { font: 500 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  /* A soft patch of plain board behind the header text, so the pegboard holes don't run through the letters. */
+  .intro p, .count { position: relative; isolation: isolate; }
+  .intro p::before, .count::before { content: ""; position: absolute; z-index: -1; inset: -12px -22px; border-radius: 28px; background: var(--board); filter: blur(10px); opacity: .94; }
+  .count::before { inset: -8px -16px; }
 
   /* ---- the board ---- */
   .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
