@@ -208,6 +208,17 @@ const G = {
   dome: (r, seg = 32) => new THREE.SphereGeometry(r, seg, seg / 2, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI / 2),
   rbox: (w, h, d, r = 0.12, s = 3) => new RoundedBoxGeometry(w, h, d, s, Math.min(r, w / 2, h / 2, d / 2)).translate(0, 0, d / 2),
   torus: (r, t, seg = 64) => new THREE.TorusGeometry(r, t, 12, seg),
+  // A deep picture-frame bezel: a rounded w×h slab of depth d with an iw×ih opening, edges softly bevelled.
+  frame(w, h, iw, ih, d, r = 0.35, ri = 0.12) {
+    const b = 0.06, rr = (s, W, H, R) => {
+      const x = -W / 2, y = -H / 2;
+      s.moveTo(x + R, y); s.lineTo(x + W - R, y); s.quadraticCurveTo(x + W, y, x + W, y + R); s.lineTo(x + W, y + H - R);
+      s.quadraticCurveTo(x + W, y + H, x + W - R, y + H); s.lineTo(x + R, y + H); s.quadraticCurveTo(x, y + H, x, y + H - R); s.lineTo(x, y + R); s.quadraticCurveTo(x, y, x + R, y);
+    };
+    const shape = new THREE.Shape(), hole = new THREE.Path();
+    rr(shape, w - 2 * b, h - 2 * b, r - b); rr(hole, iw + 2 * b, ih + 2 * b, ri + b); shape.holes.push(hole);
+    return new THREE.ExtrudeGeometry(shape, { depth: d - 2 * b, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 3, curveSegments: 8 }).translate(0, 0, b);
+  },
   knurl(r, h, ridges = 30) {
     const g = new THREE.CylinderGeometry(r, r, h, ridges * 2, 1).rotateX(Math.PI / 2).translate(0, 0, h / 2), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -594,10 +605,20 @@ function beacon(x) {
   const target = new THREE.Object3D(); target.position.set(10, -0.8, 0); spin.add(spot, target); spot.target = target;
   return { spin, lampMat, bulbMat, spot, beamU, angle: 0, level: 0 };
 }
-// The rocket window: a starry sky drawn by a shader, a little rocket, its flame and smoke.
+// Soft diagonal glare for the rocket window's glass (an alpha map: white = glare).
+const glareTex = canvasTex(128, 384, (c, W, H) => {
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H); c.translate(W / 2, H * 0.42); c.rotate(-0.42);
+  for (const [x, w, a] of [[-22, 38, 0.9], [26, 14, 0.6]]) {
+    const gr = c.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = gr; c.fillRect(x - w / 2, -H, w, H * 2);
+  }
+}, false);
+// The rocket window: a deep shadow box with a starry sky drawn by a shader at the back, a little rocket,
+// its flame and smoke inside, and glass across the front of the bezel.
 function rocketWindow([x, y, w, h]) {
   const g = place([x, y]), U = { uScroll: { value: 0 }, uTime: { value: 0 }, uSize: { value: new THREE.Vector2(w - 0.7, h - 0.7) } };
-  g.add(mesh(G.rbox(w, h, 0.6, 0.35), MAT.gloss));
+  g.add(mesh(G.rbox(w, h, 0.6, 0.35), MAT.gloss), mesh(G.frame(w, h, w - 0.7, h - 0.7, 2.1), MAT.gloss));
   g.add(mesh(new THREE.PlaneGeometry(w - 0.7, h - 0.7), new THREE.ShaderMaterial({ uniforms: U,
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: /* glsl */`
@@ -631,7 +652,7 @@ function rocketWindow([x, y, w, h]) {
     new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   flame.add(fm(new THREE.Color(3, 1.2, 0.25), 0.3, 1.0, 0.85), fm(new THREE.Color(3, 2.6, 1.4), 0.16, 0.6, 0.9));
   const glow = new THREE.PointLight('#ffae4a', 0, 7, 2); glow.position.y = -1.3; rocket.add(glow);
-  g.add(mesh(new THREE.PlaneGeometry(w - 0.7, h - 0.7), MAT.glass, 0, 0, 1.9, false));
+  g.add(mesh(new THREE.PlaneGeometry(w - 0.7, h - 0.7), new THREE.MeshStandardMaterial({ color: '#ffffff', alphaMap: glareTex, transparent: true, opacity: 0.24, roughness: 0.3, depthWrite: false }), 0, 0, 2.0, false));
   const puffTex = canvasTex(64, 64, (c) => { const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); });
   const puffs = Array.from({ length: 10 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, opacity: 0, depthWrite: false })); s.position.z = 1.3; g.add(s); return { s, t: 9, vx: 0 }; });
   const yMin = -h / 2 + 1.95, yMax = h / 2 - 2.1;
