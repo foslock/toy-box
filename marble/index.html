@@ -1248,6 +1248,7 @@ function updateStream(t) {
 }
 
 /* ---------- camera ---------- */
+const PRESENT_TILT = 0.5, PITCH_MIN = -0.5, PITCH_MAX = 0.45;   // the finished slab is tipped up toward you, and turns this far either way
 const ELEV = THREE.MathUtils.degToRad(54);
 let panelH = 150, camZoom = 1, camZoomT = 1;          // the camera backs off a little to show the finished slab
 let camAz = 0;                                        // on a tall screen the camera walks round to the mold's short side
@@ -1260,15 +1261,19 @@ function frameCamera(w, h, forThumb = false) {
   const useH = forThumb ? h : h - panelH - 70;                         // room above the controls
   const needW = 0.34 * ca + 0.235 * sa, needH = (0.22 * ca + 0.3 * sa) * (h / Math.max(useH, h * 0.4));
   const dist = Math.max(needW / 2 / Math.tan(hf / 2), needH / 2 / Math.tan(vf / 2)) * camZoom;
-  const k = clamp((camZoom - 1) / 0.18, 0, 1), ly = lerp(0.01, 0.035, k), back = lerp(0, 0.03, k);   // look at the slab once it's held up
+  // The slab is held high enough that no amount of turning brings an edge down to the table. It tips about the axis
+  // across the view, so the half-width that swings down is the one running toward the camera; it reaches lowest at full tilt.
+  const reach = (sa * W + ca * D) / 2 * Math.sin(PRESENT_TILT + PITCH_MAX) + SLAB_T / 2 * Math.cos(PRESENT_TILT + PITCH_MAX);
+  const holdY = reach + 0.012;
+  const k = clamp((camZoom - 1) / 0.18, 0, 1), ly = lerp(0.01, holdY - 0.01, k), back = lerp(0, 0.03, k);   // look at the slab once it's held up
   const fx = -Math.sin(camAz), fz = -Math.cos(camAz), hd = dist * Math.cos(ELEV);
   camera.position.set(fx * back - fx * hd, ly + dist * Math.sin(ELEV), fz * back - fz * hd);
   camera.lookAt(fx * back, ly, fz * back);
   // the studio turns with the camera, so the lights sit the same way whichever side you look from
   scene.environmentRotation.set(0, camAz, 0);
   spot.position.copy(baseSpot).applyAxisAngle(Y_AXIS, camAz); spot.target.position.copy(baseSpotT).applyAxisAngle(Y_AXIS, camAz);
-  presentQ.setFromAxisAngle(tmpV.set(Math.cos(camAz), 0, -Math.sin(camAz)), 0.5);
-  presentPos.set(fx * 0.03, 0.045, fz * 0.03);
+  presentQ.setFromAxisAngle(tmpV.set(Math.cos(camAz), 0, -Math.sin(camAz)), PRESENT_TILT);
+  presentPos.set(fx * 0.03, holdY, fz * 0.03);
   if (forThumb) camera.clearViewOffset(); else camera.setViewOffset(w, h, 0, Math.round((panelH + 40 - 70) * 0.5), w, h);
   camera.updateProjectionMatrix();
 }
@@ -1280,8 +1285,8 @@ function resize() {
 addEventListener('resize', resize);
 
 /* ---------- demolding and showing the slab ---------- */
-const presentQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5, 0, 0));   // tipped up toward the camera (set in frameCamera)
-const presentPos = new THREE.Vector3(0, 0.045, -0.03);
+const presentQ = new THREE.Quaternion();          // tipped up toward the camera, and
+const presentPos = new THREE.Vector3();           // held clear of the table (both set in frameCamera)
 const startPose = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
 const turn = { yaw: 0, pitch: 0, vyaw: 0, vpitch: 0 };
 function beginDemold() {
@@ -1570,7 +1575,7 @@ canvas.addEventListener('pointermove', e => {
   if (drag.mode === 'turn') {
     const dt = Math.max(1, performance.now() - drag.lt) / 1000;
     const dyaw = (e.clientX - drag.lx) * 0.006, dp = (e.clientY - drag.ly) * 0.004;
-    turn.yaw += dyaw; turn.pitch = clamp(turn.pitch + dp, -0.5, 0.45);
+    turn.yaw += dyaw; turn.pitch = clamp(turn.pitch + dp, PITCH_MIN, PITCH_MAX);
     turn.vyaw = dyaw / dt; turn.vpitch = 0;
   }
   drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = performance.now();
