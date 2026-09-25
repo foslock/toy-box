@@ -1,0 +1,8 @@
+{
+  "title": "Marble",
+  "blurb": "Pour a few colors of resin into a clear acrylic mold and tip it around while it's runny. The colors don't blend. They stretch into veins, and when the resin sets you pop out a polished slab of stone that nobody has made before. Keep your favorites in the showcase.",
+  "added": "2026-09-24",
+  "tags": ["three.js", "fluid sim", "shaders"],
+  "tape": "black",
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
+}

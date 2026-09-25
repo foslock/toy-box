@@ -1,0 +1,1684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marble</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #eeeae4; --ink-2: rgba(238, 234, 228, .72); --ink-3: rgba(238, 234, 228, .48); --line: rgba(238, 234, 228, .15);
+    --glass: rgba(21, 20, 23, .7); --bg: #0a0a0c; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 400 15px/1.35 Figtree, system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+  canvas.held { cursor: grabbing; }
+  button { font-family: inherit; }
+  [hidden]:not(.toast) { display: none !important; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .fade { position: fixed; inset: 0; background: var(--bg); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  .fade.on { opacity: 1; }
+  .name { position: fixed; top: max(15px, env(safe-area-inset-top)); left: 60px; margin: 0; pointer-events: none;
+    font: 600 24px/34px Cinzel, Georgia, serif; letter-spacing: .16em; color: var(--ink); }
+  .sub { position: fixed; top: calc(max(15px, env(safe-area-inset-top)) + 33px); left: 61px; margin: 0; pointer-events: none; font-size: 13.5px; color: var(--ink-2); letter-spacing: .01em; }
+
+  .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; box-sizing: border-box;
+    border: 1px solid var(--line); background: none; color: var(--ink); font: 500 15px/1 Figtree, system-ui, sans-serif; white-space: nowrap; cursor: pointer;
+    transition: background-color .15s, border-color .15s, opacity .15s; }
+  .pill:hover { border-color: rgba(238, 234, 228, .4); background: rgba(238, 234, 228, .05); }
+  .pill.solid { background: var(--ink); border-color: var(--ink); color: #151417; font-weight: 600; }
+  .pill.solid:hover { background: #fff; }
+  .pill:disabled { opacity: .45; cursor: default; }
+  .pill svg { width: 17px; height: 17px; flex: none; }
+  .pill.icon { width: 42px; padding: 0; }
+
+  .show-btn { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); height: 38px; padding: 0 12px 0 14px;
+    background: var(--glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  .count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: rgba(238, 234, 228, .14); font-size: 12.5px; font-weight: 600; }
+
+  .dock { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(740px, calc(100% - 32px));
+    display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
+  .dock > * { pointer-events: auto; }
+  .hint { margin: 0; max-width: 100%; text-align: center; font-size: 13.5px; letter-spacing: .02em; color: var(--ink-2); pointer-events: none; text-shadow: 0 1px 10px rgba(0, 0, 0, .8); transition: opacity .6s; }
+  .hint.gone { opacity: 0; }
+  .toast { margin: 0; padding: 8px 14px; border-radius: 999px; background: rgba(238, 234, 228, .92); color: #151417; font-size: 14px; font-weight: 500; transition: opacity .3s, transform .3s; }
+  .toast[hidden] { display: block; opacity: 0; transform: translateY(6px); pointer-events: none; }
+  .panel { width: 100%; box-sizing: border-box; padding: 14px 16px; border-radius: 22px; background: var(--glass); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .7); }
+  .stage[hidden] { display: none; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .grow { flex: 1; min-width: 0; }
+
+  .presets { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: -2px -16px 12px; padding: 2px 16px;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+  .presets::-webkit-scrollbar { display: none; }
+  .chip { flex: none; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--ink-2);
+    font: 500 13.5px/1 Figtree, system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
+  .chip:hover { color: var(--ink); border-color: rgba(238, 234, 228, .35); }
+  .chip[aria-checked="true"] { background: rgba(238, 234, 228, .14); color: var(--ink); border-color: rgba(238, 234, 228, .45); }
+
+  .cups { display: flex; gap: 6px; }
+  .cup { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 66px; padding: 2px 0; border: 0; background: none; color: var(--ink-2); cursor: pointer; }
+  .cup:hover .dot { transform: translateY(-2px); }
+  .cup .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+  .cup .fin { font-size: 11px; color: var(--ink-3); margin-top: -4px; }
+  .dot { position: relative; width: 38px; height: 38px; border-radius: 50%; background: var(--c); transition: transform .15s;
+    box-shadow: inset 0 -5px 9px rgba(0, 0, 0, .28), inset 0 2px 3px rgba(255, 255, 255, .22), 0 0 0 1px rgba(255, 255, 255, .12); overflow: hidden; }
+  .dot::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, .6), rgba(255, 255, 255, 0) 32%); }
+  .dot[data-f="1"]::after { content: ""; position: absolute; inset: 0; background: conic-gradient(from 200deg, rgba(255, 190, 220, .35), rgba(170, 220, 255, .35), rgba(210, 255, 210, .3), rgba(255, 230, 170, .35), rgba(255, 190, 220, .35)); mix-blend-mode: soft-light; }
+  .dot[data-f="2"]::after { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 40%, rgba(0, 0, 0, .3) 60%, rgba(255, 255, 255, .35)); }
+  .dot[data-f="3"]::after { content: ""; position: absolute; inset: 0; background:
+      radial-gradient(circle at 30% 60%, #111 0 1.6px, transparent 2px), radial-gradient(circle at 62% 38%, #f4f1ec 0 1.8px, transparent 2.2px),
+      radial-gradient(circle at 70% 72%, #222 0 2.2px, transparent 2.6px), radial-gradient(circle at 44% 24%, #1a1a1a 0 1.3px, transparent 1.7px),
+      radial-gradient(circle at 22% 38%, #efe9e2 0 1.4px, transparent 1.8px), radial-gradient(circle at 52% 58%, rgba(0,0,0,.6) 0 1.5px, transparent 2px); }
+  .dot[data-f="4"]::after { content: ""; position: absolute; inset: 0; background:
+      radial-gradient(circle at 30% 60%, #fff 0 1px, transparent 1.6px), radial-gradient(circle at 62% 38%, #fff8dd 0 1.2px, transparent 1.8px),
+      radial-gradient(circle at 70% 72%, #fff 0 .9px, transparent 1.5px), radial-gradient(circle at 44% 30%, #fff 0 .8px, transparent 1.4px),
+      radial-gradient(circle at 25% 36%, #fffbe8 0 1px, transparent 1.6px), radial-gradient(circle at 55% 55%, #fff 0 .8px, transparent 1.4px); }
+  .dot i { position: absolute; left: 0; right: 0; top: 0; height: var(--empty, 0%); background: rgba(21, 20, 23, .82); transition: height .2s linear; }
+
+  .status { margin: 0 0 7px; font-size: 14.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 4px; border-radius: 2px; background: rgba(238, 234, 228, .12); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--ink); border-radius: 2px; }
+  .mini { display: flex; gap: 5px; }
+  .mini .dot { width: 26px; height: 26px; }
+  .piece { margin: 0; font: 600 18px/1.25 Cinzel, Georgia, serif; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { margin: 3px 0 0; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .pop { position: fixed; z-index: 20; width: 272px; box-sizing: border-box; padding: 14px; border-radius: 18px; background: rgba(28, 27, 31, .94); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 20px 50px -12px rgba(0, 0, 0, .8); }
+  .pop[hidden] { display: none; }
+  .pop h3 { margin: 0 0 10px; font: 500 13px/1 Figtree, system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; }
+  .sw { aspect-ratio: 1; width: 100%; padding: 0; border-radius: 50%; border: 0; background: var(--c); cursor: pointer; box-shadow: inset 0 -3px 5px rgba(0, 0, 0, .25), 0 0 0 1px rgba(255, 255, 255, .12); }
+  .sw[aria-pressed="true"] { box-shadow: 0 0 0 2px #1c1b1f, 0 0 0 4px var(--ink); }
+  .sw.custom { position: relative; overflow: hidden; background: conic-gradient(#e44, #ec4, #4c4, #4ce, #44e, #c4e, #e44); }
+  .sw.custom input { position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); opacity: 0; cursor: pointer; }
+  .fins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .fins .chip { height: 28px; padding: 0 10px; font-size: 13px; }
+
+  .drawer { position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: min(430px, 100%); box-sizing: border-box; display: flex; flex-direction: column;
+    background: rgba(18, 17, 20, .9); border-left: 1px solid var(--line); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    transform: translateX(100%); transition: transform .32s cubic-bezier(.2, .8, .2, 1); visibility: hidden; }
+  .drawer.open { transform: none; visibility: visible; }
+  .drawer header { display: flex; align-items: center; justify-content: space-between; padding: max(16px, env(safe-area-inset-top)) 16px 12px 20px; }
+  .drawer h2 { margin: 0; font: 600 20px/1 Cinzel, Georgia, serif; letter-spacing: .14em; }
+  .drawer .scroll { flex: 1; overflow-y: auto; padding: 4px 16px 16px 20px; }
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .card { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+  .card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: #16151a; box-shadow: 0 0 0 1px var(--line); transition: transform .15s; }
+  .card:hover img { transform: translateY(-2px); }
+  .card b { display: block; margin-top: 7px; font: 600 13.5px/1.2 Cinzel, Georgia, serif; letter-spacing: .05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
+  .card[aria-current="true"] img { box-shadow: 0 0 0 2px var(--ink); }
+  .empty { margin: 40px 10px; text-align: center; color: var(--ink-2); line-height: 1.5; }
+  .fine { margin: 0; padding: 10px 20px max(16px, env(safe-area-inset-bottom)); font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line); }
+
+  @media (max-width: 640px) {
+    .name { font-size: 20px; }
+    .sub { font-size: 12.5px; }
+    .panel { padding: 12px; border-radius: 20px; }
+    .presets { margin: -2px -12px 10px; padding: 2px 12px; }
+    .row.wrap { flex-wrap: wrap; }
+    .row.wrap .cups { width: 100%; justify-content: space-between; }
+    .row.wrap .pill { flex: 1; }
+    .cup { width: auto; flex: 1; }
+    .pill { height: 40px; padding: 0 14px; font-size: 14.5px; }
+    .mini .dot { width: 20px; height: 20px; }
+    .piece { font-size: 16px; }
+    .row.acts { flex-wrap: wrap; }
+    .row.acts .grow { flex-basis: 100%; }
+    .row.acts .pill { flex: 1; }
+    .grid { gap: 10px; }
+  }
+  @media (max-width: 480px) { .drawer header { padding-left: 64px; } }
+  @media (prefers-reduced-motion: reduce) { .drawer, .fade, .hint, .toast { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="A clear acrylic mold on a dark table. Drag it to tilt the resin inside; once it sets, drag the stone slab to turn it in the light."></canvas>
+<h1 class="name">Marble</h1>
+<p class="sub" id="sub">Choose your resins</p>
+<button class="pill show-btn" id="showBtn" type="button" aria-controls="drawer" aria-expanded="false">Showcase <span class="count" id="count">0</span></button>
+
+<div class="dock">
+  <p class="toast" id="toast" role="status" hidden></p>
+  <p class="hint" id="hint"></p>
+  <button class="pill" id="motion" type="button" hidden style="background: var(--glass)"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4.5 8.5a6 6 0 0 0 0 7M19.5 8.5a6 6 0 0 1 0 7"/></svg><span id="motionLabel">Tilt with your phone</span></button>
+  <section class="panel" aria-label="Controls">
+    <div class="stage" data-stage="idle">
+      <div class="presets" id="presets" role="radiogroup" aria-label="Recipes"></div>
+      <div class="row wrap">
+        <div class="cups" id="cups"></div>
+        <div class="grow"></div>
+        <button class="pill" id="shuffle" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Shuffle</button>
+        <button class="pill solid" id="pour" type="button">Pour</button>
+      </div>
+    </div>
+    <div class="stage" data-stage="work" hidden>
+      <div class="row">
+        <div class="mini" id="mini" aria-hidden="true"></div>
+        <div class="grow"><p class="status" id="status" aria-live="polite">Pouring</p><div class="bar"><i id="bar"></i></div></div>
+        <button class="pill" id="harden" type="button">Harden now</button>
+      </div>
+    </div>
+    <div class="stage" data-stage="done" hidden>
+      <div class="row acts">
+        <div class="grow"><p class="piece" id="pieceName"></p><p class="meta" id="pieceMeta"></p></div>
+        <button class="pill" id="again" type="button">Pour another</button>
+        <button class="pill solid" id="save" type="button">Save to showcase</button>
+      </div>
+    </div>
+    <div class="stage" data-stage="view" hidden>
+      <div class="row acts">
+        <div class="grow"><p class="piece" id="viewName"></p><p class="meta" id="viewMeta"></p></div>
+        <button class="pill icon" id="prev" type="button" aria-label="Previous piece"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button class="pill icon" id="next" type="button" aria-label="Next piece"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+        <button class="pill" id="del" type="button">Delete</button>
+        <button class="pill solid" id="back" type="button">Back to the studio</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="pop" id="pop" role="dialog" aria-label="Change this resin" hidden>
+  <h3 id="popTitle">Color</h3>
+  <div class="swatches" id="swatches"></div>
+  <div class="fins" id="fins" role="radiogroup" aria-label="Finish"></div>
+</div>
+
+<aside class="drawer" id="drawer" aria-label="Showcase">
+  <header><h2>Showcase</h2><button class="pill icon" id="closeDrawer" type="button" aria-label="Close the showcase"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+  <div class="scroll"><p class="empty" id="empty">Nothing here yet.<br>Pour a slab, let it set, and save it.</p><ul class="grid" id="grid"></ul></div>
+  <p class="fine" id="usage">Kept in this browser's local storage.</p>
+</aside>
+<div class="fade" id="fade"></div>
+
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const $ = id => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
+const DEMO = Q.has('demo');
+const SPEED = Number(Q.get('speed')) || 1;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeIn = t => t * t * t;
+function rngFrom(seed) {
+  let a = seed >>> 0;
+  return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const pick = (rng, a) => a[Math.floor(rng() * a.length)];
+
+/* ---------- the mold, in metres ---------- */
+const W = 0.24, D = 0.16;                  // inside of the mold: width along x, depth along z (and the slab it makes)
+const WALL = 0.005, BASE = 0.006, RIM = 0.03;
+const FILL = 0.012;                        // resin depth once everything is in
+const VOL = W * D * FILL;                  // 461 ml
+const SLAB_T = FILL;
+const G = 4.9;                             // gravity and viscosity are scaled together (half each): same creeping flow, fewer sim steps
+const NU0 = 4.5e-4;                        // runny epoxy, ~900 cSt at full gravity
+const FALL_H = 0.5, V0 = 0.35;             // the cup is ~50 cm up and the resin leaves it at ~35 cm/s
+const FALL_T = (-V0 + Math.sqrt(V0 * V0 + 2 * 9.81 * FALL_H)) / 9.81;
+const V_SURF = Math.sqrt(V0 * V0 + 2 * 9.81 * FALL_H);
+const FLOW_T = 9, CURE_T = 7;              // working time after the last pour, then the set
+
+/* ---------- renderer ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+const FLOAT = renderer.extensions.has('EXT_color_buffer_float') ? THREE.FloatType : THREE.HalfFloatType;
+const SMALL = Math.min(screen.width, screen.height) < 600;
+const NX = SMALL ? 180 : 240, NY = NX * 2 / 3, DX = W / NX;   // shallow-water grid, 1–1.3 mm cells
+const TW = SMALL ? 768 : 1152, TH = TW * 2 / 3;               // color grid (and the slab's texture)
+const PS = 256, NP = PS * PS;                                   // flecks
+
+/* ---------- recipes ---------- */
+// finish: 0 plain, 1 pearl, 2 metallic, 3 flecks (granite crystals), 4 glitter (metal flakes)
+const FINISH = ['Plain', 'Pearl', 'Metallic', 'Flecks', 'Glitter'];
+const L = (name, hex, finish = 0) => ({ name, hex, finish });
+const PRESETS = [
+  { name: 'Carrara', liquids: [L('Bianco', '#e6e4df'), L('Nuvola', '#b3b7bc'), L('Bardiglio', '#737a82'), L('Grafite', '#3b4047')] },
+  { name: 'Calacatta Oro', liquids: [L('Bianco', '#f2eee7'), L('Greige', '#cdc5b8'), L('Taupe', '#716a63'), L('Oro', '#d0a449', 2)] },
+  { name: 'Nero Marquina', liquids: [L('Nero', '#141518'), L('Fumo', '#2e2f34'), L('Neve', '#ece9e3'), L('Perla', '#c4bfb5', 1)] },
+  { name: 'Verde Alpi', liquids: [L('Verde', '#1d382f'), L('Salvia', '#355e4b'), L('Latte', '#dbe4db'), L('Bosco', '#0c1814')] },
+  { name: 'Rosso Levanto', liquids: [L('Rosso', '#6a1e24'), L('Mattone', '#98463d'), L('Avorio', '#e7d9d0'), L('Serpentino', '#3f5d50')] },
+  { name: 'Azul Bahia', liquids: [L('Blu', '#1b3a76'), L('Cielo', '#3767ac'), L('Neve', '#e9eff6'), L('Notte', '#0d1c3b')] },
+  { name: 'Nero Portoro', liquids: [L('Nero', '#111111'), L('Carbone', '#252321'), L('Oro', '#d8ab4e', 2), L('Paglia', '#e6d6ae')] },
+  { name: 'Lapis', liquids: [L('Lapis', '#1e2d78'), L('Oltremare', '#2f47a6'), L('Calcite', '#d9dee8'), L('Pirite', '#d6b35c', 4)] },
+  { name: 'Rosa Granite', style: 'speckled', liquids: [L('Rosa', '#b89b92', 3), L('Ardesia', '#5f5754', 3), L('Quarzo', '#e2dbd5', 3), L('Mica', '#9a958e', 4)] },
+  { name: 'Honey Onyx', style: 'banded', liquids: [L('Miele', '#dca55a', 1), L('Ambra', '#b56b28'), L('Crema', '#f5e4c2'), L('Tabacco', '#5d3316')] },
+  { name: 'Madreperla', liquids: [L('Perla', '#ece5e6', 1), L('Cipria', '#d9b9bd', 1), L('Argento', '#b7bbc3', 2), L('Lilla', '#857790')] },
+  { name: 'Emperador', liquids: [L('Marrone', '#4d3224'), L('Nocciola', '#7a543b'), L('Crema', '#d8c0a4'), L('Ebano', '#22150e')] },
+];
+const PALETTE = ['#f2eee7', '#e6e4df', '#d6cfc3', '#b3b7bc', '#858a90', '#4c5157', '#26282c', '#111111', '#d0a449', '#b8784a', '#c2c5ca',
+  '#6a1e24', '#b56b28', '#dca55a', '#1d382f', '#3f6d58', '#1b3a76', '#3f74b8', '#ddbcbf', '#857790'];
+const WORDS = ['Fiume', 'Nuvola', 'Tempesta', 'Aurora', 'Brina', 'Vento', 'Onda', 'Luna', 'Selva', 'Ombra', 'Sera', 'Riva', 'Cielo', 'Fumo', 'Seta', 'Alba', 'Marea', 'Lampo', 'Nebbia', 'Corrente'];
+
+const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+const rgbHex = c => '#' + c.map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
+const mixc = (a, b, t) => a.map((v, i) => lerp(v, b[i], t));
+const shade = (c, k) => k < 0 ? mixc(c, [0, 0, 0], -k) : mixc(c, [1, 1, 1], k);
+const luma = c => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+function hsl(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  const f = n => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+  return [f(0), f(8), f(4)];
+}
+function familyWord(hex) {
+  const c = hexRgb(hex), l = luma(c), mx = Math.max(...c), mn = Math.min(...c);
+  if (l > 0.72) return 'Bianco';
+  if (l < 0.07) return 'Nero';
+  if (mx - mn < 0.08) return 'Grigio';
+  const h = (Math.atan2(Math.sqrt(3) * (c[1] - c[2]), 2 * c[0] - c[1] - c[2]) * 180 / Math.PI + 360) % 360;
+  return h < 20 || h > 330 ? (l > 0.45 ? 'Rosa' : 'Rosso') : h < 50 ? (l > 0.4 ? 'Oro' : 'Bruno') : h < 70 ? 'Giallo' : h < 170 ? 'Verde' : h < 260 ? 'Azzurro' : 'Viola';
+}
+
+function randomRecipe(rng) {
+  const r = () => rng(), R = (a, b) => lerp(a, b, r());
+  const fam = pick(rng, ['white', 'white', 'white', 'black', 'black', 'green', 'blue', 'red', 'brown', 'pink', 'granite', 'onyx']);
+  let base, cloud, vein, thread, style = 'veined', bf = 0, cf = 0, vf = 0, tf = 0;
+  const metal = () => pick(rng, [[0.82, 0.64, 0.29], [0.8, 0.8, 0.82], [0.74, 0.47, 0.29], [0.85, 0.7, 0.36]]);
+  if (fam === 'white') {
+    const h = r() < 0.6 ? R(28, 48) : R(195, 225), s = R(0.03, 0.12);
+    base = hsl(h, s, R(0.86, 0.93)); cloud = hsl(h + R(-10, 10), s, R(0.66, 0.78));
+    vein = hsl(r() < 0.7 ? h : R(0, 360), R(0.02, 0.2), R(0.28, 0.45)); thread = r() < 0.35 ? (tf = 2, metal()) : shade(vein, -0.45);
+    if (r() < 0.15) bf = 1;
+  } else if (fam === 'black') {
+    base = hsl(R(0, 360), R(0, 0.08), R(0.05, 0.08)); cloud = shade(base, 0.1);
+    vein = r() < 0.4 ? (vf = 2, metal()) : hsl(R(30, 50), R(0, 0.15), R(0.86, 0.93));
+    thread = r() < 0.5 ? hsl(R(30, 50), R(0.05, 0.2), R(0.72, 0.84)) : (tf = r() < 0.5 ? 1 : 2, tf === 2 ? metal() : [0.82, 0.8, 0.77]);
+  } else if (fam === 'green' || fam === 'blue' || fam === 'red' || fam === 'brown') {
+    const H = { green: [140, 170], blue: [212, 232], red: [350, 368], brown: [18, 32] }[fam], h = R(...H);
+    const S = { green: 0.35, blue: 0.58, red: 0.52, brown: 0.36 }[fam];
+    base = hsl(h, S * R(0.8, 1.1), R(0.14, 0.24)); cloud = hsl(h + R(-8, 8), S * R(0.8, 1.1), R(0.28, 0.38));
+    vein = hsl(h + R(-20, 20), R(0.05, 0.2), R(0.8, 0.9));
+    thread = r() < 0.3 ? (tf = r() < 0.5 ? 2 : 4, metal()) : hsl(h + R(-30, 30), S, R(0.06, 0.11));
+  } else if (fam === 'pink') {
+    const h = R(345, 375);
+    base = hsl(h, R(0.2, 0.4), R(0.78, 0.85)); cloud = hsl(h, R(0.2, 0.35), R(0.62, 0.7)); bf = r() < 0.6 ? 1 : 0;
+    vein = hsl(h + R(-10, 30), R(0.1, 0.25), R(0.35, 0.5)); thread = r() < 0.5 ? (tf = 2, metal()) : [0.95, 0.94, 0.93];
+  } else if (fam === 'granite') {
+    style = 'speckled'; const h = R(0, 360), s = R(0, 0.16);
+    base = hsl(h, s, R(0.45, 0.7)); cloud = hsl(h + R(-20, 20), s, R(0.25, 0.4)); vein = hsl(h, s * 0.5, R(0.8, 0.9)); thread = shade(base, -0.2);
+    bf = cf = vf = 3; tf = 4;
+  } else {
+    style = 'banded'; const h = r() < 0.6 ? R(28, 42) : r() < 0.5 ? R(120, 160) : R(0, 360), s = R(0.35, 0.6);
+    base = hsl(h, s, R(0.58, 0.68)); cloud = hsl(h - R(4, 12), s * 1.1, R(0.38, 0.48)); vein = hsl(h + R(0, 10), s * 0.6, R(0.85, 0.92)); thread = hsl(h - 8, s * 0.8, R(0.16, 0.24));
+    bf = r() < 0.5 ? 1 : 0;
+  }
+  const hexes = [base, cloud, vein, thread].map(rgbHex);
+  const liquids = hexes.map((h, i) => L(familyWord(h), h, [bf, cf, vf, tf][i]));
+  const used = new Set(); for (const l of liquids) { let n = l.name, k = 2; while (used.has(n)) n = l.name + ' ' + (k++); used.add(n); l.name = n; }
+  return { name: `${familyWord(hexes[0])} ${pick(rng, WORDS)}`, style, liquids };
+}
+const cloneRecipe = r => ({ name: r.name, style: r.style || 'veined', liquids: r.liquids.map(l => ({ ...l })) });
+
+/* ---------- studio lighting ---------- */
+function studioEnv() {
+  const s = new THREE.Scene();
+  s.add(new THREE.Mesh(new THREE.SphereGeometry(30, 48, 24), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    vertexShader: `varying vec3 vD; void main() { vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying vec3 vD; void main() {
+      vec3 c = mix(vec3(0.01, 0.01, 0.012), vec3(0.03, 0.029, 0.028), smoothstep(-0.15, 0.55, vD.y));
+      gl_FragColor = vec4(c, 1.0); }`,
+  })));
+  const box = (w, h, pos, k, tint = [1, 1, 1], soft = 0.18) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.ShaderMaterial({
+      side: THREE.DoubleSide, uniforms: { uC: { value: new THREE.Vector3(...tint).multiplyScalar(k) } },
+      vertexShader: `varying vec2 vU; void main() { vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `uniform vec3 uC; varying vec2 vU; void main() {
+        vec2 e = smoothstep(0.0, ${soft.toFixed(2)}, vU) * smoothstep(1.0, ${(1 - soft).toFixed(2)}, vU);
+        gl_FragColor = vec4(uC * e.x * e.y, 1.0); }`,
+    }));
+    m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
+  };
+  box(9, 3.2, [0, 10.4, -10.8], 7, [1, 1, 1], 0.05);  // softbox up behind the mold: a bright band across the far side of the wet resin
+  box(2.2, 11, [-12, 5, 3], 3.4, [1, 1, 1], 0.08);   // tall strip, left
+  box(2.2, 9, [11, 4, -5], 2.2, [1, 0.93, 0.84]);    // warm strip, back right
+  box(16, 2.4, [0, 2, 13], 0.55, [0.9, 0.95, 1]);    // low fill behind the camera: a faint line on near edges
+  for (const dx of [-1.6, 0.4]) { box(1.1, 12, [dx, 13, 4.5], 4.5, [1, 0.98, 0.95], 0.1); s.children[s.children.length - 1].rotateZ(0.55); }   // twin strips overhead: slide across the slab you hold up
+  const cube = new THREE.WebGLCubeRenderTarget(512, { type: THREE.HalfFloatType });
+  new THREE.CubeCamera(0.1, 100, cube).update(renderer, s);
+  const pm = new THREE.PMREMGenerator(renderer);
+  const env = pm.fromCubemap(cube.texture).texture;
+  pm.dispose(); cube.dispose();
+  return env;
+}
+
+const scene = new THREE.Scene();
+const BG = new THREE.Color(0x0a0a0c);
+scene.background = BG;
+scene.environment = studioEnv();
+scene.fog = new THREE.Fog(BG, 1.2, 2.6);
+const camera = new THREE.PerspectiveCamera(28, 1, 0.02, 20);
+
+function tableTexture() {                       // dark oiled walnut, grain running left to right
+  const N = 1024, c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d'), img = x.createImageData(N, N), rng = rngFrom(7);
+  const waves = Array.from({ length: 6 }, (_, i) => [lerp(1, 5, rng()) * (i + 1), rng() * 6.28, lerp(2, 9, rng()) / (i + 1)]);
+  const pores = new Float32Array(N * N); for (let i = 0; i < 9000; i++) { const px = Math.floor(rng() * N), py = Math.floor(rng() * N), len = 4 + rng() * 14; for (let k = 0; k < len; k++) pores[py * N + (px + k) % N] = 0.5 + rng() * 0.5; }
+  for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) {
+    let off = 0; for (const [f, ph, a] of waves) off += Math.sin(xx / N * 6.2832 * Math.round(f) + ph + y * 0.004) * a;
+    const g = Math.sin((y + off) * 0.21) * 0.5 + 0.5, g2 = Math.sin((y + off * 1.7) * 0.047 + 1.3) * 0.5 + 0.5;
+    const k = 0.62 + 0.22 * Math.pow(g, 3) + 0.2 * g2 - 0.35 * pores[y * N + xx] * 0.4 + (rng() - 0.5) * 0.05;
+    const i = (y * N + xx) * 4; img.data[i] = 92 * k; img.data[i + 1] = 62 * k; img.data[i + 2] = 44 * k; img.data[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(7, 7); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+const table = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshStandardMaterial({ color: 0x8a8a8a, map: tableTexture(), roughness: 0.5, metalness: 0, envMapIntensity: 0.4 }));
+table.rotation.x = -Math.PI / 2;
+scene.add(table);
+const spot = new THREE.SpotLight(0xfff0dc, 1.8, 0, 0.36, 1, 0);
+spot.position.set(0.05, 1.4, -0.55); spot.target.position.set(0, 0, 0.05);
+scene.add(spot, spot.target);
+
+function shadowTexture() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 192;
+  const x = c.getContext('2d');
+  x.filter = 'blur(14px)'; x.fillStyle = '#000'; x.beginPath(); x.roundRect(40, 38, 176, 116, 12); x.fill();
+  const t = new THREE.CanvasTexture(c); return t;
+}
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry((W + 2 * WALL) * 1.5, (D + 2 * WALL) * 1.64), new THREE.MeshBasicMaterial({ color: 0, alphaMap: shadowTexture(), transparent: true, opacity: 0.7, depthWrite: false }));
+shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.0006;
+scene.add(shadow);
+
+/* ---------- GPU passes ---------- */
+function target(w, h, type, linear, mips = false) {
+  const t = new THREE.WebGLRenderTarget(w, h, {
+    type, format: THREE.RGBAFormat, depthBuffer: false, stencilBuffer: false, generateMipmaps: mips,
+    minFilter: mips ? THREE.LinearMipmapLinearFilter : linear ? THREE.LinearFilter : THREE.NearestFilter, magFilter: linear ? THREE.LinearFilter : THREE.NearestFilter,
+  });
+  t.texture.wrapS = t.texture.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}
+const S = [target(NX, NY, FLOAT, false), target(NX, NY, FLOAT, false)];   // h, flux through the right face, flux through the top face, outflow limiter
+const V = target(NX, NY, THREE.HalfFloatType, true);                      // velocity (uv/s) and depth, for everything that rides the flow
+const DYE = [target(TW, TH, THREE.HalfFloatType, true, true), target(TW, TH, THREE.HalfFloatType, true, true)];   // how much of each of the 4 resins (mipmapped: the blurred levels make vein halos)
+const HAT = target(TW, TH, THREE.HalfFloatType, true), TIL = target(TW, TH, THREE.HalfFloatType, true);
+const REF = [target(TW, TH, THREE.HalfFloatType, true), target(TW, TH, THREE.HalfFloatType, true)];   // where each bit of resin came from, and when
+const PAR = [target(PS, PS, FLOAT, false), target(PS, PS, FLOAT, false)];                             // flecks: uv, resin, seed
+const ALB = target(TW, TH, THREE.UnsignedByteType, true, true), PRP = target(TW, TH, THREE.UnsignedByteType, true, true);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+ALB.texture.anisotropy = PRP.texture.anisotropy = maxAniso;
+
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quadScene = new THREE.Scene();
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)); quad.frustumCulled = false; quadScene.add(quad);
+function pass(mat, out) { quad.material = mat; renderer.setRenderTarget(out); renderer.render(quadScene, quadCam); }
+const PASS_VS = `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const shader = (fs, uniforms, defines = {}) => new THREE.ShaderMaterial({ vertexShader: PASS_VS, fragmentShader: fs, uniforms, defines, depthTest: false, depthWrite: false });
+const un = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { value: v }]));
+
+const NOISE = /* glsl */`
+uint pcg(uint v) { uint s = v * 747796405u + 2891336453u; uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
+vec2 grad(ivec2 p) { uint h = pcg(uint(p.x) + pcg(uint(p.y))); return vec2(float(h & 65535u), float(h >> 16u)) / 32767.5 - 1.0; }
+float gnoise(vec2 x) {
+  vec2 fl = floor(x), f = x - fl; ivec2 i = ivec2(fl);
+  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+  float a = dot(grad(i), f), b = dot(grad(i + ivec2(1, 0)), f - vec2(1, 0));
+  float c = dot(grad(i + ivec2(0, 1)), f - vec2(0, 1)), d = dot(grad(i + ivec2(1, 1)), f - vec2(1, 1));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y) * 1.3;
+}
+float fbm(vec2 x) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * gnoise(x); x = mat2(1.6, 1.2, -1.2, 1.6) * x + 17.3; a *= 0.5; } return s; }
+float fbm3(vec2 x) { float s = 0.0, a = 0.5; for (int i = 0; i < 3; i++) { s += a * gnoise(x); x = mat2(1.6, 1.2, -1.2, 1.6) * x + 17.3; a *= 0.5; } return s; }
+`;
+const SIM = /* glsl */`
+#define NX ${NX}
+#define NY ${NY}
+#define DX ${DX.toFixed(8)}
+#define W ${W.toFixed(4)}
+#define D ${D.toFixed(4)}
+uniform sampler2D uS;
+vec4 S(ivec2 p) { return texelFetch(uS, clamp(p, ivec2(0), ivec2(NX - 1, NY - 1)), 0); }
+`;
+
+// Shallow resin: depth h on cell centres, volume flux q on faces. Each face's flux is pushed by the slope of the surface
+// and by the in-plane pull of gravity and of the mold's own acceleration, and held back by viscous drag on the floor (3ν/h²):
+// a thin layer barely moves, a thick one runs. The flux that leaves a cell is capped at what's in it, so the floor
+// wets and dries cleanly and not a drop is gained or lost.
+const mFlux = shader(SIM + /* glsl */`
+uniform float uDt, uGn, uNu, uVisc; uniform vec2 uA;
+float face(float h, float hn, float q, float a) {
+  float hf = 0.5 * (h + hn);
+  return (q + uDt * hf * (uGn * (h - hn) / DX + a)) / (1.0 + uDt * 3.0 * uNu / max(hf * hf, 1e-9));
+}
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy); vec4 s = S(p);
+  // viscosity within the layer: short ripples die out at once, the way they do in syrup
+  vec4 l = S(p - ivec2(1, 0)), r = S(p + ivec2(1, 0)), b = S(p - ivec2(0, 1)), t = S(p + ivec2(0, 1));
+  vec2 q = s.gb + uVisc * ((l.gb + r.gb + b.gb + t.gb) * 0.25 - s.gb);
+  float qx = p.x < NX - 1 ? face(s.r, r.r, q.x, uA.x) : 0.0;
+  float qy = p.y < NY - 1 ? face(s.r, t.r, q.y, uA.y) : 0.0;
+  gl_FragColor = vec4(s.r, qx, qy, 0.0);
+}`, un({ uS: null, uDt: 0, uGn: G, uNu: NU0, uVisc: 0.8, uA: new THREE.Vector2() }));
+
+const mLimit = shader(SIM + /* glsl */`
+uniform float uDt;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy); vec4 s = S(p);
+  float qL = p.x > 0 ? S(p - ivec2(1, 0)).g : 0.0, qB = p.y > 0 ? S(p - ivec2(0, 1)).b : 0.0;
+  float out_ = max(s.g, 0.0) + max(-qL, 0.0) + max(s.b, 0.0) + max(-qB, 0.0);
+  gl_FragColor = vec4(s.rgb, min(1.0, s.r * DX / max(out_ * uDt, 1e-14)));
+}`, un({ uS: null, uDt: 0 }));
+
+const mUpdate = shader(SIM + /* glsl */`
+uniform float uDt, uQ, uSig; uniform vec2 uPour;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy); vec4 s = S(p);
+  vec4 l = S(p - ivec2(1, 0)), r = S(p + ivec2(1, 0)), b = S(p - ivec2(0, 1)), t = S(p + ivec2(0, 1));
+  float fR = s.g * (s.g > 0.0 ? s.a : r.a);
+  float fT = s.b * (s.b > 0.0 ? s.a : t.a);
+  float fL = p.x > 0 ? l.g * (l.g > 0.0 ? l.a : s.a) : 0.0;
+  float fB = p.y > 0 ? b.b * (b.b > 0.0 ? b.a : s.a) : 0.0;
+  float h = s.r + uDt / DX * (fL - fR + fB - fT);
+  vec2 d = (vec2(p) + 0.5) * DX - uPour;
+  h += uDt * uQ * exp(-dot(d, d) / (2.0 * uSig * uSig)) / (6.2831853 * uSig * uSig);
+  gl_FragColor = vec4(max(h, 0.0), fR, fT, 0.0);
+}`, un({ uS: null, uDt: 0, uQ: 0, uSig: 0.004, uPour: new THREE.Vector2() }));
+
+const mVel = shader(SIM + /* glsl */`
+#define HMIN 0.00025
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy); vec4 s = S(p);
+  vec4 l = S(p - ivec2(1, 0)), r = S(p + ivec2(1, 0)), b = S(p - ivec2(0, 1)), t = S(p + ivec2(0, 1));
+  float qL = p.x > 0 ? l.g : 0.0, qB = p.y > 0 ? b.b : 0.0;
+  // face velocities use the depth upstream, so resin running onto a dry cell carries its colors with it
+  float uR = s.g / max(s.g > 0.0 ? s.r : r.r, HMIN), uL = qL / max(qL > 0.0 ? l.r : s.r, HMIN);
+  float vT = s.b / max(s.b > 0.0 ? s.r : t.r, HMIN), vB = qB / max(qB > 0.0 ? b.r : s.r, HMIN);
+  vec2 v = clamp(vec2(0.5 * (uL + uR), 0.5 * (vB + vT)), -1.2, 1.2);
+  gl_FragColor = vec4(v.x / W, v.y / D, s.r, 1.0);
+}`, un({ uS: null }));
+
+// Colors ride the flow with a MacCormack step (forward, back, correct, clamp), which keeps their edges crisp for a long time.
+const TRACE = /* glsl */`
+uniform sampler2D uV; uniform float uDt;
+vec2 trace(vec2 p, float dt) { vec2 v1 = texture(uV, p).rg; vec2 v2 = texture(uV, p - 0.5 * dt * v1).rg; return p - dt * v2; }
+`;
+const POUR = /* glsl */`
+#define W ${W.toFixed(4)}
+#define D ${D.toFixed(4)}
+uniform vec2 uP0, uP1; uniform float uAdd, uSig;
+float Phi(float x) { return 0.5 + 0.5 * tanh(clamp(0.7978845608 * (x + 0.044715 * x * x * x), -9.0, 9.0)); }
+float pourMix(vec2 uv) {             // the share of this spot that is fresh resin from the stream, this frame
+  if (uAdd <= 0.0) return 0.0;
+  vec2 x = uv * vec2(W, D), ab = uP1 - uP0; float len = length(ab), dh;
+  if (len < 0.25 * uSig) { vec2 d = x - 0.5 * (uP0 + uP1); dh = uAdd * exp(-dot(d, d) / (2.0 * uSig * uSig)) / (6.2831853 * uSig * uSig); }
+  else {                             // a Gaussian swept along this frame's stretch of the path, so frames join without seams
+    vec2 dir = ab / len, r = x - uP0; float al = dot(r, dir), pe = length(r - dir * al);
+    dh = uAdd / len * exp(-pe * pe / (2.0 * uSig * uSig)) / (2.5066283 * uSig) * (Phi((len - al) / uSig) - Phi(-al / uSig));
+  }
+  return clamp(dh / max(texture(uV, uv).b, 1e-5), 0.0, 1.0);    // new resin's share of the column here
+}
+`;
+const mAdv = shader(TRACE + /* glsl */`
+uniform sampler2D uQ; varying vec2 vUv;
+void main() { gl_FragColor = textureLod(uQ, trace(vUv, uDt), 0.0); }`, un({ uQ: null, uV: null, uDt: 0 }));
+const mFix = shader(TRACE + POUR + /* glsl */`
+uniform sampler2D uQ, uHat, uTil; uniform vec2 uRes; uniform vec4 uMat; varying vec2 vUv;
+void main() {
+  vec2 b = trace(vUv, uDt);
+  vec4 r = texture(uHat, vUv) + 0.5 * (textureLod(uQ, vUv, 0.0) - texture(uTil, vUv));
+  ivec2 i = ivec2(floor(b * uRes - 0.5)), mx = ivec2(uRes) - 1;
+  vec4 a0 = texelFetch(uQ, clamp(i, ivec2(0), mx), 0), a1 = texelFetch(uQ, clamp(i + ivec2(1, 0), ivec2(0), mx), 0);
+  vec4 a2 = texelFetch(uQ, clamp(i + ivec2(0, 1), ivec2(0), mx), 0), a3 = texelFetch(uQ, clamp(i + ivec2(1, 1), ivec2(0), mx), 0);
+  r = clamp(r, min(min(a0, a1), min(a2, a3)), max(max(a0, a1), max(a2, a3)));
+  gl_FragColor = mix(r, uMat, pourMix(vUv));
+}`, un({ uQ: null, uHat: null, uTil: null, uV: null, uDt: 0, uRes: new THREE.Vector2(TW, TH), uMat: new THREE.Vector4(1, 0, 0, 0),
+  uP0: new THREE.Vector2(), uP1: new THREE.Vector2(), uAdd: 0, uSig: 0.003 }));
+const mRef = shader(TRACE + POUR + /* glsl */`
+uniform sampler2D uQ; uniform vec3 uNew; varying vec2 vUv;
+void main() { gl_FragColor = mix(texture(uQ, trace(vUv, uDt)), vec4(vUv + uNew.xy, uNew.z, 0.0), pourMix(vUv)); }`,
+un({ uQ: null, uV: null, uDt: 0, uNew: new THREE.Vector3(), uP0: new THREE.Vector2(), uP1: new THREE.Vector2(), uAdd: 0, uSig: 0.003 }));
+const mFill = shader(`uniform vec4 uVal; uniform float uUV; varying vec2 vUv; void main() { gl_FragColor = mix(uVal, vec4(vUv, 0.0, 0.0), uUV); }`, un({ uVal: new THREE.Vector4(), uUV: 0 }));
+function fill(out, v, uv = 0) { mFill.uniforms.uVal.value.set(...v); mFill.uniforms.uUV.value = uv; pass(mFill, out); }
+
+// Flecks are real particles: they ride the flow without stretching, the way grains in a granite do.
+const mPar = shader(/* glsl */`
+#define PS ${PS}
+#define NP ${NP}.0
+uniform sampler2D uQ, uV; uniform float uDt, uStart, uCount, uMat, uTime, uR; uniform vec2 uP0, uP1;
+float h1(float n) { return fract(sin(n * 12.9898 + 4.1414) * 43758.5453); }
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy); vec4 s = texelFetch(uQ, p, 0);
+  float id = float(p.y * PS + p.x);
+  if (mod(id - uStart + NP, NP) < uCount) {
+    float a = h1(id + uTime * 7.1) * 6.2831853, rr = sqrt(h1(id * 1.7 + uTime)) * uR;
+    s = vec4(mix(uP0, uP1, h1(id * 3.1 + uTime * 1.3)) + vec2(cos(a), sin(a) * 1.5) * rr, uMat, h1(id * 0.37 + uTime * 3.3));
+  } else if (s.b > -0.5) {
+    vec2 v1 = texture(uV, s.xy).rg, v2 = texture(uV, s.xy + 0.5 * uDt * v1).rg;
+    s.xy = clamp(s.xy + uDt * v2, vec2(0.002), vec2(0.998));
+  }
+  gl_FragColor = s;
+}`, un({ uQ: null, uV: null, uDt: 0, uStart: 0, uCount: 0, uMat: 0, uTime: 0, uR: 0.01, uP0: new THREE.Vector2(), uP1: new THREE.Vector2() }));
+
+/* ---------- turning the color fields into stone ----------
+   Each resin after the first is laid over what's under it with a sharpened edge, so where two meet you get a crisp
+   boundary with a soft halo, not a muddy blend. The edges are roughened with noise sampled at where each bit of resin
+   came from (REF), so that texture gets stretched and folded right along with the flow. A fine web of hairline veins,
+   also in REF space, gathers where the resins mingle. */
+const COMPOSITE = NOISE + /* glsl */`
+uniform sampler2D uDye, uRef; uniform vec3 uCol[4], uCol2[4], uVein; uniform vec4 uFin[4]; uniform vec2 uTex;
+uniform float uSeed, uFine, uBand; uniform vec2 uWind; uniform vec4 uMottle;
+varying vec2 vUv;
+float crystal(vec2 x) {              // granite-sized cells, each with its own tone
+  vec2 i = floor(x), f = x - i; float best = 9.0, tone = 0.5;
+  for (int y = -1; y <= 1; y++) for (int k = -1; k <= 1; k++) {
+    vec2 g = vec2(float(k), float(y)); ivec2 c = ivec2(i + g);
+    uint h = pcg(uint(c.x) + pcg(uint(c.y) + 71u));
+    float d = length(g + vec2(float(h & 255u), float((h >> 8u) & 255u)) / 255.0 - f);
+    if (d < best) { best = d; tone = float((h >> 16u) & 255u) / 255.0; }
+  }
+  return tone;
+}
+vec4 dye(vec2 p, float lod) { vec4 c = max(textureLod(uDye, p, lod), 0.0); return c / max(c.r + c.g + c.b + c.a, 1e-3); }
+void main() {
+  vec2 p = vUv;
+  vec4 c = dye(p, 0.0), cm = dye(p, 2.5), cw = dye(p, 4.6);    // sharp, a little blurred, well blurred
+  vec4 gx = dye(p + vec2(uTex.x, 0.0), 0.0) - dye(p - vec2(uTex.x, 0.0), 0.0), gy = dye(p + vec2(0.0, uTex.y), 0.0) - dye(p - vec2(0.0, uTex.y), 0.0);
+  vec4 gm = 0.5 * sqrt(gx * gx + gy * gy) + 2e-3;              // change per texel, for even-width rims
+  vec2 o = uTex * 5.0;
+  vec4 wx = dye(p + vec2(o.x, 0.0), 4.0) - dye(p - vec2(o.x, 0.0), 4.0), wy = dye(p + vec2(0.0, o.y), 4.0) - dye(p - vec2(0.0, o.y), 4.0);
+  vec2 X = p * vec2(1.5, 1.0) * 90.0;                           // plain mold coordinates, for strands that follow each vein
+  vec3 R = textureLod(uRef, p, 0.0).xyz;
+  vec2 q = R.xy * vec2(3.0, 2.0) + uSeed;
+  vec2 wq = q + 0.55 * vec2(fbm3(q * 1.2), fbm3(q * 1.2 + 9.2));
+  float n1 = fbm(wq * 2.2), n2 = fbm(wq * 8.0 + 4.7), n3 = fbm(wq * 26.0 + 1.3);
+#if MODE == 0
+  float cr = 0.5;                    // granite: a tight grain of crystals (these don't stretch; the big flecks ride the flow)
+  if (dot(uMottle, vec4(1.0)) > 0.0) cr = mix(crystal(p / uTex / 3.4 + uSeed), crystal(p / uTex / 9.0 + uSeed * 1.7), 0.35);
+  vec3 col = mix(uCol[0], uCol2[0], 0.8 * smoothstep(0.0, 0.9, n1 * 0.9 + n2 * 0.3));   // soft clouds in the ground
+  col *= mix(1.0, 0.72 + 0.56 * cr, uMottle.x);
+#else
+  vec3 col = vec3(uFin[0].xy, 0.0);
+#endif
+  float near = 0.0, solid = 0.0;
+  for (int i = 1; i < 4; i++) {
+    float role = uFin[i].w, ci = c[i], mi = cm[i], wi = cw[i], a, halo, e = 0.0, th = 0.0;
+    if (role < 1.5) {                 // clouds: soft and wispy
+      a = smoothstep(0.22, 0.8, ci + 0.34 * n2 + 0.12 * n3);
+      halo = smoothstep(0.03, 0.5, wi) * smoothstep(-0.3, 0.7, n2) * 0.4;
+    } else if (role < 2.5) {          // veins: only the crest of each line is solid; one flank feathers off in fine strands
+      th = 0.44; e = ci + 0.16 * n3 + 0.06 * n2;
+      a = smoothstep(th - 0.03, th + 0.03, e);
+      vec2 g = vec2(wx[i], wy[i]); vec2 gn = g / (length(g) + 1e-5), tg = vec2(-gn.y, gn.x);
+      float strands = gnoise(vec2(dot(X, tg) * 0.35, dot(X, gn) * 5.0) + float(i) * 7.0) * 0.6 + gnoise(vec2(dot(X, tg) * 0.8, dot(X, gn) * 11.0)) * 0.4;
+      float lee = smoothstep(-0.4, 0.7, -dot(gn, uWind));        // the side the feathering blows toward
+      halo = smoothstep(0.03, 0.45, ci + 0.15 * n2) * 0.4
+           + smoothstep(0.0, 0.35, wi) * lee * smoothstep(-0.25, 0.45, strands) * 0.55;
+      near = max(near, smoothstep(0.005, 0.25, wi));
+    } else {                          // fine veins: thin sharp lines
+      th = 0.34; e = ci + 0.1 * n3;
+      a = smoothstep(th - 0.03, th + 0.03, e);
+      halo = smoothstep(0.04, 0.34, ci) * 0.35;
+      near = max(near, smoothstep(0.005, 0.25, wi) * 0.6);
+    }
+    if (role > 1.5) solid = max(solid, a);
+#if MODE == 0
+    vec3 lc = mix(uCol[i], uCol2[i], smoothstep(-0.6, 0.6, n2 + 0.4 * n1)) * mix(1.0, 0.72 + 0.56 * cr, uMottle[i]);
+    col = mix(col, role < 1.5 ? mix(uCol[i], uCol2[i], 0.3) : mix(uCol[i], col, 0.35), clamp(halo, 0.0, 1.0) * (1.0 - a));
+    col = mix(col, lc, a);
+    if (role > 1.5) col = mix(col, uCol2[i], (1.0 - smoothstep(0.5, 1.6, abs(e - th) / gm[i])) * 0.45 * step(0.03, ci) * (1.0 - smoothstep(0.45, 0.7, mi)));
+    else {                            // where a cloud meets the ground, the seam shows as a fine, broken vein
+      float ec = ci + 0.3 * n2 + 0.1 * n3, gc = gm[i] * 1.3 + 1e-3;
+      float seam = (1.0 - smoothstep(0.6, 1.7, abs(ec - 0.42) / gc)) * smoothstep(-0.35, 0.25, n2 * 0.8 + fbm3(wq * 3.0 + 5.0));
+      seam += 0.5 * (1.0 - smoothstep(0.5, 1.3, abs(ec - 0.18) / gc)) * smoothstep(0.0, 0.5, n1 + 0.3);
+      col = mix(col, uVein, clamp(seam, 0.0, 1.0) * 0.6 * uFine * step(0.01, wi));
+    }
+#else
+    col = mix(col, uFin[i].xyz, a);
+#endif
+  }
+#if MODE == 0
+  // a web of hairline veins: dense around the big ones, sparse out in the open
+  float r1 = 1.0 - abs(fbm(wq * 4.0 + 7.1)), r2 = 1.0 - abs(fbm(wq * 9.5 + 2.9));
+  float web = smoothstep(0.955, 0.985, r1) * (0.1 * uFine + 0.8 * near) + smoothstep(0.972, 0.99, r2) * (0.05 * uFine + 0.55 * near);
+  col = mix(col, uVein, clamp(web, 0.0, 1.0) * (1.0 - solid));
+  col *= 1.0 + 0.022 * gnoise(q * 60.0) + uBand * sin(R.z * 7.0 + n2 * 2.5);
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+#else
+  gl_FragColor = vec4(col, 1.0);
+#endif
+}`;
+const compU = () => un({ uDye: null, uRef: null, uCol: [0, 1, 2, 3].map(() => new THREE.Vector3()), uCol2: [0, 1, 2, 3].map(() => new THREE.Vector3()),
+  uVein: new THREE.Vector3(), uFin: [0, 1, 2, 3].map(() => new THREE.Vector4()), uTex: new THREE.Vector2(1 / TW, 1 / TH), uSeed: 0, uFine: 0.5, uBand: 0, uWind: new THREE.Vector2(1, 0), uMottle: new THREE.Vector4() });
+const mCompA = shader(COMPOSITE, compU(), { MODE: 0 }), mCompP = shader(COMPOSITE, compU(), { MODE: 1 });
+
+const PAR_VS = /* glsl */`
+#define PS ${PS}
+uniform sampler2D uQ, uDye; uniform float uScale; uniform vec3 uFk[16], uFkP[16]; uniform vec2 uFkS[4];
+varying vec3 vCol; varying float vA, vRot; varying vec2 vShape;
+void main() {
+  int id = int(position.x); vec4 s = texelFetch(uQ, ivec2(id % PS, id / PS), 0);
+  if (s.b < -0.5) { gl_Position = vec4(3.0, 3.0, 3.0, 1.0); gl_PointSize = 0.0; return; }
+  int m = int(s.b + 0.5);
+  vec4 c = max(texture(uDye, s.xy), 0.0);
+  vA = smoothstep(0.1, 0.4, c[m] / max(c.r + c.g + c.b + c.a, 1e-3));   // flecks fade where other resins have buried them
+  float h1 = fract(s.a * 7.13), h2 = fract(s.a * 31.7), h3 = fract(s.a * 97.1), h4 = fract(s.a * 413.3);
+  int v = m * 4 + int(h2 * 3.999);
+#if MODE == 0
+  vCol = uFk[v] * (0.9 + 0.2 * h3);
+#else
+  vCol = uFkP[v];
+#endif
+  vRot = h3 * 6.2831853; vShape = vec2(0.55 + 0.45 * h4, 0.55 + 0.45 * fract(h4 * 7.7));
+  gl_PointSize = uScale * mix(uFkS[m].x, uFkS[m].y, h1 * h1);
+  gl_Position = vec4(s.xy * 2.0 - 1.0, 0.0, 1.0);
+}`;
+const PAR_FS = /* glsl */`
+varying vec3 vCol; varying float vA, vRot; varying vec2 vShape;
+void main() {
+  vec2 p = gl_PointCoord - 0.5; float cs = cos(vRot), sn = sin(vRot);
+  p = mat2(cs, -sn, sn, cs) * p;
+  float d = max(max(abs(p.x) / vShape.x, abs(p.y) / vShape.y), abs(p.x + p.y) * 0.85 / max(vShape.x, vShape.y));
+  if (d > 0.5 || vA < 0.01) discard;
+  gl_FragColor = vec4(vCol, vA);
+}`;
+const parU = () => un({ uQ: null, uDye: null, uScale: TW / 1152, uFk: Array.from({ length: 16 }, () => new THREE.Vector3()),
+  uFkP: Array.from({ length: 16 }, () => new THREE.Vector3()), uFkS: [0, 1, 2, 3].map(() => new THREE.Vector2(1, 3)) });
+const parGeo = new THREE.BufferGeometry();
+{ const a = new Float32Array(NP * 3); for (let i = 0; i < NP; i++) a[i * 3] = i; parGeo.setAttribute('position', new THREE.BufferAttribute(a, 3)); }
+const parMat = [0, 1].map(mode => new THREE.ShaderMaterial({ vertexShader: PAR_VS, fragmentShader: PAR_FS, uniforms: parU(), defines: { MODE: mode },
+  transparent: true, depthTest: false, depthWrite: false, blending: THREE.NormalBlending }));
+const parPoints = new THREE.Points(parGeo, parMat[0]); parPoints.frustumCulled = false;
+const parScene = new THREE.Scene(); parScene.add(parPoints);
+
+/* ---------- the mold ---------- */
+const mold = new THREE.Group();
+scene.add(mold);
+const acrylic = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.03, metalness: 0, transmission: 1, thickness: 0.005, ior: 1.49,
+  attenuationColor: new THREE.Color(0xe6f2ef), attenuationDistance: 0.35, specularIntensity: 1, envMapIntensity: 0.55 });
+const OH = BASE + RIM;
+const moldFloor = new THREE.Mesh(new RoundedBoxGeometry(W, BASE, D, 2, 0.0008), acrylic);
+moldFloor.position.y = BASE / 2;
+const walls = [
+  [new RoundedBoxGeometry(WALL, OH, D + 2 * WALL, 2, 0.0014), -(W + WALL) / 2, 0, [-1, 0]],
+  [new RoundedBoxGeometry(WALL, OH, D + 2 * WALL, 2, 0.0014), (W + WALL) / 2, 0, [1, 0]],
+  [new RoundedBoxGeometry(W, OH, WALL, 2, 0.0014), 0, -(D + WALL) / 2, [0, -1]],
+  [new RoundedBoxGeometry(W, OH, WALL, 2, 0.0014), 0, (D + WALL) / 2, [0, 1]],
+].map(([g, x, z, n]) => { const m = new THREE.Mesh(g, acrylic); m.position.set(x, OH / 2, z); m.userData.home = new THREE.Vector3(x, OH / 2, z); m.userData.n = n; mold.add(m); return m; });
+mold.add(moldFloor);
+moldFloor.userData.home = moldFloor.position.clone();
+
+function liquidGeometry(nx, ny) {
+  const pos = [], uv = [], nor = [], skirt = [], idx = [];
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) { pos.push(0, 0, 0); uv.push(i / nx, j / ny); nor.push(0, 1, 0); skirt.push(0); }
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1; idx.push(a, b, c, b, d, c); }
+  // skirts down the four walls, seen through the acrylic
+  const edges = [[[0, 0], [1, 0], [0, 0, 1], nx], [[1, 1], [0, 1], [0, 0, -1], nx], [[0, 1], [0, 0], [-1, 0, 0], ny], [[1, 0], [1, 1], [1, 0, 0], ny]];
+  for (const [a, b, n, k] of edges) {
+    const start = pos.length / 3;
+    for (let s = 0; s <= k; s++) {
+      const u = lerp(a[0], b[0], s / k), v = lerp(a[1], b[1], s / k);
+      for (const f of [1, 2]) { pos.push(0, 0, 0); uv.push(u, v); nor.push(...n); skirt.push(f); }
+    }
+    for (let s = 0; s < k; s++) {
+      const t0 = start + s * 2, b0 = t0 + 1, t1 = t0 + 2, b1 = t0 + 3;
+      // check the winding faces outward, using where these vertices will actually be
+      const P = i => [(uv[i * 2] - 0.5) * W, skirt[i] === 1 ? 1 : 0, (0.5 - uv[i * 2 + 1]) * D];
+      const A = P(t0), B = P(b0), C = P(t1);
+      const e1 = B.map((x, i) => x - A[i]), e2 = C.map((x, i) => x - A[i]);
+      const cr = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+      if (cr[0] * n[0] + cr[1] * n[1] + cr[2] * n[2] > 0) idx.push(t0, b0, t1, t1, b0, b1); else idx.push(t0, t1, b0, t1, b1, b0);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('aSkirt', new THREE.Float32BufferAttribute(skirt, 1));
+  g.setIndex(idx);
+  return g;
+}
+
+// One material for the wet resin and the finished slab: MeshPhysical lighting, with color, metal, pearl and glitter
+// read from the composited textures, a clear coat on top, and the curing/polishing looks.
+const STONE_FRAG_HEAD = /* glsl */`
+uniform sampler2D uAlbedo, uProps; uniform vec2 uTexSize; uniform float uCure, uPolish;
+varying vec2 vSUv; varying float vH, vSide, vY;
+vec3 toLin(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
+vec3 hash3(vec2 p) { return fract(sin(vec3(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)), dot(p, vec2(419.2, 371.9)))) * 43758.5453); }
+`;
+const STONE_FRAG_START = /* glsl */`
+if (vH < 0.0004) discard;
+vec2 sUv = clamp(vSUv, 1.5 / uTexSize, 1.0 - 1.5 / uTexSize);
+vec4 sAlb = texture2D(uAlbedo, sUv), sPrp = texture2D(uProps, sUv);
+float edgeD = min(min(vSUv.x, 1.0 - vSUv.x) * 1.5, min(vSUv.y, 1.0 - vSUv.y));
+float cureL = clamp(uCure * 1.6 - edgeD * 1.4, 0.0, 1.0);       // the skin forms from the walls inward
+float sweep = vSUv.x * 0.78 + (1.0 - vSUv.y) * 0.22;
+float pol = 1.0 - smoothstep(uPolish - 0.1, uPolish, sweep);
+`;
+function stoneMaterial(kind) {
+  const u = un({ uAlbedo: ALB.texture, uProps: PRP.texture, uS: S[0].texture, uTexel: new THREE.Vector2(1 / NX, 1 / NY), uSize: new THREE.Vector2(W, D),
+    uTexSize: new THREE.Vector2(TW, TH), uCure: 0, uPolish: 5, uMen: 0.0011, uThick: SLAB_T });
+  const m = new THREE.MeshPhysicalMaterial({ roughness: kind === 'liquid' ? 0.03 : 0.2, metalness: 0, clearcoat: kind === 'liquid' ? 0 : 1, clearcoatRoughness: 0.0,
+    iridescence: 0, iridescenceIOR: 1.5, iridescenceThicknessRange: [280, 460] });
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    const vHead = kind === 'liquid' ? /* glsl */`
+      uniform sampler2D uS; uniform vec2 uTexel, uSize; uniform float uMen;
+      attribute float aSkirt;
+      varying vec2 vSUv; varying float vH, vSide, vY;
+      float depth(vec2 p) {            // bilinear from the full-precision state: half floats would ripple the reflections
+        vec2 t = p / uTexel - 0.5; vec2 f = fract(t); ivec2 i = ivec2(floor(t)), mx = ivec2(1.0 / uTexel) - 1;
+        float a = texelFetch(uS, clamp(i, ivec2(0), mx), 0).r, b = texelFetch(uS, clamp(i + ivec2(1, 0), ivec2(0), mx), 0).r;
+        float c = texelFetch(uS, clamp(i + ivec2(0, 1), ivec2(0), mx), 0).r, d = texelFetch(uS, clamp(i + ivec2(1, 1), ivec2(0), mx), 0).r;
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      float surfH(vec2 p) {
+        float h = depth(p);
+        float dw = min(min(p.x, 1.0 - p.x) * uSize.x, min(p.y, 1.0 - p.y) * uSize.y);
+        return h + uMen * exp(-dw / 0.0013) * smoothstep(0.0008, 0.004, h);    // the meniscus climbing the walls
+      }` : /* glsl */`
+      uniform vec2 uSize; uniform float uThick;
+      varying vec2 vSUv; varying float vH, vSide, vY;`;
+    sh.vertexShader = vHead + '\n' + sh.vertexShader;
+    if (kind === 'liquid') {
+      sh.vertexShader = sh.vertexShader.replace('#include <beginnormal_vertex>', /* glsl */`
+        vec2 lp = uv; float sC = surfH(lp);
+        vec3 objectNormal = normal;
+        if (aSkirt < 0.5) {
+          float sx = surfH(lp + vec2(uTexel.x, 0.0)) - surfH(lp - vec2(uTexel.x, 0.0));
+          float sy = surfH(lp + vec2(0.0, uTexel.y)) - surfH(lp - vec2(0.0, uTexel.y));
+          objectNormal = normalize(vec3(-sx / (2.0 * uTexel.x * uSize.x), 1.0, sy / (2.0 * uTexel.y * uSize.y)));
+        }
+        vSUv = lp; vH = depth(lp); vSide = step(0.5, aSkirt); vY = aSkirt > 1.5 ? 0.0 : 1.0;`)
+        .replace('#include <begin_vertex>', `vec3 transformed = vec3((lp.x - 0.5) * uSize.x, aSkirt > 1.5 ? 0.0 : sC, (0.5 - lp.y) * uSize.y);`);
+    } else {
+      sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', /* glsl */`
+        vec3 transformed = vec3(position);
+        vSUv = vec2(position.x / uSize.x + 0.5, 0.5 - position.z / uSize.y);
+        vH = 1.0; vSide = 1.0 - smoothstep(0.55, 0.9, normal.y); vY = position.y / uThick + 0.5;`);
+    }
+    sh.fragmentShader = STONE_FRAG_HEAD + sh.fragmentShader
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + STONE_FRAG_START)
+      .replace('#include <map_fragment>', /* glsl */`
+        diffuseColor.rgb = toLin(sAlb.rgb);
+        if (vSide > 0.5) diffuseColor.rgb *= mix(0.6, 0.94, vY) * (0.95 + 0.1 * hash3(vec2(floor(vY * 40.0), floor(vSUv.x * 300.0 + vSUv.y * 200.0))).x);
+        diffuseColor.rgb = mix(diffuseColor.rgb * 1.05 + 0.012, diffuseColor.rgb, pol);`)
+      .replace('#include <roughnessmap_fragment>', /* glsl */`
+        float roughnessFactor = mix(0.48, roughness, pol);
+        roughnessFactor = mix(roughnessFactor, 0.36, sPrp.r);
+        roughnessFactor = mix(roughnessFactor, 0.12, sPrp.b);
+        roughnessFactor = mix(roughnessFactor, 0.34, cureL * 0.8);`)
+      .replace('#include <metalnessmap_fragment>', `float metalnessFactor = sPrp.r * 0.92;`)
+      .replace('#include <normal_fragment_maps>', /* glsl */`
+        #include <normal_fragment_maps>
+        if (sPrp.b > 0.02) { vec3 rn = hash3(floor(sUv * uTexSize) + 0.5) - 0.5; normal = normalize(normal + rn * sPrp.b * 1.7); }`)
+      .replace('#include <emissivemap_fragment>', /* glsl */`
+        #include <emissivemap_fragment>
+        totalEmissiveRadiance += vec3(1.0, 0.96, 0.9) * 0.2 * exp(-pow((sweep - uPolish) / 0.022, 2.0)) * step(uPolish, 1.4);`)
+      .replace('#include <lights_physical_fragment>', /* glsl */`
+        #include <lights_physical_fragment>
+        #ifdef USE_CLEARCOAT
+          material.clearcoat = pol * (1.0 - 0.65 * cureL);
+          material.clearcoatRoughness = min(max(mix(0.0, 0.2, cureL), 0.0525) + geometryRoughness, 1.0);
+        #endif
+        #ifdef USE_IRIDESCENCE
+          material.iridescence = sPrp.g * 0.5;
+        #endif`);
+  };
+  m.customProgramCacheKey = () => 'stone-' + kind;
+  m.userData.u = m.userData.uniforms = u;
+  return m;
+}
+const liquidMat = stoneMaterial('liquid');
+const liquid = new THREE.Mesh(liquidGeometry(NX, NY), liquidMat);
+liquid.position.y = BASE + 0.0002; liquid.frustumCulled = false;
+mold.add(liquid);
+
+const slabMat = stoneMaterial('slab');
+const slab = new THREE.Mesh(new RoundedBoxGeometry(W, SLAB_T, D, 3, 0.0016), slabMat);
+slab.visible = false;
+scene.add(slab);
+
+/* ---------- the pouring stream ---------- */
+const streamU = un({ uBot: new THREE.Vector3(), uTopY: 1, uHeadY: 0, uTailY: 1, uR: 0.003, uTime: 0, uNow: 0,
+  uSegT: new Array(8).fill(1e9), uSegC: Array.from({ length: 8 }, () => new THREE.Vector3()), uSegM: new Array(8).fill(0) });
+const streamMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.04 });
+streamMat.onBeforeCompile = sh => {
+  Object.assign(sh.uniforms, streamU);
+  sh.vertexShader = /* glsl */`
+    uniform vec3 uBot; uniform float uTopY, uHeadY, uTailY, uR, uTime, uNow;
+    varying float vTe;
+    ` + sh.vertexShader
+    .replace('#include <beginnormal_vertex>', `vec3 objectNormal = normalize(vec3(position.x, 0.0, position.z));`)
+    .replace('#include <begin_vertex>', /* glsl */`
+      float yLo = max(uHeadY, uBot.y), yHi = min(uTailY, uTopY);
+      float y = mix(yLo, yHi, position.y + 0.5);
+      float vel = sqrt(${V0 * V0} + 2.0 * 9.81 * max(uTopY - y, 0.0));
+      float r = uR * sqrt(${V_SURF.toFixed(4)} / vel);                 // the stream thins as it speeds up
+      if (uHeadY > uBot.y + 0.001) r *= mix(0.4, 1.0, smoothstep(0.0, 0.006, y - uHeadY));
+      if (uTailY < uTopY - 0.001) r *= mix(0.4, 1.0, smoothstep(0.0, 0.006, uTailY - y));
+      vec2 wob = 0.0007 * vec2(sin(y * 61.0 + uTime * 13.0), cos(y * 53.0 - uTime * 11.0)) * clamp((uTopY - y) * 5.0, 0.0, 1.0) * clamp((y - uBot.y) * 30.0, 0.0, 1.0);
+      vec3 transformed = vec3(uBot.x + wob.x + position.x * r, y, uBot.z + wob.y + position.z * r);
+      vTe = uNow - (vel - ${V0}) / 9.81;                                   // when this bit left the cup`);
+  sh.fragmentShader = /* glsl */`
+    uniform float uSegT[8], uSegM[8]; uniform vec3 uSegC[8];
+    varying float vTe;
+    ` + sh.fragmentShader
+    .replace('#include <map_fragment>', /* glsl */`
+      vec3 sc = uSegC[0]; float sm = uSegM[0];
+      for (int i = 1; i < 8; i++) if (vTe >= uSegT[i]) { sc = uSegC[i]; sm = uSegM[i]; }
+      diffuseColor.rgb = sc;`)
+    .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      totalEmissiveRadiance += sc * 0.3;                      // light glowing through the falling resin`)
+    .replace('#include <metalnessmap_fragment>', `float metalnessFactor = sm;`)
+    .replace('#include <roughnessmap_fragment>', `float roughnessFactor = mix(roughness, 0.32, sm * 2.0);`);
+};
+const stream = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20, 90, true), streamMat);
+stream.frustumCulled = false; stream.visible = false;
+scene.add(stream);
+
+/* ---------- the current recipe and what it looks like ---------- */
+let recipe = cloneRecipe(PRESETS[1]), presetIndex = 1;
+const lin = hex => new THREE.Color(hex);                 // three converts sRGB hex to linear
+function setComposite(r, rng) {
+  const L4 = r.liquids.map(l => hexRgb(l.hex));
+  const style = r.style || 'veined';
+  const roles = style === 'speckled' ? [0, 1, 1, 1] : [0, 1, 2, 3];
+  const darkBase = luma(L4[0]) < 0.3;
+  const seed = rng() * 50, wa = rng() * Math.PI * 2, fine = style === 'speckled' ? 0.15 : style === 'banded' ? 0.3 : lerp(0.45, 0.8, rng());
+  for (const m of [mCompA, mCompP]) {
+    const U = m.uniforms;
+    r.liquids.forEach((l, i) => {
+      let c = L4[i], c2;
+      if (l.finish === 1) c = shade(c, 0.06);
+      if (l.finish === 4) c = shade(c, -0.15);
+      c2 = i === 0 ? mixc(c, shade(L4[1], darkBase ? 0.02 : -0.05), 0.22) : shade(c, luma(c) > 0.5 ? -0.16 : (l.finish === 2 ? -0.2 : 0.1));
+      U.uCol.value[i].set(...c); U.uCol2.value[i].set(...c2);
+      U.uFin.value[i].set(l.finish === 2 ? 1 : 0, l.finish === 1 ? 1 : 0, l.finish === 2 ? 0.05 : 0, roles[i]);
+    });
+    // hairline veins: a shade between the darkest vein resin and the base, or a pale one on dark stone
+    const v = darkBase ? mixc(L4[2], [1, 1, 1], 0.1) : mixc(L4[2], L4[3], 0.4);
+    U.uVein.value.set(...mixc(v, L4[0], 0.25));
+    U.uSeed.value = seed; U.uWind.value.set(Math.cos(wa), Math.sin(wa)); U.uFine.value = fine;
+    U.uMottle.value.set(...r.liquids.map(l => l.finish === 3 ? 1 : 0));
+    U.uBand.value = style === 'banded' ? 0.05 : 0;
+  }
+  // fleck colors (4 per resin), their props (metal, pearl, sparkle) and sizes in composite pixels
+  r.liquids.forEach((l, i) => {
+    const c = L4[i];
+    const fk = l.finish === 4 ? [c, shade(c, 0.35), shade(c, -0.25), shade(c, 0.6)] : [shade(c, -0.55), shade(c, 0.5), [0.1, 0.1, 0.11], [0.93, 0.91, 0.88]];
+    const fp = l.finish === 4 ? [[1, 0, 1], [1, 0, 1], [1, 0, 1], [1, 0, 1]] : [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0.5, 0, 0.8]];
+    for (const mode of [0, 1]) {
+      const U = parMat[mode].uniforms;
+      for (let k = 0; k < 4; k++) { U.uFk.value[i * 4 + k].set(...fk[k]); U.uFkP.value[i * 4 + k].set(...fp[k]); }
+      U.uFkS.value[i].set(...(l.finish === 4 ? [1.4, 3.6] : [2.2, 9]));
+    }
+  });
+  const pearl = r.liquids.some(l => l.finish === 1);
+  liquidMat.iridescence = slabMat.iridescence = pearl ? 1 : 0;
+}
+
+/* ---------- the pour plan ---------- */
+// Everything that happens is laid out up front: which resin, where the stream travels, for how long, how fast.
+function planPours(r, rng) {
+  const style = r.style || 'veined', R = (a, b) => lerp(a, b, rng());
+  const ang = (rng() < 0.5 ? -1 : 1) * R(0.3, 0.85);          // the grain of this stone: veins run roughly this way
+  const toUv = ([x, y]) => [x / W + 0.5, y / D + 0.5];
+  const across = (a, inset = 0.012, bend = 0.018) => {            // a gently bowed stroke clear across the mold
+    const cx = R(-0.3, 0.3) * W, cy = R(-0.3, 0.3) * D, dx = Math.cos(a), dy = Math.sin(a);
+    let t0 = -1e9, t1 = 1e9;
+    for (const [c, d, half] of [[cx, dx, W / 2 - inset], [cy, dy, D / 2 - inset]]) {
+      if (Math.abs(d) < 1e-6) continue;
+      const ta = (-half - c) / d, tb = (half - c) / d; t0 = Math.max(t0, Math.min(ta, tb)); t1 = Math.min(t1, Math.max(ta, tb));
+    }
+    const pts = [];
+    const nx = -dy, ny = dx, b1 = R(-1, 1) * bend, b2 = R(-1, 1) * bend;
+    for (let k = 0; k <= 5; k++) {
+      const s = k / 5, t = lerp(t0, t1, s), bow = Math.sin(s * Math.PI) * b1 + Math.sin(s * Math.PI * 2) * b2 * 0.5;
+      pts.push(toUv([cx + dx * t + nx * bow, cy + dy * t + ny * bow]));
+    }
+    return rng() < 0.5 ? pts : pts.reverse();
+  };
+  const serpentine = () => {
+    const rows = rng() < 0.5 ? 3 : 4, pts = [], flip = rng() < 0.5;
+    for (let i = 0; i < rows; i++) {
+      const v = lerp(0.2, 0.8, rows === 1 ? 0.5 : i / (rows - 1)) + R(-0.05, 0.05);
+      const xs = [0.14, 0.38, 0.62, 0.86].map(x => x + R(-0.04, 0.04));
+      if ((i % 2 === 1) !== flip) xs.reverse();
+      for (const x of xs) pts.push([x, clamp(v + R(-0.04, 0.04), 0.12, 0.88)]);
+    }
+    return rng() < 0.5 ? pts : pts.map(([u, v]) => [u, 1 - v]);
+  };
+  // a wandering line, walked both ways from a point until it nears the walls
+  const walk = (x, y, a0, maxLen, step, wig, inset = 0.012) => {
+    const pts = [[x, y]]; let a = a0, len = 0;
+    while (len < maxLen) {
+      a += R(-wig, wig) + (a0 - a) * 0.3;
+      const nx = x + Math.cos(a) * step, ny = y + Math.sin(a) * step;
+      if (Math.abs(nx) > W / 2 - inset || Math.abs(ny) > D / 2 - inset) break;
+      x = nx; y = ny; len += step; pts.push([x, y]);
+    }
+    return pts;
+  };
+  const veinPath = (a0, wig) => {
+    const x = R(-0.3, 0.3) * W, y = R(-0.3, 0.3) * D;
+    const pts = [...walk(x, y, a0 + Math.PI, 1, 0.012, wig).reverse(), ...walk(x, y, a0, 1, 0.012, wig).slice(1)];
+    return rng() < 0.5 ? pts : pts.reverse();
+  };
+  const swirl = (cx, cy, rad) => { const pts = [], a0 = R(0, 6.28); for (let k = 0; k <= 8; k++) { const a = a0 + k * 0.9; pts.push([cx + Math.cos(a) * rad / W, cy + Math.sin(a) * rad / D]); } return pts; };
+  const spot = () => [R(0.15, 0.85), R(0.18, 0.82)];
+
+  // the flow from the cup wavers, so a line of resin swells and pinches, and a thin one sometimes breaks
+  const waver = (amp, floor) => {
+    const k = Array.from({ length: 5 }, () => [R(0.6, 4), R(0, 6.28), R(0.4, 1)]), m = [];
+    for (let i = 0; i < 48; i++) { let v = 1; for (const [f, ph, a] of k) v += amp * a * Math.sin(i / 47 * f * 6.283 + ph) * 0.45; m.push(clamp(v, floor, 1.6)); }
+    const mean = m.reduce((a, b) => a + b, 0) / m.length;
+    return m.map(v => v / mean);
+  };
+  const entries = [];     // { dur, path, rate (relative), sig, r, segs: [[t, mat]], mod }
+  const add = (mat, path, dur, rate, sig, rad, segs, mod = null) => entries.push({ path, dur, rate, sig, r: rad, segs: segs || [[0, mat]], mod });
+  const mpath = pts => pts.map(toUv), plen = pts => pts.reduce((a, q, i) => i ? a + Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0, 0);
+  if (style === 'banded') {
+    add(0, serpentine(), 2.6, 0.38 / 2.6, 0.005, 0.0032);
+    const n = rng() < 0.5 ? 2 : 3;
+    for (let c = 0; c < n; c++) {
+      const [cx, cy] = spot(), segs = [], order = [1, 2, 0, 3, 1, 0, 2, 1, 3, 0, 2, 1];
+      let t = 0; for (let k = 0; k < 8; k++) { segs.push([t, order[(k + c * 3) % order.length]]); t += R(0.22, 0.4); }
+      add(null, swirl(cx, cy, 0.004), t, 0.62 / n / t, 0.004, 0.0028, segs);
+    }
+  } else if (style === 'speckled') {
+    add(0, serpentine(), 3.2, 0.5 / 3.2, 0.005, 0.0033);
+    for (let k = 0; k < 3; k++) add(1, across(ang + R(-0.6, 0.6), 0.02, 0.03), 1.0, 0.25 / 3, 0.0042, 0.0028, null, waver(0.6, 0.3));
+    for (let k = 0; k < 4; k++) { const [cx, cy] = spot(); add(2, swirl(cx, cy, 0.01), 0.5, 0.15 / 2, 0.004, 0.0024); }
+    for (let k = 0; k < 3; k++) add(3, mpath(veinPath(ang + R(-0.8, 0.8), 0.5)), 0.6, 0.1 / 1.8, 0.0022, 0.0017, null, waver(0.6, 0.2));
+  } else {
+    add(0, serpentine(), 3.4, 0.7 / 3.4, 0.005, 0.0033);
+    // clouds: two broad, bowed sweeps
+    for (let k = 0; k < 2; k++) add(1, across(ang + R(-0.25, 0.25), 0.02, 0.025), R(1.0, 1.3), 0.19 / 2.3, 0.0042, 0.0028, null, waver(0.5, 0.35));
+    // veins: wandering lines that swell and pinch
+    const veins = [], nv = rng() < 0.5 ? 3 : 4;
+    for (let k = 0; k < nv; k++) { const pts = veinPath(ang + R(-0.3, 0.3), 0.32); veins.push(pts); add(2, mpath(pts), clamp(plen(pts) / 0.3, 0.45, 1.0), 0, 0.0026, 0.0018, null, waver(0.75, 0.15)); }
+    // fine veins: thin, some branching off the big veins
+    const nt = 3 + Math.floor(rng() * 3);
+    for (let k = 0; k < nt; k++) {
+      let pts;
+      if (k < nt - 1 && veins.length) {
+        const v = pick(rng, veins), [x, y] = v[Math.floor(R(0.2, 0.8) * v.length)];
+        pts = walk(x, y, ang + (rng() < 0.5 ? -1 : 1) * R(0.35, 0.9), R(0.06, 0.18), 0.008, 0.45);
+        if (rng() < 0.5) pts.reverse();
+      } else pts = veinPath(ang + R(-0.5, 0.5), 0.5);
+      if (pts.length < 4) { k--; continue; }
+      add(3, mpath(pts), clamp(plen(pts) / 0.26, 0.35, 0.9), 0, 0.0012, 0.0011, null, waver(0.8, 0.05));
+    }
+    // share out the vein volumes by length
+    for (const [m, frac] of [[2, 0.055], [3, 0.028]]) {
+      const es = entries.filter(e => e.segs[0][1] === m), tot = es.reduce((a, e) => a + e.dur, 0);
+      for (const e of es) e.rate = frac / tot;
+    }
+  }
+  // lay them end to end in time and scale the flow so exactly VOL goes in
+  let t = 0.25, total = 0;
+  for (const e of entries) { e.t0 = t; t += e.dur + 0.4; total += e.rate * e.dur; }
+  for (const e of entries) {
+    e.Q = e.rate * VOL / total;
+    e.segs = e.segs.map(([s, m]) => [e.t0 + s, m]);
+    // arc-length table so the stream moves at an even pace
+    const P = e.path.map(([u, v]) => [u * W, v * D]); let acc = 0; e.len = [0];
+    for (let k = 1; k < P.length; k++) { acc += Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]); e.len.push(acc); }
+  }
+  const end = entries[entries.length - 1];
+  return { entries, end: end.t0 + end.dur + FALL_T + 0.1 };
+}
+function flowAt(e, s) {                         // the stream's flow rate (m³/s) at fraction s of this pour
+  if (!e.mod) return e.Q;
+  const x = clamp(s, 0, 1) * (e.mod.length - 1), i = Math.min(Math.floor(x), e.mod.length - 2);
+  return e.Q * lerp(e.mod[i], e.mod[i + 1], x - i);
+}
+function pathAt(e, s) {                          // position in metres from the mold's corner, s in [0,1] along the path
+  const p = e.path, n = p.length;
+  if (n === 1) return [p[0][0] * W, p[0][1] * D];
+  const target = clamp(s, 0, 1) * e.len[n - 1];
+  let k = 1; while (k < n - 1 && e.len[k] < target) k++;
+  const seg = (target - e.len[k - 1]) / Math.max(e.len[k] - e.len[k - 1], 1e-9);
+  // Catmull-Rom through the neighbours for a smooth path
+  const P = i => p[clamp(i, 0, n - 1)], a = P(k - 2), b = P(k - 1), c = P(k), d = P(k + 1), t = seg, t2 = t * t, t3 = t2 * t;
+  const cr = (i) => 0.5 * ((2 * b[i]) + (-a[i] + c[i]) * t + (2 * a[i] - 5 * b[i] + 4 * c[i] - d[i]) * t2 + (-a[i] + 3 * b[i] - 3 * c[i] + d[i]) * t3);
+  return [clamp(cr(0), 0.02, 0.98) * W, clamp(cr(1), 0.02, 0.98) * D];
+}
+const matAt = (e, t) => { let m = e.segs[0][1]; for (const [s, k] of e.segs) if (t >= s) m = k; return m; };
+function landing(t) {                            // what's hitting the resin at time t
+  for (const e of plan.entries) {
+    const a = e.t0 + FALL_T;
+    if (t >= a && t <= a + e.dur) return { e, pos: pathAt(e, (t - a) / e.dur), q: flowAt(e, (t - a) / e.dur), mat: matAt(e, t - FALL_T) };
+  }
+  return null;
+}
+
+/* ---------- state ---------- */
+let phase = 'idle';                               // idle → pour → flow → cure → demold → done;  view (a saved piece)
+let plan = { entries: [], end: 0 }, simT = 0, phaseT = 0, cureLen = CURE_T, rng = Math.random;
+let parStart = 0, parAcc = 0, parBudget = [0, 0, 0, 0];
+const poured = [0, 0, 0, 0], planned = [0, 0, 0, 0];
+const mold3 = { ax: 0, az: 0, vax: 0, vaz: 0, tax: 0, taz: 0, px: 0, pz: 0, vpx: 0, vpz: 0, tpx: 0, tpz: 0, acc: new THREE.Vector3() };
+let wob = null, lastInput = -1e9, nextKick = 0;
+let current = null;                               // the piece just made: { recipe, name, created, saved }
+let viewing = null;                               // index into the showcase when looking at a saved piece
+
+function resetSim() {
+  fill(S[0], [0, 0, 0, 0]); fill(S[1], [0, 0, 0, 0]); fill(V, [0, 0, 0, 1]);
+  fill(DYE[0], [1, 0, 0, 0]); fill(DYE[1], [1, 0, 0, 0]);
+  fill(REF[0], [0, 0, 0, 0], 1); fill(REF[1], [0, 0, 0, 0], 1);
+  fill(PAR[0], [0, 0, -1, 0]); fill(PAR[1], [0, 0, -1, 0]);
+  parStart = 0; parAcc = 0;
+  renderer.setRenderTarget(null);
+}
+
+function startPour() {
+  const seed = (Math.random() * 2 ** 31) >>> 0;
+  rng = rngFrom(DEMO ? 20260924 : seed);
+  plan = planPours(recipe, rng);
+  setComposite(recipe, rng);
+  poured.fill(0); planned.fill(0);
+  for (const e of plan.entries) for (let k = 0; k < e.segs.length; k++) {
+    const t0 = e.segs[k][0], t1 = k + 1 < e.segs.length ? e.segs[k + 1][0] : e.t0 + e.dur;
+    planned[e.segs[k][1]] += e.Q * (t1 - t0);
+  }
+  // fleck budget: particles per m³ of each flecked resin, trimmed to what we have
+  const dens = recipe.liquids.map((l, i) => (l.finish === 3 ? 1 : l.finish === 4 ? 0.3 : 0) * planned[i]);
+  const want = dens.map(d => d * NP / (VOL * 0.8)), sum = want.reduce((a, b) => a + b, 0), k = sum > NP ? NP / sum : 1;
+  parBudget = want.map((w, i) => planned[i] > 0 ? w * k / planned[i] : 0);   // particles per m³ poured
+  resetSim();
+  slab.visible = false; liquid.visible = true; placeWalls(0);
+  simT = 0; phaseT = 0; cureLen = CURE_T;
+  wob = { w: [lerp(0.55, 0.95, rng()), lerp(0.45, 0.8, rng()), lerp(1.1, 1.7, rng())], p: [rng() * 6.3, rng() * 6.3, rng() * 6.3], a: lerp(0.8, 1.2, rng()) };
+  nextKick = 2;
+  liquidMat.userData.u.uCure.value = 0;
+  current = { recipe: cloneRecipe(recipe), name: pieceName(recipe, rng), created: Date.now(), saved: false };
+  setPhase('pour');
+}
+const cureK = () => clamp(phaseT * SPEED / cureLen, 0, 1);
+function pieceName(r, rng) {
+  const first = r.name.split(' ')[0];
+  return `${first} ${pick(rng, WORDS.filter(w => !r.name.includes(w)))}`;
+}
+
+/* ---------- one frame of simulation ---------- */
+const qInv = new THREE.Quaternion(), gLocal = new THREE.Vector3(), aLocal = new THREE.Vector3();
+function simulate(dt) {
+  const nu = phase === 'cure' ? NU0 * Math.exp(10 * cureK()) : NU0;         // it thickens ~20,000× as it sets
+  // gravity and the mold's own acceleration, in the mold's frame
+  qInv.copy(mold.quaternion).invert();
+  gLocal.set(0, -G, 0).applyQuaternion(qInv);
+  aLocal.copy(mold3.acc).multiplyScalar(G / 9.81).applyQuaternion(qInv);
+  let ax = gLocal.x - aLocal.x, av = -(gLocal.z - aLocal.z); const gn = -gLocal.y;
+  const am = Math.hypot(ax, av), cap = 0.9;                     // a hard shake can't pile resin over the rim
+  if (am > cap) { ax *= cap / am; av *= cap / am; }
+  // explicit waves are stable for dt < dx / 2c; the mound under the stream is the deepest spot
+  const hmax = 0.045;
+  const n = Math.min(48, Math.max(1, Math.ceil(dt / (0.4 * DX / Math.sqrt(G * hmax)))));
+  const h = dt / n;
+  const fu = mFlux.uniforms, uu = mUpdate.uniforms;
+  fu.uDt.value = h; fu.uGn.value = gn; fu.uNu.value = nu; fu.uA.value.set(ax, av);
+  mLimit.uniforms.uDt.value = h; uu.uDt.value = h;
+  for (let k = 0; k < n; k++) {
+    const L = landing(simT + (k + 0.5) * h);
+    uu.uQ.value = L ? L.q : 0;
+    if (L) { uu.uPour.value.set(L.pos[0], L.pos[1]); uu.uSig.value = Math.max(L.e.sig, 0.0035); }   // even a thin stream spreads a few mm as it lands
+    fu.uS.value = S[0].texture; pass(mFlux, S[1]);
+    mLimit.uniforms.uS.value = S[1].texture; pass(mLimit, S[0]);
+    uu.uS.value = S[0].texture; pass(mUpdate, S[1]);
+    S.reverse();
+  }
+  mVel.uniforms.uS.value = S[0].texture; pass(mVel, V);
+  liquidMat.userData.u.uS.value = S[0].texture;
+
+  // what the stream laid down over this frame, as a short capsule
+  let add = 0, p0 = null, p1 = null, mat = 0, sig = 0.003, e = null;
+  for (const en of plan.entries) {
+    const a = en.t0 + FALL_T, b = a + en.dur, lo = Math.max(a, simT), hi = Math.min(b, simT + dt);
+    if (hi > lo) { e = en; add = flowAt(en, ((lo + hi) / 2 - a) / en.dur) * (hi - lo); p0 = pathAt(en, (lo - a) / en.dur); p1 = pathAt(en, (hi - a) / en.dur); mat = matAt(en, (lo + hi) / 2 - FALL_T); sig = en.sig; break; }
+  }
+  if (add > 0) poured[mat] += add;
+  for (const m of [mFix, mRef]) {
+    const U = m.uniforms; U.uAdd.value = add; U.uSig.value = sig * 0.8;
+    if (p0) { U.uP0.value.set(...p0); U.uP1.value.set(...p1); }
+  }
+  mAdv.uniforms.uV.value = V.texture;
+  mAdv.uniforms.uQ.value = DYE[0].texture; mAdv.uniforms.uDt.value = dt; pass(mAdv, HAT);
+  mAdv.uniforms.uQ.value = HAT.texture; mAdv.uniforms.uDt.value = -dt; pass(mAdv, TIL);
+  const fx = mFix.uniforms;
+  fx.uQ.value = DYE[0].texture; fx.uHat.value = HAT.texture; fx.uTil.value = TIL.texture; fx.uV.value = V.texture; fx.uDt.value = dt;
+  fx.uMat.value.set(mat === 0 ? 1 : 0, mat === 1 ? 1 : 0, mat === 2 ? 1 : 0, mat === 3 ? 1 : 0);
+  pass(mFix, DYE[1]); DYE.reverse();
+  const rf = mRef.uniforms;
+  rf.uQ.value = REF[0].texture; rf.uV.value = V.texture; rf.uDt.value = dt;
+  if (e) rf.uNew.value.set(((plan.entries.indexOf(e) * 0.618) % 1) * 0.9 * (mat > 0 ? 1 : 0), ((plan.entries.indexOf(e) * 0.382) % 1) * 0.9 * (mat > 0 ? 1 : 0), simT);
+  pass(mRef, REF[1]); REF.reverse();
+
+  // flecks
+  const pu = mPar.uniforms;
+  let count = 0;
+  if (add > 0 && parBudget[mat] > 0) { parAcc += add * parBudget[mat]; count = Math.floor(parAcc); parAcc -= count; }
+  pu.uQ.value = PAR[0].texture; pu.uV.value = V.texture; pu.uDt.value = dt; pu.uStart.value = parStart; pu.uCount.value = count;
+  pu.uMat.value = mat; pu.uTime.value = simT % 97; pu.uR.value = sig * 1.3 / W;
+  if (p0) { pu.uP0.value.set(p0[0] / W, p0[1] / D); pu.uP1.value.set(p1[0] / W, p1[1] / D); }
+  pass(mPar, PAR[1]); PAR.reverse();
+  parStart = (parStart + count) % NP;
+  simT += dt;
+}
+
+function composite() {
+  for (const [m, out, mode] of [[mCompA, ALB, 0], [mCompP, PRP, 1]]) {
+    m.uniforms.uDye.value = DYE[0].texture; m.uniforms.uRef.value = REF[0].texture;
+    pass(m, out);
+    const pm = parMat[mode]; pm.uniforms.uQ.value = PAR[0].texture; pm.uniforms.uDye.value = DYE[0].texture;
+    parPoints.material = pm;
+    renderer.autoClear = false; renderer.setRenderTarget(out); renderer.render(parScene, quadCam); renderer.autoClear = true;
+  }
+  renderer.setRenderTarget(null);
+}
+
+/* ---------- the mold's motion: drag to tilt, flick to shake, and a little on its own ---------- */
+const MAX_AX = THREE.MathUtils.degToRad(7), MAX_AZ = THREE.MathUtils.degToRad(5.5);
+function moveMold(dt, t) {
+  const working = phase === 'pour' || phase === 'flow' || phase === 'cure';
+  const k = phase === 'cure' ? 1 - clamp(cureK() / 0.6, 0, 1) : 1;
+  // sx, sy: which way on screen to tip it down (right, toward you), up to 1
+  const tipToward = (sx, sy, slide = 0) => {
+    const m = Math.hypot(sx, sy); if (m > 1) { sx /= m; sy /= m; }
+    const c = Math.cos(camAz), sn = Math.sin(camAz), wx = sx * c + sy * sn, wz = -sx * sn + sy * c;
+    mold3.tax = wz * MAX_AX * k; mold3.taz = -wx * MAX_AZ * k;
+    mold3.tpx = clamp(wx * slide, -0.012, 0.012) * k; mold3.tpz = clamp(wz * slide, -0.012, 0.012) * k;
+  };
+  if (drag && drag.mode === 'tilt') {
+    const dx = drag.x - drag.x0, dy = drag.y - drag.y0, s = Math.min(innerWidth, innerHeight) * 0.28;
+    tipToward(dx / s, dy / s, 0.036 * s / Math.min(innerWidth, 900));   // and nudge it along a little: flicks slosh
+  } else if (tiltDevice.on && working) {
+    tipToward(clamp(tiltDevice.g / 18, -1, 1), clamp(tiltDevice.b / 18, -1, 1));
+  } else if (keys.size && working) {
+    tipToward((keys.has('ArrowRight') ? 1 : 0) - (keys.has('ArrowLeft') ? 1 : 0), (keys.has('ArrowDown') ? 1 : 0) - (keys.has('ArrowUp') ? 1 : 0));
+  } else if (working && performance.now() - lastInput > 1600 && wob) {
+    // left alone, it rocks gently and gets the odd nudge, so no two slabs come out the same
+    const a = 0.85 * k * wob.a;
+    mold3.tax = MAX_AX * a * (0.75 * Math.sin(t * wob.w[0] + wob.p[0]) + 0.25 * Math.sin(t * wob.w[2] + wob.p[2]));
+    mold3.taz = MAX_AZ * a * Math.sin(t * wob.w[1] + wob.p[1]);
+    mold3.tpx = mold3.tpz = 0;
+    if (t > nextKick && k > 0.3) { mold3.vpx += (rng() - 0.5) * 0.1 * k; mold3.vpz += (rng() - 0.5) * 0.08 * k; nextKick = t + lerp(2.5, 5, rng()); }
+  } else { mold3.tax = mold3.taz = mold3.tpx = mold3.tpz = 0; }
+  // springs: the tilt is a steady hand, the slide is stiff and a bit bouncy so a flick sloshes the resin
+  const spring = (x, v, target, w, z) => { const acc = w * w * (target - x) - 2 * z * w * v; return [acc, v + acc * dt]; };
+  let acc;
+  [acc, mold3.vax] = spring(mold3.ax, mold3.vax, mold3.tax, 7, 0.75); mold3.ax += mold3.vax * dt;
+  [acc, mold3.vaz] = spring(mold3.az, mold3.vaz, mold3.taz, 7, 0.75); mold3.az += mold3.vaz * dt;
+  let ax_, az_;
+  [ax_, mold3.vpx] = spring(mold3.px, mold3.vpx, mold3.tpx, 20, 0.32); mold3.px += mold3.vpx * dt;
+  [az_, mold3.vpz] = spring(mold3.pz, mold3.vpz, mold3.tpz, 20, 0.32); mold3.pz += mold3.vpz * dt;
+  mold3.acc.set(ax_, 0, az_);
+  mold.rotation.set(mold3.ax, 0, mold3.az);
+  // it pivots on whichever edge is down
+  mold.position.set(mold3.px, Math.abs(Math.sin(mold3.ax)) * (D / 2 + WALL) + Math.abs(Math.sin(mold3.az)) * (W / 2 + WALL), mold3.pz);
+}
+
+/* ---------- the stream ---------- */
+const tmpV = new THREE.Vector3(), Y_AXIS = new THREE.Vector3(0, 1, 0);
+function updateStream(t) {
+  let e = null;
+  for (const en of plan.entries) if (t >= en.t0 && t <= en.t0 + en.dur + FALL_T) { e = en; break; }
+  if (!e || !(phase === 'pour')) { stream.visible = false; return null; }
+  const a = e.t0 + FALL_T, s = clamp((t - a) / e.dur, 0, 1), pos = pathAt(e, s);
+  tmpV.set(pos[0] - W / 2, BASE + 0.001, D / 2 - pos[1]);
+  mold.localToWorld(tmpV);
+  const top = tmpV.y + FALL_H;
+  const fall = tau => V0 * tau + 4.905 * tau * tau;
+  streamU.uBot.value.copy(tmpV); streamU.uTopY.value = top;
+  streamU.uHeadY.value = Math.max(tmpV.y, top - fall(Math.max(0, t - e.t0)));
+  streamU.uTailY.value = t > e.t0 + e.dur ? top - fall(t - e.t0 - e.dur) : top;
+  streamU.uR.value = e.r; streamU.uTime.value = t; streamU.uNow.value = t;
+  for (let i = 0; i < 8; i++) {
+    const sg = e.segs[Math.min(i, e.segs.length - 1)], l = recipe.liquids[sg[1]];
+    streamU.uSegT.value[i] = i < e.segs.length ? (i === 0 ? -1e9 : sg[0]) : 1e9;
+    const c = lin(l.hex); streamU.uSegC.value[i].set(c.r, c.g, c.b); streamU.uSegM.value[i] = l.finish === 2 ? 0.2 : l.finish === 4 ? 0.12 : 0;
+  }
+  stream.visible = true;
+  return e;
+}
+
+/* ---------- camera ---------- */
+const ELEV = THREE.MathUtils.degToRad(54);
+let panelH = 150, camZoom = 1, camZoomT = 1;          // the camera backs off a little to show the finished slab
+let camAz = 0;                                        // on a tall screen the camera walks round to the mold's short side
+const baseSpot = spot.position.clone(), baseSpotT = spot.target.position.clone();
+function frameCamera(w, h, forThumb = false) {
+  camera.aspect = w / h;
+  camAz = w / h < 0.8 ? Math.PI / 2 : 0;
+  const ca = Math.abs(Math.cos(camAz)), sa = Math.abs(Math.sin(camAz));
+  const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  const useH = forThumb ? h : h - panelH - 70;                         // room above the controls
+  const needW = 0.34 * ca + 0.235 * sa, needH = (0.22 * ca + 0.3 * sa) * (h / Math.max(useH, h * 0.4));
+  const dist = Math.max(needW / 2 / Math.tan(hf / 2), needH / 2 / Math.tan(vf / 2)) * camZoom;
+  const k = clamp((camZoom - 1) / 0.18, 0, 1), ly = lerp(0.01, 0.035, k), back = lerp(0, 0.03, k);   // look at the slab once it's held up
+  const fx = -Math.sin(camAz), fz = -Math.cos(camAz), hd = dist * Math.cos(ELEV);
+  camera.position.set(fx * back - fx * hd, ly + dist * Math.sin(ELEV), fz * back - fz * hd);
+  camera.lookAt(fx * back, ly, fz * back);
+  // the studio turns with the camera, so the lights sit the same way whichever side you look from
+  scene.environmentRotation.set(0, camAz, 0);
+  spot.position.copy(baseSpot).applyAxisAngle(Y_AXIS, camAz); spot.target.position.copy(baseSpotT).applyAxisAngle(Y_AXIS, camAz);
+  presentQ.setFromAxisAngle(tmpV.set(Math.cos(camAz), 0, -Math.sin(camAz)), 0.5);
+  presentPos.set(fx * 0.03, 0.045, fz * 0.03);
+  if (forThumb) camera.clearViewOffset(); else camera.setViewOffset(w, h, 0, Math.round((panelH + 40 - 70) * 0.5), w, h);
+  camera.updateProjectionMatrix();
+}
+function resize() {
+  panelH = document.querySelector('.panel').getBoundingClientRect().height || 150;
+  renderer.setSize(innerWidth, innerHeight, false);
+  frameCamera(innerWidth, innerHeight);
+}
+addEventListener('resize', resize);
+
+/* ---------- demolding and showing the slab ---------- */
+const presentQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5, 0, 0));   // tipped up toward the camera (set in frameCamera)
+const presentPos = new THREE.Vector3(0, 0.045, -0.03);
+const startPose = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
+const turn = { yaw: 0, pitch: 0, vyaw: 0, vpitch: 0 };
+function beginDemold() {
+  setPhase('demold');
+  // the slab takes the resin's place exactly
+  slab.position.set(0, BASE + SLAB_T / 2, 0); slab.quaternion.identity();
+  mold.updateMatrixWorld(); slab.position.applyMatrix4(mold.matrixWorld); slab.quaternion.copy(mold.quaternion);
+  startPose.p.copy(slab.position); startPose.q.copy(slab.quaternion);
+  slabMat.userData.u.uAlbedo.value = ALB.texture; slabMat.userData.u.uProps.value = PRP.texture;
+  slabMat.userData.u.uPolish.value = -0.2;
+  turn.yaw = turn.pitch = turn.vyaw = turn.vpitch = 0;
+}
+function placeWalls(k) {                          // 0 = assembled, 1 = pulled apart and out of sight
+  for (const w of walls) {
+    const [nx, nz] = w.userData.n, e = easeIn(clamp(k * 1.25, 0, 1));
+    w.position.copy(w.userData.home).add(tmpV.set(nx * 0.34 * e, 0.012 * e, nz * 0.34 * e));
+    w.visible = e < 0.999;
+  }
+  const f = easeIn(clamp((k - 0.45) / 0.55, 0, 1));
+  moldFloor.position.copy(moldFloor.userData.home).add(tmpV.set(0, -0.004 * f, -0.5 * f));
+  moldFloor.visible = f < 0.999;
+}
+const slabQ = new THREE.Quaternion(), yawQ = new THREE.Quaternion(), tiltQ = new THREE.Quaternion();
+function poseSlab(t, lift) {                      // lift: 0 = in the mold, 1 = held up to the light
+  const e = easeInOut(clamp(lift, 0, 1));
+  const sway = 0.3 * Math.sin(t * 0.33) + 0.08 * Math.sin(t * 0.71);
+  yawQ.setFromAxisAngle(tmpV.set(0, 1, 0), (sway + turn.yaw) * e);
+  tiltQ.setFromAxisAngle(tmpV.set(Math.cos(camAz), 0, -Math.sin(camAz)), turn.pitch * e);
+  slabQ.copy(presentQ).premultiply(tiltQ).premultiply(yawQ);
+  slab.quaternion.slerpQuaternions(startPose.q, slabQ, e);
+  slab.position.lerpVectors(startPose.p, presentPos, e);
+  slab.position.y += Math.sin(e * Math.PI) * 0.02;
+  shadow.material.opacity = lerp(0.7, 0.35, e);
+  shadow.scale.setScalar(lerp(1, 1.25, e));
+}
+
+/* ---------- phases and the panel ---------- */
+const stages = [...document.querySelectorAll('.stage')];
+const hint = $('hint'), sub = $('sub');
+function setPhase(p) {
+  phase = p; phaseT = 0;
+  const stage = p === 'idle' ? 'idle' : p === 'done' ? 'done' : p === 'view' ? 'view' : 'work';
+  for (const s of stages) s.hidden = s.dataset.stage !== stage;
+  $('harden').disabled = p !== 'flow';
+  const touch = matchMedia('(pointer: coarse)').matches;
+  hint.textContent = {
+    idle: 'Pick a recipe, or tap a cup to change a color. Then pour.',
+    pour: touch ? 'Drag the mold to tip it · flick to shake' : 'Drag the mold to tip it · flick to shake',
+    flow: "Keep tipping it while it's still runny",
+    cure: '',
+    demold: '',
+    done: 'Drag to turn it in the light',
+    view: 'Drag to turn it in the light',
+  }[p];
+  hint.classList.toggle('gone', !hint.textContent);
+  $('motion').hidden = !(tiltDevice.available && (p === 'pour' || p === 'flow'));
+  if (p === 'idle') sub.textContent = recipe.name;
+  if (p === 'done') {
+    $('pieceName').textContent = current.name;
+    $('pieceMeta').textContent = `${current.recipe.liquids.map(l => l.name).join(' · ')}`;
+    $('save').disabled = current.saved; $('save').textContent = current.saved ? 'Saved' : 'Save to showcase';
+    sub.textContent = current.name;
+  }
+  requestAnimationFrame(resize);
+}
+
+function cupHTML(l, i, mini) {
+  const dot = `<span class="dot" data-f="${l.finish}" style="--c:${l.hex}"><i></i></span>`;
+  if (mini) return dot;
+  return `<button class="cup" type="button" data-i="${i}" aria-label="${l.name}, ${FINISH[l.finish].toLowerCase()}. Change it">${dot}<span class="lbl">${l.name}</span><span class="fin">${FINISH[l.finish]}</span></button>`;
+}
+function renderRecipe() {
+  $('cups').innerHTML = recipe.liquids.map((l, i) => cupHTML(l, i)).join('');
+  $('mini').innerHTML = recipe.liquids.map((l, i) => cupHTML(l, i, true)).join('');
+  for (const b of $('presets').querySelectorAll('.chip')) b.setAttribute('aria-checked', String(Number(b.dataset.i) === presetIndex));
+  sub.textContent = recipe.name;
+}
+$('presets').innerHTML = PRESETS.map((p, i) => `<button class="chip" type="button" role="radio" data-i="${i}" aria-checked="false">${p.name}</button>`).join('');
+$('presets').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  presetIndex = Number(b.dataset.i); recipe = cloneRecipe(PRESETS[presetIndex]); renderRecipe(); closePop();
+});
+$('shuffle').addEventListener('click', () => { presetIndex = -1; recipe = randomRecipe(Math.random); renderRecipe(); closePop(); });
+
+// editing one resin
+let popFor = -1;
+const pop = $('pop');
+function openPop(i, anchor) {
+  popFor = i; const l = recipe.liquids[i];
+  $('popTitle').textContent = `${l.name}: ${['base', 'clouds', 'veins', 'fine veins'][i]}`;
+  $('swatches').innerHTML = PALETTE.map(h => `<button class="sw" type="button" style="--c:${h}" data-h="${h}" aria-label="${h}" aria-pressed="${h === l.hex}"></button>`).join('')
+    + `<label class="sw custom" title="Any color"><input type="color" id="custom" value="${l.hex}" aria-label="Pick any color"></label>`;
+  $('fins').innerHTML = FINISH.map((f, k) => `<button class="chip" type="button" role="radio" data-f="${k}" aria-checked="${k === l.finish}">${f}</button>`).join('');
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+  pop.style.left = clamp(r.left + r.width / 2 - pw / 2, 12, innerWidth - pw - 12) + 'px';
+  pop.style.top = Math.max(12, r.top - ph - 10) + 'px';
+  $('custom').addEventListener('input', e => setLiquid({ hex: e.target.value }, false));
+}
+function closePop() { pop.hidden = true; popFor = -1; }
+function setLiquid(ch, rebuild = true) {
+  if (popFor < 0) return;
+  const l = recipe.liquids[popFor]; Object.assign(l, ch);
+  if (ch.hex) l.name = uniqueName(familyWord(ch.hex), popFor);
+  presetIndex = -1; recipe.name = `${familyWord(recipe.liquids[0].hex)} Custom`;
+  if (recipe.liquids.every(x => x.finish === 3 || x.finish === 4)) recipe.style = 'speckled'; else if (recipe.style === 'speckled') recipe.style = 'veined';
+  const keep = popFor;
+  renderRecipe();
+  if (rebuild) openPop(keep, $('cups').children[keep]);
+  else for (const b of $('swatches').querySelectorAll('.sw[data-h]')) b.setAttribute('aria-pressed', String(b.dataset.h === l.hex));
+}
+function uniqueName(n, i) { let name = n, k = 2; while (recipe.liquids.some((l, j) => j !== i && l.name === name)) name = `${n} ${k++}`; return name; }
+$('cups').addEventListener('click', e => { const b = e.target.closest('.cup'); if (!b) return; const i = Number(b.dataset.i); if (popFor === i) closePop(); else openPop(i, b); });
+$('swatches').addEventListener('click', e => { const b = e.target.closest('.sw[data-h]'); if (b) setLiquid({ hex: b.dataset.h }); });
+$('fins').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) setLiquid({ finish: Number(b.dataset.f) }); });
+addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.cup')) closePop(); });
+
+$('pour').addEventListener('click', () => { closePop(); startPour(); });
+$('harden').addEventListener('click', () => { if (phase === 'flow') { setPhase('cure'); cureLen = 3.5; } });
+$('again').addEventListener('click', () => crossfade(() => { slab.visible = false; liquid.visible = true; placeWalls(0); poseMoldReset(); setPhase('idle'); renderRecipe(); }));
+function poseMoldReset() { Object.assign(mold3, { ax: 0, az: 0, vax: 0, vaz: 0, px: 0, pz: 0, vpx: 0, vpz: 0 }); resetSim(); shadow.material.opacity = 0.7; shadow.scale.setScalar(1); }
+
+function crossfade(fn) {
+  const f = $('fade'); f.classList.add('on');
+  setTimeout(() => { fn(); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on'))); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
+}
+let toastTimer = 0;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+
+/* ---------- showcase (localStorage) ---------- */
+const IDX = 'marble.showcase', PIECE = id => 'marble.piece.' + id, THUMB = id => 'marble.thumb.' + id;
+function loadIndex() {                            // the list of saved pieces, minus any whose images have gone missing
+  try {
+    const a = JSON.parse(localStorage.getItem(IDX));
+    return Array.isArray(a) ? a.filter(m => m && m.id && localStorage.getItem(PIECE(m.id))) : [];
+  } catch { return []; }
+}
+let pieces = loadIndex();
+function readTarget(rt, w, h) {
+  const buf = new Uint8Array(w * h * 4); renderer.readRenderTargetPixels(rt, 0, 0, w, h, buf);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d'), img = x.createImageData(w, h);
+  let any = 0;
+  for (let y = 0; y < h; y++) img.data.set(buf.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);   // GL rows run bottom-up
+  for (let i = 0; i < img.data.length; i += 4) { img.data[i + 3] = 255; any |= img.data[i] | img.data[i + 1] | img.data[i + 2]; }
+  x.putImageData(img, 0, 0);
+  return { canvas: c, any: any > 8 };
+}
+function compact(c, q) {                          // WebP where the browser can write it, else JPEG
+  const w = c.toDataURL('image/webp', q);
+  return w.startsWith('data:image/webp') ? w : c.toDataURL('image/jpeg', q);
+}
+function thumbnail() {
+  const w = 480, h = 360, pr = renderer.getPixelRatio();
+  const wasStream = stream.visible; stream.visible = false;
+  renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+  const z = camZoom; camZoom = 1.12; frameCamera(w, h, true); camZoom = z;
+  poseSlab(clock, 1);
+  renderer.setRenderTarget(null); renderer.render(scene, camera);
+  const url = compact(canvas, 0.82);
+  renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false); frameCamera(innerWidth, innerHeight);
+  poseSlab(clock, 1);
+  renderer.render(scene, camera);                       // put the real frame back before the browser shows this one
+  stream.visible = wasStream;
+  return url;
+}
+function saveCurrent() {
+  if (!current || current.saved) return;
+  const a = readTarget(ALB, TW, TH), p = readTarget(PRP, TW, TH);
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const half = document.createElement('canvas'); half.width = TW / 2; half.height = TH / 2; half.getContext('2d').drawImage(p.canvas, 0, 0, TW / 2, TH / 2);
+  const data = { a: compact(a.canvas, 0.88), p: p.any ? half.toDataURL('image/png') : null, pearl: current.recipe.liquids.some(l => l.finish === 1) }, thumb = thumbnail();
+  const meta = { id, name: current.name, recipe: current.recipe, created: current.created };
+  pieces = loadIndex();                                // another tab may have saved or deleted pieces
+  try {
+    localStorage.setItem(PIECE(id), JSON.stringify(data));
+    localStorage.setItem(THUMB(id), thumb);
+    localStorage.setItem(IDX, JSON.stringify([meta, ...pieces]));
+  } catch (err) {
+    try { localStorage.removeItem(PIECE(id)); localStorage.removeItem(THUMB(id)); } catch {}
+    const full = err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014);
+    toast(full ? 'Your showcase is full. Delete a piece to make room.' : "This browser isn't letting the page save anything.");
+    return;
+  }
+  pieces = [meta, ...pieces]; current.saved = true;
+  $('save').disabled = true; $('save').textContent = 'Saved';
+  renderShowcase();
+  toast(`${current.name} is in your showcase`);
+}
+$('save').addEventListener('click', saveCurrent);
+
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fmtDate = ms => new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+function renderShowcase() {
+  $('count').textContent = pieces.length;
+  $('empty').hidden = pieces.length > 0;
+  $('grid').innerHTML = pieces.map((m, i) => {
+    let t = ''; try { t = localStorage.getItem(THUMB(m.id)) || ''; } catch {}
+    const img = t.startsWith('data:image/') ? `<img alt="" src="${t}">` : '<img alt="">';
+    return `<li><button class="card" type="button" data-i="${i}" aria-current="${viewing === i}">${img}<b>${esc(m.name)}</b><small>${fmtDate(m.created)}</small></button></li>`;
+  }).join('');
+  let bytes = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('marble.')) bytes += (localStorage.getItem(k) || '').length; } } catch {}
+  $('usage').textContent = `Kept in this browser's local storage · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}, ${(bytes / 1e6).toFixed(1)} MB`;
+}
+const drawer = $('drawer');
+function openDrawer(on) {
+  drawer.classList.toggle('open', on); $('showBtn').setAttribute('aria-expanded', String(on));
+  if (on) { if (phase !== 'view') pieces = loadIndex(); renderShowcase(); $('closeDrawer').focus(); }
+}
+$('showBtn').addEventListener('click', () => openDrawer(!drawer.classList.contains('open')));
+$('closeDrawer').addEventListener('click', () => openDrawer(false));
+addEventListener('keydown', e => { if (e.key === 'Escape') { if (!pop.hidden) closePop(); else if (drawer.classList.contains('open')) openDrawer(false); } });
+
+let returnTo = null;                                   // what to go back to after looking at saved pieces
+const loadedTex = [];
+function loadImage(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+async function viewPiece(i) {
+  const busy = ['pour', 'flow', 'cure', 'demold'].includes(phase);
+  if (busy) { toast('Let this one set first'); return; }
+  const m = pieces[i]; if (!m) return;
+  let data; try { data = JSON.parse(localStorage.getItem(PIECE(m.id))); } catch {}
+  if (!data) { toast("That piece couldn't be read"); return; }
+  const [a, p] = await Promise.all([loadImage(data.a), data.p ? loadImage(data.p) : null]);
+  crossfade(() => {
+    if (phase !== 'view') returnTo = phase;
+    for (const t of loadedTex.splice(0)) t.dispose();
+    const mk = img => { const t = new THREE.Texture(img); t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = maxAniso; t.needsUpdate = true; loadedTex.push(t); return t; };
+    const ta = mk(a), tp = p ? mk(p) : blackTex;
+    const U = slabMat.userData.u; U.uAlbedo.value = ta; U.uProps.value = tp; U.uPolish.value = 5;
+    slabMat.iridescence = data.pearl ? 1 : 0;
+    placeWalls(1); stream.visible = false; liquid.visible = false; slab.visible = true;
+    startPose.p.copy(presentPos); startPose.q.copy(presentQ);
+    turn.yaw = turn.pitch = turn.vyaw = turn.vpitch = 0;
+    viewing = i;
+    setPhase('view');
+    $('viewName').textContent = m.name;
+    $('viewMeta').textContent = `${fmtDate(m.created)} · ${m.recipe.liquids.map(l => l.name).join(' · ')}`;
+    sub.textContent = m.name;
+    $('prev').disabled = pieces.length < 2; $('next').disabled = pieces.length < 2;
+    renderShowcase();
+  });
+}
+const blackTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); blackTex.needsUpdate = true;
+$('grid').addEventListener('click', e => { const b = e.target.closest('.card'); if (b) { viewPiece(Number(b.dataset.i)); if (innerWidth < 700) openDrawer(false); } });
+$('prev').addEventListener('click', () => viewPiece((viewing - 1 + pieces.length) % pieces.length));
+$('next').addEventListener('click', () => viewPiece((viewing + 1) % pieces.length));
+$('back').addEventListener('click', leaveView);
+function leaveView() {
+  crossfade(() => {
+    viewing = null;
+    for (const t of loadedTex.splice(0)) t.dispose();
+    if (returnTo === 'done' && current) {
+      const U = slabMat.userData.u; U.uAlbedo.value = ALB.texture; U.uProps.value = PRP.texture; U.uPolish.value = 5;
+      slabMat.iridescence = current.recipe.liquids.some(l => l.finish === 1) ? 1 : 0;
+      setPhase('done');
+    } else {
+      slab.visible = false; liquid.visible = true; placeWalls(0); poseMoldReset(); setPhase('idle'); renderRecipe();
+    }
+    renderShowcase();
+  });
+}
+let delArmed = false;
+$('del').addEventListener('click', () => {
+  if (!delArmed) { delArmed = true; $('del').textContent = 'Really delete?'; setTimeout(() => { delArmed = false; $('del').textContent = 'Delete'; }, 3000); return; }
+  delArmed = false; $('del').textContent = 'Delete';
+  const m = pieces[viewing]; if (!m) return;
+  try { localStorage.removeItem(PIECE(m.id)); localStorage.removeItem(THUMB(m.id)); } catch {}
+  pieces = pieces.filter(x => x.id !== m.id);
+  try { localStorage.setItem(IDX, JSON.stringify(pieces)); } catch {}
+  toast(`${m.name} was deleted`);
+  if (pieces.length) viewPiece(Math.min(viewing, pieces.length - 1)); else leaveView();
+});
+
+/* ---------- input ---------- */
+let drag = null;
+const keys = new Set();
+canvas.addEventListener('pointerdown', e => {
+  if (!pop.hidden) closePop();
+  const mode = phase === 'done' || phase === 'view' ? 'turn' : 'tilt';
+  drag = { id: e.pointerId, mode, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, lt: performance.now() };
+  canvas.setPointerCapture(e.pointerId); canvas.classList.add('held'); lastInput = performance.now();
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  drag.x = e.clientX; drag.y = e.clientY; lastInput = performance.now();
+  if (drag.mode === 'turn') {
+    const dt = Math.max(1, performance.now() - drag.lt) / 1000;
+    const dyaw = (e.clientX - drag.lx) * 0.006, dp = (e.clientY - drag.ly) * 0.004;
+    turn.yaw += dyaw; turn.pitch = clamp(turn.pitch + dp, -0.5, 0.45);
+    turn.vyaw = dyaw / dt; turn.vpitch = 0;
+  }
+  drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = performance.now();
+});
+const endDrag = e => { if (drag && e.pointerId === drag.id) { drag = null; canvas.classList.remove('held'); } };
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+addEventListener('keydown', e => {
+  if (!e.key.startsWith('Arrow') || e.target.closest('input')) return;
+  if (phase === 'view' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && pieces.length > 1 && document.activeElement === canvas) { viewPiece((viewing + (e.key === 'ArrowLeft' ? -1 : 1) + pieces.length) % pieces.length); return; }
+  if (document.activeElement !== canvas && document.activeElement !== document.body) return;
+  keys.add(e.key); lastInput = performance.now(); e.preventDefault();
+});
+addEventListener('keyup', e => keys.delete(e.key));
+addEventListener('blur', () => keys.clear());
+
+// tilting the phone tilts the mold
+const tiltDevice = { available: 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches, on: false, b: 0, g: 0, b0: null, g0: null };
+addEventListener('deviceorientation', e => {
+  if (!tiltDevice.on || e.beta == null) return;
+  if (tiltDevice.b0 === null) { tiltDevice.b0 = e.beta; tiltDevice.g0 = e.gamma; }
+  tiltDevice.b = e.beta - tiltDevice.b0; tiltDevice.g = e.gamma - tiltDevice.g0; lastInput = performance.now();
+});
+$('motion').addEventListener('click', async () => {
+  if (tiltDevice.on) { tiltDevice.on = false; $('motionLabel').textContent = 'Tilt with your phone'; return; }
+  try { if (typeof DeviceOrientationEvent.requestPermission === 'function' && await DeviceOrientationEvent.requestPermission() !== 'granted') return; } catch { return; }
+  tiltDevice.on = true; tiltDevice.b0 = tiltDevice.g0 = null; $('motionLabel').textContent = 'Stop tilting with the phone';
+});
+
+/* ---------- main loop ---------- */
+let last = performance.now(), clock = 0, frozen = false;
+let slowT = 0;
+function frame(now) {
+  const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  // on a slow GPU, draw fewer pixels rather than let the resin stutter
+  slowT = raw > 0.034 && raw < 0.5 ? slowT + raw : Math.max(0, slowT - raw * 0.5);
+  if (slowT > 2 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(Math.max(1, renderer.getPixelRatio() - 0.5)); resize(); slowT = 0; }
+  tick(dt);
+  requestAnimationFrame(frame);
+}
+function tick(dt, draw = true) {
+  clock += dt;
+  camZoomT = phase === 'done' || phase === 'view' || (phase === 'demold' && phaseT > 0.9) ? 1.18 : 1;
+  if (Math.abs(camZoomT - camZoom) > 1e-4) { camZoom += (camZoomT - camZoom) * (1 - Math.exp(-dt * 2.5)); frameCamera(innerWidth, innerHeight); }
+  scene.environmentIntensity = lerp(1, 1.45, clamp((camZoom - 1) / 0.18, 0, 1));   // more light on the slab you hold up
+  phaseT += dt;
+  if (!frozen) moveMold(dt, clock);
+  const working = (phase === 'pour' || phase === 'flow' || phase === 'cure') && !frozen;
+  if (working) {
+    const sdt = dt * SPEED;
+    simulate(sdt);
+    composite();
+    if (phase === 'pour' && simT >= plan.end) setPhase('flow');
+    else if (phase === 'flow' && phaseT * SPEED >= FLOW_T) setPhase('cure');
+    else if (phase === 'cure') {
+      const k = cureK();
+      liquidMat.userData.u.uCure.value = k;
+      liquidMat.userData.u.uMen.value = 0.0011 * (1 - 0.6 * k);
+      if (k >= 1) beginDemold();
+    }
+  }
+  const e = updateStream(simT);
+  // panel readouts
+  if (phase === 'pour') {
+    const l = e ? recipe.liquids[matAt(e, simT - FALL_T)] : null;
+    $('status').textContent = l ? `Pouring ${l.name}` : 'Pouring';
+    $('bar').style.width = (100 * clamp(simT / plan.end, 0, 1)).toFixed(1) + '%';
+  } else if (phase === 'flow') {
+    $('status').textContent = `Still runny · ${Math.ceil(FLOW_T - phaseT * SPEED)} s`;
+    $('bar').style.width = (100 * (1 - clamp(phaseT * SPEED / FLOW_T, 0, 1))).toFixed(1) + '%';
+  } else if (phase === 'cure') {
+    const k = cureK();
+    $('status').textContent = `Setting · ${Math.round(k * 100)}%`;
+    $('bar').style.width = (100 * k).toFixed(1) + '%';
+  }
+  if (working) [...$('mini').children].forEach((d, i) => d.querySelector('i').style.setProperty('--empty', (100 * clamp(poured[i] / Math.max(planned[i], 1e-9), 0, 1)).toFixed(0) + '%'));
+
+  if (phase === 'demold') {
+    const t = phaseT;
+    $('status').textContent = t < 2.3 ? 'Demolding' : 'Polishing';
+    $('bar').style.width = (100 * clamp(t / 4.2, 0, 1)).toFixed(1) + '%';
+    placeWalls(clamp(t / 1.3, 0, 1));
+    if (t > 0.5 && !slab.visible) { slab.visible = true; liquid.visible = false; }
+    poseSlab(clock, (t - 0.9) / 1.5);
+    slabMat.userData.u.uPolish.value = t < 2.4 ? -0.2 : lerp(-0.15, 1.35, clamp((t - 2.4) / 1.6, 0, 1));
+    if (t >= 4.2) { slabMat.userData.u.uPolish.value = 5; setPhase('done'); }
+  } else if (phase === 'done' || phase === 'view') {
+    if (!drag) { turn.yaw += turn.vyaw * dt; turn.vyaw *= Math.exp(-dt * 3); turn.pitch *= Math.exp(-dt * 1.5); }
+    poseSlab(clock, 1);
+  }
+  if (!draw) return;
+  renderer.setRenderTarget(null); renderer.render(scene, camera);
+}
+
+/* ---------- start ---------- */
+renderRecipe();
+renderShowcase();
+resetSim();
+setPhase('idle');
+resize();
+// ?demo (for the preview image): a fixed pour, fast-forwarded to the gold going in; ?demo=done runs on to the polished slab
+if (DEMO) {
+  presetIndex = 1; recipe = cloneRecipe(PRESETS[1]); renderRecipe(); startPour();
+  const until = Q.get('demo') === 'done' ? () => phase === 'done' : () => simT >= Number(Q.get('t') || 14.1);
+  for (let i = 0; i < 4000 && !until(); i++) tick(1 / 60, false);
+  frozen = Q.get('demo') !== 'done';                    // hold this moment, whatever the frame rate
+  hint.style.transition = 'none'; hint.classList.add('gone');
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
