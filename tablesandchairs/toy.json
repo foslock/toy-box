@@ -4,5 +4,6 @@
   "added": "2026-09-25",
   "tags": ["three.js", "physics", "game", "sound"],
   "tape": "orange",
+  "loader": true,
   "capture": { "width": 1200, "height": 900, "wait": 3500, "query": "?demo&n=11" }
 }

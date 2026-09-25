@@ -1592,6 +1592,7 @@ function start() {
   }
   refreshPanel(); announce();
   requestAnimationFrame(frame);
+  window.toyboxReady?.();                                // clears the Toy Box loading bar once that first frame is up
 }
 if (document.fonts && document.fonts.load) Promise.race([document.fonts.load('700 64px Fredoka'), new Promise(r => setTimeout(r, 1500))]).then(start, start);
 else start();

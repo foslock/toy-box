@@ -4,5 +4,6 @@
   "added": "2026-09-24",
   "tags": ["three.js", "fluid sim", "shaders"],
   "tape": "black",
+  "loader": true,
   "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
 }

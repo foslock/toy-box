@@ -4,5 +4,6 @@
   "added": "2026-09-24",
   "tags": ["three.js", "shaders", "money"],
   "tape": "green",
+  "loader": true,
   "capture": { "width": 1200, "height": 900, "wait": 6400, "query": "?demo" }
 }

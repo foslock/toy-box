@@ -803,6 +803,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+window.toyboxReady?.();                                // clears the Toy Box loading bar once that first frame is up
 </script>
 </body>
 </html>

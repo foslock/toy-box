@@ -44,9 +44,21 @@ toy-box/
 | `tape` | no | rotates | Label color: `red`, `blue`, `green`, `teal`, `purple`, `orange`, `black`, or a `#rrggbb` hex |
 | `entry` | no | `index.html` | The page to link to, if it isn't `index.html` |
 | `preview` | no | `preview.webp` | Card image file. If it's missing, the card shows a striped placeholder with the toy's initials |
+| `loader` | no | `false` | Shows a small loading bar while the toy starts up. For toys that take a moment (three.js from the CDN, shader compiles). The toy calls `window.toyboxReady?.()` right after it queues its first frame; see below |
 | `capture` | no | see below | How `npm run shots` takes the screenshot |
 
 `capture` accepts `width` and `height` (the browser viewport, default 1200×900), `wait` (milliseconds to let the toy animate before the shot, default 2500), `scale` (pixel density, default 1), `selector` (a CSS selector to crop to, such as `"canvas"`; by default the whole viewport is captured) and `query` (appended to the page URL, such as `"?demo"`, for toys that need to be doing something in the shot).
+
+### Loading bar
+
+Toys that stall for a second or two before anything draws set `"loader": true`. The build then adds a small progress bar to the middle of the page, and the toy tells it when it's running:
+
+```js
+requestAnimationFrame(frame);
+window.toyboxReady?.();   // the bar fills, waits for that first frame to reach the screen, and fades
+```
+
+The `?.` keeps the toy working when it's opened straight from its folder, where there's no bar. The bar stays hidden if the toy is ready within a quarter second, turns into a "Try again" button if a script fails to load or throws during startup, and clears itself 15 seconds after the page loads if the toy never calls in.
 
 ## Scripts
 

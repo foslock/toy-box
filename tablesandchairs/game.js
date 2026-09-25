@@ -693,3 +693,4 @@ else if (AUTO) { state = 'aim'; }
 else showCard('intro');
 updateButtons();
 requestAnimationFrame(frame);
+window.toyboxReady?.();                                // clears the Toy Box loading bar once that first frame is up

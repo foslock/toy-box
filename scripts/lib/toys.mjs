@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-const DEFAULTS = { entry: 'index.html', preview: 'preview.webp', tags: [] };
+const DEFAULTS = { entry: 'index.html', preview: 'preview.webp', tags: [], loader: false };
 export const CAPTURE_DEFAULTS = { width: 1200, height: 900, scale: 1, wait: 2500, selector: null, query: '' };
 
 export function loadToys() {
@@ -24,6 +24,7 @@ export function loadToys() {
     if (!toy.title) problems.push(`${d.name}/toy.json needs a "title"`);
     if (!toy.blurb) problems.push(`${d.name}/toy.json needs a "blurb"`);
     if (toy.added && !/^\d{4}-\d{2}-\d{2}$/.test(toy.added)) problems.push(`${d.name}/toy.json "added" should look like 2026-09-23`);
+    if (typeof toy.loader !== 'boolean') problems.push(`${d.name}/toy.json "loader" should be true or false`);
     if (!existsSync(join(toy.dir, toy.entry))) problems.push(`${d.name}/${toy.entry} not found (set "entry" in toy.json if the page has another name)`);
     toy.hasPreview = existsSync(join(toy.dir, toy.preview));
     toys.push(toy);

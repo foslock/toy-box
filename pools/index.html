@@ -1455,6 +1455,7 @@ for (const S of slots) S.clock = 0;                      // the first view is se
 if (matchMedia('(pointer: coarse)').matches) $('hint').textContent = 'Tap a pool to cannonball in · drag to look around · pinch to zoom';
 if (Q.has('demo')) setTimeout(() => goJump(0, 0), 2800);
 requestAnimationFrame(frame);
+window.toyboxReady?.();                                // clears the Toy Box loading bar once that first frame is up
 </script>
 </body>
 </html>

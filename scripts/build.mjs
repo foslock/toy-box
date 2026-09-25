@@ -49,6 +49,70 @@ function addHomeButton(file, depth) {
   writeFileSync(file, at < 0 ? html + snippet : html.slice(0, at) + snippet + html.slice(at));
 }
 
+// Toys that take a moment to start (three.js from the CDN, shader compiles) set "loader": true and get a small
+// progress bar, added right after <body> so it paints before their scripts arrive. The toy calls
+// window.toyboxReady?.() once it has started its render loop; the bar fills, waits for that frame, and fades.
+// The bar creeps on the compositor, so it keeps moving while the page is blocked compiling shaders.
+const loader = `
+<div id="toybox-loader" class="toybox-loader" role="progressbar" aria-label="Loading">
+  <span class="toybox-loader-label">Loading</span>
+  <span class="toybox-loader-track"><span class="toybox-loader-bar"></span></span>
+  <button type="button" class="toybox-loader-retry" hidden>Try again</button>
+</div>
+<style>
+  .toybox-loader { position: fixed; z-index: 999; left: 50%; top: 50%; transform: translate(-50%, -50%); box-sizing: border-box;
+    display: grid; justify-items: center; gap: 10px; padding: 14px 18px 16px; border-radius: 14px; pointer-events: none;
+    border: 1px solid rgba(255, 255, 255, .3); background: rgba(16, 12, 20, .42); color: rgba(255, 255, 255, .88);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    font: 500 10.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .16em; text-transform: uppercase;
+    opacity: 0; animation: toybox-loader-in .3s ease .25s forwards; }
+  .toybox-loader-track { position: relative; overflow: hidden; width: 148px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .18); }
+  .toybox-loader-bar { position: absolute; inset: 0; border-radius: inherit; background: #fff; transform-origin: left;
+    transform: scaleX(.04); animation: toybox-loader-creep 14s cubic-bezier(.1, .75, .25, 1) forwards; }
+  .toybox-loader-track::after { content: ""; position: absolute; inset: 0; width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent); animation: toybox-loader-sheen 1.5s ease-in-out infinite; }
+  .toybox-loader-retry { pointer-events: auto; font: inherit; letter-spacing: .08em; color: #fff; cursor: pointer;
+    padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .12); }
+  .toybox-loader-retry:hover { background: rgba(255, 255, 255, .22); }
+  .toybox-loader-retry:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .toybox-loader.is-failed { pointer-events: auto; text-transform: none; letter-spacing: .02em; font-size: 13px; }
+  .toybox-loader.is-failed .toybox-loader-track { display: none; }
+  @keyframes toybox-loader-in { to { opacity: 1; } }
+  @keyframes toybox-loader-creep { to { transform: scaleX(.92); } }
+  @keyframes toybox-loader-sheen { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+  @media (prefers-reduced-motion: reduce) { .toybox-loader-track::after { display: none; } }
+</style>
+<script>
+(() => {
+  const el = document.getElementById('toybox-loader'), bar = el.querySelector('.toybox-loader-bar'), retry = el.querySelector('.toybox-loader-retry');
+  let settled = false;
+  const finish = () => {
+    if (+getComputedStyle(el).opacity < .05) return el.remove();          // ready before it ever showed
+    bar.animate([{ transform: getComputedStyle(bar).transform }, { transform: 'scaleX(1)' }], { duration: 250, easing: 'ease-out', fill: 'forwards' });
+    el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 350, delay: 250, fill: 'both' }).onfinish = () => el.remove();
+  };
+  // The toy has queued its first frame; let that frame run and reach the screen before clearing the bar.
+  window.toyboxReady = () => { if (!settled) { settled = true; requestAnimationFrame(() => requestAnimationFrame(finish)); } };
+  // A script that fails to load, or throws while starting, would otherwise leave the bar creeping forever.
+  addEventListener('error', e => {
+    if (settled || !(e instanceof ErrorEvent || e.target instanceof HTMLScriptElement)) return;   // a missing font or image isn't fatal
+    settled = true;
+    el.classList.add('is-failed'); el.setAttribute('role', 'alert');
+    el.querySelector('.toybox-loader-label').textContent = 'This toy didn’t load.';
+    retry.hidden = false; retry.onclick = () => location.reload();
+  }, true);
+  // Safety net for a toy that never reports in.
+  addEventListener('load', () => setTimeout(window.toyboxReady, 15000));
+})();
+</script>
+`;
+function addLoader(file) {
+  const html = readFileSync(file, 'utf8'), body = html.match(/<body[^>]*>/i);
+  if (!body) throw new Error(`${file} has no <body> tag for the loading bar`);
+  const at = body.index + body[0].length;
+  writeFileSync(file, html.slice(0, at) + loader + html.slice(at));
+}
+
 function card(t, i) {
   const color = TAPES[t.tape] || (/^#[0-9a-f]{6}$/i.test(t.tape || '') ? t.tape : TAPES[ROTATION[i % ROTATION.length]]);
   const href = encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry));
@@ -80,6 +144,7 @@ mkdirSync(DIST, { recursive: true });
 for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
+  if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
 
