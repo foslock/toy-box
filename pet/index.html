@@ -1,0 +1,1600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pocket Pet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg1: #ffd6e8; --bg2: #c9b8ff; --ink: #3a2c4a; --ink-2: rgba(58, 44, 74, .72); --ink-3: rgba(58, 44, 74, .5); --card: rgba(255, 255, 255, .78); --line: rgba(58, 44, 74, .14); --accent: #ff5fa2; }
+  html, body { height: 100%; margin: 0; }
+  body { color: var(--ink); font: 400 15px/1.4 Fredoka, system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(90% 70% at 50% 45%, rgba(255, 255, 255, .55), transparent 70%), linear-gradient(160deg, var(--bg1), var(--bg2)); transition: background .6s; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .35;
+    background-image: radial-gradient(rgba(255, 255, 255, .9) 1.2px, transparent 1.6px); background-size: 26px 26px; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+  #c.held { cursor: grabbing; }
+  #c.over { cursor: pointer; }
+  button { font-family: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .name { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 60px; margin: 0; pointer-events: none; font: 700 26px/36px Fredoka, system-ui, sans-serif; letter-spacing: .01em; }
+  .sub { position: fixed; top: calc(max(14px, env(safe-area-inset-top)) + 34px); left: 61px; margin: 0; pointer-events: none; font-size: 14px; color: var(--ink-2); max-width: calc(100% - 180px); }
+  .pill { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 15px; border-radius: 999px; box-sizing: border-box;
+    border: 0; background: var(--card); color: var(--ink); font: 600 14.5px/1 Fredoka, system-ui, sans-serif; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 2px 10px -4px rgba(58, 44, 74, .35), inset 0 0 0 1px rgba(255, 255, 255, .6); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: transform .12s, background-color .15s; }
+  .pill:hover { background: #fff; }
+  .pill:active { transform: translateY(1px); }
+  .pill.solid { background: var(--ink); color: #fff; }
+  .pill.solid:hover { background: #241a2f; }
+  .pill.warn { background: #ffe1e6; color: #a4213d; }
+  .pill:disabled { opacity: .5; cursor: default; }
+  .pill svg { width: 17px; height: 17px; flex: none; }
+  .pill.icon { width: 38px; padding: 0; }
+  .corner { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); display: flex; gap: 8px; }
+  .dot-badge { position: relative; }
+  .dot-badge[data-on="true"]::after { content: ""; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: #ff3d6e; box-shadow: 0 0 0 2px #fff; }
+  .bottom { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; width: calc(100% - 32px); pointer-events: none; }
+  .bottom > * { pointer-events: auto; }
+  .hint { margin: 0; text-align: center; font-size: 14px; color: var(--ink-2); pointer-events: none; }
+  .hint kbd { font: 600 12px/1 Fredoka, system-ui, sans-serif; padding: 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, .7); box-shadow: inset 0 -1px 0 rgba(58, 44, 74, .2); }
+  .toast { margin: 0; padding: 9px 16px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 14.5px; transition: opacity .3s, transform .3s; }
+  .toast.off { opacity: 0; transform: translateY(6px); pointer-events: none; }
+
+  .away { position: fixed; z-index: 5; top: calc(max(14px, env(safe-area-inset-top)) + 64px); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); box-sizing: border-box;
+    padding: 16px 18px; border-radius: 20px; background: rgba(255, 255, 255, .92); box-shadow: 0 18px 50px -18px rgba(58, 44, 74, .55); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .away h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+  .away ul { margin: 0 0 12px; padding-left: 18px; color: var(--ink-2); }
+  .away li { margin: 3px 0; }
+
+  .panel { position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: min(420px, 100%); box-sizing: border-box; display: flex; flex-direction: column;
+    background: rgba(255, 250, 253, .94); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: -20px 0 60px -30px rgba(58, 44, 74, .6);
+    transform: translateX(105%); visibility: hidden; transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s .32s; }
+  .panel.open { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.2, .8, .2, 1); }
+  .panel header { display: flex; align-items: center; justify-content: space-between; padding: max(14px, env(safe-area-inset-top)) 14px 8px 20px; }
+  .panel h2 { margin: 0; font-size: 22px; font-weight: 700; }
+  .panel .scroll { flex: 1; overflow-y: auto; padding: 4px 20px max(24px, env(safe-area-inset-bottom)); }
+  .panel h3 { margin: 22px 0 10px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .card { display: grid; grid-template-columns: 64px 1fr; gap: 4px 14px; padding: 14px; margin-bottom: 12px; border-radius: 18px; background: #fff; box-shadow: 0 2px 12px -6px rgba(58, 44, 74, .3); }
+  .card canvas.sprite { display: block; width: 64px; height: 64px; image-rendering: pixelated; border-radius: 12px; background: #e9f0dc; cursor: default; }
+  .card .who { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .card input.nm { width: 100%; min-width: 0; padding: 3px 6px; margin-left: -6px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 600 18px/1.2 Fredoka, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  .card input.nm:hover, .card input.nm:focus { background: rgba(58, 44, 74, .06); outline: none; }
+  .card .what { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  .card .stats { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); }
+  .card .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .card .acts .pill { height: 34px; font-size: 14px; box-shadow: inset 0 0 0 1px var(--line); background: #fff; }
+  .card .acts .pill.solid { background: var(--ink); color: #fff; box-shadow: none; }
+  .card .acts .pill.warn { background: #ffe1e6; box-shadow: none; }
+  .code { grid-column: 1 / -1; margin-top: 8px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 74px; padding: 9px 10px; border: 0; border-radius: 12px; background: rgba(58, 44, 74, .06); color: var(--ink);
+    font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; word-break: break-all; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .row .pill { height: 34px; font-size: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+  .row .pill.solid { background: var(--ink); color: #fff; box-shadow: none; }
+  .msg { margin: 8px 0 0; font-size: 13.5px; color: var(--ink-2); }
+  .msg.err { color: #b3243f; }
+  .themes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .theme { aspect-ratio: .85; border: 0; border-radius: 48% 48% 44% 44% / 55% 55% 42% 42%; cursor: pointer; background: var(--c); position: relative;
+    box-shadow: inset 0 -6px 10px rgba(0, 0, 0, .12), inset 0 4px 6px rgba(255, 255, 255, .5); }
+  .theme::after { content: ""; position: absolute; left: 28%; right: 28%; top: 28%; height: 26%; border-radius: 3px; background: #e6eed8; box-shadow: 0 0 0 2px var(--b); }
+  .theme[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .setting p { margin: 0; }
+  .setting small { display: block; color: var(--ink-3); font-size: 12.5px; }
+  .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .gallery figure { margin: 0; text-align: center; }
+  .gallery canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; border-radius: 12px; background: #fff; cursor: default; }
+  .gallery figcaption { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+  .help { color: var(--ink-2); font-size: 14px; }
+  .help dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 8px 0; }
+  .help dt { font-weight: 600; color: var(--ink); }
+  .help dd { margin: 0; }
+  .help p { margin: 8px 0; }
+  @media (max-width: 480px) { .panel header { padding-left: 64px; } .name { font-size: 22px; } }
+  @media (prefers-reduced-motion: reduce) { .panel, .toast, body { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="A pocket virtual pet shaped like an egg. Its three buttons are A, B and C: A picks an icon, B uses it, C goes back. Drag to turn the toy over."></canvas>
+<h1 class="name">Pocket Pet</h1>
+<p class="sub" id="sub"></p>
+<div class="corner">
+  <button class="pill icon" id="soundBtn" type="button" aria-pressed="true" aria-label="Sound"></button>
+  <button class="pill dot-badge" id="petsBtn" type="button" aria-controls="panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-3.9 0-7 4.2-7 9.2C5 17 8 21 12 21s7-4 7-8.8C19 7.2 15.9 3 12 3Z"/><path d="M9 12h.01M15 12h.01"/></svg>Pets</button>
+</div>
+<div class="away" id="away" role="status" hidden>
+  <h2 id="awayTitle">While you were away</h2>
+  <ul id="awayList"></ul>
+  <button class="pill solid" id="awayOk" type="button">Got it</button>
+</div>
+<div class="bottom">
+  <p class="toast off" id="toast" role="status"></p>
+  <button class="pill" id="motion" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4.5 8.5a6 6 0 0 0 0 7M19.5 8.5a6 6 0 0 1 0 7"/></svg><span id="motionLabel">Tilt to turn it</span></button>
+  <p class="hint" id="hint"></p>
+</div>
+<div class="sr" aria-live="polite" id="live"></div>
+<div class="sr"><button type="button" id="srA">Button A: pick an icon</button><button type="button" id="srB">Button B: use it</button><button type="button" id="srC">Button C: go back</button></div>
+
+<aside class="panel" id="panel" aria-label="Your pets">
+  <header><h2>Your pets</h2><button class="pill icon" id="closePanel" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+  <div class="scroll">
+    <div id="cards"></div>
+    <h3>Add a friend's pet</h3>
+    <p class="msg" style="margin-top:0">Your toy holds two pets. Paste a pet code a friend sent you, or open their <b>.pet</b> file.</p>
+    <textarea id="importText" placeholder="PET1.…" spellcheck="false" aria-label="Pet code"></textarea>
+    <div class="row"><button class="pill solid" id="importBtn" type="button">Add to my toy</button><button class="pill" id="fileBtn" type="button">Open a .pet file</button><input type="file" id="fileIn" accept=".pet,.txt,text/plain" hidden></div>
+    <p class="msg" id="importMsg" aria-live="polite"></p>
+    <h3>Shell</h3>
+    <div class="themes" id="themes" role="radiogroup" aria-label="Shell"></div>
+    <h3>Settings</h3>
+    <div class="setting"><p>Notifications<small id="notifyNote">Get a nudge when a pet needs you, while this tab is open.</small></p><button class="pill" id="notifyBtn" type="button">Turn on</button></div>
+    <div class="setting"><p>Sound<small>Beeps for buttons and calls.</small></p><button class="pill" id="soundBtn2" type="button"></button></div>
+    <h3>Grown-ups you've raised</h3>
+    <div class="gallery" id="gallery"></div>
+    <h3>How to play</h3>
+    <div class="help">
+      <p>Press <b>A</b> to move through the icons, <b>B</b> to use one, <b>C</b> to go back. On a keyboard: <kbd>A</kbd> <kbd>B</kbd> <kbd>C</kbd>, or <kbd>←</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd>.</p>
+      <dl>
+        <dt>Food</dt><dd>A meal fills a hunger heart. A snack fills a happy heart but piles on weight.</dd>
+        <dt>Light</dt><dd>Switch it off when your pet falls asleep, or it sleeps badly.</dd>
+        <dt>Game</dt><dd>Guess which way it will look. Win three of five for a happy heart.</dd>
+        <dt>Medicine</dt><dd>When a skull shows, it's sick. Some bugs take two doses.</dd>
+        <dt>Bathroom</dt><dd>Flush the mess away. Left too long, it makes your pet sick.</dd>
+        <dt>Meter</dt><dd>Age, weight, discipline and hearts.</dd>
+        <dt>Discipline</dt><dd>If it calls you with full hearts, or turns down a meal, it's being naughty: scold it. Scolding a good pet upsets it.</dd>
+      </dl>
+      <p>A call you leave unanswered for half an hour counts as a care mistake, and mistakes (plus discipline) decide which grown-up it becomes. It hatches in a minute, is a baby for an hour, a child for about a day and a teen for another. It sleeps at night and needs you every few hours by day.</p>
+      <p>It keeps living while this page is closed. Come back and it will have been hungry, messy or asleep without you. It only dies after a full day with no care at all. Everything is kept in this browser.</p>
+    </div>
+  </div>
+</aside>
+
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const $ = id => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
+const DEMO = Q.has('demo');
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const between = ([a, b]) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const SEC = 1000, MIN = 60 * SEC, HOUR = 60 * MIN, DAY = 24 * HOUR;
+const now = () => Date.now();
+
+/* =====================================================================
+   Pixel art. Every sprite is rows of palette letters; '.' is clear.
+   ===================================================================== */
+const hex = s => parseInt(s.slice(1), 16);
+const BASE = { K: 0x2d2942, W: 0xffffff, B: 0xff8fab, R: 0xef476f, Y: 0xffc93c, O: 0xff9f1c, G: 0x6bd968, g: 0x2f9e44,
+  C: 0x4cc9f0, N: 0x9c6644, n: 0x5e3c24, L: 0xcfd0dc, D: 0x8d8da6, P: 0xa06cf0, A: 0x7bdff2 };
+
+// eye: 'tall' (1×2) or 'dot'; mouth: 'smile' | 'small' | 'beak' | 'big' | 'nose' | 'mustache'
+// sleep: [bedtime hour, wake hour] local time; rates: minutes awake per lost heart, and between poops
+const SPECIES = {
+  egg: { stage: 'egg', label: 'Egg' },
+  blip: { stage: 'baby', label: 'Blip', weight: 5, eye: 'dot', mouth: 'small', eyes: [[2, 2], [5, 2]], mouthAt: [3, 4],
+    pal: { M: 0xffe27a, H: 0xfff8d6 }, rates: { hunger: [6, 8], happy: [7, 10], poop: [15, 22] }, sleep: null,
+    art: ['..KKKK..', '.KMMMMK.', 'KMHMMMMK', 'KMMMMMMK', 'KMMMMMMK', '.KMMMMK.', '..KKKK..'] },
+  pomu: { stage: 'child', label: 'Pomu', weight: 10, eye: 'tall', mouth: 'smile', eyes: [[3, 5], [7, 5]], mouthAt: [4, 8], blush: [[2, 7], [8, 7]],
+    pal: { M: 0xffb3c7, H: 0xffffff }, rates: { hunger: [50, 70], happy: [45, 65], poop: [140, 200] }, sleep: [20, 8],
+    art: ['.....g.....', '....gGg....', '.....g.....', '...KKKKK...', '..KMMMMMK..', '.KMHMMMMMK.', '.KMMMMMMMK.', '.KMMMMMMMK.', '.KMMMMMMMK.', '..KMMMMMK..', '...KKKKK...', '...KK.KK...'] },
+  tibbit: { stage: 'teen', label: 'Tibbit', weight: 20, eye: 'tall', mouth: 'smile', eyes: [[3, 6], [8, 6]], mouthAt: [5, 9], blush: [[2, 8], [9, 8]],
+    pal: { M: 0x9fd8ff, H: 0xffffff }, rates: { hunger: [65, 90], happy: [60, 80], poop: [170, 230] }, sleep: [21, 9],
+    art: ['..KK....KK..', '.KBK....KBK.', '.KBK....KBK.', '.KMK....KMK.', '..KMKKKKMK..', '.KMMMMMMMMK.', 'KMMHMMMMMMMK', 'KMMMMMMMMMMK', 'KMMMMMMMMMMK', 'KMMMMMMMMMMK', '.KMMMMMMMMK.', '..KKKKKKKK..', '..KMK..KMK..', '..KKK..KKK..'] },
+  grumbo: { stage: 'teen', label: 'Grumbo', weight: 22, eye: 'dot', mouth: 'smile', grumpy: true, eyes: [[3, 4], [8, 4]], mouthAt: [5, 7],
+    pal: { M: 0xa7b88c, H: 0xd6e2c1 }, rates: { hunger: [55, 75], happy: [50, 70], poop: [150, 210] }, sleep: [21, 9],
+    art: ['...KK..KK...', '..KMMKKMMK..', '.KMHMMMMMMK.', 'KMMMMMMMMMMK', 'KMMMMMMMMMMK', 'KMMMMMMMMMMK', 'KMMMMMMMMMMK', 'KMMMMMMMMMMK', '.KMMMMMMMMK.', '.KKMMMMMMKK.', '..KKKKKKKK..', '..KK....KK..'] },
+  starla: { stage: 'adult', label: 'Starla', weight: 30, eye: 'tall', mouth: 'smile', eyes: [[4, 5], [9, 5]], mouthAt: [6, 8], blush: [[3, 7], [10, 7]],
+    pal: { M: 0xf7a8d8, H: 0xffffff }, rates: { hunger: [90, 120], happy: [85, 110], poop: [200, 260] }, sleep: [21, 8],
+    extra: { art: ['..Y..', '.YYY.', 'YYYYY', '.YYY.', '.Y.Y.'], dx: 9, dy: -3 },
+    blurb: 'Hardly a mistake, and well behaved.',
+    art: ['....KKKKKK....', '..KKMMMMMMKK..', '.KMMHHMMMMMMK.', '.KMHMMMMMMMMK.', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', '.KMMMMMMMMMMK.', '.KKMMMMMMMMKK.', '...KKKKKKKK...', '...KK....KK...'] },
+  bruno: { stage: 'adult', label: 'Bruno', weight: 34, eye: 'dot', mouth: 'nose', eyes: [[4, 5], [9, 5]], mouthAt: [6, 7],
+    pal: { M: 0xc8915e, S: 0x8f5f36, W: 0xf3dcc1 }, rates: { hunger: [80, 110], happy: [80, 105], poop: [200, 260] }, sleep: [22, 9],
+    blurb: 'Well looked after, a bit spoiled.',
+    art: ['.KK........KK.', 'KMMK......KMMK', 'KMSMKKKKKKMSMK', '.KMMMMMMMMMMK.', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMWWWWMMMMK', 'KMMMWWWWWWMMMK', '.KMMMWWWWMMMK.', '..KKMMMMMMKK..', '..KMMKKKKMMK..', '..KKK....KKK..'] },
+  nib: { stage: 'adult', label: 'Nib', weight: 28, eye: 'tall', mouth: 'beak', eyes: [[4, 5], [9, 5]], mouthAt: [6, 7],
+    pal: { M: 0xffd84d, S: 0xf0a92a }, rates: { hunger: [85, 115], happy: [70, 95], poop: [200, 250] }, sleep: [21, 7],
+    blurb: 'Some slips, but it minds its manners.',
+    art: ['......K.......', '.....KMK......', '....KKMKKK....', '...KMMMMMMK...', '..KMMMMMMMMK..', '.KMMMMMMMMMMK.', '.KMMMMMMMMMMK.', 'KMMMMMMMMMMMMK', 'KSMMMMMMMMMMSK', 'KSSMMMMMMMMSSK', '.KSMMMMMMMMSK.', '..KKMMMMMMKK..', '...KOK..KOK...', '...KKK..KKK...'] },
+  mopey: { stage: 'adult', label: 'Mopey', weight: 26, eye: 'tall', mouth: 'small', droopy: true, eyes: [[4, 5], [9, 5]], mouthAt: [6, 8],
+    pal: { M: 0xb8c6ff, H: 0xeef1ff }, rates: { hunger: [75, 100], happy: [55, 75], poop: [190, 250] }, sleep: [23, 10],
+    blurb: 'Too many calls went unanswered.',
+    art: ['....KKKKKK....', '..KKMMMMMMKK..', '.KMMMMMMMMMMK.', '.KMHMMMMMMMMK.', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMKMMMMKMMMK', '.KMK.KMMK.KMK.', '..K...KK...K..'] },
+  chompers: { stage: 'adult', label: 'Chompers', weight: 36, eye: 'tall', mouth: 'big', eyes: [[4, 3], [9, 3]], mouthAt: [4, 6],
+    pal: { M: 0x7ed957, W: 0xfff3b0 }, rates: { hunger: [60, 85], happy: [80, 110], poop: [180, 240] }, sleep: [22, 8],
+    blurb: 'A rascal who was mostly fed on time.',
+    art: ['...KK..KK..KK.', '..KggKKggKKggK', '.KMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMWWWWWWWWMMK', 'KMMWWWWWWWWMMK', '.KMMWWWWWWMMK.', '..KKMMMMMMKK..', '..KMMK..KMMK..', '..KKKK..KKKK..'] },
+  blorp: { stage: 'adult', label: 'Blorp', weight: 32, eye: 'tall', mouth: 'small', eyes: [[4, 5], [9, 5]], mouthAt: [6, 7],
+    pal: { M: 0xb388eb, H: 0xe6d6ff }, rates: { hunger: [70, 95], happy: [65, 90], poop: [170, 230] }, sleep: [23, 10],
+    blurb: 'A rascal left to fend for itself.',
+    art: ['....KKKKKK....', '..KKMMMMMMKK..', '.KMMHMMMMMMMK.', '.KMHMMMMMMMMK.', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', '.KMMMMMMMMMMK.', '.KMKMMKKMMKMK.', 'KMK.KMKKMK.KMK', 'KK..KK..KK..KK'] },
+  whisk: { stage: 'adult', label: 'Sir Whisk', weight: 30, eye: 'dot', mouth: 'mustache', eyes: [[4, 7], [9, 7]], mouthAt: [3, 9],
+    pal: { M: 0xffe8c7, R: 0xd6334f }, rates: { hunger: [100, 130], happy: [90, 120], poop: [220, 280] }, sleep: [22, 8],
+    blurb: 'A secret: a rascal raised perfectly.',
+    art: ['....KKKKKK....', '....KKKKKK....', '....KKKKKK....', '....KRRRRK....', '..KKKKKKKKKK..', '..KMMMMMMMMK..', '.KMMMMMMMMMMK.', '.KMMMMMMMMMMK.', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', 'KMMMMMMMMMMMMK', '.KMMMMMMMMMMK.', '..KKMMMMMMKK..', '...KKKKKKKK...', '...KK....KK...'] },
+};
+const ADULTS = ['starla', 'bruno', 'nib', 'mopey', 'chompers', 'blorp', 'whisk'];
+const STAGE_WORD = { egg: 'Egg', baby: 'Baby', child: 'Child', teen: 'Teen', adult: 'Grown-up' };
+
+const EGG_ART = ['....KK....', '...KWWK...', '..KWWWWK..', '.KWWAWWWK.', '.KWWWWWWK.', 'KWAWWWWAWK', 'KWWWWWWWWK', 'KWWWWAAWWK', 'KWWWWWWWWK', '.KWAWWWWK.', '..KWWWWK..', '...KKKK...'];
+const FX = {
+  heart: ['.R.R.', 'RRRRR', '.RRR.', '..R..'],
+  note: ['..KK', '..K.', '..K.', 'KKK.', 'KK..'],
+  z: ['KKKK', '..K.', '.K..', 'KKKK'],
+  skull: ['.KKKKK.', 'KWWWWWK', 'KWKWKWK', 'KWWWWWK', '.KWKWK.', '..KKK..'],
+  anger: ['RR.RR', 'R...R', '.....', 'R...R', 'RR.RR'],
+  sweat: ['.C.', 'CC.', 'CCC', '.C.'],
+  spark: ['..Y..', '..Y..', 'YYYYY', '..Y..', '..Y..'],
+  twinkle: ['.Y.', 'YYY', '.Y.'],
+  cloud: ['..DDD..', '.DDDDD.', 'DDDDDDD', '.DDDDD.'],
+  bubble: ['.KKKKKKK.', 'K.......K', 'K.......K', 'K.......K', 'K.......K', '.KKKKKKK.', '..KK.....', '..K......'],
+  riceball: ['..W..', '.WWW.', 'WWWWW', 'WKKKW'],
+  poop: ['...N...', '..NNN..', '..NnN..', '.NNNNN.', '.NnnnN.', 'NNNNNNN', 'NnnnnnN'],
+  meal: ['.WWWWWW.', 'WWWWWWWW', 'KKKKKKKK', 'KCCCCCCK', '.KCCCCK.', '..KKKK..'],
+  snack: ['...R...', '..WWW..', '.BBBBB.', '.WWWWW.', '.BBBBB.', '.YYYYY.'],
+  pill: ['.KKKKK.', 'KRRRWWK', 'KRRRWWK', '.KKKKK.'],
+  tomb: ['..KKKKKK..', '.KLLLLLLK.', 'KLLLKKLLLK', 'KLLLKKLLLK', 'KLKKKKKKLK', 'KLLLKKLLLK', 'KLLLKKLLLK', 'KLLLLLLLLK', 'KLLLLLLLLK', 'KKKKKKKKKK', 'gGgGgGgGgG'],
+  ghost: ['..YYY..', '.......', '.KKKKK.', 'KWWWWWK', 'KWKWKWK', 'KWWWWWK', 'KWWWWWK', 'K.K.K.K'],
+  ball: ['.KKK.', 'KRWRK', 'KWRWK', 'KRWRK', '.KKK.'],
+  down: ['KKKKK', '.KKK.', '..K..'],
+  moon: ['.YY.', 'YY..', 'YY..', '.YY.'],
+  bang: ['.KK.', 'KRRK', 'KRRK', 'KRRK', 'KRRK', '.KK.', '....', '.KK.', 'KRRK', '.KK.'],
+  tear: ['C', 'C'],
+};
+const ICON_ART = {
+  food: ['K.K.K..K.', 'K.K.K.KK.', 'KKKKK.KK.', '.KKK..KK.', '..K...KK.', '..K....K.', '..K....K.', '..K....K.'],
+  light: ['..KKKK...', '.KYYYYK..', 'KYYWYYYK.', 'KYYYYYYK.', '.KYYYYK..', '..KKKK...', '..KLLK...', '...KK....'],
+  game: ['..KKKK...', '.KRRWWK..', 'KRRRWWWK.', 'KRRRWWWK.', 'KCCCCCCK.', '.KCCCCK..', '..KKKK...', '.........'],
+  medicine: ['.........', '..KKKKK..', '.KRRRWWK.', 'KRRRRWWWK', 'KRRRRWWWK', '.KRRRWWK.', '..KKKKK..', '.........'],
+  bath: ['..KKK....', '.KYYYK...', '.KYKYKK..', '.KYYYOOK.', 'KKYYYKK..', 'KYYYYYYK.', 'KYYYYYYK.', '.KKKKKK..'],
+  meter: ['......KK.', '......KK.', '...KK.KK.', '...KK.KK.', 'KK.KK.KK.', 'KK.KK.KK.', 'KK.KK.KK.', 'KKKKKKKK.'],
+  scold: ['..KKKKK..', '.KWWKWWK.', 'KWWWKWWWK', 'KWWWKWWWK', 'KWWWWWWWK', '.KWWKWWK.', '..KKKKK..', '....K....'],
+  attention: ['...KK....', '...KK....', 'K.KKKK.K.', '.KKKKKK..', '...KK....', '...KK....', '..K..K...', '.K....K..'],
+};
+const ICONS = ['food', 'light', 'game', 'medicine', 'bath', 'meter', 'scold', 'attention'];
+const HEART_FULL = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+const HEART_EMPTY = ['.##.##.', '#..#..#', '#.....#', '.#...#.', '..#.#..', '...#...'];
+const FONT = Object.fromEntries(Object.entries({     // 3×5 capitals, rows top to bottom
+  A: '.#. #.# ### #.# #.#', B: '##. #.# ##. #.# ##.', C: '.## #.. #.. #.. .##', D: '##. #.# #.# #.# ##.', E: '### #.. ##. #.. ###', F: '### #.. ##. #.. #..',
+  G: '.## #.. #.# #.# .##', H: '#.# #.# ### #.# #.#', I: '### .#. .#. .#. ###', J: '..# ..# ..# #.# .#.', K: '#.# #.# ##. #.# #.#', L: '#.. #.. #.. #.. ###',
+  M: '#.# ### ### #.# #.#', N: '##. #.# #.# #.# #.#', O: '.#. #.# #.# #.# .#.', P: '##. #.# ##. #.. #..', Q: '.#. #.# #.# ##. .##', R: '##. #.# ##. #.# #.#',
+  S: '.## #.. .#. ..# ##.', T: '### .#. .#. .#. .#.', U: '#.# #.# #.# #.# ###', V: '#.# #.# #.# #.# .#.', W: '#.# #.# ### ### #.#', X: '#.# #.# .#. #.# #.#',
+  Y: '#.# #.# .#. .#. .#.', Z: '### ..# .#. #.. ###', 0: '### #.# #.# #.# ###', 1: '.#. ##. .#. .#. ###', 2: '##. ..# .#. #.. ###', 3: '##. ..# .#. ..# ##.',
+  4: '#.# #.# ### ..# ..#', 5: '### #.. ##. ..# ##.', 6: '.## #.. ### #.# ###', 7: '### ..# .#. .#. .#.', 8: '### #.# ### #.# ###', 9: '### #.# ### ..# ##.',
+  ':': '... .#. ... .#. ...', '!': '.#. .#. .#. ... .#.', '?': '##. ..# .#. ... .#.', '.': '... ... ... ... .#.', '-': '... ... ### ... ...', '/': '..# ..# .#. #.. #..',
+  '%': '#.# ..# .#. #.. #.#', '>': '#.. .#. ..# .#. #..', '<': '..# .#. #.. .#. ..#', '+': '... .#. ### .#. ...', ' ': '... ... ... ... ...',
+}).map(([k, v]) => [k, v.replace(/ /g, '')]));
+
+/* ---------- drawing into a dot buffer ---------- */
+const COLS = 56, ROWS = 52, TOP = 10, FLOOR = 40;   // the LCD: icon rows 0–9 and 42–51, the room in between
+const mkBuf = (w, h) => ({ w, h, px: new Int32Array(w * h).fill(-1) });
+const fb = mkBuf(COLS, ROWS);
+function put(b, x, y, c) { x |= 0; y |= 0; if (x >= 0 && y >= 0 && x < b.w && y < b.h) b.px[y * b.w + x] = c; }
+function rect(b, x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) put(b, x + i, y + j, c); }
+function sprite(b, art, x, y, pal = {}, opt = {}) {
+  const w = art[0].length;
+  for (let j = 0; j < art.length; j++) for (let i = 0; i < w; i++) {
+    const ch = art[j][opt.flip ? w - 1 - i : i]; if (ch === '.' || (opt.only && ch !== opt.only) || (opt.skip && opt.skip(i, j))) continue;
+    let c = opt.color ?? pal[ch] ?? BASE[ch]; if (c === undefined) c = BASE.K;
+    put(b, x + i, y + j, c);
+  }
+}
+function mono(b, rows, x, y, c) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) if (rows[j][i] === '#') put(b, x + i, y + j, c); }
+function text(b, s, x, y, c = BASE.K, scale = 1) {
+  for (const ch of String(s).toUpperCase()) {
+    const g = FONT[ch] || FONT['?'];
+    for (let k = 0; k < 15; k++) if (g[k] === '#') rect(b, x + (k % 3) * scale, y + Math.floor(k / 3) * scale, scale, scale, c);
+    x += 4 * scale;
+  }
+}
+const textW = (s, scale = 1) => String(s).length * 4 * scale - scale;
+
+/* =====================================================================
+   The toy's memory. One device: up to two pets, a light switch, a shell.
+   ===================================================================== */
+const KEY = 'pet.device';
+const NAMES = ['PIP', 'MOCHI', 'NORI', 'BEAN', 'TARO', 'KIKI', 'MOMO', 'SUKI', 'BOBO', 'YUZU', 'LUMA', 'FIG', 'DOT', 'KIWI', 'ZUZU', 'POKO', 'NANA', 'TOFU', 'MIMI', 'BIBI'];
+const uid = () => Math.random().toString(36).slice(2, 10);
+function newPet(t, taken = []) {
+  return { id: uid(), name: pick(NAMES.filter(n => !taken.includes(n))) || 'PIP', form: 'egg', stage: 'egg', born: t, hatchAt: t + 60 * SEC, hatched: 0,
+    hunger: 0, happy: 0, discipline: 0, weight: 5, poop: 0, poopSince: 0, sick: 0, asleep: false, sleptAt: 0,
+    call: null, mistakes: 0, stageMistakes: 0, stageDisc: 0, health: 100, lastCare: t, snacks: 0,
+    timers: { hunger: 0, happy: 0, poop: 0 }, evolvedAt: t, forms: ['egg'], dead: false, diedAt: 0, cause: '', warned: false };
+}
+function freshDevice(t) { return { v: 1, pets: [newPet(t), null], lights: true, lastTick: t, theme: 'bubblegum', sound: true, notify: false, seen: [] }; }
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && s.v === 1 && Array.isArray(s.pets)) { s.pets = [s.pets[0] || null, s.pets[1] || null]; s.seen ||= []; return s; }
+  } catch {}
+  return null;
+}
+let S = DEMO ? null : load();
+const firstVisit = !S;
+if (!S) S = freshDevice(now());
+function save() { if (DEMO) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+addEventListener('storage', e => { if (e.key === KEY && e.newValue) { try { const s = JSON.parse(e.newValue); if (s && s.v === 1) { S = s; refreshPanel(); } } catch {} } });
+const livePets = () => S.pets.map((p, i) => i).filter(i => S.pets[i] && !S.pets[i].dead && S.pets[i].stage !== 'egg');
+const anyPets = () => S.pets.map((p, i) => i).filter(i => S.pets[i]);
+
+/* =====================================================================
+   Life. The world advances a minute at a time, the same way whether the
+   page is open or it's catching up on hours you were away.
+   ===================================================================== */
+const CALL_GRACE = 30 * MIN;                     // a call left this long counts as a care mistake
+function inBed(sp, t) {
+  if (!sp.sleep) return false;
+  const d = new Date(t), h = d.getHours() + d.getMinutes() / 60, [bed, wake] = sp.sleep;
+  return bed > wake ? h >= bed || h < wake : h >= bed && h < wake;
+}
+function need(p) {                               // what it's calling about, most urgent first
+  if (p.sick) return 'sick';
+  if (p.asleep) return S.lights ? 'lights' : null;
+  if (p.hunger === 0) return 'hungry';
+  if (p.happy === 0) return 'unhappy';
+  if (p.poop >= 3) return 'dirty';
+  return null;
+}
+function refreshCall(p, t, log) {
+  const k = need(p);
+  if (p.call && p.call.kind === 'needy') {       // a naughty call stands until scolded or ignored, unless something real comes up
+    if (k && k !== 'dirty') { p.call = { kind: k, since: t, counted: false }; log(p, 'call', k); }
+    return;
+  }
+  if (!k) { p.call = null; return; }
+  if (!p.call || p.call.kind !== k) { p.call = { kind: k, since: t, counted: false }; log(p, 'call', k); }
+}
+function setTimers(p, t) {
+  const r = SPECIES[p.form].rates;
+  p.timers = { hunger: t + between(r.hunger) * MIN, happy: t + between(r.happy) * MIN, poop: t + between(r.poop) * MIN };
+}
+function hatch(p, t, log) {
+  Object.assign(p, { form: 'blip', stage: 'baby', hatched: t, hunger: 0, happy: 0, weight: 5, evolvedAt: t, lastCare: t });
+  p.forms.push('blip'); setTimers(p, t); log(p, 'hatch');
+  refreshCall(p, t, log);                          // babies hatch hungry and bored, and say so
+}
+function evolve(p, form, t, log) {
+  const sp = SPECIES[form];
+  p.form = form; p.stage = sp.stage; p.evolvedAt = t; p.stageMistakes = 0; p.stageDisc = 0;
+  p.weight = Math.max(p.weight, sp.weight); p.forms.push(form);
+  if (!S.seen.includes(form)) S.seen.push(form);
+  log(p, 'evolve', form);
+}
+function adultFor(p) {
+  const m = p.stageMistakes, d = p.discipline;
+  if (p.form === 'tibbit') return m <= 2 && d >= 75 ? 'starla' : m <= 2 ? 'bruno' : m <= 5 && d >= 50 ? 'nib' : 'mopey';
+  return m === 0 && d >= 100 ? 'whisk' : m <= 4 ? 'chompers' : 'blorp';
+}
+function grow(p, t, log) {
+  const age = t - p.hatched;
+  if (p.stage === 'baby' && age >= HOUR) evolve(p, 'pomu', t, log);
+  else if (p.stage === 'child' && age >= 20 * HOUR) evolve(p, p.stageMistakes <= 3 ? 'tibbit' : 'grumbo', t, log);
+  else if (p.stage === 'teen' && age >= 48 * HOUR) evolve(p, adultFor(p), t, log);
+}
+function die(p, t, log) {
+  p.cause = p.sick ? 'illness' : p.hunger === 0 ? 'hunger' : 'neglect';
+  Object.assign(p, { dead: true, diedAt: t, call: null, asleep: false });
+  log(p, 'die');
+}
+function stepPet(p, t, log) {
+  if (!p || p.dead) return;
+  if (p.stage === 'egg') { if (t >= p.hatchAt) hatch(p, t, log); return; }
+  const sp = SPECIES[p.form], tm = p.timers;
+  const bed = inBed(sp, t);
+  if (bed && !p.asleep) { p.asleep = true; p.sleptAt = t; log(p, 'sleep'); }
+  else if (!bed && p.asleep) { p.asleep = false; S.lights = true; log(p, 'wake'); }
+  if (!p.asleep) grow(p, t, log);
+  if (p.asleep) { tm.hunger += MIN; tm.happy += MIN; tm.poop += MIN; }   // nothing wears down while it sleeps
+  else {
+    const r = SPECIES[p.form].rates;
+    if (t >= tm.hunger) { p.hunger = Math.max(0, p.hunger - 1); tm.hunger = t + between(r.hunger) * MIN; }
+    if (t >= tm.happy) { p.happy = Math.max(0, p.happy - 1); tm.happy = t + between(r.happy) * MIN; }
+    if (t >= tm.poop) {
+      if (p.poop < 4) { p.poop++; if (!p.poopSince) p.poopSince = t; log(p, 'poop'); }
+      tm.poop = t + between(r.poop) * MIN;
+    }
+    if (!p.sick) {
+      let chance = 1 / (12 * DAY / MIN);                                // a rare bug, now and then
+      if (p.poop && t - p.poopSince > 100 * MIN) chance += 1 / 50;      // mess left for hours
+      if (p.weight > SPECIES[p.form].weight + 18) chance += 1 / (8 * 60); // too many snacks
+      if (Math.random() < chance) { p.sick = Math.random() < 0.4 ? 2 : 1; log(p, 'sick'); }
+    }
+    // an undisciplined pet sometimes calls just for attention
+    if (!p.call && p.stage !== 'baby' && p.discipline < 100 && Math.random() < (1 - p.discipline / 100) / (8 * 60)) {
+      p.call = { kind: 'needy', since: t, counted: false }; log(p, 'call', 'needy');
+    }
+  }
+  refreshCall(p, t, log);
+  if (p.call && !p.call.counted && t - p.call.since >= CALL_GRACE) {
+    p.call.counted = true;
+    if (p.call.kind === 'needy') { p.stageDisc++; p.call = null; }
+    else if (p.call.kind !== 'dirty') { p.mistakes++; p.stageMistakes++; log(p, 'mistake', p.call.kind); }
+  }
+  // health only drains while something is wrong; a pet can't die until a full day has passed without care
+  let bad = 0;
+  if (p.hunger === 0) bad += p.asleep ? 0.5 : 1;
+  if (p.happy === 0 && !p.asleep) bad += 0.5;
+  if (p.sick) bad += 1.2;
+  if (p.poop >= 3 && !p.asleep) bad += 0.3;
+  p.health = bad ? Math.max(0, p.health - bad * 0.1) : Math.min(100, p.health + 0.5);
+  if (p.health < 30 && !p.warned) { p.warned = true; log(p, 'weak'); }
+  if (p.health > 60) p.warned = false;
+  if (p.health <= 0 && t - p.lastCare >= DAY) die(p, t, log);
+}
+function simulateTo(t, log) {
+  if (S.lastTick > t) S.lastTick = t;                          // the clock was set back
+  const end = Math.min(t, S.lastTick + 45 * DAY);
+  let changed = false;
+  while (S.lastTick + MIN <= end) {
+    S.lastTick += MIN; changed = true;
+    for (const p of S.pets) stepPet(p, S.lastTick, log);
+  }
+  if (end < t) S.lastTick = t;
+  // eggs hatch on the second, not the minute
+  for (const p of S.pets) if (p && p.stage === 'egg' && t >= p.hatchAt) { hatch(p, t, log); changed = true; }
+  return changed;
+}
+
+/* ---------- care ---------- */
+const cared = p => { p.lastCare = now(); };
+function feed(i, kind) {
+  const p = S.pets[i];
+  if (p.asleep) return 'asleep';
+  cared(p);
+  if (kind === 'meal') {
+    if (p.hunger >= 4) return 'full';
+    if (p.discipline < 50 && p.call?.kind !== 'hungry' && Math.random() < 0.2) {   // turns its nose up: that's naughty
+      p.call = { kind: 'needy', since: now(), counted: false }; return 'fussy';
+    }
+    p.hunger++; p.weight++; p.snacks = 0;
+  } else {
+    p.happy = Math.min(4, p.happy + 1); p.weight += 2; p.snacks++;
+    if (p.snacks >= 4 && !p.sick && Math.random() < 0.35) p.sick = 1;
+  }
+  refreshCall(p, now(), noLog); save(); return 'ok';
+}
+function play(i, won) {
+  const p = S.pets[i]; cared(p);
+  p.weight = Math.max(SPECIES[p.form].weight - 4, p.weight - 1);
+  if (won) p.happy = Math.min(4, p.happy + 1);
+  refreshCall(p, now(), noLog); save();
+}
+function medicate(i) {
+  const p = S.pets[i];
+  if (p.asleep) return 'asleep';
+  cared(p);
+  if (!p.sick) return 'well';
+  p.sick--; refreshCall(p, now(), noLog); save();
+  return p.sick ? 'again' : 'cured';
+}
+function scold(i) {
+  const p = S.pets[i];
+  if (p.asleep) return 'asleep';
+  cared(p);
+  if (p.call?.kind === 'needy') { p.discipline = Math.min(100, p.discipline + 25); p.call = null; refreshCall(p, now(), noLog); save(); return 'good'; }
+  p.happy = Math.max(0, p.happy - 1); refreshCall(p, now(), noLog); save(); return 'unfair';
+}
+function flush() {
+  let n = 0;
+  for (const p of S.pets) if (p && !p.dead) { n += p.poop; p.poop = 0; p.poopSince = 0; if (p.stage !== 'egg') { cared(p); refreshCall(p, now(), noLog); } }
+  save(); return n;
+}
+function setLights(on) {
+  S.lights = on;
+  for (const p of S.pets) if (p && !p.dead && p.stage !== 'egg') { cared(p); refreshCall(p, now(), noLog); }
+  save();
+}
+function noLog() {}
+
+/* =====================================================================
+   What the LCD shows. A small state machine driven by the three buttons.
+   ===================================================================== */
+const ui = { mode: 'main', sel: -1, opt: 0, target: 0, choices: [], action: '', page: 0, pages: [], anim: null, game: null, until: 0, confirmSlot: -1 };
+const views = [0, 1].map(i => ({ x: i ? 28 : 10, dir: i ? -1 : 1, act: 'idle', t0: 0, dur: 1500, beat: -1, duo: false }));
+
+function pressA() {
+  beep('press');
+  switch (ui.mode) {
+    case 'main': ui.sel = ui.sel >= 6 ? -1 : ui.sel + 1; break;
+    case 'food': case 'light': ui.opt ^= 1; break;
+    case 'choose': ui.target = (ui.target + 1) % ui.choices.length; break;
+    case 'meter': nextPage(); break;
+    case 'game': guess(-1); break;
+    case 'clock': ui.mode = 'main'; break;
+  }
+  announce();
+}
+function pressB() {
+  beep('press');
+  switch (ui.mode) {
+    case 'main':
+      if (ui.sel >= 0) activate(ICONS[ui.sel]);
+      else { const d = S.pets.findIndex(p => p && p.dead); if (d >= 0) { ui.mode = 'confirm'; ui.confirmSlot = d; } }
+      break;
+    case 'food': doFeed(ui.target, ui.opt ? 'snack' : 'meal'); break;
+    case 'light': setLights(ui.opt === 0); ui.mode = 'main'; beep(ui.opt === 0 ? 'on' : 'off'); break;
+    case 'choose': chosen(ui.choices[ui.target]); break;
+    case 'meter': nextPage(); break;
+    case 'game': guess(1); break;
+    case 'confirm': hatchNew(ui.confirmSlot); ui.mode = 'main'; break;
+    case 'clock': ui.mode = 'main'; break;
+  }
+  announce();
+}
+function pressC() {
+  beep('press');
+  if (ui.mode === 'main') { if (ui.sel >= 0) ui.sel = -1; else { ui.mode = 'clock'; ui.until = now() + 4000; } }
+  else if (ui.mode === 'game') endGame(false);
+  else if (ui.mode !== 'anim') ui.mode = 'main';
+  announce();
+}
+function nextPage() { ui.page++; if (ui.page >= ui.pages.length) ui.mode = 'main'; }
+
+function activate(icon) {
+  const live = livePets();
+  if (icon === 'attention') return;
+  if (icon === 'light') { ui.mode = 'light'; ui.opt = S.lights ? 0 : 1; return; }
+  if (icon === 'bath') { const had = S.pets.map(p => p ? p.poop : 0); const n = flush(); startAnim('flush', -1, 1700, { had, n }); beep(n ? 'flush' : 'press'); return; }
+  if (!live.length) { beep('error'); return; }
+  if (icon === 'meter') { ui.mode = 'meter'; ui.page = 0; ui.pages = live.flatMap(i => [0, 1, 2, 3].map(k => [i, k])); return; }
+  if (icon === 'scold') { const needy = live.filter(i => S.pets[i].call?.kind === 'needy'); if (needy.length === 1) return chosen(needy[0], 'scold'); }
+  if (icon === 'medicine') { const sick = live.filter(i => S.pets[i].sick); if (sick.length === 1) return chosen(sick[0], 'medicine'); }
+  ui.action = icon;
+  if (live.length === 1) return chosen(live[0]);
+  ui.mode = 'choose'; ui.choices = live; ui.target = 0;
+}
+function chosen(i, action = ui.action) {
+  ui.action = action;
+  if (action === 'food') { ui.mode = 'food'; ui.target = i; ui.opt = 0; }
+  else if (action === 'game') startGame(i);
+  else if (action === 'medicine') { const r = medicate(i); startAnim(r === 'asleep' ? 'asleep' : 'medicine', i, r === 'asleep' ? 1300 : 2000, { r }); beep(r === 'well' ? 'error' : 'medicine'); if (r === 'cured') setTimeout(() => beep('happy'), 1100); }
+  else if (action === 'scold') { const r = scold(i); startAnim(r === 'asleep' ? 'asleep' : 'scold', i, r === 'asleep' ? 1300 : 1900, { r }); beep(r === 'good' ? 'scold' : 'sad'); }
+}
+function doFeed(i, kind) {
+  const r = feed(i, kind);
+  if (r === 'asleep') return startAnim('asleep', i, 1300);
+  startAnim(kind, i, r === 'ok' ? 2600 : 1700, { r });
+  beep(r === 'ok' ? 'eat' : 'error');
+}
+function startAnim(kind, slot, dur, data = {}) { ui.mode = 'anim'; ui.anim = { kind, slot, t0: now(), dur, data }; }
+
+// the game: guess which way it will look, five times
+function startGame(i) {
+  if (S.pets[i].asleep) return startAnim('asleep', i, 1300);
+  ui.mode = 'game'; ui.game = { i, round: 0, wins: 0, phase: 'ask', t0: now(), dir: 0, guess: 0 }; beep('game');
+}
+function guess(dir) {
+  const g = ui.game; if (!g || g.phase !== 'ask') return;
+  g.guess = dir; g.dir = Math.random() < 0.5 ? -1 : 1; g.phase = 'reveal'; g.t0 = now();
+  if (g.dir === dir) { g.wins++; beep('right'); } else beep('wrong');
+}
+function endGame(finished) {
+  const g = ui.game; if (!g) return;
+  if (finished) { const won = g.wins >= 3; play(g.i, won); startAnim('score', g.i, 1800, { wins: g.wins, won }); beep(won ? 'happy' : 'sad'); }
+  else ui.mode = 'main';
+  ui.game = null;
+}
+
+function hatchNew(slot) {
+  const other = S.pets[1 - slot];
+  S.pets[slot] = newPet(now(), other ? [other.name] : []);
+  save(); refreshPanel(); beep('game');
+}
+
+/* ---------- idle life: strolling, hopping, dancing, playing together ---------- */
+const ACTS = ['stroll', 'stroll', 'stroll', 'idle', 'hop', 'look', 'dance', 'sing', 'ball', 'jump', 'yawn'];
+const ACT_LEN = { idle: [1500, 3000], stroll: [2000, 5000], hop: [1500, 1500], look: [3000, 3000], dance: [4000, 4000], sing: [3000, 3000], ball: [4000, 4000], jump: [2000, 2000], yawn: [2500, 2500], duet: [4500, 4500], meet: [5000, 5000] };
+const calm = p => p && !p.dead && p.stage !== 'egg' && !p.asleep && !p.call && !(p.health < 30);
+function artOf(p) { return p.stage === 'egg' ? EGG_ART : SPECIES[p.form].art; }
+function updateViews(t) {
+  const pets = S.pets, both = pets[0] && pets[1];
+  for (const i of [0, 1]) {
+    const v = views[i], p = pets[i];
+    if (!p) continue;
+    const w = artOf(p)[0].length, lo = both ? (i ? 22 : 1) : 1, hi = both ? (i ? 43 : 42) - w : 43 - w;
+    if (p.stage === 'egg' || p.dead) { v.x = both ? (i ? 30 : 8) : 17; continue; }
+    if (!calm(p)) { v.act = 'idle'; v.duo = false; v.x = clamp(v.x, 1, 43 - w); continue; }
+    if (t - v.t0 > v.dur) {                                       // time for something new
+      const o = views[1 - i], op = pets[1 - i];
+      if (calm(op) && !v.duo && Math.random() < 0.25 && t - o.t0 > 600) {
+        const act = Math.random() < 0.5 ? 'duet' : 'meet';
+        for (const u of [v, o]) Object.assign(u, { act, t0: t, dur: ACT_LEN[act][0], beat: -1, duo: true });
+      } else { v.duo = false; v.act = pick(ACTS); v.t0 = t; v.dur = between(ACT_LEN[v.act]); v.beat = -1; if (Math.random() < 0.5) v.dir = -v.dir; }
+    }
+    const beat = Math.floor((t - v.t0) / 250);
+    if (beat !== v.beat) {
+      v.beat = beat;
+      if (v.act === 'stroll' && beat % 2 === 0) { v.x += v.dir; if (v.x <= 1 || v.x >= 43 - w) v.dir = -v.dir; }
+      if (v.act === 'meet' && beat % 2 === 0) {
+        const o = views[1 - i], ow = pets[1 - i] ? artOf(pets[1 - i])[0].length : 0;
+        const gap = i === 0 ? o.x - (v.x + w) : v.x - (o.x + ow);
+        if (gap > 1) v.x += i === 0 ? 1 : -1;
+      }
+    }
+    v.x = clamp(v.x, 1, 43 - w);
+    if (!both) continue;
+    if (i === 0) v.x = Math.min(v.x, hi + 10);                    // two pets share the room but don't swap sides for long
+  }
+}
+
+/* ---------- compositing a frame ---------- */
+const DIM = 0xb6b8c6;
+function drawIcons(b, t) {
+  const calling = S.pets.some(p => p && p.call && !p.dead);
+  ICONS.forEach((name, k) => {
+    const x = (k % 4) * 14 + 2, y = k < 4 ? 1 : 43;
+    const on = ui.sel === k && ui.mode === 'main' || (ui.mode !== 'main' && ICONS.indexOf(currentIcon()) === k);
+    if (name === 'attention') { sprite(b, ICON_ART[name], x, y, {}, { color: calling && Math.floor(t / 500) % 2 === 0 ? BASE.R : calling ? 0xff9aa9 : DIM }); return; }
+    if (on) { rect(b, x - 2, y - 1, 13, 10, 0xffe98a); sprite(b, ICON_ART[name], x, y); }
+    else sprite(b, ICON_ART[name], x, y, {}, { color: DIM, only: 'K' });
+  });
+}
+function currentIcon() {
+  return { food: 'food', light: 'light', meter: 'meter', game: 'game', choose: ui.action, anim: ui.anim && { flush: 'bath', medicine: 'medicine', scold: 'scold', meal: 'food', snack: 'food', score: 'game' }[ui.anim.kind] }[ui.mode] || '';
+}
+// a pet with a face
+function drawPet(b, p, x, floor, o = {}) {
+  if (p.stage === 'egg') return drawEgg(b, x, floor, o.wobble || 0);
+  const sp = SPECIES[p.form], art = sp.art, h = art.length, w = art[0].length;
+  const top = floor - h + 1 + (o.dy || 0), left = x + (o.dx || 0);
+  sprite(b, art, left, top, sp.pal, { color: o.color });
+  if (o.color !== undefined) return { left, top, w, h };
+  if (sp.extra) sprite(b, sp.extra.art, left + sp.extra.dx, top + sp.extra.dy, sp.pal);
+  face(b, sp, left, top, o);
+  return { left, top, w, h };
+}
+function face(b, sp, x, y, o) {
+  const K = BASE.K, M = sp.pal.M, tall = sp.eye === 'tall', look = o.look || 0;
+  let eyes = o.eyes || (sp.grumpy ? 'grumpy' : sp.droopy ? 'droopy' : 'open');
+  sp.eyes.forEach(([ex0, ey0], i) => {
+    const ex = x + ex0 + look, ey = y + ey0, out = i ? 1 : -1, low = ey + (tall ? 1 : 0);
+    switch (eyes) {
+      case 'open': put(b, ex, ey, K); if (tall) put(b, ex, ey + 1, K); break;
+      case 'closed': put(b, ex, low, K); put(b, ex + out, low, K); break;
+      case 'happy': put(b, ex, ey, K); put(b, ex - 1, ey + 1, K); put(b, ex + 1, ey + 1, K); break;
+      case 'sad': put(b, ex, low, K); put(b, ex - out, ey - 1, K); break;
+      case 'angry': put(b, ex, ey, K); if (tall) put(b, ex, ey + 1, K); put(b, ex + out, ey - 2, K); put(b, ex, ey - 1, K); break;
+      case 'grumpy': put(b, ex, low, K); put(b, ex - out, low - 1, K); put(b, ex, low - 1, K); break;
+      case 'droopy': put(b, ex, low, K); put(b, ex + out, low - 1, K); break;
+      case 'x': put(b, ex - 1, ey, K); put(b, ex + 1, ey, K); put(b, ex, ey + 1, K); put(b, ex - 1, ey + 2, K); put(b, ex + 1, ey + 2, K); break;
+    }
+  });
+  if (sp.blush && (o.mouth === 'happy' || eyes === 'happy')) for (const [bx, by] of sp.blush) put(b, x + bx + look, y + by, BASE.B);
+  const [mx0, my0] = sp.mouthAt, mx = x + mx0 + look, my = y + my0, mouth = o.mouth || 'smile';
+  switch (sp.mouth) {
+    case 'beak':
+      put(b, mx, my, BASE.O); put(b, mx + 1, my, BASE.O);
+      if (mouth === 'open') { put(b, mx, my + 2, BASE.O); put(b, mx + 1, my + 2, BASE.O); } else { put(b, mx, my + 1, BASE.O); put(b, mx + 1, my + 1, BASE.O); }
+      return;
+    case 'big': {
+      const open = mouth === 'open' || mouth === 'happy';
+      rect(b, mx, my, 6, open ? 3 : 2, K); put(b, mx + 1, my, 0xffffff); put(b, mx + 4, my, 0xffffff);
+      if (mouth === 'sad') { rect(b, mx, my, 6, 2, M); rect(b, mx + 1, my + 1, 4, 1, K); put(b, mx, my + 2, K); put(b, mx + 5, my + 2, K); }
+      return;
+    }
+    case 'nose':
+      put(b, mx, my, K); put(b, mx + 1, my, K);
+      if (mouth === 'open') { put(b, mx, my + 2, K); put(b, mx + 1, my + 2, K); }
+      else if (mouth === 'happy') { put(b, mx - 1, my + 1, K); put(b, mx + 2, my + 1, K); }
+      else if (mouth === 'sad') { put(b, mx, my + 2, K); put(b, mx + 1, my + 2, K); put(b, mx - 1, my + 3, K); put(b, mx + 2, my + 3, K); }
+      return;
+    case 'mustache':
+      for (const [dx, dy] of [[0, 0], [1, 1], [2, 1], [3, 0], [4, 0], [5, 1], [6, 1], [7, 0]]) put(b, mx + dx, my + dy, K);
+      if (mouth === 'open') { put(b, mx + 3, my + 2, K); put(b, mx + 4, my + 2, K); }
+      return;
+  }
+  const small = sp.mouth === 'small';
+  switch (mouth) {
+    case 'smile': put(b, mx, my, K); put(b, mx + 1, my, K); break;
+    case 'happy': if (small) { put(b, mx, my, K); put(b, mx + 1, my, K); put(b, mx - 1, my - 1, K); put(b, mx + 2, my - 1, K); } else { put(b, mx - 1, my - 1, K); put(b, mx, my, K); put(b, mx + 1, my, K); put(b, mx + 2, my - 1, K); } break;
+    case 'open': rect(b, mx, my, 2, 2, K); break;
+    case 'sad': put(b, mx - 1, my + 1, K); put(b, mx, my, K); put(b, mx + 1, my, K); put(b, mx + 2, my + 1, K); break;
+    case 'flat': rect(b, mx - 1, my, 4, 1, K); break;
+  }
+}
+function drawEgg(b, x, floor, wobble, crack = 0) {
+  const top = floor - EGG_ART.length + 1, pal = { A: THEMES[S.theme].eggDot };
+  for (let j = 0; j < EGG_ART.length; j++) {
+    const shift = j < 6 ? Math.round(wobble * (6 - j) / 6) : 0;
+    sprite(b, [EGG_ART[j]], x + shift, top + j, pal);
+  }
+  if (crack) for (let k = 0; k < Math.min(crack, 10); k++) put(b, x + k, top + 5 + (k % 2 ? 1 : 0), BASE.K);
+  return { left: x, top, w: 10, h: EGG_ART.length };
+}
+function drawPoops(b, t) {
+  const n = Math.min(4, S.pets.reduce((a, p) => a + (p && !p.dead ? p.poop : 0), 0));
+  for (let k = 0; k < n; k++) drawPoopAt(b, k, t);
+}
+function drawPoopAt(b, k, t) {
+  const x = 46 + (k % 2 ? 0 : 1) - 1, y = FLOOR - 6 - (k >> 1) * 11 - (k % 2 ? 0 : 0);
+  const px = k % 2 ? 49 : 45;
+  sprite(b, FX.poop, px, y, {}, {});
+  const f = Math.floor(t / 400) % 2;
+  if (x > -1) for (let s = 0; s < 3; s++) put(b, px + 1 + s * 2, y - 2 - ((s + f) % 2), BASE.D);
+}
+function effectOver(b, r, kind, t) {           // bubbles and marks above a pet's head
+  const cx = r.left + (r.w >> 1), top = r.top, f = Math.floor(t / 400) % 2;
+  switch (kind) {
+    case 'hungry': sprite(b, FX.bubble, r.left + r.w - 2, top - 9); sprite(b, FX.riceball, r.left + r.w, top - 8); break;
+    case 'unhappy': sprite(b, FX.cloud, cx - 3, top - 7); for (let k = 0; k < 3; k++) put(b, cx - 2 + k * 2, top - 3 + ((k + f) % 2), BASE.C); break;
+    case 'sick': sprite(b, FX.skull, r.left + r.w, top - 5 + f); break;
+    case 'dirty': sprite(b, FX.sweat, r.left + r.w, top + 1); break;
+    case 'needy': sprite(b, FX.anger, r.left + r.w - 1, top - 3 + f); break;
+    case 'weak': for (let k = 0; k < 3; k++) put(b, r.left + r.w + k * 2, top + 2, k <= Math.floor(t / 350) % 3 ? BASE.D : -1); break;
+  }
+}
+function drawSlot(b, i, t) {
+  const p = S.pets[i], v = views[i], k = t - v.t0, beat = Math.max(0, Math.floor(k / 250));
+  if (!p) return;
+  if (p.dead) {
+    sprite(b, FX.tomb, v.x, FLOOR - 10);
+    sprite(b, FX.ghost, v.x + 2 + (Math.floor(t / 600) % 2), FLOOR - 21 + Math.round(Math.sin(t / 500)));
+    return;
+  }
+  if (p.stage === 'egg') {
+    const left = p.hatchAt - t, fast = left < 10000;
+    const w = Math.floor(t / (fast ? 150 : 500)) % 4, wob = fast ? [0, 1, 0, -1][w] : [0, 0, 1, 0][w];
+    drawEgg(b, v.x, FLOOR, wob);
+    return;
+  }
+  if (p.asleep) {
+    const r = drawPet(b, p, v.x, FLOOR, { eyes: 'closed', mouth: 'smile', dy: 0 });
+    const z = Math.floor(t / 700) % 3;
+    for (let s = 0; s <= z; s++) sprite(b, FX.z, r.left + r.w + s * 3, r.top - 2 - s * 5);
+    if (p.sick) effectOver(b, r, 'sick', t);
+    return;
+  }
+  if (p.call || p.health < 30) {
+    const kind = p.call ? p.call.kind : 'weak';
+    const o = { eyes: 'sad', mouth: 'sad', dy: 0 };
+    if (kind === 'needy') { o.eyes = 'angry'; o.mouth = 'flat'; o.dy = beat % 4 === 0 ? -1 : 0; }
+    else if (kind === 'sick') { o.eyes = 'droopy'; o.mouth = 'sad'; o.dx = beat % 2 ? 1 : 0; }
+    else if (kind === 'dirty') { o.eyes = 'open'; o.look = 1; o.mouth = 'flat'; }
+    else if (kind === 'hungry') { o.dy = beat % 8 === 0 ? -1 : 0; o.mouth = beat % 4 < 2 ? 'open' : 'sad'; }
+    else if (kind === 'weak') { o.eyes = 'droopy'; o.mouth = 'flat'; }
+    const r = drawPet(b, p, v.x, FLOOR, o);
+    effectOver(b, r, kind, t);
+    return;
+  }
+  // the fun stuff
+  const o = { dy: 0, look: 0 };
+  const blink = (Math.floor(t / 250) + i * 7) % 18 === 0;
+  if (blink) o.eyes = 'closed';
+  const extras = [];
+  switch (v.act) {
+    case 'idle': o.dy = beat % 4 < 2 ? 0 : -1; break;
+    case 'stroll': o.dy = beat % 2 ? -1 : 0; o.look = v.dir; break;
+    case 'hop': o.dy = [0, -2, -3, -2, 0, 0][beat % 6]; if (o.dy < -1) o.eyes = 'happy'; break;
+    case 'look': o.look = beat < 4 ? -1 : beat < 8 ? 1 : 0; break;
+    case 'dance': case 'duet': {
+      o.dx = [0, 1, 0, -1][beat % 4]; o.dy = beat % 2 ? -1 : 0; o.eyes = 'happy'; o.mouth = 'happy';
+      extras.push(r => sprite(b, FX.note, beat % 4 < 2 ? r.left - 5 : r.left + r.w + 1, r.top - 1 - (beat % 4), {}, { color: [BASE.P, BASE.R, BASE.C][beat % 3] }));
+      break;
+    }
+    case 'sing': o.mouth = beat % 2 ? 'open' : 'smile'; o.eyes = 'happy';
+      extras.push(r => sprite(b, FX.note, r.left + r.w + 1 + (beat % 3), r.top - 2 - (beat % 6), {}, { color: BASE.P })); break;
+    case 'ball': {
+      const bx = [0, 2, 4, 6, 8, 6, 4, 2][beat % 8], by = [0, -2, -3, -2, 0, -2, -3, -2][beat % 8];
+      o.dy = beat % 8 === 0 ? -2 : 0; o.look = bx > 3 ? 1 : 0; o.eyes = beat % 8 === 0 ? 'happy' : o.eyes;
+      extras.push(r => sprite(b, FX.ball, r.left + r.w + 1 + bx, FLOOR - 4 + by));
+      break;
+    }
+    case 'jump': o.dy = [0, -2, -4, -5, -5, -4, -2, 0][Math.min(beat, 7)]; if (o.dy <= -4) { o.eyes = 'happy'; o.mouth = 'happy'; extras.push(r => { sprite(b, FX.twinkle, r.left - 3, r.top + 2); sprite(b, FX.twinkle, r.left + r.w + 1, r.top + 1); }); } break;
+    case 'yawn': if (beat > 2 && beat < 8) { o.eyes = 'closed'; o.mouth = 'open'; } break;
+    case 'meet': {
+      const o2 = views[1 - i], near = Math.abs((o2.x) - v.x) < 18;
+      o.dy = beat % 2 ? -1 : 0; o.look = i === 0 ? 1 : -1;
+      if (near && beat > 6) { o.eyes = 'happy'; o.mouth = 'happy'; o.dy = beat % 3 === 0 ? -2 : 0; if (i === 0) extras.push(r => sprite(b, FX.heart, r.left + r.w + 1, r.top - 4 - (beat % 2))); }
+      break;
+    }
+  }
+  const r = drawPet(b, p, v.x, FLOOR, o);
+  for (const e of extras) e(r);
+}
+function drawRoom(b, t) {
+  if (!S.lights) sprite(b, FX.moon, 3, TOP + 2);
+  for (const i of [0, 1]) drawSlot(b, i, t);
+  drawPoops(b, t);
+}
+function drawMenu(b, items, sel, title) {
+  if (title) text(b, title, 28 - (textW(title) >> 1), TOP + 3, BASE.D);
+  items.forEach((s, k) => { const y = TOP + (title ? 12 : 8) + k * 9; if (k === sel) text(b, '>', 6, y, BASE.R); text(b, s, 12, y); });
+}
+function drawAnim(b, t) {
+  const a = ui.anim, k = t - a.t0, p = a.slot >= 0 ? S.pets[a.slot] : null, beat = Math.floor(k / 250);
+  if (k >= a.dur) {
+    ui.mode = 'main'; ui.anim = null;
+    if (a.kind === 'die' || a.kind === 'hatch' || a.kind === 'evolve') refreshPanel();
+    return drawRoom(b, t);
+  }
+  switch (a.kind) {
+    case 'meal': case 'snack': {
+      const food = a.kind === 'meal' ? FX.meal : FX.snack, px = 12, bites = a.data.r === 'ok' ? clamp(Math.floor((k - 500) / 520), 0, 3) : 0;
+      let o = { mouth: 'smile' };
+      if (a.data.r !== 'ok') o = { look: beat % 2 ? 1 : -1, eyes: a.data.r === 'fussy' ? 'angry' : 'open', mouth: 'flat' };
+      else if (k > 500 && k < 2100) o.mouth = (k % 520) < 260 ? 'open' : 'smile';
+      else if (k >= 2100) o = { eyes: 'happy', mouth: 'happy', dy: beat % 2 ? -1 : 0 };
+      const r = drawPet(b, p, px, FLOOR, o);
+      if (bites < 3) sprite(b, food, r.left + r.w + 3, FLOOR - food.length + 1, {}, { skip: (x) => x < bites * Math.ceil(food[0].length / 3) });
+      if (k >= 2100 && a.data.r === 'ok') sprite(b, FX.heart, r.left + r.w + 4, r.top - 3);
+      break;
+    }
+    case 'medicine': {
+      const r = drawPet(b, p, 14, FLOOR, a.data.r === 'well' ? { look: beat % 2 ? 1 : -1, mouth: 'flat' } : k < 1100 ? { eyes: 'open', mouth: 'smile' } : { eyes: a.data.r === 'cured' ? 'happy' : 'closed', mouth: a.data.r === 'cured' ? 'happy' : 'flat' });
+      const px = Math.round(lerp(48, r.left + r.w + 1, clamp(k / 1000, 0, 1)));
+      if (k < 1300 || a.data.r === 'well') sprite(b, FX.pill, a.data.r === 'well' ? r.left + r.w + 4 : px, r.top + 4);
+      if (a.data.r === 'cured' && k > 1300) { sprite(b, FX.twinkle, r.left - 3, r.top + (beat % 2)); sprite(b, FX.twinkle, r.left + r.w + 1, r.top + 3 - (beat % 2)); }
+      break;
+    }
+    case 'scold': {
+      const good = a.data.r === 'good';
+      const r = drawPet(b, p, 12, FLOOR, k < 600 ? { eyes: 'open', mouth: 'flat' } : good ? { eyes: 'sad', mouth: 'flat', dy: 1 } : { eyes: 'closed', mouth: 'sad' });
+      sprite(b, FX.bang, r.left + r.w + 6, r.top - 1);
+      if (!good && k > 600) { put(b, r.left + 2, r.top + 6 + (beat % 3), BASE.C); put(b, r.left + r.w - 3, r.top + 6 + ((beat + 1) % 3), BASE.C); }
+      break;
+    }
+    case 'asleep': { const r = drawPet(b, p, 16, FLOOR, { eyes: 'closed' }); text(b, 'ZZZ', r.left + r.w + 2, r.top + (beat % 2)); break; }
+    case 'flush': {
+      drawRoom(b, t);
+      const front = Math.round(lerp(58, -12, k / a.dur));
+      for (let x = front; x < front + 5; x++) for (let y = TOP; y <= FLOOR; y++) if ((x + y + beat) % 3) put(b, x, y, x === front ? BASE.C : 0x9fe3f7);
+      const had = Math.min(4, a.data.had.reduce((s, n) => s + n, 0));
+      for (let n = 0; n < had; n++) if (front > 44) drawPoopAt(b, n, t);
+      break;
+    }
+    case 'score': {
+      const r = drawPet(b, p, 6, FLOOR, a.data.won ? { eyes: 'happy', mouth: 'happy', dy: beat % 2 ? -2 : 0 } : { eyes: 'sad', mouth: 'sad' });
+      text(b, a.data.won ? 'WIN!' : 'LOSE', r.left + r.w + 6, TOP + 8, a.data.won ? BASE.R : BASE.D);
+      text(b, `${a.data.wins}/5`, r.left + r.w + 8, TOP + 17);
+      break;
+    }
+    case 'hatch': {
+      const crack = k < 1200 ? 0 : Math.floor((k - 1200) / 60);
+      if (k < 1900) drawEgg(b, 23, FLOOR, k < 1200 ? [0, 1, 0, -1][beat % 4] : [0, 2, 0, -2][beat % 4], crack);
+      else { drawPet(b, p, 24, FLOOR, { eyes: 'happy', mouth: 'happy', dy: beat % 2 ? -2 : 0 }); for (let s = 0; s < 4; s++) sprite(b, FX.twinkle, 16 + s * 7, TOP + 8 + ((s + beat) % 3) * 3); }
+      break;
+    }
+    case 'evolve': {
+      const from = { ...p, form: a.data.from, stage: SPECIES[a.data.from].stage };
+      const who = k < a.dur - 900 ? (beat % 2 ? p : from) : p;
+      const w = artOf(who)[0].length;
+      drawPet(b, who, 28 - (w >> 1), FLOOR, k > a.dur - 900 ? { eyes: 'happy', mouth: 'happy' } : {});
+      for (let s = 0; s < 6; s++) sprite(b, s % 2 ? FX.twinkle : FX.spark, 4 + s * 9, TOP + 3 + ((s * 5 + beat) % 4) * 4);
+      break;
+    }
+    case 'die': {
+      const x = 22;
+      if (k < 1100) drawPet(b, { ...p, dead: false }, x, FLOOR, { eyes: 'x', mouth: 'flat' });
+      else { sprite(b, FX.tomb, x, FLOOR - 10); sprite(b, FX.ghost, x + 2, FLOOR - 12 - Math.round((k - 1100) / 120)); }
+      break;
+    }
+  }
+}
+function drawGame(b, t) {
+  const g = ui.game, p = S.pets[g.i], k = t - g.t0, beat = Math.floor(k / 250);
+  for (let n = 0; n < 5; n++) rect(b, 2 + n * 4, TOP + 2, 3, 3, n < g.round ? BASE.K : n === g.round ? BASE.D : 0xdcdfe6);
+  text(b, 'L', 3, TOP + 22, BASE.D); text(b, 'R', 50, TOP + 22, BASE.D);
+  if (g.phase === 'ask') {
+    drawPet(b, p, 21, FLOOR, { dy: beat % 4 < 2 ? 0 : -1 });
+    text(b, '?', 27, TOP + 2 + (beat % 2), BASE.R);
+  } else {
+    const right = g.dir === g.guess;
+    const r = drawPet(b, p, 21 + g.dir * 5, FLOOR, { look: g.dir, eyes: right ? 'happy' : 'sad', mouth: right ? 'happy' : 'sad' });
+    text(b, right ? 'YES' : 'NO', 28 - (textW(right ? 'YES' : 'NO') >> 1), TOP + 2, right ? BASE.R : BASE.D);
+    if (k > 1000) { g.round++; if (g.round >= 5) endGame(true); else { g.phase = 'ask'; g.t0 = t; } }
+    void r;
+  }
+}
+function drawMeter(b) {
+  const [i, page] = ui.pages[ui.page], p = S.pets[i];
+  text(b, p.name.slice(0, 8), 28 - (textW(p.name.slice(0, 8)) >> 1), TOP + 2, BASE.D);
+  if (page === 0) {
+    const age = now() - p.hatched, days = Math.floor(age / DAY);
+    text(b, 'AGE', 6, TOP + 11); text(b, days ? `${days} ${days === 1 ? 'DAY' : 'DAYS'}` : `${Math.floor(age / HOUR)} HR`, 22, TOP + 11);
+    text(b, 'WT', 6, TOP + 20); text(b, p.weight + 'G', 22, TOP + 20);
+  } else if (page === 1) {
+    text(b, 'DISCIPLINE', 8, TOP + 11);
+    for (let s = 0; s < 4; s++) { rect(b, 8 + s * 10, TOP + 20, 9, 5, BASE.K); if (p.discipline >= (s + 1) * 25) rect(b, 9 + s * 10, TOP + 21, 7, 3, 0x5fd17a); else rect(b, 9 + s * 10, TOP + 21, 7, 3, 0xe8ecdf); }
+  } else {
+    const n = page === 2 ? p.hunger : p.happy;
+    text(b, page === 2 ? 'HUNGER' : 'HAPPY', 28 - (textW(page === 2 ? 'HUNGER' : 'HAPPY') >> 1), TOP + 11);
+    for (let s = 0; s < 4; s++) mono(b, s < n ? HEART_FULL : HEART_EMPTY, 12 + s * 8, TOP + 20, s < n ? BASE.R : BASE.K);
+  }
+}
+function drawChoose(b, t) {
+  const title = { food: 'FEED WHO?', game: 'PLAY WITH?', medicine: 'MEDICINE?', scold: 'SCOLD WHO?' }[ui.action] || 'WHO?';
+  text(b, title, 28 - (textW(title) >> 1), TOP + 2, BASE.D);
+  ui.choices.forEach((i, n) => {
+    const p = S.pets[i], w = artOf(p)[0].length, x = (n ? 40 : 14) - (w >> 1);
+    const r = drawPet(b, p, x, FLOOR, p.asleep ? { eyes: 'closed' } : {});
+    if (n === ui.target) sprite(b, FX.down, r.left + (r.w >> 1) - 2, r.top - 5 + (Math.floor(t / 300) % 2), {}, { color: BASE.R });
+  });
+}
+function drawClock(b, t) {
+  const d = new Date(t), h24 = d.getHours(), h12 = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle?.startsWith('h1');
+  const hh = h12 ? ((h24 + 11) % 12) + 1 : h24, colon = Math.floor(t / 500) % 2 ? ':' : ' ';
+  const s = `${String(hh).padStart(2, '0')}${colon}${String(d.getMinutes()).padStart(2, '0')}`;
+  text(b, s, 28 - (textW(s, 2) >> 1), TOP + 9, BASE.K, 2);
+  if (h12) text(b, h24 < 12 ? 'AM' : 'PM', 24, TOP + 23, BASE.D);
+  if (now() > ui.until) ui.mode = 'main';
+}
+function compose(t) {
+  fb.px.fill(-1);
+  drawIcons(fb, t);
+  if (ui.mode === 'anim' && ui.anim) drawAnim(fb, t);
+  else if (ui.mode === 'food') { drawMenu(fb, ['MEAL', 'SNACK'], ui.opt, livePets().length > 1 ? S.pets[ui.target].name.slice(0, 10) : ''); sprite(fb, ui.opt ? FX.snack : FX.meal, 40, TOP + (livePets().length > 1 ? 13 : 9) + ui.opt * 9); }
+  else if (ui.mode === 'light') { drawMenu(fb, ['ON', 'OFF'], ui.opt, 'LIGHT'); sprite(fb, ICON_ART.light, 38, TOP + 12 + ui.opt * 9, {}, ui.opt ? { color: BASE.D } : {}); }
+  else if (ui.mode === 'choose') drawChoose(fb, t);
+  else if (ui.mode === 'meter') drawMeter(fb);
+  else if (ui.mode === 'game') drawGame(fb, t);
+  else if (ui.mode === 'clock') drawClock(fb, t);
+  else if (ui.mode === 'confirm') { text(fb, 'NEW EGG?', 12, TOP + 5); text(fb, 'B YES', 18, TOP + 15, BASE.R); text(fb, 'C NO', 18, TOP + 23, BASE.D); }
+  else drawRoom(fb, t);
+}
+
+/* =====================================================================
+   The LCD. Dots are pushed to a tiny texture; a shader draws the glass:
+   square dots with gaps, their shadows on the backing, a faint grid of
+   unlit dots, the backlight. Dots fade on and off like real liquid crystal.
+   ===================================================================== */
+const dotData = new Uint8Array(COLS * ROWS * 4), dotCur = new Float32Array(COLS * ROWS * 4);
+const dotTex = new THREE.DataTexture(dotData, COLS, ROWS, THREE.RGBAFormat);
+dotTex.magFilter = dotTex.minFilter = THREE.NearestFilter; dotTex.needsUpdate = true;
+function present(dt) {
+  const on = 1 - Math.exp(-dt / 0.045), off = 1 - Math.exp(-dt / 0.08);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = fb.px[y * COLS + x], k = ((ROWS - 1 - y) * COLS + x) * 4;
+    if (c >= 0) { dotCur[k] = c >> 16 & 255; dotCur[k + 1] = c >> 8 & 255; dotCur[k + 2] = c & 255; dotCur[k + 3] += (255 - dotCur[k + 3]) * on; }
+    else dotCur[k + 3] -= dotCur[k + 3] * off;
+    dotData[k] = dotCur[k]; dotData[k + 1] = dotCur[k + 1]; dotData[k + 2] = dotCur[k + 2]; dotData[k + 3] = dotCur[k + 3];
+  }
+  dotTex.needsUpdate = true;
+}
+const lcdMat = new THREE.ShaderMaterial({
+  uniforms: { uDots: { value: dotTex }, uGrid: { value: new THREE.Vector2(COLS, ROWS) }, uLit: { value: 1 } },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D uDots; uniform vec2 uGrid; uniform float uLit; varying vec2 vUv;
+    float cell(vec2 f, float e) { vec2 q = abs(f - 0.5); return 1.0 - smoothstep(0.415 - e, 0.415 + e, max(q.x, q.y)); }
+    void main() {
+      vec2 g = vUv * uGrid; float e = clamp(length(fwidth(g)) * 0.55, 0.02, 0.5);
+      vec2 c = floor(g); vec4 d = texture2D(uDots, (c + 0.5) / uGrid);
+      vec2 gs = g + vec2(-0.2, 0.2); vec2 cs = floor(gs); vec4 ds = texture2D(uDots, (cs + 0.5) / uGrid);   // a dot's shadow falls down and right
+      float row = uGrid.y - 1.0 - c.y, bar = step(row, 9.5) + step(41.5, row);
+      vec2 p = vUv - 0.5;
+      vec3 lit = mix(vec3(0.925, 0.95, 0.86), vec3(0.78, 0.84, 0.72), smoothstep(0.1, 0.78, length(p * vec2(1.0, 1.15)))) * (1.0 - 0.045 * bar);
+      vec3 dark = vec3(0.1, 0.12, 0.18) * (1.0 - 0.35 * length(p));
+      vec3 col = mix(dark, lit, uLit);
+      float m = cell(g - c, e), ms = cell(gs - cs, e);
+      col *= 1.0 - 0.045 * m;                                   // the grid of unlit dots
+      col *= 1.0 - 0.28 * ms * ds.a * (0.4 + 0.6 * uLit);
+      float lum = dot(d.rgb, vec3(0.3, 0.59, 0.11));
+      vec3 night = mix(vec3(0.3, 0.34, 0.5), d.rgb * 0.5, smoothstep(0.05, 0.4, lum));   // in the dark, outlines glow faintly
+      col = mix(col, mix(night, d.rgb, uLit), m * d.a);
+      gl_FragColor = vec4(pow(col, vec3(2.2)), 1.0);
+      #include <colorspace_fragment>
+    }`,
+});
+
+/* =====================================================================
+   The toy itself: an egg of glossy plastic with a flat face, a bezel and
+   lens over the LCD, three domed buttons, a keychain loop, a battery door.
+   ===================================================================== */
+const THEMES = {
+  bubblegum: { name: 'Bubblegum', shell: '#ff9fc9', motif: ['#ffffff', '#fff07a'], shape: 'star', bezel: '#fff4f9', btn: '#ffd84a', ink: '#9c3a6c', eggDot: 0xff7fb5, bg: ['#ffd6e8', '#c9b8ff'] },
+  mint: { name: 'Mint', shell: '#7fdcc3', motif: ['#ffffff', '#ff8fb3'], shape: 'heart', bezel: '#fffaf0', btn: '#ff7aa2', ink: '#246b5a', eggDot: 0x3fbf9f, bg: ['#d5f7ec', '#ffe3ee'] },
+  sky: { name: 'Sky', shell: '#86b8ff', motif: ['#ffffff', '#ffe066'], shape: 'cloud', bezel: '#ffffff', btn: '#ff8c69', ink: '#2c4f8a', eggDot: 0x5b8def, bg: ['#d8e8ff', '#fff1d6'] },
+  lemon: { name: 'Lemon', shell: '#ffe45e', motif: ['#ffffff', '#ff9f43'], shape: 'flower', bezel: '#fffdf2', btn: '#7a8cff', ink: '#8a6a00', eggDot: 0xf2b200, bg: ['#fff4c2', '#d6f5ff'] },
+  grape: { name: 'Grape', shell: '#b18cff', motif: ['#ffffff', '#7ff0d0'], shape: 'dot', bezel: '#fbf7ff', btn: '#5de0c6', ink: '#5a3aa0', eggDot: 0x9b6cf0, bg: ['#e9dcff', '#ffd9ec'] },
+  midnight: { name: 'Midnight', shell: '#343a66', motif: ['#ffd86b', '#ffffff'], shape: 'star', bezel: '#ecebff', btn: '#ffcf5c', ink: '#e8e6ff', eggDot: 0x6f7bd6, bg: ['#c8cdf2', '#f4d7ec'] },
+};
+const EGG_H = 3.3, EGG_R = 2.75, DEPTH = 0.5, FLAT = 0.95;
+const eggR = y => { const t = clamp(y / EGG_H, -1, 1); return EGG_R * Math.pow(Math.max(0, 1 - t * t), 0.45) * (1 - 0.08 * t); };
+const smin = (a, b, k) => -k * Math.log(Math.exp(-a / k) + Math.exp(-b / k));
+const SCREEN_Y = 0.42, SCREEN_W = 2.3, SCREEN_H = SCREEN_W * ROWS / COLS;
+
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.NeutralToneMapping;
+const scene = new THREE.Scene();
+{ const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.03).texture; pm.dispose(); }
+scene.environmentIntensity = 0.85;
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(-3, 5, 6); scene.add(key);
+const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
+
+const hold = new THREE.Group(), dev = new THREE.Group();
+scene.add(hold); hold.add(dev);
+
+function shellTexture(th) {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+  const x = c.getContext('2d');
+  x.fillStyle = th.shell; x.fillRect(0, 0, 1024, 512);
+  const g = x.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'rgba(0,0,0,.08)');
+  x.fillStyle = g; x.fillRect(0, 0, 1024, 512);
+  const rng = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(7);
+  const star = (r) => { x.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } x.closePath(); x.fill(); };
+  const heart = r => { x.beginPath(); x.moveTo(0, r * 0.9); x.bezierCurveTo(-r * 1.4, -r * 0.1, -r * 0.6, -r * 1.1, 0, -r * 0.35); x.bezierCurveTo(r * 0.6, -r * 1.1, r * 1.4, -r * 0.1, 0, r * 0.9); x.fill(); };
+  const cloud = r => { x.beginPath(); for (const [cx, cy, cr] of [[-0.6, 0.1, 0.5], [0, -0.2, 0.65], [0.6, 0.1, 0.5]]) { x.moveTo(cx * r + cr * r, cy * r); x.arc(cx * r, cy * r, cr * r, 0, Math.PI * 2); } x.fill(); x.fillRect(-r * 1.1, 0, r * 2.2, r * 0.5); };
+  const flower = r => { for (let k = 0; k < 5; k++) { const a = k * Math.PI * 2 / 5; x.beginPath(); x.arc(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.42, 0, Math.PI * 2); x.fill(); } };
+  const draw = { star, heart, cloud, flower, dot: r => { x.beginPath(); x.arc(0, 0, r * 0.55, 0, Math.PI * 2); x.fill(); } }[th.shape];
+  for (let row = 0; row < 9; row++) for (let col = 0; col < 22; col++) {
+    const u = (col + (row % 2) * 0.5 + (rng() - 0.5) * 0.4) / 22 * 1024, v = (row + 0.5 + (rng() - 0.5) * 0.35) / 9 * 512;
+    x.save(); x.translate(u, v); x.scale(0.76, 1); x.rotate((rng() - 0.5) * 0.9);
+    x.fillStyle = th.motif[(row + col) % 2]; x.globalAlpha = 0.85; draw(8 + rng() * 9); x.restore();
+  }
+  x.globalAlpha = 1;
+  // where the front and back halves of the shell meet
+  x.fillStyle = 'rgba(40, 20, 50, .35)'; for (const u of [0.25, 0.75]) x.fillRect(u * 1024 - 1.5, 0, 3, 512);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+function shellGeometry() {
+  const pts = [];
+  for (let i = 0; i <= 96; i++) { const y = -EGG_H + 2 * EGG_H * i / 96; pts.push(new THREE.Vector2(Math.max(eggR(y), 1e-4), y)); }
+  const g = new THREE.LatheGeometry(pts, 144, Math.PI, Math.PI * 2);   // seam at the back
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {                                   // squash to a pebble and flatten the face and back
+    const z = p.getZ(i) * DEPTH;
+    p.setZ(i, z >= 0 ? smin(z, FLAT, 0.07) : -smin(-z, FLAT, 0.07));
+  }
+  g.computeVertexNormals();
+  return g;
+}
+function roundRect(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+function decal(textStr, w, h, font, color) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * h / w);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, toneMapped: false }));
+  m.userData.draw = (col) => {
+    const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height);
+    x.fillStyle = col; x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(textStr, c.width / 2, c.height / 2 + 2);
+    if (!m.material.map) { m.material.map = new THREE.CanvasTexture(c); m.material.map.colorSpace = THREE.SRGBColorSpace; m.material.map.anisotropy = 8; }
+    m.material.map.needsUpdate = true; m.material.needsUpdate = true;
+  };
+  m.userData.draw(color);
+  return m;
+}
+
+const shellMat = new THREE.MeshPhysicalMaterial({ roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.14 });
+const bezelMat = new THREE.MeshPhysicalMaterial({ roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.3 });
+const btnMat = new THREE.MeshPhysicalMaterial({ roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 });
+const metal = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, metalness: 1, roughness: 0.25 });
+const shell = new THREE.Mesh(shellGeometry(), shellMat);
+dev.add(shell);
+// the face: bezel, LCD, lens
+const bezelShape = roundRect(SCREEN_W + 0.46, SCREEN_H + 0.46, 0.36);
+bezelShape.holes.push(roundRect(SCREEN_W + 0.04, SCREEN_H + 0.04, 0.1));
+const bezel = new THREE.Mesh(new THREE.ExtrudeGeometry(bezelShape, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.035, bevelSegments: 4, curveSegments: 16 }), bezelMat);
+bezel.position.set(0, SCREEN_Y, FLAT - 0.03);
+const lcd = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), lcdMat);
+lcd.position.set(0, SCREEN_Y, FLAT + 0.012);
+const lens = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W + 0.04, SCREEN_H + 0.04), new THREE.MeshPhysicalMaterial({ transmission: 1, roughness: 0.04, thickness: 0.04, ior: 1.5, specularIntensity: 1, color: 0xffffff }));
+lens.position.set(0, SCREEN_Y, FLAT + 0.055);
+dev.add(bezel, lcd, lens);
+// buttons
+const BTN = [[-0.86, -1.5], [0, -1.66], [0.86, -1.5]];
+const buttons = BTN.map(([bx, by], i) => {
+  const g = new THREE.Group(); g.position.set(bx, by, FLAT);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.04, 12, 48), bezelMat); ring.position.z = 0.005;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.28, 36, 18, 0, Math.PI * 2, 0, Math.PI / 2), btnMat);
+  cap.rotation.x = Math.PI / 2; cap.scale.set(1, 0.6, 1); cap.position.z = -0.02;
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(0.46, 12, 8), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.userData.button = i; g.add(ring, cap, hit); g.userData = { cap, hit, press: 0 };
+  dev.add(g); return g;
+});
+const labels = ['A', 'B', 'C'].map((s, i) => { const m = decal(s, 0.34, 0.34, '700 300px Fredoka, system-ui, sans-serif', '#fff'); m.position.set(BTN[i][0], BTN[i][1] - 0.5, FLAT + 0.004); dev.add(m); return m; });
+const logo = decal('pocket pet', 1.3, 0.3, '700 96px Fredoka, system-ui, sans-serif', '#fff'); logo.position.set(0, SCREEN_Y + SCREEN_H / 2 + 0.52, FLAT + 0.004); dev.add(logo);
+// keychain loop
+const loop = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.075, 16, 40), shellMat); loop.rotation.y = Math.PI / 2; loop.position.y = EGG_H + 0.14; dev.add(loop);
+const chain = new THREE.Group();
+for (let k = 0; k < 30; k++) { const a = k / 30 * Math.PI * 2; const s = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), metal); s.position.set(Math.sin(a) * 0.32, 0.5 - Math.cos(a) * 0.5, 0); chain.add(s); }
+chain.position.y = EGG_H + 0.14;
+dev.add(chain);
+// the back: battery door and a screw
+const door = new THREE.Mesh(new THREE.ExtrudeGeometry(roundRect(2.1, 1.5, 0.25), { depth: 0.02, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.02, bevelSegments: 2 }), bezelMat);
+door.position.set(0, -0.2, -FLAT - 0.035); dev.add(door);
+const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 20), metal); screw.rotation.x = Math.PI / 2; screw.position.set(0, -0.72, -FLAT - 0.06); dev.add(screw);
+const backText = decal('OPEN ▸   3V', 1.4, 0.24, '600 80px Fredoka, system-ui, sans-serif', 'rgba(60,40,70,.55)'); backText.rotation.y = Math.PI; backText.position.set(0, 0.1, -FLAT - 0.072); dev.add(backText);
+
+function applyTheme() {
+  const th = THEMES[S.theme] || THEMES.bubblegum;
+  shellMat.map?.dispose(); shellMat.map = shellTexture(th); shellMat.needsUpdate = true;
+  bezelMat.color.set(th.bezel); btnMat.color.set(th.btn);
+  for (const m of [...labels, logo]) m.userData.draw(th.ink === '#e8e6ff' ? '#ffffff' : th.ink);
+  document.documentElement.style.setProperty('--bg1', th.bg[0]); document.documentElement.style.setProperty('--bg2', th.bg[1]);
+  for (const b of $('themes').children) b.setAttribute('aria-pressed', String(b.dataset.t === S.theme));
+}
+
+/* ---------- camera, turning it in your hand ---------- */
+const turn = { yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, idle: 0 };
+function fit() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  const needH = 9.6, needW = 7.4;
+  const d = Math.max(needH / 2 / Math.tan(vf / 2), needW / 2 / Math.tan(hf / 2)) * (DEMO ? 0.86 : 1);
+  camera.position.set(0, 0.3, d); camera.lookAt(0, 0.35, 0); camera.updateProjectionMatrix();
+}
+addEventListener('resize', fit);
+
+/* =====================================================================
+   Sound: a little piezo disc. Square waves only, snapped on and off, with
+   no bass and a sharp resonance near 3.5 kHz, like the real thing's buzzer.
+   The tunes are our own, written in that high, quick, two-octave style.
+   ===================================================================== */
+let ac = null, bus = null;
+function audio() {
+  if (!ac) {
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+    const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1100; hp.Q.value = 0.8;         // a tiny disc can't move air below ~1 kHz
+    const res = ac.createBiquadFilter(); res.type = 'peaking'; res.frequency.value = 3500; res.Q.value = 2.4; res.gain.value = 10;   // its ring
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8200; lp.Q.value = 0.5;
+    const shaper = ac.createWaveShaper(), n = 1024, curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; curve[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); }  // a touch of buzz when it's driven hard
+    shaper.curve = curve;
+    const out = ac.createGain(); out.gain.value = 0.55;
+    hp.connect(res).connect(lp).connect(shaper).connect(out).connect(ac.destination);
+    bus = hp;
+  }
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+const NOTE = n => { const m = n.match(/^([A-G])(#?)(\d)$/); return 440 * 2 ** (({ C: -9, D: -7, E: -5, F: -4, G: -2, A: 0, B: 2 }[m[1]] + (m[2] ? 1 : 0) + (Number(m[3]) - 4) * 12) / 12); };
+const tune = (s, len = 90, gap = 25) => s.split(' ').map(tok => { const [n, l] = tok.split(':'); const d = l ? Number(l) : len; return n === '-' ? [0, d, 0] : [NOTE(n), d, gap]; });
+const SOUNDS = {
+  press: [[4186, 24, 0]],
+  error: [[1480, 90, 50], [1480, 90, 0]],
+  on: tune('E7:45 G7:70'), off: tune('G7:45 E7:70'),
+  call: tune('A7:70 A7:70 A7:70 -:260 A7:70 A7:70 A7:70', 70, 55),
+  eat: tune('D7:45 A6:45 -:140 D7:45 A6:45 -:140 D7:45 A6:45', 45, 30),
+  happy: tune('C7 E7 G7 C8:170', 70, 15),
+  sad: tune('B6:120 G6:120 E6:260', 120, 45),
+  scold: [[1397, 150, 70], [1397, 300, 0]],
+  right: tune('G7:50 C8:110', 50, 15), wrong: [[1320, 220, 0]],
+  flush: tune('G6 A6 B6 C7 D7 E7 F#7 G7 A7 B7 C8:90', 32, 6),
+  medicine: tune('E7:60 C7:60 E7:60 C7:120', 60, 25),
+  game: tune('G7:40 G7:40 C8:90', 40, 30),
+  hatch: tune('C7 E7 G7 C8:180 -:60 G7 C8:300', 85, 30),
+  evolve: tune('E7 D7 E7 G7 A7:170 -:40 G7 A7 C8:340', 80, 22),
+  die: tune('G7:240 E7:240 D7:240 C7:600', 240, 70),
+};
+let soundTail = 0;
+function beep(name) {
+  if (!S.sound || DEMO) return;
+  const a = audio(); if (!a) return;
+  // a button click sounds at once; anything else waits for the click to finish instead of talking over it
+  let t = name === 'press' ? a.currentTime + 0.005 : Math.max(a.currentTime + 0.012, soundTail);
+  for (const [f, d, gap] of SOUNDS[name] || []) {
+    const end = t + d / 1000;
+    if (f) {
+      const o = a.createOscillator(), v = a.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      v.gain.setValueAtTime(0, t); v.gain.linearRampToValueAtTime(0.22, t + 0.0015); v.gain.setValueAtTime(0.22, end - 0.0015); v.gain.linearRampToValueAtTime(0, end);
+      o.connect(v).connect(bus); o.start(t); o.stop(end + 0.005);
+    }
+    t = end + (gap ?? 0) / 1000;
+  }
+  soundTail = Math.max(soundTail, t);
+}
+
+/* =====================================================================
+   Notifications, for when the tab is in the background.
+   ===================================================================== */
+const canNotify = 'Notification' in window;
+let swReady = null;
+if ('serviceWorker' in navigator && !DEMO) swReady = navigator.serviceWorker.register('sw.js').catch(() => null);
+const lastNote = {};
+function petIcon(p) {
+  const b = mkBuf(20, 20); drawPet(b, p, 10 - (artOf(p)[0].length >> 1), 18, { eyes: p.call ? 'sad' : 'open' });
+  const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+  x.fillStyle = '#e6eed8'; x.fillRect(0, 0, 96, 96);
+  for (let j = 0; j < 20; j++) for (let i = 0; i < 20; i++) { const v = b.px[j * 20 + i]; if (v >= 0) { x.fillStyle = '#' + v.toString(16).padStart(6, '0'); x.fillRect(i * 4.8, j * 4.8, 4.6, 4.6); } }
+  return c.toDataURL('image/png');
+}
+async function notify(p, kind, body) {
+  if (!S.notify || !canNotify || Notification.permission !== 'granted' || DEMO) return;
+  if (document.visibilityState === 'visible' && document.hasFocus()) return;
+  const k = (p?.id || '') + kind, t = now();
+  if (lastNote[k] && t - lastNote[k] < 20 * MIN) return;
+  lastNote[k] = t;
+  const opts = { body, tag: k, renotify: true, icon: p ? petIcon(p) : undefined, silent: false };
+  try { const reg = await (swReady || Promise.resolve(null)); if (reg && reg.showNotification) return await reg.showNotification('Pocket Pet', opts); } catch {}
+  try { new Notification('Pocket Pet', opts); } catch {}
+}
+const CALL_TEXT = { hungry: n => `${n} is hungry.`, unhappy: n => `${n} is feeling lonely. Play with them?`, sick: n => `${n} is sick and needs medicine.`,
+  lights: n => `${n} fell asleep. Turn off the light?`, needy: n => `${n} is calling for you.`, dirty: n => `${n} needs a clean-up.` };
+const cap = s => s[0] + s.slice(1).toLowerCase();
+
+/* ---------- things that happen, while you watch or while you're away ---------- */
+function liveLog(p, kind, data) {
+  const n = cap(p.name);
+  switch (kind) {
+    case 'call': beep('call'); notify(p, 'call-' + data, CALL_TEXT[data](n)); if (navigator.vibrate && document.visibilityState === 'visible') try { navigator.vibrate([60, 60, 60]); } catch {} break;
+    case 'hatch': if (ui.mode === 'main' || ui.mode === 'clock') startAnim('hatch', S.pets.indexOf(p), 2600); beep('hatch'); notify(p, 'hatch', `${n} hatched!`); break;
+    case 'evolve': startAnim('evolve', S.pets.indexOf(p), 3400, { from: p.forms[p.forms.length - 2] }); beep('evolve'); notify(p, 'evolve', `${n} grew into ${SPECIES[data].label}!`); break;
+    case 'die': startAnim('die', S.pets.indexOf(p), 3200); beep('die'); notify(p, 'die', `${n} has passed away.`); break;
+    case 'weak': notify(p, 'weak', `${n} is getting very weak. Please check on them.`); break;
+  }
+  if (kind !== 'poop') refreshPanel();
+}
+function awayLog() {
+  const per = new Map();
+  const fn = (p, kind, data) => {
+    if (!per.has(p)) per.set(p, { calls: new Set(), poop: 0, sick: 0, mistakes: 0, evolved: [], hatched: false, died: false, slept: 0 });
+    const r = per.get(p);
+    if (kind === 'call') r.calls.add(data); else if (kind === 'poop') r.poop++; else if (kind === 'sick') r.sick++;
+    else if (kind === 'mistake') r.mistakes++; else if (kind === 'evolve') r.evolved.push(data); else if (kind === 'hatch') r.hatched = true;
+    else if (kind === 'die') r.died = true; else if (kind === 'sleep') r.slept++;
+  };
+  fn.per = per;
+  return fn;
+}
+function summarize(per) {
+  const lines = [];
+  for (const [p, r] of per) {
+    const n = cap(p.name), bits = [];
+    if (r.hatched) bits.push('hatched');
+    for (const f of r.evolved) bits.push(`grew into ${SPECIES[f].label}`);
+    if (r.calls.has('hungry')) bits.push('got hungry');
+    if (r.calls.has('unhappy')) bits.push('got lonely');
+    if (r.poop) bits.push(r.poop === 1 ? 'pooped' : `pooped ${r.poop} times`);
+    if (r.sick) bits.push('got sick');
+    if (r.calls.has('lights')) bits.push(r.slept > 1 ? `slept ${r.slept} nights, with the light on` : 'slept with the light on');
+    else if (r.slept) bits.push(r.slept === 1 ? 'went to bed' : `slept ${r.slept} nights`);
+    if (r.calls.has('needy')) bits.push('acted up');
+    if (r.mistakes && !r.died) bits.push(r.mistakes === 1 ? 'called you once with no answer' : `called ${r.mistakes} times with no answer`);
+    if (r.died) bits.push('passed away');
+    if (bits.length) lines.push(`${n} ${bits.length > 1 ? bits.slice(0, -1).join(', ') + ' and ' + bits.at(-1) : bits[0]}.`);
+  }
+  return lines;
+}
+function span(ms) { const h = Math.floor(ms / HOUR), m = Math.round(ms % HOUR / MIN); return h >= 48 ? `${Math.floor(h / 24)} days` : h ? `${h} h ${m} min` : `${m} min`; }
+
+/* =====================================================================
+   Sharing pets: a code (or a .pet file holding it) that carries one pet.
+   ===================================================================== */
+const TIME_FIELDS = ['born', 'hatchAt', 'hatched', 'poopSince', 'sleptAt', 'lastCare', 'evolvedAt'];
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+const b64enc = s => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)));
+function exportCode(p) {
+  const json = JSON.stringify({ v: 1, at: now(), pet: p });
+  return `PET1.${b64enc(json)}.${hashStr(json)}`;
+}
+function parseCode(raw) {
+  const m = String(raw).replace(/\s+/g, '').match(/PET1\.([A-Za-z0-9_-]+)\.([a-z0-9]+)/);
+  if (!m) throw new Error("That doesn't look like a pet code. It should start with PET1.");
+  let json; try { json = b64dec(m[1]); } catch { throw new Error('That code is damaged. Try copying it again.'); }
+  if (hashStr(json) !== m[2]) throw new Error('That code is damaged. Try copying it again.');
+  const d = JSON.parse(json), p = d.pet;
+  if (d.v !== 1 || !p || !SPECIES[p.form] || SPECIES[p.form].stage !== p.stage) throw new Error("That pet code isn't one this toy understands.");
+  if (p.dead) throw new Error('That pet has passed away.');
+  const n = (x, a, b, def) => Number.isFinite(x) ? clamp(x, a, b) : def;
+  const shift = now() - (Number.isFinite(d.at) ? d.at : now());   // it picks up where it was when it was sent
+  const q = newPet(now());
+  Object.assign(q, {
+    name: String(p.name || 'PAL').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 8) || 'PAL', form: p.form, stage: p.stage,
+    hunger: n(p.hunger, 0, 4, 2) | 0, happy: n(p.happy, 0, 4, 2) | 0, discipline: n(p.discipline, 0, 100, 0), weight: n(p.weight, 1, 99, 10) | 0,
+    poop: n(p.poop, 0, 4, 0) | 0, sick: n(p.sick, 0, 2, 0) | 0, asleep: !!p.asleep, mistakes: n(p.mistakes, 0, 999, 0) | 0,
+    stageMistakes: n(p.stageMistakes, 0, 999, 0) | 0, stageDisc: n(p.stageDisc, 0, 999, 0) | 0, health: n(p.health, 1, 100, 80), snacks: n(p.snacks, 0, 20, 0) | 0,
+    forms: Array.isArray(p.forms) ? p.forms.filter(f => SPECIES[f]).slice(-8) : [p.form], call: null,
+  });
+  for (const f of TIME_FIELDS) q[f] = Number.isFinite(p[f]) ? Math.min(now(), p[f] + shift) : now();
+  q.hatchAt = Number.isFinite(p.hatchAt) ? p.hatchAt + shift : now() + 60 * SEC;
+  const tm = p.timers || {};
+  q.timers = { hunger: (tm.hunger || now()) + shift, happy: (tm.happy || now()) + shift, poop: (tm.poop || now()) + shift };
+  q.lastCare = now();
+  return q;
+}
+function importPet(raw) {
+  const p = parseCode(raw);
+  let slot = S.pets.findIndex(x => !x);
+  if (slot < 0) slot = S.pets.findIndex(x => x && x.dead);
+  if (slot < 0) throw new Error('Your toy already holds two pets. Say goodbye to one to make room.');
+  const other = S.pets[1 - slot];
+  if (other && other.name === p.name) p.name = (p.name.slice(0, 6) + '2');
+  if (other && other.id === p.id) p.id = uid();
+  S.pets[slot] = p; views[slot].x = slot ? 28 : 10;
+  if (p.stage !== 'egg' && !S.seen.includes(p.form) && p.stage === 'adult') S.seen.push(p.form);
+  refreshCall(p, now(), noLog); save(); refreshPanel(); beep('hatch');
+  return p;
+}
+
+/* =====================================================================
+   The panel: your pets, sharing, shells, settings.
+   ===================================================================== */
+const panel = $('panel');
+function spriteCanvas(p, size = 20) {
+  const b = mkBuf(size, size), c = document.createElement('canvas'); c.width = c.height = size; c.className = 'sprite';
+  if (p.dead) sprite(b, FX.tomb, (size - 10) >> 1, size - 12);
+  else drawPet(b, p, (size - artOf(p)[0].length) >> 1, size - 3, { eyes: p.asleep ? 'closed' : p.call ? 'sad' : 'open', mouth: p.call ? 'sad' : 'smile' });
+  const x = c.getContext('2d'), img = x.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) { const v = b.px[i]; if (v >= 0) img.data.set([v >> 16 & 255, v >> 8 & 255, v & 255, 255], i * 4); }
+  x.putImageData(img, 0, 0);
+  return c;
+}
+function statusOf(p) {
+  if (p.dead) return `Passed away after ${span(p.diedAt - p.hatched)} (${p.cause}).`;
+  if (p.stage === 'egg') return 'Hatching soon…';
+  if (p.asleep) return S.lights ? 'Asleep, with the light on.' : 'Fast asleep.';
+  if (p.call) return { hungry: 'Hungry!', unhappy: 'Lonely. Play with them.', sick: 'Sick. Needs medicine.', lights: 'Asleep, light on.', needy: 'Acting up. Scold them?', dirty: 'Sitting in a mess.' }[p.call.kind];
+  if (p.health < 30) return 'Weak. Keep caring for them.';
+  return p.hunger >= 3 && p.happy >= 3 ? 'Happy and full.' : 'Doing fine.';
+}
+let openExport = -1, goodbyeArmed = -1;
+function refreshPanel() {
+  const cards = $('cards'); if (!cards) return;
+  cards.textContent = '';
+  S.pets.forEach((p, i) => {
+    const card = document.createElement('div'); card.className = 'card';
+    if (!p) {
+      card.innerHTML = `<canvas class="sprite" width="20" height="20"></canvas><div><p class="who" style="font-weight:600;font-size:17px;margin:0">Empty spot</p><p class="what">Hatch another egg, or add a friend's pet below.</p></div><div class="acts"><button class="pill solid" type="button" data-act="egg" data-i="${i}">Hatch an egg</button></div>`;
+      cards.append(card); return;
+    }
+    const sp = SPECIES[p.form], age = p.hatched ? span(now() - p.hatched) : 'not hatched';
+    card.append(spriteCanvas(p));
+    const info = document.createElement('div');
+    info.innerHTML = `<div class="who"><input class="nm" maxlength="8" value="${p.name}" aria-label="Name" data-i="${i}" ${p.dead ? 'disabled' : ''}></div>
+      <p class="what">${p.dead ? 'Rest in peace' : `${sp.label} · ${STAGE_WORD[p.stage]}`}${p.hatched && !p.dead ? ` · ${age} old` : ''}</p>
+      <p class="stats">${p.dead || p.stage === 'egg' ? '' : `Hunger ${'♥'.repeat(p.hunger)}${'♡'.repeat(4 - p.hunger)} · Happy ${'♥'.repeat(p.happy)}${'♡'.repeat(4 - p.happy)} · ${p.weight} g · ${p.mistakes} ${p.mistakes === 1 ? 'mistake' : 'mistakes'}<br>`}${statusOf(p)}</p>`;
+    card.append(info);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    if (p.dead) acts.innerHTML = `<button class="pill solid" type="button" data-act="egg" data-i="${i}">Hatch a new egg</button>`;
+    else acts.innerHTML = `<button class="pill" type="button" data-act="share" data-i="${i}">${openExport === i ? 'Hide code' : 'Share'}</button>
+      <button class="pill warn" type="button" data-act="bye" data-i="${i}">${goodbyeArmed === i ? `Really let ${cap(p.name)} go?` : 'Say goodbye'}</button>`;
+    card.append(acts);
+    if (openExport === i && !p.dead) {
+      const box = document.createElement('div'); box.className = 'code';
+      const code = exportCode(p);
+      box.innerHTML = `<textarea readonly aria-label="Pet code">${code}</textarea><div class="row"><button class="pill solid" type="button" data-act="copy">Copy code</button><button class="pill" type="button" data-act="file" data-i="${i}">Save .pet file</button>${navigator.share ? '<button class="pill" type="button" data-act="send" data-i="' + i + '">Send…</button>' : ''}</div>
+        <p class="msg">A friend can paste this into their toy. Your ${cap(p.name)} stays here too.</p>`;
+      card.append(box);
+    }
+    cards.append(card);
+  });
+  const full = S.pets.every(p => p && !p.dead);
+  $('importBtn').disabled = full;
+  if (full && !$('importMsg').textContent) $('importMsg').textContent = '';
+  $('importText').placeholder = full ? 'Your toy is full: it holds two pets.' : 'PET1.…';
+  // gallery of grown-up forms
+  const gal = $('gallery'); gal.textContent = '';
+  for (const f of ADULTS) {
+    const fig = document.createElement('figure'), seen = S.seen.includes(f);
+    const c = spriteCanvas({ form: f, stage: 'adult', asleep: false, call: null }, 18);
+    if (!seen) c.style.filter = 'brightness(0) opacity(.18)';
+    fig.append(c); const cap2 = document.createElement('figcaption'); cap2.textContent = seen ? SPECIES[f].label : '?'; cap2.title = seen ? SPECIES[f].blurb : ''; fig.append(cap2);
+    gal.append(fig);
+  }
+  $('petsBtn').dataset.on = String(S.pets.some(p => p && p.call && !p.dead));
+  updateSettings(); updateSub();
+}
+$('cards').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const i = Number(b.dataset.i), act = b.dataset.act, p = S.pets[i];
+  audio();
+  if (act === 'egg') { hatchNew(i); toast('A new egg! It hatches in a minute.'); }
+  else if (act === 'share') { openExport = openExport === i ? -1 : i; goodbyeArmed = -1; }
+  else if (act === 'bye') {
+    if (goodbyeArmed !== i) { goodbyeArmed = i; setTimeout(() => { if (goodbyeArmed === i) { goodbyeArmed = -1; refreshPanel(); } }, 4000); }
+    else { goodbyeArmed = -1; toast(`Goodbye, ${cap(p.name)}.`); S.pets[i] = null; if (openExport === i) openExport = -1; if (!S.pets.some(Boolean)) S.pets[0] = newPet(now()); save(); ui.mode = 'main'; }
+  }
+  else if (act === 'copy') { const ta = b.closest('.code').querySelector('textarea'); try { await navigator.clipboard.writeText(ta.value); toast('Pet code copied'); } catch { ta.select(); document.execCommand('copy'); toast('Pet code copied'); } return; }
+  else if (act === 'file') { const blob = new Blob([exportCode(p) + '\n'], { type: 'text/plain' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${p.name.toLowerCase()}.pet`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); return; }
+  else if (act === 'send') { try { await navigator.share({ title: `${cap(p.name)} the pocket pet`, text: `Take care of ${cap(p.name)}! Paste this into Pocket Pet:\n${exportCode(p)}` }); } catch {} return; }
+  refreshPanel();
+});
+$('cards').addEventListener('change', e => {
+  const inp = e.target.closest('input.nm'); if (!inp) return;
+  const p = S.pets[Number(inp.dataset.i)]; const v = inp.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim().slice(0, 8);
+  if (p && v) { p.name = v; save(); } refreshPanel();
+});
+$('importBtn').addEventListener('click', () => {
+  const msg = $('importMsg');
+  try { const p = importPet($('importText').value); $('importText').value = ''; msg.className = 'msg'; msg.textContent = `${cap(p.name)} the ${SPECIES[p.form].label} moved in!`; }
+  catch (err) { msg.className = 'msg err'; msg.textContent = err.message || 'That code could not be read.'; }
+});
+$('fileBtn').addEventListener('click', () => $('fileIn').click());
+$('fileIn').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; $('importText').value = (await f.text()).slice(0, 20000); e.target.value = ''; $('importBtn').click(); });
+$('themes').innerHTML = Object.entries(THEMES).map(([k, t]) => `<button class="theme" type="button" data-t="${k}" style="--c:${t.shell};--b:${t.bezel}" aria-label="${t.name}" aria-pressed="false"></button>`).join('');
+$('themes').addEventListener('click', e => { const b = e.target.closest('.theme'); if (!b) return; S.theme = b.dataset.t; save(); applyTheme(); refreshPanel(); });
+function updateSettings() {
+  const snd = S.sound ? 'On' : 'Off';
+  $('soundBtn2').textContent = snd; $('soundBtn').setAttribute('aria-pressed', String(S.sound));
+  $('soundBtn').innerHTML = S.sound
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9Z"/><path d="m17 9 5 6M22 9l-5 6"/></svg>';
+  $('soundBtn').setAttribute('aria-label', S.sound ? 'Sound on' : 'Sound off');
+  const nb = $('notifyBtn'), note = $('notifyNote');
+  if (!canNotify) { nb.disabled = true; nb.textContent = 'Not here'; note.textContent = "This browser can't show notifications for pages. On iPhone, add this page to your home screen first."; }
+  else if (Notification.permission === 'denied') { nb.disabled = true; nb.textContent = 'Blocked'; note.textContent = "Notifications are blocked for this site in your browser's settings."; }
+  else { nb.disabled = false; nb.textContent = S.notify && Notification.permission === 'granted' ? 'Turn off' : 'Turn on'; note.textContent = 'Get a nudge when a pet needs you, while this tab is open in the background. Closed tabs catch up when you come back.'; }
+}
+const toggleSound = () => { S.sound = !S.sound; save(); updateSettings(); if (S.sound) beep('on'); };
+$('soundBtn').addEventListener('click', toggleSound); $('soundBtn2').addEventListener('click', toggleSound);
+$('notifyBtn').addEventListener('click', async () => {
+  if (S.notify && Notification.permission === 'granted') { S.notify = false; save(); updateSettings(); return; }
+  const r = await Notification.requestPermission().catch(() => 'denied');
+  S.notify = r === 'granted'; save(); updateSettings();
+  if (S.notify) { const p = S.pets.find(x => x && !x.dead); toast('Notifications on'); lastNote.test = 0; const reg = await (swReady || Promise.resolve(null)); const opts = { body: `${p ? cap(p.name) : 'Your pet'} will call you here when they need something.`, icon: p ? petIcon(p) : undefined }; try { reg?.showNotification ? reg.showNotification('Pocket Pet', opts) : new Notification('Pocket Pet', opts); } catch {} }
+});
+const openPanel = on => { panel.classList.toggle('open', on); $('petsBtn').setAttribute('aria-expanded', String(on)); if (on) { refreshPanel(); $('closePanel').focus(); } };
+$('petsBtn').addEventListener('click', () => openPanel(!panel.classList.contains('open')));
+$('closePanel').addEventListener('click', () => openPanel(false));
+$('awayOk').addEventListener('click', () => { $('away').hidden = true; });
+
+let toastT = 0;
+function toast(s) { const t = $('toast'); t.textContent = s; t.classList.remove('off'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('off'), 2600); }
+function updateSub() {
+  const ps = S.pets.filter(Boolean);
+  const bits = ps.map(p => p.dead ? `${cap(p.name)} (RIP)` : p.stage === 'egg' ? 'an egg' : `${cap(p.name)} the ${SPECIES[p.form].label}`);
+  $('sub').textContent = bits.join(' & ');
+}
+let lastSaid = '';
+function announce() {
+  const p = S.pets.find(x => x && x.call && !x.dead);
+  const icon = ui.mode === 'main' && ui.sel >= 0 ? ['Food', 'Light', 'Game', 'Medicine', 'Bathroom', 'Meter', 'Discipline'][ui.sel] + ' selected. ' : '';
+  const s = icon + (p ? CALL_TEXT[p.call.kind](cap(p.name)) : '');
+  if (s && s !== lastSaid) { $('live').textContent = s; lastSaid = s; }
+}
+function setHint() {
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  $('hint').innerHTML = coarse ? 'A picks an icon · B uses it · C goes back · drag to turn it'
+    : 'A picks an icon · B uses it · C goes back &nbsp; <kbd>A</kbd> <kbd>B</kbd> <kbd>C</kbd> · drag to turn it';
+}
+
+/* =====================================================================
+   Input: press the buttons, or grab the toy and turn it over.
+   ===================================================================== */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const PRESS = [pressA, pressB, pressC];
+function hitButton(e) {
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const h = ray.intersectObjects(buttons.map(b => b.userData.hit), false)[0];
+  return h ? h.object.userData.button : -1;
+}
+function press(i) {
+  audio(); buttons[i].userData.press = 1;
+  if (!DEMO) PRESS[i]();
+  lastPress = now();
+}
+let drag = null, lastPress = 0;
+canvas.addEventListener('pointerdown', e => {
+  audio();
+  const b = hitButton(e);
+  if (b >= 0) { press(b); return; }
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
+  canvas.classList.add('held'); turn.idle = 0;
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) { canvas.classList.toggle('over', e.pointerType === 'mouse' && hitButton(e) >= 0); return; }
+  if (e.pointerId !== drag.id) return;
+  const dt = Math.max(1, performance.now() - drag.t) / 1000, dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  turn.ty += dx * 0.009; turn.tp = clamp(turn.tp + dy * 0.009, -1.2, 1.2);
+  turn.vy = dx * 0.009 / dt; turn.vp = dy * 0.009 / dt;
+  drag.x = e.clientX; drag.y = e.clientY; drag.t = performance.now(); turn.idle = 0;
+});
+const endDrag = e => { if (drag && e.pointerId === drag.id) { drag = null; canvas.classList.remove('held'); } };
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  if (e.key === 'Escape' && panel.classList.contains('open')) { openPanel(false); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const i = k === 'a' || k === 'arrowleft' || k === '1' ? 0 : k === 'b' || k === 'enter' || k === ' ' || k === 'arrowdown' || k === '2' ? 1 : k === 'c' || k === 'escape' || k === 'arrowright' || k === '3' ? 2 : -1;
+  if (i < 0 || e.repeat) return;
+  if ((k === 'enter' || k === ' ') && e.target.closest && e.target.closest('button')) return;
+  e.preventDefault(); press(i);
+});
+['srA', 'srB', 'srC'].forEach((id, i) => $(id).addEventListener('click', () => press(i)));
+// tilting a phone turns the toy
+const tilt = { available: 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches, on: false, b: 0, g: 0, b0: null, g0: null };
+addEventListener('deviceorientation', e => {
+  if (!tilt.on || e.beta == null) return;
+  if (tilt.b0 === null) { tilt.b0 = e.beta; tilt.g0 = e.gamma; }
+  tilt.b = e.beta - tilt.b0; tilt.g = e.gamma - tilt.g0;
+});
+$('motion').hidden = !tilt.available || DEMO;
+$('motion').addEventListener('click', async () => {
+  if (tilt.on) { tilt.on = false; $('motionLabel').textContent = 'Tilt to turn it'; return; }
+  try { if (typeof DeviceOrientationEvent.requestPermission === 'function' && await DeviceOrientationEvent.requestPermission() !== 'granted') return; } catch { return; }
+  tilt.on = true; tilt.b0 = tilt.g0 = null; $('motionLabel').textContent = 'Stop tilting';
+});
+
+/* =====================================================================
+   Running.
+   ===================================================================== */
+function tickLife() {
+  if (DEMO) return;
+  if (simulateTo(now(), liveLog)) save();
+  for (const p of S.pets) if (p && p.call && !p.call.reminded && now() - p.call.since > 10 * MIN) {   // one more nudge if you missed the first
+    p.call.reminded = true; beep('call'); notify(p, 'remind-' + p.call.kind, CALL_TEXT[p.call.kind](cap(p.name)));
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { tickLife(); refreshPanel(); } else save(); });
+addEventListener('pagehide', save);
+
+let last = performance.now(), lcdAcc = 0, lit = S.lights ? 1 : 0;
+function frame(ms) {
+  const dt = Math.min(0.1, (ms - last) / 1000); last = ms;
+  const t = now();
+  lcdAcc += dt;
+  if (lcdAcc > 1 / 12) {                                          // the LCD refreshes about 12 times a second
+    updateViews(t);
+    compose(t); present(lcdAcc); lcdAcc = 0;
+  }
+  const lightOn = S.lights || ui.mode !== 'main' || DEMO;           // pressing a button lights the screen, like the real thing
+  lit += ((lightOn ? 1 : 0) - lit) * (1 - Math.exp(-dt * 12)); lcdMat.uniforms.uLit.value = lit;
+  // turning: follow the hand, keep a little spin when let go, drift back to face you
+  turn.idle += dt;
+  if (!drag) {
+    turn.ty += turn.vy * dt; turn.tp += turn.vp * dt; turn.vy *= Math.exp(-dt * 4); turn.vp *= Math.exp(-dt * 4); turn.tp = clamp(turn.tp, -1.2, 1.2);
+    if (tilt.on) { turn.ty = clamp(tilt.g / 45, -1, 1) * 0.9; turn.tp = clamp(tilt.b / 45, -1, 1) * 0.7; }
+    else if (turn.idle > 2.5 && !DEMO) {
+      const home = Math.round(turn.ty / (Math.PI * 2)) * Math.PI * 2, k = 1 - Math.exp(-dt * 2);
+      turn.ty += (home - turn.ty) * k; turn.tp += (0 - turn.tp) * k;
+    }
+  }
+  turn.yaw += (turn.ty - turn.yaw) * (1 - Math.exp(-dt * 14)); turn.pitch += (turn.tp - turn.pitch) * (1 - Math.exp(-dt * 14));
+  const tt = ms / 1000, still = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1;
+  dev.rotation.set(turn.pitch + 0.05 * Math.sin(tt * 0.9) * still, turn.yaw + 0.06 * Math.sin(tt * 0.6) * still, 0.03 * Math.sin(tt * 0.7) * still, 'XYZ');   // tip toward you about the screen's axis, whichever way it's turned
+  hold.position.y = 0.08 * Math.sin(tt * 1.1) * still;
+  chain.rotation.x = 0.15 * Math.sin(tt * 1.3) * still - turn.pitch * 0.3;
+  for (const b of buttons) { b.userData.press = Math.max(0, b.userData.press - dt * 7); b.userData.cap.position.z = -0.02 - 0.07 * Math.min(1, b.userData.press * 1.5); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- start ---------- */
+function start() {
+  fit(); setHint(); applyTheme();
+  if (DEMO) {
+    const t = now();
+    S = freshDevice(t); S.theme = 'bubblegum';
+    const a = newPet(t), b = newPet(t, [a.name]);
+    Object.assign(a, { name: 'MOCHI', form: 'starla', stage: 'adult', hatched: t - 4 * DAY, hunger: 3, happy: 4 });
+    Object.assign(b, { name: 'TARO', form: 'chompers', stage: 'adult', hatched: t - 3 * DAY, hunger: 4, happy: 3, poop: 1 });
+    setTimers(a, t); setTimers(b, t); S.pets = [a, b]; S.seen = ['starla', 'chompers'];
+    views[0].x = 8; views[1].x = 27;
+    for (const v of views) Object.assign(v, { act: 'duet', t0: t, dur: 1e9, duo: true });
+    turn.ty = turn.yaw = -0.32; turn.tp = turn.pitch = 0.1;
+    applyTheme();
+  } else {
+    const before = S.lastTick, away = awayLog();
+    simulateTo(now(), away);
+    const gone = now() - before, lines = summarize(away.per);
+    if (!firstVisit && gone > 5 * MIN && lines.length) {
+      $('awayTitle').textContent = `While you were away · ${span(gone)}`;
+      $('awayList').innerHTML = lines.map(l => `<li>${l}</li>`).join('');
+      $('away').hidden = false;
+    }
+    if (firstVisit) toast('Your egg hatches in about a minute');
+    save();
+    setInterval(tickLife, 1000);
+  }
+  refreshPanel(); announce();
+  requestAnimationFrame(frame);
+}
+if (document.fonts && document.fonts.load) Promise.race([document.fonts.load('700 64px Fredoka'), new Promise(r => setTimeout(r, 1500))]).then(start, start);
+else start();
+</script>
+</body>
+</html>

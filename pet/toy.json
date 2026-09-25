@@ -1,0 +1,8 @@
+{
+  "title": "Pocket Pet",
+  "blurb": "An egg-shaped virtual pet you can turn in your hand. Hatch it, then feed it, clean up after it, put it to bed, give it medicine and keep it in line. How you raise it decides what it grows into. It lives in your browser, calls you when it needs something, and keeps living while you're away. Trade pets with friends by code.",
+  "added": "2026-09-25",
+  "tags": ["three.js", "pixel art", "virtual pet"],
+  "tape": "purple",
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
+}
