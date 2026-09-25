@@ -1,0 +1,9 @@
+{
+  "title": "Sound Garden",
+  "blurb": "A walled garden in the late sun, with eight speakers planted in its rooms, each playing one part of the same slow spa piece: pedal bass, pads, shimmer, felt piano, handpan, bamboo flute, singing bowls and wind chimes. They start switched off. Find them, press their buttons, then sit in the chair in the middle where every part arrives together. Wear headphones.",
+  "added": "2026-09-25",
+  "tags": ["three.js", "sound", "3D audio", "explore"],
+  "tape": "green",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 6000, "query": "?demo" }
+}
