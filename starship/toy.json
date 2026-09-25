@@ -1,0 +1,8 @@
+{
+  "title": "All Hands",
+  "blurb": "A pixel-art cutaway of a starship, bow to the right, and the eighty-odd crew who run it in three watches. Engineers tend the core, the captain has the bridge, cooks feed the mess, soldiers shoot at targets, and whoever is off shift works out, reads or sleeps. Click a room to look inside, or follow anyone around the ship. Every ship is new.",
+  "added": "2026-09-25",
+  "tags": ["canvas", "pixel art", "simulation", "explore"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 4000, "query": "?ship=11&time=15:20" }
+}
