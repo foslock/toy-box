@@ -289,7 +289,7 @@ export function drawWorld(g, rect, ship, painted, sim, t, dt, L) {
     const cx = Math.round(lf.x) - 5, cy = Math.round(lf.y) - 15;
     if (!inView(cx, cy, 30)) continue;
     R_(g, cx, cy, 10, 15, '#2a3240'); R_(g, cx + 1, cy + 1, 8, 1, '#dfe9ff');
-    for (const c of lf.riders) drawAgent(g, c, t, sim);
+    for (const c of lf.riders) drawAgent(g, c, t, sim);   // the cat and the droid ride the lifts too
     R_(g, cx - 1, cy - 1, 12, 1, '#8a94a6'); R_(g, cx - 1, cy + 15, 12, 1, '#5a6272');
     const o = lf.state === 'doors' ? 1 : 0;
     if (!o) { g.globalAlpha = .35; R_(g, cx, cy + 2, 10, 13, '#9ad8ff'); g.globalAlpha = 1; }
@@ -325,17 +325,15 @@ export function drawWorld(g, rect, ship, painted, sim, t, dt, L) {
     if (f.state === 'away') continue;
     if (inView(f.x, f.y, 30)) fighter(g, f.x, f.y, f.col, ['fly', 'return', 'drop', 'rise'].includes(f.state), L);
   }
-  // the crew and friends
-  for (const c of sim.crew) {
-    if (c.mode === 'flying' || c.mode === 'lift') continue;
-    if (!inView(c.x, c.y, 20)) continue;
-    drawAgent(g, c, t, sim);
-    effects(c, t, dt);
-  }
+  // The crew. Only people using a piece of front furniture (asleep in a bunk, serving behind a counter, in the
+  // shower) go behind the front layer; everyone else, walking past included, is drawn in front of it.
+  const behind = c => c.mode === 'act' && c.st && c.st.behind;
+  const crew = sim.crew.filter(c => c.mode !== 'flying' && c.mode !== 'lift' && inView(c.x, c.y, 20));
+  for (const c of crew) if (behind(c)) { drawAgent(g, c, t, sim); effects(c, t, dt); }
+  g.drawImage(painted.fg, x0, y0, W, H, x0, y0, W, H);
+  for (const c of crew) if (!behind(c)) { drawAgent(g, c, t, sim); effects(c, t, dt); }
   if (sim.prisoner && inView(sim.prisoner.x, sim.prisoner.y)) drawAgent(g, sim.prisoner, t, sim);
   for (const a of sim.agents) if (a.mode !== 'lift' && inView(a.x, a.y)) drawCritter(g, a, t);
-  // the front layer: counters, bunk rails, shower doors
-  g.drawImage(painted.fg, x0, y0, W, H, x0, y0, W, H);
   // doors
   for (const D of sim.doors) {
     if (!inView(D.x, D.y)) continue;
@@ -372,17 +370,33 @@ export function drawWorld(g, rect, ship, painted, sim, t, dt, L) {
   }
 }
 
-export function drawAgent(g, c, t, sim) {
+// The sprite a crew member is showing right now, and where its top-left corner goes.
+function agentSprite(c, t) {
   if (c.dept === 'prisoner') {
-    const st = c.mode === 'sleep' ? 'lie' : c.mode === 'sitb' ? 'sit' : WALK_ST[Math.floor((c.walkT || 0) / 2.4) % 4];
-    const s = crewSprite(c.look, st, st === 'lie' ? 'none' : c.mode === 'sitb' ? 'lap' : WALK_ARM[Math.floor((c.walkT || 0) / 2.4) % 4], 'none', c.dir < 0, '#8a8a7a');
-    g.drawImage(s.c, Math.round(c.x) - s.ox, Math.round(c.y) - s.oy);
-    return;
+    const f = Math.floor((c.walkT || 0) / 2.4) % 4, st = c.mode === 'sleep' ? 'lie' : c.mode === 'sitb' ? 'sit' : WALK_ST[f];
+    const s = crewSprite(c.look, st, st === 'lie' ? 'none' : c.mode === 'sitb' ? 'lap' : WALK_ARM[f], 'none', c.dir < 0, '#8a8a7a');
+    return { s, st, x: Math.round(c.x) - s.ox, y: Math.round(c.y) - s.oy };
   }
   const [st, arms, prop] = pose(c, t);
   const s = crewSprite(c.look, st, arms, prop, c.dir < 0, st === 'lie' ? (c.st && c.st.blanket) : undefined);
-  let x = Math.round(c.x) - s.ox, y = Math.round(c.y) - s.oy;
+  let y = Math.round(c.y) - s.oy;
   if (st === 'hang') y -= Math.round((Math.sin((c.actT || 0) * 2.2) * .5 + .5) * 3);
+  return { s, st, x: Math.round(c.x) - s.ox, y };
+}
+// The cat and the droid are little pixel lists rather than composed sprites.
+function critterPixels(a, t) {
+  if (a.kind === 'cat') {
+    const C = a.sprites || (a.sprites = CAT(a.col[0], a.col[1]));
+    const px = a.mode === 'walk' ? (Math.floor(t * 8) % 2 ? C.walk0 : C.walk1) : a.mode === 'rest' && a.pose === 'sleep' ? C.sleep : C.sit;
+    return { px, x: Math.round(a.x), y: Math.round(a.y) };
+  }
+  return { px: DROID.body, x: Math.round(a.x), y: Math.round(a.y) - (a.mode === 'walk' ? Math.floor(t * 6) % 2 : 0) };
+}
+
+export function drawAgent(g, c, t, sim) {
+  if (!c.look) return drawCritter(g, c, t);
+  const { s, x, y } = agentSprite(c, t);
+  if (c.dept === 'prisoner') { g.drawImage(s.c, x, y); return; }
   if (c.mode === 'beamout' || c.mode === 'beamin') {
     const k = c.mode === 'beamout' ? 1 - c.bt / 1.2 : c.bt / 1.2;
     g.globalAlpha = clamp(k, 0, 1); g.drawImage(s.c, x, y); g.globalAlpha = 1;
@@ -393,15 +407,48 @@ export function drawAgent(g, c, t, sim) {
   if (c.mode === 'act' && c.st && c.st.tray && c.st.act === 'eat') { R_(g, c.x + c.dir * 4 - (c.dir < 0 ? 2 : 0), c.y - 7, 3, 1, '#aeb6c4'); PX(g, c.x + c.dir * 5, c.y - 8, '#e0a040'); }
 }
 function drawCritter(g, a, t) {
-  if (a.kind === 'cat') {
-    const C = a.sprites || (a.sprites = CAT(a.col[0], a.col[1]));
-    const moving = a.mode === 'walk';
-    const pose = moving ? (Math.floor(t * 8) % 2 ? C.walk0 : C.walk1) : a.mode === 'ladder' ? C.sit : a.pose === 'sleep' ? C.sleep : C.sit;
-    pxList(g, pose, Math.round(a.x), Math.round(a.y), a.dir < 0);
-    if (a.pose === 'sleep' && a.mode === 'rest' && Math.floor(t / 3.5) !== Math.floor((t - 1 / 60) / 3.5)) glyph(a.x, a.y - 5, 'z', '#cfe0ff', 2, -3);
-  } else {
-    const bob = a.mode === 'walk' ? Math.floor(t * 6) % 2 : 0;
-    pxList(g, DROID.body, Math.round(a.x), Math.round(a.y) - bob, a.dir < 0);
-    if (a.mode === 'rest' && Math.floor(t * 4) % 2) spawn({ x: a.x + (rnd() - .5) * 4, y: a.y - 1, vy: -3, life: .6, c: '#bfe8ff' });
+  const { px, x, y } = critterPixels(a, t);
+  pxList(g, px, x, y, a.dir < 0);
+  if (a.kind === 'cat') { if (a.pose === 'sleep' && a.mode === 'rest' && Math.floor(t / 3.5) !== Math.floor((t - 1 / 60) / 3.5)) glyph(a.x, a.y - 5, 'z', '#cfe0ff', 2, -3); }
+  else if (a.mode === 'rest' && Math.floor(t * 4) % 2) spawn({ x: a.x + (rnd() - .5) * 4, y: a.y - 1, vy: -3, life: .6, c: '#bfe8ff' });
+}
+
+/* ---------- marks: hover frame, repair bars, the selected person — all on the ship's own pixel grid ---------- */
+// The box a crew member (or the cat, or the droid) is drawn in: [x0, y0, x1, y1), whole pixels.
+export function agentBox(c, t) {
+  if (!c.look) {
+    const { px, x, y } = critterPixels(c, t), flip = c.dir < 0;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const [dx, dy] of px) { const X = x + (flip ? -dx : dx); x0 = Math.min(x0, X); x1 = Math.max(x1, X + 1); y0 = Math.min(y0, y + dy); y1 = Math.max(y1, y + dy + 1); }
+    return { x0, y0, x1, y1 };
   }
+  const { s, x, y } = agentSprite(c, t);
+  return { x0: x, y0: y, x1: x + s.c.width, y1: y + s.c.height };
+}
+const OUT = '#0a0c12', GREEN = '#6ad26a', GREEN_HI = '#b8ffb0';
+// FTL-style corner brackets round someone, and a little health bar over their head.
+export function drawSelection(g, c, t) {
+  if (c.mode === 'flying') return;
+  const b = agentBox(c, t), x0 = b.x0 - 1, y0 = b.y0 - 1, x1 = b.x1, y1 = b.y1;
+  const L = Math.max(2, Math.min(3, Math.floor((x1 - x0) / 3)));
+  g.fillStyle = GREEN;
+  for (const [x, y, sx, sy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
+    g.fillRect(sx > 0 ? x : x - L + 1, y, L, 1);
+    g.fillRect(x, sy > 0 ? y : y - L + 1, 1, L);
+  }
+  const w = x1 - x0 - 1, by = y0 - 4;
+  R_(g, x0, by, w + 2, 3, OUT); R_(g, x0 + 1, by + 1, w, 1, GREEN); PX(g, x0 + 1, by + 1, GREEN_HI);
+}
+// A one-pixel frame round a room.
+export function drawRoomFrame(g, r, col) {
+  const x0 = r.x0 - 1, x1 = r.x1, y0 = deckTop(r.d0) + CEIL - 1, y1 = floorY(r.d1) + 1;
+  g.fillStyle = col;
+  g.fillRect(x0, y0, x1 - x0 + 1, 1); g.fillRect(x0, y1, x1 - x0 + 1, 1);
+  g.fillRect(x0, y0, 1, y1 - y0 + 1); g.fillRect(x1, y0, 1, y1 - y0 + 1);
+}
+// The bar that fills while an engineer fixes a broken system, red to green.
+export function drawRepairBar(g, r) {
+  const w = 16, x = Math.round(r.panel.x) - 8, y = floorY(r.d1) - 24, done = Math.round(w * r.broken.p);
+  R_(g, x - 1, y - 1, w + 2, 5, OUT); R_(g, x, y, w, 3, '#c83a2a'); R_(g, x, y, w, 1, '#ff6a4a');
+  if (done > 0) { R_(g, x, y, done, 3, GREEN); R_(g, x, y, done, 1, GREEN_HI); }
 }

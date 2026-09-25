@@ -248,7 +248,7 @@ export function makeSim(ship, painted, seed, startMin) {
   sim.goTo = goTo;
   function nextLeg(c) {
     c.li++;
-    const L = c.legs[c.li];
+    const L = c.legs && c.legs[c.li];
     if (!L) { c.legs = null; return arrive(c); }
     if (L.k === 'walk') { c.mode = 'walk'; c.tx = L.x; }
     else if (L.k === 'ladder') { c.mode = 'ladder'; c.x = L.x; c.ty = floorY(L.to); c.ld = L.to; }

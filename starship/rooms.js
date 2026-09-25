@@ -469,7 +469,7 @@ function buildBunks(k) {
       const bl = R.pick(cols);
       R_(g, x + 4, ty - 2, 11, 1, bl); PX(g, x + 1, ty - 2, '#f0ece2'); PX(g, x + 2, ty - 2, '#f0ece2');
       k.f.fillStyle = frame; k.f.fillRect(x + 1, ty + 1, 14, 1);
-      k.st({ x: x + 9, y: ty - 1, act: 'sleep', dir: -1, use: 'sleep', bed: true, owner: 'crew', blanket: bl, label: 'asleep', bunk: true });
+      k.st({ x: x + 9, y: ty - 1, act: 'sleep', dir: -1, use: 'sleep', bed: true, owner: 'crew', blanket: bl, label: 'asleep', bunk: true, behind: true });
     }
     x += 18;
   }
@@ -488,7 +488,7 @@ function buildMess(k) {
   R_(g, cx, fl - 20, 22, 5, '#6a5040'); for (let i = 0; i < 4; i++) R_(g, cx + 2 + i * 5, fl - 19, 3, 2, R.pick(['#e0a040', '#c05a3a', '#7ac05a', '#e8d8b0']));
   k.wd({ kind: 'steam', x: cx + 6, y: fl - 21, rate: .6 });
   R_(k.f, cx, fl - 9, 22, 9, '#7a5a40'); HL(k.f, cx, cx + 21, fl - 9, '#b8905a'); HL(k.f, cx, cx + 21, fl - 8, '#9a7048');
-  k.st({ x: cx + 11, act: 'serve', dir: 1, dept: 'culinary', watches: [0, 1, 2], label: 'serving at the counter', crit: true });
+  k.st({ x: cx + 11, act: 'serve', dir: 1, dept: 'culinary', watches: [0, 1, 2], label: 'serving at the counter', crit: true, behind: true });
   r.counter = cx + 30;
   BOX(g, x0 + 30, top + 3, 24, 8, '#1a1410', '#4a3a2a'); drawText(g, 'MENU', x0 + 34, top + 5, '#ffcf6a');
   BOX(g, x1 - 10, fl - 14, 7, 14, '#3a3a44', '#1a1a20'); PX(g, x1 - 7, fl - 10, '#ff5a3a');
@@ -532,8 +532,8 @@ function buildBar(k) {
   shelf(g, bx0 + 1, bx1 - 2, top + 9, R, 'bottle'); shelf(g, bx0 + 1, bx1 - 2, top + 15, R, 'bottle');
   // the bar counter in front of the bartender
   R_(k.f, bx0, fl - 9, bx1 - bx0 + 4, 9, '#5a3420'); HL(k.f, bx0, bx1 + 3, fl - 9, '#b87a4a'); HL(k.f, bx0, bx1 + 3, fl - 8, '#8a5430');
-  k.st({ x: bx0 + 14, act: 'bartend', dir: 1, dept: 'culinary', watches: [1, 2], label: 'tending bar' });
-  for (let x = bx0 + 8; x <= bx1 + 6; x += 10) { stool(g, x + 4, fl, '#8a3a2a'); k.st({ x: x + 4, act: 'drink', dir: -1, use: 'drink', label: 'having a drink' }); }
+  k.st({ x: bx0 + 14, act: 'bartend', dir: 1, dept: 'culinary', watches: [1, 2], label: 'tending bar', behind: true });
+  for (let x = bx0 + 8; x <= bx1 + 6; x += 10) { stool(f, x + 4, fl, '#8a3a2a'); k.st({ x: x + 4, act: 'drink', dir: -1, use: 'drink', label: 'having a drink' }); }
   // a neon sign and a jukebox
   k.wd({ kind: 'neon', x: bx1 + 12, y: top + 4, text: 'OPEN' });
   const jx = x1 - 12; BOX(g, jx, fl - 15, 9, 15, '#6a2a4a', '#2a1020'); k.wd({ kind: 'jukebox', x: jx + 1, y: fl - 14 });
@@ -921,7 +921,7 @@ function buildWashroom(k) {
     VL(g, sx + 6, top + 3, top + 5, METAL_L); PX(g, sx + 5, top + 5, METAL_L);
     R_(f, sx, fl - 12, 13, 12, '#c8d8e0'); HL(f, sx, sx + 12, fl - 12, '#e8f4f8'); VL(f, sx, fl - 12, fl - 1, METAL); VL(f, sx + 12, fl - 12, fl - 1, METAL);
     k.wd({ kind: 'shower', x: sx + 6, y: top + 6, h: fl - top - 18 });
-    k.st({ x: sx + 6, act: 'shower', dir: 1, use: 'hygiene', label: 'in the shower', shower: true });
+    k.st({ x: sx + 6, act: 'shower', dir: 1, use: 'hygiene', label: 'in the shower', shower: true, behind: true });
   }
   const mx = x0 + 36;
   if (mx + 12 < x1) {

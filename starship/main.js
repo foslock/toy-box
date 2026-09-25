@@ -4,7 +4,7 @@
 import { makeShip, deckTop, floorY } from './ship.js';
 import { paintShip } from './paint.js';
 import { makeSim, WATCHES, short, title } from './sim.js';
-import { drawWorld, stepVfx, vfx } from './draw.js';
+import { drawWorld, stepVfx, vfx, drawSelection, drawRoomFrame, drawRepairBar } from './draw.js';
 import { glowTex, mk, ctx2d, clamp, lerp, rng, hash } from './util.js';
 import { crewSprite, DEPT, clearSpriteCache, CAT, DROID } from './sprites.js';
 import { ICON_COL, iconPixels } from './rooms.js';
@@ -92,7 +92,6 @@ function stepCam(dt) {
   if (u >= 1) { cam.x = b.x; cam.y = b.y; cam.z = b.z; cam.tw = null; }
 }
 const toWorld = (sx, sy) => ({ x: cam.x + (sx * dpr - cv.width / 2) / cam.z, y: cam.y + (sy * dpr - cv.height / 2) / cam.z });
-const toScreen = (x, y) => ({ x: (x - cam.x) * cam.z + cv.width / 2, y: (y - cam.y) * cam.z + cv.height / 2 });
 const roomAtWorld = (x, y) => {
   for (const r of ship.rooms) if (x >= r.x0 && x < r.x1 && y >= deckTop(r.d0) && y < floorY(r.d1) + 4) return r.type === 'junction' ? r : r;
   return null;
@@ -247,7 +246,7 @@ function drawSpace(dt) {
 }
 
 /* ---------- render ---------- */
-const lights = [];
+const lights = [], drawErrors = new Set();
 function render(dt) {
   const cw = cv.width, ch = cv.height, z = cam.z;
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
@@ -255,7 +254,11 @@ function render(dt) {
   const x0 = clamp(Math.floor(cam.x - cw / 2 / z) - 2, 0, ship.width), x1 = clamp(Math.ceil(cam.x + cw / 2 / z) + 2, 0, ship.width);
   const y0 = clamp(Math.floor(cam.y - ch / 2 / z) - 2, 0, ship.height), y1 = clamp(Math.ceil(cam.y + ch / 2 / z) + 2, 0, ship.height);
   lights.length = 0;
-  if (x1 > x0 && y1 > y0) drawWorld(dg, { x0, y0, x1, y1 }, ship, painted, sim, T, dt, lights);
+  // the painted ship goes down first, so if anything drawn on top of it fails the ship still shows
+  if (x1 > x0 && y1 > y0) {
+    try { drawWorld(dg, { x0, y0, x1, y1 }, ship, painted, sim, T, dt, lights); drawMarks(); }
+    catch (e) { if (!drawErrors.has(e.message)) { drawErrors.add(e.message); console.error(e); } }
+  }
   const ox = Math.round(cw / 2 - cam.x * z), oy = Math.round(ch / 2 - cam.y * z);
   g.setTransform(z, 0, 0, z, ox, oy);
   g.imageSmoothingEnabled = z < 1;
@@ -271,32 +274,13 @@ function render(dt) {
     g.fillStyle = 'rgba(3,4,10,.58)'; g.beginPath(); g.rect(x0 - 50, y0 - 50, x1 - x0 + 100, y1 - y0 + 100); g.rect(fx0, fy0, fx1 - fx0, fy1 - fy0); g.fill('evenodd');
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
-  overlays(focus);
 }
-function box(x0, y0, x1, y1, col, w) {
-  const a = toScreen(x0, y0), b = toScreen(x1, y1);
-  g.strokeStyle = col; g.lineWidth = w * dpr; g.strokeRect(Math.round(a.x) + .5, Math.round(a.y) + .5, Math.round(b.x - a.x), Math.round(b.y - a.y));
-}
-function overlays(focus) {
-  // hovered room: an FTL-yellow outline
-  if (hovered && hovered !== focus && !pts.size) box(hovered.x0, deckTop(hovered.d0) + 5, hovered.x1, floorY(hovered.d1) + 1, 'rgba(255,214,74,.85)', 1.5);
-  // repair bars over anything broken
-  for (const r of ship.rooms) if (r.broken) {
-    const p = toScreen(r.panel.x, floorY(r.d1) - 22), w = Math.max(28, 18 * cam.z / dpr) * dpr, h = 5 * dpr;
-    g.fillStyle = 'rgba(10,12,18,.85)'; g.fillRect(p.x - w / 2 - dpr, p.y - dpr, w + 2 * dpr, h + 2 * dpr);
-    g.fillStyle = '#ff5a3a'; g.fillRect(p.x - w / 2, p.y, w, h);
-    g.fillStyle = '#6ad26a'; g.fillRect(p.x - w / 2, p.y, w * r.broken.p, h);
-  }
-  // the selected crew member: green brackets and a little health bar, FTL style
-  if (selected && selected.mode !== 'flying') {
-    const c = selected, lying = c.mode === 'act' && c.st && (c.st.act === 'sleep' || c.st.act === 'patient');
-    const a = toScreen(c.x - (lying ? 7 : 5), c.y - (lying ? 6 : 15)), b = toScreen(c.x + (lying ? 7 : 5), c.y + 1);
-    const L = Math.max(4 * dpr, (b.x - a.x) * .3);
-    g.strokeStyle = '#6ad26a'; g.lineWidth = 1.5 * dpr; g.beginPath();
-    for (const [x, y, sx, sy] of [[a.x, a.y, 1, 1], [b.x, a.y, -1, 1], [a.x, b.y, 1, -1], [b.x, b.y, -1, -1]]) { g.moveTo(x + sx * L, y); g.lineTo(x, y); g.lineTo(x, y + sy * L); }
-    g.stroke();
-    const w = b.x - a.x; g.fillStyle = '#10141a'; g.fillRect(a.x, a.y - 5 * dpr, w, 3 * dpr); g.fillStyle = '#6ad26a'; g.fillRect(a.x + dpr * .5, a.y - 4.5 * dpr, w - dpr, 2 * dpr);
-  }
+// Marks drawn straight onto the ship's pixels, so they scale up as chunky as everything else: a frame round
+// the room under the pointer, repair bars over broken systems, and brackets and a health bar on whoever's picked.
+function drawMarks() {
+  if (hovered && (view.mode === 'all' || view.mode === 'free') && !pts.size) drawRoomFrame(dg, hovered, '#ffd24a');
+  for (const r of ship.rooms) if (r.broken && r.panel) drawRepairBar(dg, r);
+  if (selected) drawSelection(dg, selected, T);
 }
 
 /* ---------- panels ---------- */
