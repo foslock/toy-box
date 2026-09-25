@@ -1,0 +1,8 @@
+{
+  "title": "Tables & Chairs",
+  "blurb": "Stack tables and chairs into a tower, each a little smaller than the last. They're 3D but only tip left or right, and they obey gravity: load one side and it leans, then goes. Only the bottom table may touch the ground. The music starts as a spa and ends as metal.",
+  "added": "2026-09-25",
+  "tags": ["three.js", "physics", "game", "sound"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 3500, "query": "?demo&n=11" }
+}
