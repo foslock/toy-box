@@ -55,10 +55,10 @@ Toys that stall for a second or two before anything draws set `"loader": true`. 
 
 ```js
 requestAnimationFrame(frame);
-window.toyboxReady?.();   // the bar fills, waits for that first frame to reach the screen, and fades
+window.toyboxReady?.();   // the bar disappears in the same paint as that first frame
 ```
 
-The `?.` keeps the toy working when it's opened straight from its folder, where there's no bar. The bar stays hidden if the toy is ready within a quarter second, turns into a "Try again" button if a script fails to load or throws during startup, and clears itself 15 seconds after the page loads if the toy never calls in.
+The `?.` keeps the toy working when it's opened straight from its folder, where there's no bar. The bar is there from the first paint. It turns into a "Try again" button if a script fails to load or throws during startup, and clears itself 15 seconds after the page loads if the toy never calls in.
 
 ## Scripts
 

@@ -51,7 +51,7 @@ function addHomeButton(file, depth) {
 
 // Toys that take a moment to start (three.js from the CDN, shader compiles) set "loader": true and get a small
 // progress bar, added right after <body> so it paints before their scripts arrive. The toy calls
-// window.toyboxReady?.() once it has started its render loop; the bar fills, waits for that frame, and fades.
+// window.toyboxReady?.() right after it queues its first frame, and the bar goes away with that frame.
 // The bar creeps on the compositor, so it keeps moving while the page is blocked compiling shaders.
 const loader = `
 <div id="toybox-loader" class="toybox-loader" role="progressbar" aria-label="Loading">
@@ -64,8 +64,7 @@ const loader = `
     display: grid; justify-items: center; gap: 10px; padding: 14px 18px 16px; border-radius: 14px; pointer-events: none;
     border: 1px solid rgba(255, 255, 255, .3); background: rgba(16, 12, 20, .42); color: rgba(255, 255, 255, .88);
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-    font: 500 10.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .16em; text-transform: uppercase;
-    opacity: 0; animation: toybox-loader-in .3s ease .25s forwards; }
+    font: 500 10.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .16em; text-transform: uppercase; }
   .toybox-loader-track { position: relative; overflow: hidden; width: 148px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .18); }
   .toybox-loader-bar { position: absolute; inset: 0; border-radius: inherit; background: #fff; transform-origin: left;
     transform: scaleX(.04); animation: toybox-loader-creep 14s cubic-bezier(.1, .75, .25, 1) forwards; }
@@ -77,22 +76,17 @@ const loader = `
   .toybox-loader-retry:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .toybox-loader.is-failed { pointer-events: auto; text-transform: none; letter-spacing: .02em; font-size: 13px; }
   .toybox-loader.is-failed .toybox-loader-track { display: none; }
-  @keyframes toybox-loader-in { to { opacity: 1; } }
   @keyframes toybox-loader-creep { to { transform: scaleX(.92); } }
   @keyframes toybox-loader-sheen { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
   @media (prefers-reduced-motion: reduce) { .toybox-loader-track::after { display: none; } }
 </style>
 <script>
 (() => {
-  const el = document.getElementById('toybox-loader'), bar = el.querySelector('.toybox-loader-bar'), retry = el.querySelector('.toybox-loader-retry');
+  const el = document.getElementById('toybox-loader'), retry = el.querySelector('.toybox-loader-retry');
   let settled = false;
-  const finish = () => {
-    if (+getComputedStyle(el).opacity < .05) return el.remove();          // ready before it ever showed
-    bar.animate([{ transform: getComputedStyle(bar).transform }, { transform: 'scaleX(1)' }], { duration: 250, easing: 'ease-out', fill: 'forwards' });
-    el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 350, delay: 250, fill: 'both' }).onfinish = () => el.remove();
-  };
-  // The toy has queued its first frame; let that frame run and reach the screen before clearing the bar.
-  window.toyboxReady = () => { if (!settled) { settled = true; requestAnimationFrame(() => requestAnimationFrame(finish)); } };
+  // The toy has just queued its first frame. Removing the bar now means it leaves in the same paint that shows
+  // that frame: until then the screen keeps the old picture, bar still creeping.
+  window.toyboxReady = () => { if (!settled) { settled = true; el.remove(); } };
   // A script that fails to load, or throws while starting, would otherwise leave the bar creeping forever.
   addEventListener('error', e => {
     if (settled || !(e instanceof ErrorEvent || e.target instanceof HTMLScriptElement)) return;   // a missing font or image isn't fatal
