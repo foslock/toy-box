@@ -24,6 +24,7 @@ export function loadToys() {
     if (!toy.title) problems.push(`${d.name}/toy.json needs a "title"`);
     if (!toy.blurb) problems.push(`${d.name}/toy.json needs a "blurb"`);
     if (toy.added && !/^\d{4}-\d{2}-\d{2}$/.test(toy.added)) problems.push(`${d.name}/toy.json "added" should look like 2026-09-23`);
+    if (toy.position !== undefined && !(Number.isInteger(toy.position) && toy.position >= 1)) problems.push(`${d.name}/toy.json "position" should be a whole number from 1`);
     if (typeof toy.loader !== 'boolean') problems.push(`${d.name}/toy.json "loader" should be true or false`);
     if (!existsSync(join(toy.dir, toy.entry))) problems.push(`${d.name}/${toy.entry} not found (set "entry" in toy.json if the page has another name)`);
     toy.hasPreview = existsSync(join(toy.dir, toy.preview));
@@ -31,5 +32,9 @@ export function loadToys() {
   }
   // Newest first, then alphabetical.
   toys.sort((a, b) => String(b.added || '').localeCompare(String(a.added || '')) || String(a.title).localeCompare(String(b.title)));
+  // Then any toy with a "position" is moved to that spot on the board (1 is the first card).
+  const pinned = toys.filter(t => Number.isInteger(t.position) && t.position >= 1).sort((a, b) => a.position - b.position);
+  for (const t of pinned) toys.splice(toys.indexOf(t), 1);
+  for (const t of pinned) toys.splice(Math.min(t.position - 1, toys.length), 0, t);
   return { toys, problems };
 }

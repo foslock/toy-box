@@ -113,6 +113,15 @@
   .meta { margin: auto 0 0; padding-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 500 11px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
   .empty { color: var(--ink-3); }
 
+  /* ---- footer ---- */
+  .foot { margin-top: clamp(48px, 7vw, 72px); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font: 500 11px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .foot > * { position: relative; isolation: isolate; }
+  .foot > *::before { content: ""; position: absolute; z-index: -1; inset: -8px -14px; border-radius: 24px; background: var(--board); filter: blur(10px); opacity: .94; }
+  .foot small { font-size: inherit; }
+  .foot a { color: inherit; text-underline-offset: 3px; }
+  .foot a:hover { color: var(--ink); }
+  .foot a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
+
   @media (prefers-reduced-motion: reduce) {
     .toy a, .shot img, .tape { transition: none; }
     .toy a:hover, .toy a:hover .shot img { transform: none; }
@@ -128,6 +137,10 @@
     </header>
     <ul class="board"><!--TOYS-->
     </ul>
+    <footer class="foot">
+      <small>&copy; 2026 James Foster Lockwood</small>
+      <a href="https://github.com/foslock/toy-box">Source on GitHub</a>
+    </footer>
   </main>
 </body>
 </html>
