@@ -12,6 +12,7 @@ import { makeBackdrop, Particles, makeGlow, makeRim, makeRays, makeRing } from '
 import { Sound } from './sound.js';
 import { Binder } from './binder.js';
 import { BoxOpening } from './box.js';
+import { PhoneTilt } from './motion.js';
 
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -156,6 +157,10 @@ canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('pointerleave', () => { pointer.over = false; });
 function updateCursor() { const c = handler?.cursor?.() || ''; canvas.className = c; }
+// Tilting the phone turns a zoomed card. An iPhone asks first, and only from a tap: the tap that opens the card.
+const phoneTilt = new PhoneTilt(), TILT = TOUCH && phoneTilt.supported;
+phoneTilt.onDenied = () => { S.settings.tilt = false; store.save(); $('tiltSwitch').setAttribute('aria-checked', false); };
+addEventListener('click', () => { if (phoneTilt.on) phoneTilt.ask(); }, true);
 addEventListener('keydown', e => {
   if (e.target.closest?.('textarea, input, select')) return;
   if ($('menu').classList.contains('open')) { if (e.key === 'Escape') closeMenu(); return; }
@@ -964,6 +969,7 @@ async function inspect(card, o = {}) {
   const prevHandler = handler, prevMode = mode;
   handler = null;   // a second tap while it flies up mustn't pick another card
   mode = 'inspect'; card.inspecting = true;
+  if (TILT && S.settings.tilt) phoneTilt.start();
   const h = card.holder, parent = h.parent;
   const saved = { p: h.position.clone(), r: h.rotation.clone(), s: h.scale.clone() };
   // swap in the sharp face while it's big
@@ -1020,10 +1026,21 @@ async function inspect(card, o = {}) {
     },
     key(e) { if (e.key === 'Escape' || e.key === 'Backspace') { resolveBack(); return true; } },
   };
-  tickers.add(dt => { t += dt; tilt.x = damp(tilt.x, target.x + Math.sin(t * .9) * .05, 7, dt); tilt.y = damp(tilt.y, target.y + Math.sin(t * .7) * .08, 7, dt); h.rotation.set(tilt.x, tilt.y, 0); return mode === 'inspect' && card.inspecting; });
+  tickers.add(dt => {
+    t += dt;
+    // on a phone, tilting it turns the card (a finger dragging it wins), and the idle sway stays small
+    phoneTilt.update(dt);
+    const gyro = phoneTilt.live && !dragging, sway = phoneTilt.live ? .3 : 1;
+    const tx = gyro ? clamp(phoneTilt.x, -.55, .55) : target.x, ty = gyro ? clamp(phoneTilt.y, -.65, .65) : target.y;
+    tilt.x = damp(tilt.x, tx + Math.sin(t * .9) * .05 * sway, gyro ? 14 : 7, dt);
+    tilt.y = damp(tilt.y, ty + Math.sin(t * .7) * .08 * sway, gyro ? 14 : 7, dt);
+    h.rotation.set(tilt.x, tilt.y, 0);
+    return mode === 'inspect' && card.inspecting;
+  });
   await back;
   $('inspect').hidden = true; hint('');
   card.inspecting = false;
+  phoneTilt.stop();
   if (result === 'sell' && selling) { o.onSell?.(); result = 'back'; }
   if (result === 'sell') {
     handler = null;
@@ -1198,6 +1215,7 @@ $('sellDupes').addEventListener('click', async () => {
 function openMenu() {
   $('menu').classList.add('open'); $('menuBtn').setAttribute('aria-expanded', 'true');
   $('autoSell').setAttribute('aria-checked', S.settings.autoSell); $('soundSwitch').setAttribute('aria-checked', S.settings.sound);
+  $('tiltSetting').hidden = !TILT; $('tiltSwitch').setAttribute('aria-checked', S.settings.tilt);
   const st = store.collectionStats(), best = S.stats.best ? store.parseKey(S.stats.best) : null, bi = best && itemOf(best);
   $('stats').innerHTML = [
     ['Packs opened', S.opened.toLocaleString('en-US')], ['Booster boxes', S.boxesOpened.toLocaleString('en-US')],
@@ -1212,6 +1230,10 @@ $('menuBtn').addEventListener('click', () => { sound.ensure(); $('menu').classLi
 $('closeMenu').addEventListener('click', closeMenu);
 $('autoSell').addEventListener('click', () => { S.settings.autoSell = !S.settings.autoSell; store.save(); $('autoSell').setAttribute('aria-checked', S.settings.autoSell); });
 $('soundSwitch').addEventListener('click', () => { S.settings.sound = !S.settings.sound; store.save(); sound.set(S.settings.sound); $('soundSwitch').setAttribute('aria-checked', S.settings.sound); });
+$('tiltSwitch').addEventListener('click', () => {
+  S.settings.tilt = !S.settings.tilt; store.save(); $('tiltSwitch').setAttribute('aria-checked', S.settings.tilt);
+  if (S.settings.tilt) phoneTilt.ask(true).then(ok => { if (!ok && phoneTilt.state === 'no') toast('Motion is turned off for this site. Allow “Motion & Orientation Access” in your browser settings, then try again.', 4200); });
+});
 $('exportFile').addEventListener('click', () => {
   const blob = new Blob([store.exportJSON()], { type: 'application/json' }), a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `booster-packs-${new Date().toISOString().slice(0, 10)}.json`; a.click();
@@ -1379,5 +1401,5 @@ function demo() {
   flash = .5;
   requestAnimationFrame(frame);
 }
-if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, get S() { return S; }, get current() { return current; }, get mode() { return mode; } };
+if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, phoneTilt, get S() { return S; }, get current() { return current; }, get mode() { return mode; } };
 start();

@@ -78,7 +78,7 @@ function fresh() {
     packs: { [SETS[0].id]: 1 },           // the first pack is on the house
     cards: [],                            // card keys in the order they were collected
     opened: 0, boxesOpened: 0, boxUnlocked: {},
-    settings: { autoSell: false, sound: true, sort: 'set' },
+    settings: { autoSell: false, sound: true, tilt: true, sort: 'set' },
     stats: { earned: 0, spent: 0, sold: 0, donated: 0, best: null, bestValue: 0, tipAutoSell: 0 },
     seen: {},                              // item keys ("set:item") ever pulled, for the checklist
   };
@@ -105,7 +105,7 @@ function sanitize(raw) {
   s.boxesOpened = Math.max(0, Math.floor(raw.boxesOpened) || 0);
   s.boxUnlocked = raw.boxUnlocked && typeof raw.boxUnlocked === 'object' ? { ...raw.boxUnlocked } : {};
   s.settings = { ...s.settings, ...(raw.settings && typeof raw.settings === 'object' ? raw.settings : {}) };
-  s.settings.autoSell = !!s.settings.autoSell; s.settings.sound = s.settings.sound !== false;
+  s.settings.autoSell = !!s.settings.autoSell; s.settings.sound = s.settings.sound !== false; s.settings.tilt = s.settings.tilt !== false;
   if (!['set', 'value', 'new'].includes(s.settings.sort)) s.settings.sort = 'set';
   if (raw.stats && typeof raw.stats === 'object') for (const k of Object.keys(s.stats)) if (raw.stats[k] != null) s.stats[k] = raw.stats[k];
   if (old) { s.stats.earned = rescale(s.stats.earned || 0); s.stats.spent = rescale(s.stats.spent || 0); }
