@@ -16,6 +16,7 @@ export class PhoneTilt {
     this.now = new THREE.Quaternion(); this.base = null;
     this.on = false; this.fresh = false;
     this.x = 0; this.y = 0;   // how far to turn the card about the screen's horizontal and vertical axes, in radians
+    this.movedAt = -1e9;      // when the phone was last being tilted on purpose (faster than a hand's tremble)
     this.onDenied = null;
     this.read = this.read.bind(this);
   }
@@ -57,7 +58,8 @@ export class PhoneTilt {
     n.copy(OUT).applyQuaternion(rel);
     const a = -(screen.orientation?.angle ?? window.orientation ?? 0) * DEG, c = Math.cos(a), s = Math.sin(a);
     const sx = n.x * c - n.y * s, sy = n.x * s + n.y * c;
-    this.x = Math.atan2(-sy, n.z);
-    this.y = Math.asin(Math.max(-1, Math.min(1, sx)));
+    const x = Math.atan2(-sy, n.z), y = Math.asin(Math.max(-1, Math.min(1, sx)));
+    if (Math.hypot(x - this.x, y - this.y) > .15 * Math.max(dt, .001)) this.movedAt = performance.now();
+    this.x = x; this.y = y;
   }
 }

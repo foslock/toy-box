@@ -155,7 +155,7 @@ export class Studio {
     const out = document.createElement('canvas'); out.width = w; out.height = h;
     out.getContext('2d').drawImage(this.canvas, 0, H - h, w, h, 0, 0, w, h);
     this.scene.remove(root);
-    disposeObject(root);
+    disposeObject(root, true);
     return out;
   }
 

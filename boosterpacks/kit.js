@@ -220,10 +220,12 @@ export function createKit() {
 }
 
 // Frees everything a model made (geometry, materials, their textures).
-export function disposeObject(root) {
+// keepPrograms: free the geometry and textures but not the materials, so the renderer keeps their compiled shaders for
+// the next model instead of deleting and rebuilding them (there are only a few dozen kinds; the rest is garbage).
+export function disposeObject(root, keepPrograms = false) {
   root.traverse(o => {
     if (o.geometry) o.geometry.dispose();
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-    for (const m of ms) { for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'bumpMap']) m[key]?.dispose?.(); m.dispose(); }
+    for (const m of ms) { for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'bumpMap']) m[key]?.dispose?.(); if (!keepPrograms) m.dispose(); }
   });
 }

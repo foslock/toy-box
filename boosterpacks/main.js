@@ -157,10 +157,19 @@ canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('pointerleave', () => { pointer.over = false; });
 function updateCursor() { const c = handler?.cursor?.() || ''; canvas.className = c; }
-// Tilting the phone turns a zoomed card. An iPhone asks first, and only from a tap: the tap that opens the card.
+// Work that can wait (drawing pictures ahead of time, the faces of a pack that's only floating) waits for a quiet
+// moment: a second with no pointer, touch or key, on a screen where nothing is being revealed. Then it never makes a
+// pack or card stutter while you're moving it.
+let lastInput = -1e9;
+for (const t of ['pointermove', 'pointerdown', 'keydown', 'wheel']) addEventListener(t, () => { lastInput = performance.now(); }, { capture: true, passive: true });
+const quiet = () => performance.now() - Math.max(lastInput, phoneTilt.movedAt) > 1000 && !pointer.down && (mode === 'shop' || mode === 'summary' || mode === 'binder');
+// Tilting the phone turns the floating pack and any zoomed card. An iPhone asks first, and only from a touch: the first
+// one while there's something to tilt.
 const phoneTilt = new PhoneTilt(), TILT = TOUCH && phoneTilt.supported;
 phoneTilt.onDenied = () => { S.settings.tilt = false; store.save(); $('tiltSwitch').setAttribute('aria-checked', false); };
-addEventListener('click', () => { if (phoneTilt.on) phoneTilt.ask(); }, true);
+const tiltWanted = () => TILT && S.settings.tilt && (mode === 'inspect' || (mode === 'shop' && current?.state === 'idle' && !current.dir));
+function syncTilt() { if (tiltWanted()) phoneTilt.start(); else phoneTilt.stop(); }
+for (const t of ['touchend', 'click']) addEventListener(t, () => { if (phoneTilt.on) phoneTilt.ask(); }, true);
 addEventListener('keydown', e => {
   if (e.target.closest?.('textarea, input, select')) return;
   if ($('menu').classList.contains('open')) { if (e.key === 'Escape') closeMenu(); return; }
@@ -511,14 +520,17 @@ async function presentPack() {
   pack.baseScale = L.s; pack.holder.scale.setScalar(L.s); pack.holder.position.set(0, VIEW_H, 0);
   pack.state = 'arrive'; pack.tilt = V(); pack.hover = 0;
   backdrop.uniforms.uTint.value.set(set.wrappers[wi].colors[1]);
-  pack.contents = store.rollPack(set);
+  const ready = prepared?.set === set ? prepared : null;
+  if (prepared && !ready) prepared.entries.forEach(e => faces.release(e));
+  prepared = null;
+  pack.contents = ready ? ready.contents : store.rollPack(set);
   pack.torn = new Promise(res => { pack.onTorn = res; });
   sound.whoosh(.7);
   refreshShop();
   await moveTo(pack.holder, { p: [0, L.y, 0], r: [0, 0, 0] }, .7, ease.back);
   if (current !== pack) return;
-  // start making its faces now, while it floats
-  pack.entries = pack.contents.map(c => faces.get(c, HI));
+  // its faces get made in a quiet moment while it floats (the first pack's were made while the page loaded)
+  pack.entries = ready ? ready.entries : pack.contents.map(c => faces.get(c, HI, false, true));
   if (mode === 'shop') {
     pack.state = 'idle';
     handler = tearHandler(pack);
@@ -574,6 +586,7 @@ function autoTear(pack) {
 async function openFlow(pack) {
   await pack.torn;
   if (current !== pack) return;
+  faces.hurry(pack.entries);   // any faces not made yet are needed now
   const set = pack.set;
   sound.rip();
   particles.burst(pack.frontWorld(), 26, { colors: ['#fff6d0', '#ffd76a', '#ffffff'], speed: 9, size: .5, life: .8, gravity: -6 });
@@ -976,7 +989,7 @@ async function inspect(card, o = {}) {
   const prevHandler = handler, prevMode = mode;
   handler = null;   // a second tap while it flies up mustn't pick another card
   mode = 'inspect'; card.inspecting = true;
-  if (TILT && S.settings.tilt) phoneTilt.start();
+  syncTilt();   // now, so the tap that opened it can ask for the sensor
   const h = card.holder, parent = h.parent;
   const saved = { p: h.position.clone(), r: h.rotation.clone(), s: h.scale.clone() };
   // swap in the sharp face while it's big
@@ -1036,7 +1049,6 @@ async function inspect(card, o = {}) {
   tickers.add(dt => {
     t += dt;
     // on a phone, tilting it turns the card (a finger dragging it wins), and the idle sway stays small
-    phoneTilt.update(dt);
     const gyro = phoneTilt.live && !dragging, sway = phoneTilt.live ? .3 : 1;
     const tx = gyro ? clamp(phoneTilt.x, -.55, .55) : target.x, ty = gyro ? clamp(phoneTilt.y, -.65, .65) : target.y;
     tilt.x = damp(tilt.x, tx + Math.sin(t * .9) * .05 * sway, gyro ? 14 : 7, dt);
@@ -1047,7 +1059,6 @@ async function inspect(card, o = {}) {
   await back;
   $('inspect').hidden = true; hint('');
   card.inspecting = false;
-  phoneTilt.stop();
   if (result === 'sell' && selling) { o.onSell?.(); result = 'back'; }
   if (result === 'sell') {
     handler = null;
@@ -1290,6 +1301,7 @@ let last = performance.now(), T = 0, first = true;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now; T += dt;
   tickAnims(dt);
+  syncTilt(); phoneTilt.update(dt);
   for (const fn of tickers) if (fn(dt) === false) tickers.delete(fn);
   cardTime.value = T;
   backdrop.uniforms.uTime.value = T;
@@ -1307,13 +1319,16 @@ function frame(now) {
       for (let i = 0; i < Math.min(4, moved * 30); i++) particles.spawn({ p, v: V((Math.random() - .5) * 4, 2 + Math.random() * 4, 2 + Math.random() * 2), life: .5 + Math.random() * .4, size: .3 + Math.random() * .3, color: Math.random() < .5 ? '#fff6d0' : '#ffd76a', gravity: -8 });
     }
     if (pack.detached && !pack.tornFired) { pack.tornFired = true; pack.onTorn(); }
+    // it leans toward the pointer, or (on a phone) holds still in space as the phone tilts, catching the light;
+    // a finger on it holds it where it is
+    const gyro = phoneTilt.live && pack.state === 'idle' && !pack.dir;
     const hoverTilt = !TOUCH && pointer.over && pack.state === 'idle' ? V(-pointer.ndc.y * .22, pointer.ndc.x * .3, 0) : V();
-    const want = pack.dragTilt ?? hoverTilt;
-    pack.tilt.x = damp(pack.tilt.x, want.x, 6, dt); pack.tilt.y = damp(pack.tilt.y, want.y, 6, dt);
+    const want = pack.dragTilt ?? (gyro ? (pointer.down ? pack.tilt : V(clamp(phoneTilt.x, -.45, .45), clamp(phoneTilt.y, -.55, .55), 0)) : hoverTilt);
+    pack.tilt.x = damp(pack.tilt.x, want.x, gyro ? 12 : 6, dt); pack.tilt.y = damp(pack.tilt.y, want.y, gyro ? 12 : 6, dt);
     pack.wiggle = damp(pack.wiggle ?? 0, 0, 3, dt);
-    const g = pack.group;
+    const g = pack.group, sway = gyro ? .35 : 1;
     g.position.y = Math.sin(T * 1.3) * .14;
-    g.rotation.set(pack.tilt.x + Math.sin(T * .8) * .03, pack.tilt.y + Math.sin(T * .55) * .1 + Math.sin(T * 30) * pack.wiggle * .06, Math.sin(T * .7) * .015);
+    g.rotation.set(pack.tilt.x + Math.sin(T * .8) * .03 * sway, pack.tilt.y + Math.sin(T * .55) * .1 * sway + Math.sin(T * 30) * pack.wiggle * .06, Math.sin(T * .7) * .015);
     pack.guideU.uTime.value = T;
     pack.guideU.uOpacity.value = damp(pack.guideU.uOpacity.value, pack.dir ? 0 : .8 + pack.hover * .5, 6, dt);
   } else if (pack?.state === 'gone' || pack?.state === 'arrive') pack.update?.(dt);
@@ -1324,9 +1339,10 @@ function frame(now) {
   particles.update(dt);
   binder.update(dt, T);
   tickWallet(dt);
-  faces.pump(mode === 'box' ? 10 : 7);
+  const calm = quiet() && frameAvg < 22;
+  const made = faces.pump(mode === 'box' ? 10 : 7, calm);
   frameAvg = lerp(frameAvg, dt * 1000, .1);
-  if (T > 2.5) warmOne();
+  if (calm && !made && T > 2) warmOne();   // not while the first pack is still flying in
   renderer.render(scene, camera);
   if (first) { first = false; window.toyboxReady?.(); if (DEMO) setTimeout(() => { window.__done = true; }, 400); }
   requestAnimationFrame(frame);
@@ -1339,6 +1355,8 @@ function positionChip(card) {
   card.chip.style.opacity = 1; card.chip.style.left = p.x + 'px'; card.chip.style.top = p.y + 'px';
 }
 
+let prepared = null;   // a pack rolled and drawn ahead of time: { set, contents, entries }
+
 /* ---------- warming up: draw item pictures ahead of time, one a frame, while nothing else is going on ---------- */
 const warmQueue = [];
 let frameAvg = 16;
@@ -1347,8 +1365,7 @@ function warmArt() {
   for (const set of SETS) for (const item of set.items) (owned.has(set.id + ':' + item.id) ? warmQueue.unshift([set, item]) : warmQueue.push([set, item]));
 }
 function warmOne() {
-  if (!warmQueue.length || faces.pending() || frameAvg > 22) return;
-  if (!(mode === 'shop' || mode === 'summary' || mode === 'binder')) return;
+  if (!warmQueue.length || faces.pending()) return;
   const [set, item] = warmQueue.shift(), [w, h] = artSize(LO, false);
   if (!studio.has(set, item, 'art', w, h)) studio.art(set, item, 'art', w, h);
 }
@@ -1378,6 +1395,9 @@ async function start() {
   await READY;
   if (DEMO) return demo();
   await warmUp();
+  // the first pack's cards are drawn now, behind the loading bar, so nothing stutters while you first play with it
+  const firstSet = packSetToOpen();
+  if (firstSet) { const contents = store.rollPack(firstSet); prepared = { set: firstSet, contents, entries: contents.map(c => faces.get(c, HI, true)) }; }
   requestAnimationFrame(frame);
   if (S.opened === 0 && store.packsInHand() > 0 && !S.cards.length) setTimeout(() => toast('Your first pack is on the house. 🎁', 3200), 900);
   home();

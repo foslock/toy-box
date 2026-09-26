@@ -379,7 +379,7 @@ export function composeFace(studio, card, width = HI) {
 export class FaceCache {
   constructor(renderer, studio) {
     this.renderer = renderer; this.studio = studio;
-    this.map = new Map(); this.queue = [];
+    this.map = new Map(); this.queue = []; this.later = [];
     this.max = { [HI]: 14, [LO]: 90 };
     const back = cardBack();
     this.back = { tex: this.texture(back.canvas, true), mask: this.texture(back.mask, false), foil: [0, 1, 0, 0], ready: true, refs: 1 };
@@ -398,16 +398,23 @@ export class FaceCache {
     return this._sash;
   }
   // Ask for a face; returns an entry that fills in (entry.ready) when it's made. Call release() when done with it.
-  get(card, width = HI, urgent = false) {
+  // urgent: make it now. later: it isn't needed yet, so it's only made in a quiet moment (see pump).
+  get(card, width = HI, urgent = false, later = false) {
     const key = `${card.set}:${card.id}:${card.v}@${width}`;
     let e = this.map.get(key);
     if (!e) {
       e = { key, card, width, ready: false, refs: 0, tex: null, mask: null, foil: [0, 0, 0, 0], waiters: [], used: 0 };
       this.map.set(key, e);
-      if (urgent) this.make(e); else this.queue.push(e);
-    } else if (urgent && !e.ready) { this.queue = this.queue.filter(q => q !== e); this.make(e); }
+      if (urgent) this.make(e); else (later ? this.later : this.queue).push(e);
+    } else if (!e.ready && urgent) { this.unqueue(e); this.make(e); }
+    else if (!e.ready && !later) this.hurry([e]);
     e.refs++; e.used = performance.now();
     return e;
+  }
+  unqueue(e) { this.queue = this.queue.filter(q => q !== e); this.later = this.later.filter(q => q !== e); }
+  // Faces asked for later that are needed now after all: to the front of the queue.
+  hurry(entries) {
+    for (const e of entries ?? []) if (!e.ready && this.later.includes(e)) { this.later = this.later.filter(q => q !== e); this.queue.unshift(e); }
   }
   release(e) { if (e && e !== this.back) e.refs = Math.max(0, e.refs - 1); }
   when(e, fn) { if (e.ready) fn(e); else e.waiters.push(fn); }
@@ -418,16 +425,24 @@ export class FaceCache {
     for (const fn of e.waiters.splice(0)) fn(e);
     this.trim(e.width);
   }
-  // Make queued faces until the time budget (ms) runs out.
-  pump(budget = 8) {
+  // Make queued faces until the time budget (ms) runs out, then (when quiet) one of the ones for later.
+  // Returns how many it made.
+  pump(budget = 8, quiet = false) {
     const t0 = performance.now();
+    let made = 0;
     while (this.queue.length && performance.now() - t0 < budget) {
       const e = this.queue.shift();
       if (e.refs <= 0) { this.map.delete(e.key); continue; }
-      this.make(e);
+      this.make(e); made++;
     }
+    while (quiet && !made && this.later.length) {
+      const e = this.later.shift();
+      if (e.refs <= 0) { this.map.delete(e.key); continue; }
+      this.make(e); made++;
+    }
+    return made;
   }
-  pending() { return this.queue.length; }
+  pending() { return this.queue.length + this.later.length; }
   trim(width) {
     const list = [...this.map.values()].filter(e => e.width === width && e.ready && e.refs <= 0);
     let over = [...this.map.values()].filter(e => e.width === width && e.ready).length - this.max[width];
