@@ -1,5 +1,6 @@
-// A booster box: ten packs opened together. The box opens, the packs spring out into a grid and tear open in a ripple,
-// then all ten deal their cards at once, one round at a time, straight into the binder. Quick and methodical.
+// A booster box: ten packs opened together. The box opens, the packs are pulled up out of it and fanned, the box drops
+// away and they deal into a grid and tear open in a ripple, then all ten deal their cards at once, one round at a time,
+// straight into the binder. Quick and methodical.
 import * as THREE from 'three';
 import { LO, GOLD } from './faces.js';
 import { CARD_W, CARD_H } from './card.js';
@@ -72,37 +73,51 @@ export class BoxOpening {
     this.hint('');
     // 1. the box drops in and opens
     const wi = Math.floor(Math.random() * set.wrappers.length), prints = this.wrapperPrints(set, wi);
-    const box = this.box = this.makeBox(prints);
-    const bs = Math.min(.62 * this.VIEW_H / 12.8, .6 * this.view.W / 9.2);
+    const box = this.box = this.makeBox(prints), { H, D } = box.userData;
+    // small and low enough that a pack pulled right out of the top still fits on screen above it: box and pulled pack
+    // stand about 25.6 box units tall, and the box is tipped toward you, so the packs come out a quarter bigger
+    const bs = Math.min(.56, .6 * this.view.W / 9.2);
     box.scale.setScalar(bs); box.rotation.set(.42, -.25, 0);
     box.position.set(0, this.VIEW_H, 0);
     this.group.add(box);
     sound.whoosh(.8);
     this.setActions([{ label: 'Skip', cls: 'ghost glass', onClick: () => this.skipAll() }]);
-    await moveTo(box, { p: [0, -bs * 5.2, 0] }, .55, ease.back);
+    await moveTo(box, { p: [0, -.3 - 11.5 * bs, 0] }, .55, ease.back);
     sound.thump();
     // packs inside, standing in a row front to back
     for (let i = 0; i < 10; i++) {
       const p = new this.Pack(set, set.wrappers[(wi + i) % set.wrappers.length], this.wrapperPrints(set, (wi + i) % set.wrappers.length));
       p.holder = new THREE.Group(); p.holder.add(p.group);
-      p.holder.position.set(0, this.PH / 2 + .4, box.userData.D / 2 - .7 - i * (box.userData.D - 1.2) / 9);
+      p.holder.position.set(0, this.PH / 2 + .4, D / 2 - .7 - i * (D - 1.2) / 9);
       p.k = i; p.state = 'box';
       box.add(p.holder);
       this.packs3d.push(p);
     }
     sound.flip();
     await this.anim(.45, x => { box.userData.lid.rotation.x = -x * 2.1; }, ease.out);
-    // 2. out they spring, into a grid
+    // 2. out they come, front to back: each pack slides straight up until it clears the rim, then fans out like a hand
+    const clear = H + this.PH / 2 + .25;
+    // the fan is as wide as the screen allows, counting the corners its tilt swings out and that it's nearer to you
+    const room = .46 * this.view.W / (bs * 1.2), f = Math.max(0, Math.min(1, (room - this.PW / 2 - .6) / (4.5 * .75 + this.PH / 2 * .27)));
+    const spread = .75 * f, turn = .06 * f;
+    await Promise.all(this.packs3d.map((p, i) => sleep(i * .06).then(async () => {
+      if (i % 2 === 0) sound.sleeve();
+      const z = p.holder.position.z;
+      await moveTo(p.holder, { p: [0, clear, z] }, .26, ease.out);
+      await moveTo(p.holder, { p: [(i - 4.5) * spread, clear + .5, z], r: [0, 0, -(i - 4.5) * turn] }, .2, ease.inOut);
+    })));
+    // 3. the box drops away and the packs deal themselves out into a grid
+    for (const p of this.packs3d) this.group.attach(p.holder);
+    moveTo(box, { p: [0, -this.VIEW_H * 1.1, -6], r: [.9, -.25, 0] }, .42, ease.in).then(() => { box.removeFromParent(); });
+    await sleep(.1);
     const G = this.G = this.grid();
-    await Promise.all(this.packs3d.map((p, i) => sleep(i * .07).then(async () => {
-      this.group.attach(p.holder);
-      sound.swish(.6);
+    await Promise.all(this.packs3d.map((p, i) => sleep(i * .05).then(async () => {
+      sound.swish(.5);
       const at = G.at(i);
-      await moveTo(p.holder, { p: [at.x, at.y, at.z], s: G.s, r: [0, 0, 0], arc: 3, lift: 2 }, .5, ease.out);
+      await moveTo(p.holder, { p: [at.x, at.y, at.z], s: G.s, r: [0, 0, 0], arc: 2.5 }, .5, ease.out);
       p.state = 'float';
     })));
-    moveTo(box, { p: [0, -this.VIEW_H * 1.2, -4], r: [.9, -.25, 0] }, .5, ease.in).then(() => { box.removeFromParent(); });
-    // 3. tear them all open in a ripple
+    // 4. tear them all open in a ripple
     await sleep(.15);
     await Promise.all(this.packs3d.map((p, i) => sleep(i * .06).then(async () => {
       p.startTear(i % 2 ? -1 : 1);
@@ -113,7 +128,7 @@ export class BoxOpening {
       particles.burst(p.frontWorld(), 10, { colors: ['#fff6d0', '#ffd76a'], speed: 6, size: .35, life: .6 });
     })));
     await sleep(.25);
-    // 4. deal: every pack gives up one card per round, all at once
+    // 5. deal: every pack gives up one card per round, all at once
     let revealed = 0, newCount = 0, soldTotal = 0, holos = 0, fulls = 0, total = 0, best = null;
     const tallyNow = r => this.tally(`Booster box · round <b>${r}</b>/9 · ${revealed}/90 cards · <b>${newCount}</b> new${soldTotal ? ` · sold ${money(soldTotal, { short: true })}` : ''}`);
     tallyNow(0);
@@ -172,16 +187,18 @@ export class BoxOpening {
       tallyNow(r + 1);
       await sleep(rare ? 1.6 : specials.length ? .75 : .32);
       if (rare) this.hint('');
-      // away: into the binder, or sold on the spot if it's a duplicate and auto-sell is on
+      // away: into the binder, or sold on the spot if it's a duplicate and auto-sell is on (SOLD stamped on it first)
       const target = this.binderWorld(4);
+      const firstDupe = this.autoSell ? cards.find(c => c.res.dupe) : null;
       await Promise.all(cards.map((card, i) => sleep(i * .02).then(async () => {
         const h = card.holder;
         if (this.autoSell && card.res.dupe) {
           const v = this.sell(card.res.key);
           soldTotal += v;
           h.updateWorldMatrix(true, false);
-          if (v) this.payout(new THREE.Vector3().applyMatrix4(h.matrixWorld), v, 0);
-          await moveTo(h, { s: .01, r: [0, Math.PI * 2, 0] }, .3, ease.in);
+          const at = new THREE.Vector3().applyMatrix4(h.matrixWorld);
+          await this.stampSold(card, v ? () => this.payout(at, v, 0) : null, card === firstDupe);
+          await this.fadeAway(card, .25);
         } else {
           await moveTo(h, { p: [target.x, target.y, target.z], s: G.s * .08, r: [0, 0, (Math.random() - .5)] }, .38, ease.in);
         }
@@ -192,7 +209,7 @@ export class BoxOpening {
       for (const card of cards) { this.live.delete(card); this.disposeCard(card); }
     }
     entries.forEach(e => faces.release(e));
-    // 5. the packs fold away
+    // 6. the packs fold away
     sound.whoosh(.6);
     await Promise.all(this.packs3d.map((p, i) => sleep(i * .03).then(() => moveTo(p.holder, { p: [p.holder.position.x, p.holder.position.y - this.VIEW_H, -3], r: [.4, .2, .3] }, .45, ease.in))));
     this.tally('');

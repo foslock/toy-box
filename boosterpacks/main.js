@@ -239,6 +239,20 @@ function payout(from, cents, delay = 0) {
   }, delay);
 }
 
+// A card sold where you can see it: the SOLD sash stamps down across it as the money flies off, then it fades away.
+async function stampSold(card, pay, loud = true) {
+  const h = card.holder, s0 = h.scale.x, red0 = card.front.uniforms.uSold.value;
+  if (loud) sound.stamp();
+  pay?.();
+  await anim(.2, (x, k) => { card.sash = x; card.sold = lerp(red0, .85, x); h.scale.setScalar(s0 * (1 - Math.sin(k * Math.PI) * .07)); }, ease.out);
+}
+async function fadeAway(card, delay = 0) {
+  if (delay) await sleep(delay);
+  const h = card.holder, s0 = h.scale.x, y0 = h.position.y;
+  await anim(.45, x => { card.fade = 1 - x; h.position.y = y0 + x * CARD_H * .08 * s0; h.scale.setScalar(s0 * (1 - x * .06)); }, ease.in);
+  h.visible = false; card.fade = 1;
+}
+
 /* ---------- cards in the scene ---------- */
 // A card sits in a holder (for our moves) inside whatever group it belongs to.
 function makeCard(c, entry) {
@@ -924,24 +938,17 @@ async function summary(cards, stack, set) {
   setActions([]);
   chips.forEach(el => el.remove());
   cards.forEach(c => { c.chip = null; c.mesh.position.z = 0; });
-  // sell the marked ones, the rest go in the binder
-  const away = [];
-  let delay = 0;
+  // sell the marked ones: SOLD is stamped on each in turn, then they fade (with any sold already) as the rest go in the binder
   const sells = cards.filter(c => c.mark === 'sell');
-  for (const c of sells) {
+  await Promise.all(sells.map((c, i) => {
     const v = store.sell(c.result.key);
     c.holder.updateWorldMatrix(true, false);
     const at = V().applyMatrix4(c.holder.matrixWorld);
-    payout(at, v, delay);
-    const h = c.holder;
-    away.push(sleep(delay / 1000).then(() => moveTo(h, { s: .01, r: [0, Math.PI * 2, 0] }, .35, ease.in)));
-    delay += 90;
-  }
-  if (sells.length) { updateCount(); live(`Sold ${sells.length} ${sells.length === 1 ? 'card' : 'cards'}.`); }
-  // the ones sold already just fold away
-  cards.filter(c => c.mark === 'sold').forEach((c, i) => away.push(sleep(i * .04).then(() => moveTo(c.holder, { s: .01, r: [0, 0, .6] }, .3, ease.in))));
+    return sleep(i * .14).then(() => stampSold(c, () => payout(at, v)));
+  }));
+  if (sells.length) { updateCount(); live(`Sold ${sells.length} ${sells.length === 1 ? 'card' : 'cards'}.`); await sleep(.3); }
+  const away = cards.filter(c => c.mark === 'sell' || c.mark === 'sold').map((c, i) => fadeAway(c, i * .03));
   const keep = cards.filter(c => c.mark !== 'sell' && c.mark !== 'sold');
-  await sleep(sells.length ? .3 : 0);
   if (keep.length) sound.slide();
   away.push(...keep.map((c, i) => sleep(i * .06).then(async () => {
     const h = c.holder; stage.attach(h);
@@ -1045,8 +1052,10 @@ async function inspect(card, o = {}) {
   if (result === 'sell') {
     handler = null;
     const v = store.sell(cardKey(c), o.at ?? -1);
-    payout(V(0, y, Z), v);
-    await moveTo(h, { s: .01, r: [0, Math.PI * 3, 0] }, .4, ease.in);
+    await moveTo(h, { r: [0, 0, 0] }, .15, ease.out);
+    await stampSold(card, () => payout(V(0, y, Z), v));
+    await sleep(.4);
+    await fadeAway(card);
     updateCount(); checkUnlock();
     live(`Sold ${item.name} for ${money(v)}.`);
   } else {
@@ -1081,7 +1090,7 @@ async function buyBox() {
   S.opened += packs.length; S.boxesOpened++; store.save();
   updateCount();
   const box = new BoxOpening({ THREE, set, packs, results, stage, faces, makeCard, disposeCard, anim, sleep, moveTo, ease, sound, particles, view, VIEW_H, wrapperPrints, Pack, PW, PH,
-    celebrate, tierOf, tapOnce, payout, binderWorld, flashBackdrop, setActions, hint, tally: html => { $('tally').innerHTML = html; $('tally').hidden = !html; },
+    celebrate, tierOf, tapOnce, payout, stampSold, fadeAway, binderWorld, flashBackdrop, setActions, hint, tally: html => { $('tally').innerHTML = html; $('tally').hidden = !html; },
     autoSell: S.settings.autoSell, sell: key => { const v = store.sell(key); updateCount(); return v; }, updateCount, setTimeScale: s => { timeScale = s; }, V });
   tickers.add(dt => { box.update(dt); return mode === 'box'; });
   const summary = await box.run();

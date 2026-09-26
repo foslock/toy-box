@@ -106,6 +106,11 @@ export class Sound {
     this.noise({ at: at + .48, type: 'lowpass', f: 1400, to: 200, dur: .5, gain: .3 });
     for (let i = 0; i < 12; i++) this.noise({ at: at + .55 + Math.random() * .7, f: 3000 + Math.random() * 4000, q: 6, dur: .03, gain: .05 + Math.random() * .05 });
   }
+  stamp(g = 1) {   // a rubber stamp coming down: a thump and the slap of the paper
+    this.tone(150, { to: 55, glide: .09, dur: .18, gain: .38 * g });
+    this.noise({ type: 'lowpass', f: 1500, dur: .07, gain: .3 * g, attack: .002 });
+    this.noise({ at: .004, f: 3400, q: 1.4, dur: .035, gain: .09 * g });
+  }
   sleeve() { this.noise({ f: 1400, to: 3200, q: 1.1, dur: .22, gain: .1, attack: .05 }); this.noise({ at: .05, type: 'highpass', f: 5000, dur: .12, gain: .04 }); }
   // What plays as a special card turns over. kind: 'rare' | 'holo' | 'full' | 'both'; tier 0–5 by value.
   fanfare(kind, tier) {

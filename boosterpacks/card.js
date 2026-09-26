@@ -61,7 +61,7 @@ const VERT = /* glsl */`
 const FRAG = /* glsl */`
   uniform sampler2D map, maskMap, sashMap;
   uniform vec4 uFoil;          // holo, metal, etch, glitter
-  uniform float uTime, uSide, uDim, uFlash, uSold, uSash, uReady;
+  uniform float uTime, uSide, uDim, uFlash, uSold, uSash, uAlpha, uReady;
   uniform vec3 uTint;
   varying vec2 vUv; varying vec3 vV; varying vec3 vL;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -117,12 +117,12 @@ const FRAG = /* glsl */`
     col += gloss * (1. + holo * .8);
     col += uFlash * vec3(1., .96, .88);
     col *= uDim;
-    gl_FragColor = vec4(col, 1.);
+    gl_FragColor = vec4(col, uAlpha);
     #include <colorspace_fragment>
   }`;
 
 const LIGHT = new THREE.Vector3(-.42, .62, 1).normalize();
-let GEO = null, EDGE = null, BACK = null;
+let GEO = null, EDGE = null, NO_EDGE = null, BACK = null;
 export const cardTime = { value: 0 };
 
 export function cardMaterial(side, entry) {
@@ -131,7 +131,7 @@ export function cardMaterial(side, entry) {
     uniforms: {
       map: { value: entry?.tex ?? null }, maskMap: { value: entry?.mask ?? null },
       uFoil: { value: new THREE.Vector4(...(entry?.foil ?? [0, 0, 0, 0])) },
-      uTime: cardTime, uSide: { value: side }, uDim: { value: 1 }, uFlash: { value: 0 }, uSold: { value: 0 }, sashMap: { value: null }, uSash: { value: 0 },
+      uTime: cardTime, uSide: { value: side }, uDim: { value: 1 }, uFlash: { value: 0 }, uSold: { value: 0 }, sashMap: { value: null }, uSash: { value: 0 }, uAlpha: { value: 1 },
       uReady: { value: entry?.ready ? 1 : 0 }, uTint: { value: new THREE.Color(1, .45, .45) }, uLight: { value: LIGHT },
     },
   });
@@ -144,6 +144,7 @@ export class Card {
     if (!GEO) {
       GEO = cardGeometry();
       EDGE = new THREE.MeshBasicMaterial({ color: 0xe9e6df });
+      NO_EDGE = new THREE.MeshBasicMaterial({ visible: false });
       BACK = cardMaterial(-1, faces.back);
     }
     this.front = cardMaterial(1, null);
@@ -171,5 +172,11 @@ export class Card {
   set flash(v) { this.front.uniforms.uFlash.value = v; }
   set sold(v) { this.front.uniforms.uSold.value = v; }
   set sash(v) { const u = this.front.uniforms; if (v > .001 && !u.sashMap.value) u.sashMap.value = this.faces.sash; u.uSash.value = v; }
+  // 1 is solid; below that the face draws see-through (its thin edge hides meanwhile), for fading a card out
+  set fade(v) {
+    const f = this.front, see = v < .999;
+    f.uniforms.uAlpha.value = v;
+    if (f.transparent !== see) { f.transparent = see; f.depthWrite = !see; this.mesh.material[2] = see ? NO_EDGE : EDGE; }
+  }
   dispose() { if (this.entry) this.faces.release(this.entry); this.entry = null; this.front.dispose(); this.mesh.removeFromParent(); }
 }
