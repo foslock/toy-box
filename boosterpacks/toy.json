@@ -1,0 +1,9 @@
+{
+  "title": "Booster Packs",
+  "blurb": "Tear open trading-card packs of household things, from a two-cent paper clip to a grand piano, each priced like the real thing. Swipe the top off, pull the cards out and flip through them. Holos shimmer when you tilt them. Sell what you don't want for more packs, keep the rest in a binder that never runs out of pages, and work up to booster boxes.",
+  "added": "2026-09-25",
+  "tags": ["three.js", "cards", "game", "collection"],
+  "tape": "purple",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 4000, "query": "?demo" }
+}

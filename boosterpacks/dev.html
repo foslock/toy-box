@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Booster Packs · contact sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; padding: 16px; background: #1b1726; color: #eee; font: 13px/1.3 Fredoka, system-ui, sans-serif; }
+  h1 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(var(--cols, 4), 1fr); gap: 12px; }
+  figure { margin: 0; background: #2a2438; border-radius: 10px; padding: 6px; }
+  figure canvas, figure img { display: block; width: 100%; height: auto; border-radius: 6px; }
+  figcaption { display: flex; justify-content: space-between; padding: 5px 2px 0; color: #cbc3de; }
+  figcaption b { color: #fff; font-weight: 600; }
+  .err { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<h1 id="title">Rendering…</h1>
+<div class="grid" id="grid"></div>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+// Dev only: a contact sheet of item renders. ?set=house&type=kitchen | &items=toaster,mug | &rarity=R, &kind=art|full|hero|card, &cols=4, &nobg
+import { SET_BY_ID, READY } from './sets/index.js';
+import { Studio } from './studio.js';
+import { finishScene } from './sets/house/rooms.js';
+import { hashString } from './kit.js';
+
+const Q = new URLSearchParams(location.search);
+await READY;
+const set = SET_BY_ID[Q.get('set') || 'house'];
+if (Q.get('module')) {   // ?module=./path.js renders the models a module exports (not in the catalog), for trying things out
+  const extra = (await import(Q.get('module'))).default;
+  set.items = Object.keys(extra).map((id, i) => ({ id, name: id, type: Object.keys(set.types)[i % 8], rarity: 'U' }));
+  Object.assign(set.models, extra);
+}
+const kind = Q.get('kind') || 'art';
+let items = set.items;
+if (Q.get('items')) { const ids = Q.get('items').split(','); items = ids.map(id => set.items.find(i => i.id === id)).filter(Boolean); }
+if (Q.get('type')) items = items.filter(i => i.type === Q.get('type'));
+if (Q.get('rarity')) items = items.filter(i => i.rarity === Q.get('rarity'));
+if (Q.get('missing')) items = items.filter(i => !set.models[i.id]);
+document.getElementById('grid').style.setProperty('--cols', Q.get('cols') || (kind === 'art' ? 4 : 6));
+await document.fonts.ready;
+await Promise.all(['700 30px Fredoka', '600 20px Nunito', 'italic 400 20px Nunito'].map(f => document.fonts.load(f)));
+const studio = new Studio();
+if (kind === 'wrapper') {   // the pack wrapper prints, front and back
+  const { makeWrapper } = await import('./pack.js');
+  const grid = document.getElementById('grid');
+  for (const w of set.wrappers) {
+    const item = set.items.find(i => i.id === w.hero);
+    const hero = item && set.models[item.id] ? studio.art(set, item, 'hero', 640, 800) : null;
+    const p = makeWrapper(set, w, hero);
+    for (const c of [p.front, p.back]) { const f = document.createElement('figure'); f.append(c); grid.append(f); }
+  }
+  document.getElementById('title').textContent = `${set.name} · wrappers`;
+  window.__done = true;
+  throw 0;
+}
+if (kind === 'card') {   // composed card faces: &v=0,1,2,3 variants, &mask to show the foil masks too, &w=768
+  const { composeFace, cardBack } = await import('./faces.js');
+  const grid = document.getElementById('grid'), vs = (Q.get('v') || '0').split(',').map(Number), w = +(Q.get('w') || 768);
+  if (Q.has('back')) { const b = cardBack(); const f = document.createElement('figure'); f.append(b.canvas); if (Q.has('mask')) { b.mask.style.imageRendering = 'pixelated'; f.append(b.mask); } grid.append(f); }
+  for (const item of items) for (const v of vs) {
+    const fig = document.createElement('figure'), t0 = performance.now();
+    try {
+      const out = composeFace(studio, { set: set.id, id: item.id, v }, w);
+      fig.append(out.canvas); if (Q.has('mask')) fig.append(out.mask);
+      fig.insertAdjacentHTML('beforeend', `<figcaption><b>${item.name}</b><span>v${v} · ${(performance.now() - t0).toFixed(0)} ms</span></figcaption>`);
+    } catch (e) { fig.innerHTML = `<div class="err">${item.id} v${v}: ${e.message}</div>`; console.error(e); }
+    grid.append(fig);
+    await new Promise(r => setTimeout(r, 0));
+  }
+  document.getElementById('title').textContent = `${set.name} · cards`;
+  window.__done = true;
+  throw 0;
+}
+const grid = document.getElementById('grid');
+const sizes = { art: [672, 480], full: [768, 1072], hero: [720, 900] };
+let n = 0;
+for (const item of items) {
+  const fig = document.createElement('figure'), cap = document.createElement('figcaption');
+  const [w, h] = sizes[kind] || sizes.art;
+  const t0 = performance.now();
+  let out;
+  try {
+    if (!set.models[item.id]) throw new Error('no model yet');
+    const art = studio.render(set.models[item.id], { w, h, seed: item.id, full: kind !== 'art',
+      box: kind === 'full' ? [.06, .24, .94, .77] : kind === 'hero' ? [.08, .14, .92, .9] : [.13, .1, .87, .86],
+      view: kind === 'full' ? { fov: 30, el: 12 } : kind === 'hero' ? { fov: 28, el: 14 } : {} });
+    out = document.createElement('canvas'); out.width = w; out.height = h;
+    const g = out.getContext('2d');
+    if (!Q.has('nobg')) {
+      const floor = h * (kind === 'full' ? .77 : kind === 'hero' ? .9 : .86);
+      const type = set.types[item.type], o = { floor, full: kind !== 'art', rarity: item.rarity, seed: hashString(item.id) };
+      type.scene(g, w, h, o); finishScene(g, w, h, o, type);
+    }
+    g.drawImage(art, 0, 0);
+  } catch (e) {
+    out = document.createElement('div'); out.className = 'err'; out.textContent = e.message; console.error(item.id, e);
+  }
+  fig.append(out);
+  cap.innerHTML = `<b>${item.name}</b><span>${item.id} · ${item.rarity} · ${(performance.now() - t0).toFixed(0)} ms</span>`;
+  fig.append(cap); grid.append(fig); n++;
+  await new Promise(r => setTimeout(r, 0));
+}
+document.getElementById('title').textContent = `${set.name} · ${kind} · ${n} items`;
+window.__done = true;
+</script>
+</body>
+</html>

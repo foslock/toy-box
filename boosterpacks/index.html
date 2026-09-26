@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Booster Packs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #fbf7ff; --ink-2: rgba(251, 247, 255, .74); --ink-3: rgba(251, 247, 255, .5); --glass: rgba(26, 19, 44, .56); --line: rgba(255, 255, 255, .14);
+    --gold: #ffd76a; --gold-2: #f2b53a; --good: #5ee6a0; --bad: #ff7a8a; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #0c0916; color: var(--ink); font: 400 15px/1.4 Fredoka, system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  #c.grab { cursor: grab; } #c.grabbing { cursor: grabbing; } #c.point { cursor: pointer; } #c.tear { cursor: col-resize; }
+  button { font-family: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .glass { background: var(--glass); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .7), inset 0 0 0 1px var(--line); }
+  button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  .name { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 60px; margin: 0; pointer-events: none; font: 700 25px/40px Fredoka, system-ui, sans-serif; letter-spacing: .01em;
+    color: #fff6e0; text-shadow: 0 2px 12px rgba(0, 0, 0, .5); }
+  .name span { background: linear-gradient(180deg, #fff3c4, #f2b53a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .hud { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; z-index: 5; }
+  .wallet { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px 0 8px; border-radius: 999px; font: 600 19px/1 Fredoka, sans-serif; font-variant-numeric: tabular-nums; transition: transform .2s; }
+  .wallet .coin { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff5c8, #f7c948 45%, #c98a16); box-shadow: inset 0 0 0 2px rgba(120, 70, 0, .35); display: grid; place-items: center; font: 700 14px/1 Fredoka; color: #6b4300; }
+  .wallet.up { animation: bump .45s; } .wallet.up b { color: var(--good); } .wallet.down b { color: var(--bad); }
+  .wallet b { font-weight: 600; transition: color .4s; }
+  @keyframes bump { 30% { transform: scale(1.08); } }
+  .hbtn { display: inline-flex; align-items: center; gap: 7px; height: 42px; padding: 0 15px; border: 0; border-radius: 999px; cursor: pointer; font: 600 15px/1 Fredoka, sans-serif; position: relative; }
+  .hbtn:hover { background: rgba(60, 46, 96, .7); }
+  .hbtn svg { width: 20px; height: 20px; flex: none; }
+  .hbtn.icon { width: 42px; padding: 0; justify-content: center; }
+  .hbtn .count { font-variant-numeric: tabular-nums; }
+  .hbtn.bump { animation: bump .5s; }
+  .floaty { position: fixed; z-index: 30; pointer-events: none; font: 700 18px/1 Fredoka; color: var(--good); text-shadow: 0 2px 8px rgba(0, 0, 0, .6); animation: floatUp 1.3s ease-out forwards; }
+  .floaty.neg { color: var(--bad); }
+  @keyframes floatUp { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -46px); opacity: 0; } }
+
+  .bottom { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px;
+    width: calc(100% - 24px); pointer-events: none; z-index: 4; }
+  .bottom > * { pointer-events: auto; }
+  .hint { margin: 0; padding: 7px 16px; border-radius: 999px; font-size: 14.5px; color: var(--ink-2); text-align: center; pointer-events: none; transition: opacity .4s; max-width: 100%; box-sizing: border-box; }
+  .hint b { color: var(--ink); font-weight: 600; }
+  .hint.off { opacity: 0; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 20px; border: 0; border-radius: 999px; cursor: pointer; box-sizing: border-box;
+    font: 600 16px/1 Fredoka, sans-serif; white-space: nowrap; transition: transform .12s, filter .15s, background-color .15s, opacity .2s; }
+  .btn:active { transform: translateY(1px); }
+  .btn small { font-weight: 500; font-size: 13px; opacity: .8; }
+  .btn.gold { color: #2c1a00; background: linear-gradient(180deg, #ffe89a, #f2b53a); box-shadow: 0 10px 26px -10px rgba(242, 181, 58, .8), inset 0 1px 0 rgba(255, 255, 255, .6); }
+  .btn.gold:hover { filter: brightness(1.06); }
+  .btn.ghost { background: rgba(255, 255, 255, .1); color: var(--ink); }
+  .btn.ghost:hover { background: rgba(255, 255, 255, .18); }
+  .btn.ghost.glass { background: var(--glass); }
+  .btn.ghost.glass:hover { background: rgba(60, 46, 96, .8); }
+  .btn.red { color: #fff; background: linear-gradient(180deg, #ff8b8b, #e0485a); }
+  .btn:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
+  .btn svg { width: 20px; height: 20px; }
+  .btn .shine { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+  .btn.new { position: relative; animation: glowBtn 1.6s ease-in-out 3; }
+  @keyframes glowBtn { 50% { box-shadow: 0 0 0 4px rgba(255, 215, 106, .35), 0 10px 30px -6px rgba(255, 215, 106, .9); } }
+  .sets { display: flex; gap: 6px; padding: 4px; border-radius: 999px; }
+  .sets button { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: none; cursor: pointer; font: 600 13.5px/1 Fredoka; color: var(--ink-2); }
+  .sets button[aria-pressed="true"] { background: rgba(255, 255, 255, .14); color: var(--ink); }
+
+  .nopack { position: fixed; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 7.6 / 12.2; box-sizing: border-box; border-radius: 16px; pointer-events: none;
+    border: 2px dashed rgba(255, 255, 255, .16); background: radial-gradient(80% 60% at 50% 45%, rgba(255, 255, 255, .05), transparent); display: grid; place-items: center; animation: ghostIn .5s ease-out; }
+  .nopack span { font: 600 14px/1 Fredoka; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .3); }
+  @keyframes ghostIn { from { opacity: 0; } }
+  .toast { position: fixed; left: 50%; top: max(70px, calc(env(safe-area-inset-top) + 60px)); transform: translate(-50%, -8px); opacity: 0; pointer-events: none; z-index: 40;
+    padding: 10px 18px; border-radius: 999px; font-size: 15px; text-align: center; transition: opacity .35s, transform .35s; max-width: calc(100% - 32px); box-sizing: border-box; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .tags { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+  .tag { position: absolute; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 16px 9px; border-radius: 18px; text-align: center; white-space: nowrap;
+    transition: opacity .25s; }
+  .tag .rar { font: 800 11px/1 Nunito, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+  .tag .nm { font: 600 19px/1.1 Fredoka; }
+  .tag .val { font: 700 22px/1 Fredoka; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .tag .val s { color: var(--ink-3); font-weight: 500; font-size: 15px; margin-right: 6px; }
+  .badge { display: inline-block; padding: 3px 7px 2px; border-radius: 6px; font: 800 10.5px/1 Nunito; letter-spacing: .08em; vertical-align: 2px; margin-left: 6px; }
+  .badge.new { background: #ff4d6d; color: #fff; }
+  .badge.holo { background: linear-gradient(90deg, #ff9ad5, #ffe38a, #8affc8, #8ad8ff, #c79bff); color: #2b1840; }
+  .badge.full { background: #fff; color: #2b1840; }
+  .badge.dupe { background: rgba(255, 255, 255, .16); color: var(--ink-2); }
+  .badge.sold { background: var(--good); color: #0b3b22; }
+  .tally { position: fixed; left: 50%; top: max(66px, calc(env(safe-area-inset-top) + 58px)); transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; font: 600 15px/1 Fredoka; z-index: 4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tally b { color: var(--gold); font-weight: 700; }
+  .dots { display: inline-flex; gap: 4px; margin-left: 10px; vertical-align: 1px; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .2); }
+  .dots i.on { background: var(--ink); } .dots i.R { box-shadow: 0 0 0 1.5px var(--gold); }
+
+  .chip { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px; padding: 3px 3px 3px 10px; border-radius: 999px; pointer-events: auto; white-space: nowrap; font: 700 13.5px/1 Fredoka; font-variant-numeric: tabular-nums; }
+  .chip button { height: 26px; padding: 0 10px; border: 0; border-radius: 999px; cursor: pointer; font: 600 12.5px/1 Fredoka; background: rgba(255, 255, 255, .14); color: var(--ink); }
+  .chip button:hover { background: rgba(255, 255, 255, .24); }
+  .chip.marked button { background: var(--bad); color: #fff; }
+  .chip.sold { padding-right: 10px; color: var(--good); }
+  .chip .newdot { position: absolute; top: -8px; right: -6px; padding: 2px 5px; border-radius: 5px; background: #ff4d6d; color: #fff; font: 800 9.5px/1 Nunito; letter-spacing: .06em; }
+
+  .panel { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(420px, 100%); box-sizing: border-box; display: flex; flex-direction: column;
+    background: rgba(20, 15, 34, .94); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: -20px 0 60px -30px #000;
+    transform: translateX(105%); visibility: hidden; transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s .32s; -webkit-user-select: text; user-select: text; }
+  .panel.open { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.2, .8, .2, 1); }
+  .panel header { display: flex; align-items: center; justify-content: space-between; padding: max(14px, env(safe-area-inset-top)) 14px 6px 22px; }
+  .panel h2 { margin: 0; font-size: 22px; font-weight: 700; }
+  .panel .scroll { flex: 1; overflow-y: auto; padding: 0 22px max(24px, env(safe-area-inset-bottom)); }
+  .panel h3 { margin: 22px 0 10px; font-size: 12.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .panel p { margin: 6px 0; color: var(--ink-2); font-size: 14.5px; }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .setting p { margin: 0; color: var(--ink); }
+  .setting small { display: block; color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .switch { position: relative; width: 50px; height: 30px; flex: none; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .18); cursor: pointer; transition: background-color .2s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch[aria-checked="true"] { background: #3fbf7f; } .switch[aria-checked="true"]::after { transform: translateX(20px); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .row .btn { height: 38px; font-size: 14.5px; padding: 0 14px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 70px; padding: 9px 10px; border: 0; border-radius: 12px; background: rgba(255, 255, 255, .08); color: var(--ink);
+    font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; word-break: break-all; }
+  .msg { margin: 8px 0 0; font-size: 13.5px; color: var(--ink-2); min-height: 1em; }
+  .msg.err { color: var(--bad); }
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 0; font-size: 14.5px; }
+  .stats dt { color: var(--ink-2); } .stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .help p { font-size: 14px; }
+
+  .binderbar { position: fixed; z-index: 6; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 52px); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 16px; border-radius: 999px; white-space: nowrap; max-width: calc(100% - 24px); box-sizing: border-box; }
+  .binderbar .ttl { font: 600 15px/1 Fredoka; }
+  .binderbar .ttl small { color: var(--ink-3); font-weight: 500; margin-left: 6px; }
+  .binderbar select { height: 32px; border: 0; border-radius: 999px; padding: 0 10px; background: rgba(255, 255, 255, .12); color: var(--ink); font: 600 13px Fredoka; cursor: pointer; }
+  .binderbar select option { color: #111; }
+  .binderbar .btn { height: 32px; padding: 0 12px; font-size: 13.5px; }
+  .pager { position: fixed; z-index: 6; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; }
+  .pager .pg { min-width: 120px; text-align: center; padding: 10px 14px; border-radius: 999px; font: 600 14px/1 Fredoka; font-variant-numeric: tabular-nums; }
+  .pager .btn { width: 48px; padding: 0; }
+
+  .inspect { position: fixed; z-index: 7; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; width: calc(100% - 24px); pointer-events: none; }
+  .inspect > * { pointer-events: auto; }
+  .inspect .info { padding: 10px 18px; border-radius: 18px; text-align: center; }
+  .inspect .info .nm { font: 600 20px/1.2 Fredoka; }
+  .inspect .info .sub { font: 600 13px/1.3 Nunito; color: var(--ink-2); margin-top: 3px; }
+  .inspect .info .val { font: 700 24px/1.2 Fredoka; color: var(--gold); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+  .result { position: fixed; z-index: 8; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100% - 32px)); box-sizing: border-box; padding: 22px 24px 18px; border-radius: 26px; text-align: center; }
+  .result.low { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); }
+  .result h2 { margin: 0 0 4px; font-size: 28px; }
+  .result p { margin: 4px 0 14px; color: var(--ink-2); }
+  .result dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; margin: 0 0 16px; text-align: left; font-size: 15px; }
+  .result dt { color: var(--ink-2); } .result dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .result .best { display: flex; justify-content: center; gap: 8px; margin: 0 0 16px; min-height: 12px; }
+  .result .actions .btn { flex: 1; }
+
+  .confirm { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(5, 3, 12, .55); }
+  .confirm .box { width: min(380px, 100%); padding: 22px 22px 16px; border-radius: 22px; }
+  .confirm h2 { margin: 0 0 8px; font-size: 20px; } .confirm p { margin: 0 0 16px; color: var(--ink-2); }
+  .confirm .row { justify-content: flex-end; }
+
+  @media (max-width: 640px) {
+    .name { font-size: 20px; }
+    .name.hide-small { display: none; }
+    .wallet { height: 38px; font-size: 17px; padding: 0 12px 0 6px; }
+    .hbtn { height: 38px; padding: 0 12px; } .hbtn.icon { width: 38px; }
+    .btn { height: 46px; padding: 0 16px; font-size: 15px; }
+    .binderbar { padding-left: 6px; gap: 6px; }
+    .binderbar .ttl { display: none; }
+    .binderbar .ttl small { display: none; }
+    .tag .nm { font-size: 17px; } .tag .val { font-size: 19px; }
+  }
+  @media (max-width: 480px) { .name { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .panel, .toast, .hint { transition: none; } .btn.new, .wallet.up, .hbtn.bump { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="Booster packs. Swipe across the top of the pack to tear it open, then pull the cards out and flip through them. Keyboard: Space or Enter does the next thing, B opens the binder."></canvas>
+<h1 class="name" id="name"><span>Booster</span> Packs</h1>
+
+<div class="hud">
+  <div class="wallet glass" id="wallet" role="status" aria-live="off" title="Your money"><span class="coin" aria-hidden="true">$</span><b id="money">$0.00</b></div>
+  <button class="hbtn glass" id="binderBtn" type="button" aria-label="Open your binder"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3.5h11.5a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H6.5A1.5 1.5 0 0 1 5 19V3.5Z"/><path d="M5 17.5h13.5"/><path d="M3.5 7h3M3.5 11h3M3.5 15h3"/><path d="M10 7.5h5"/></svg><span class="lbl">Binder</span><span class="count" id="count">0</span></button>
+  <button class="hbtn glass icon" id="menuBtn" type="button" aria-label="Menu" aria-controls="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+</div>
+
+<div class="nopack" id="nopack" hidden><span>No packs yet</span></div>
+<div class="tags" id="tags"></div>
+<div class="tally glass" id="tally" hidden></div>
+
+<div class="bottom" id="bottom">
+  <p class="hint glass off" id="hint"></p>
+  <div class="sets glass" id="sets" hidden></div>
+  <div class="actions" id="actions"></div>
+</div>
+
+<div class="binderbar glass" id="binderbar" hidden>
+  <span class="ttl" id="binderTitle">Binder</span>
+  <select id="setFilter" aria-label="Which set" hidden></select>
+  <select id="sort" aria-label="Sort the binder"><option value="set">By number</option><option value="value">Most valuable</option><option value="new">Newest</option></select>
+  <button class="btn ghost" id="sellDupes" type="button">Sell duplicates</button>
+  <button class="btn gold" id="closeBinder" type="button">Done</button>
+</div>
+<div class="pager" id="pager" hidden>
+  <button class="btn ghost glass" id="prevPage" type="button" aria-label="Previous page"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
+  <span class="pg glass" id="pageLabel">Page 1</span>
+  <button class="btn ghost glass" id="nextPage" type="button" aria-label="Next page"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
+</div>
+
+<div class="inspect" id="inspect" hidden>
+  <div class="info glass"><div class="nm" id="inName"></div><div class="sub" id="inSub"></div><div class="val" id="inVal"></div></div>
+  <div class="actions"><button class="btn ghost glass" id="inBack" type="button">Back</button><button class="btn red" id="inSell" type="button">Sell</button></div>
+</div>
+
+<div class="result glass" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+  <h2 id="resultTitle"></h2><p id="resultSub"></p>
+  <dl id="resultStats"></dl>
+  <div class="actions"><button class="btn ghost glass" id="resultBinder" type="button">Open binder</button><button class="btn gold" id="resultDone" type="button">Keep going</button></div>
+</div>
+
+<div class="toast glass" id="toast" role="status"></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<aside class="panel" id="menu" aria-label="Menu">
+  <header><h2>Booster Packs</h2><button class="hbtn icon" id="closeMenu" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+  <div class="scroll">
+    <h3>Settings</h3>
+    <div class="setting"><p>Auto-sell duplicates<small>After you see a card you already own (same card, same finish), it's sold for you.</small></p><button class="switch" id="autoSell" type="button" role="switch" aria-checked="false" aria-label="Auto-sell duplicates"></button></div>
+    <div class="setting"><p>Sound<small>Foil, cards, sparkles and the till.</small></p><button class="switch" id="soundSwitch" type="button" role="switch" aria-checked="true" aria-label="Sound"></button></div>
+    <h3>Your stats</h3>
+    <dl class="stats" id="stats"></dl>
+    <h3>Save</h3>
+    <p>Your collection lives in this browser. Take it with you as a file or a code.</p>
+    <div class="row"><button class="btn gold" id="exportFile" type="button">Download save</button><button class="btn ghost glass" id="exportCode" type="button">Copy save code</button></div>
+    <p class="msg" id="exportMsg" aria-live="polite"></p>
+    <h3>Load a save</h3>
+    <textarea id="importText" placeholder="Paste a save code (BP1…) or a save file's contents" spellcheck="false" aria-label="Save code"></textarea>
+    <div class="row"><button class="btn gold" id="importBtn" type="button">Load</button><button class="btn ghost glass" id="importFileBtn" type="button">Open a save file</button><input type="file" id="importFile" accept=".json,application/json,text/plain" hidden></div>
+    <p class="msg" id="importMsg" aria-live="polite"></p>
+    <h3>How to play</h3>
+    <div class="help">
+      <p><b>Open a pack:</b> swipe across the dotted line at the top to tear it, pull the cards out, then swipe or tap through them. The rare is always last. Special cards arrive face down and glowing: tap to flip them.</p>
+      <p><b>Every card has a price.</b> Commons are under $10, uncommons $10 to $100, rares over $100. 1 card in 40 is <b>Holo</b> (5×), 1 in 20 is <b>Full Art</b> (2×), and a card that's both is worth 50×.</p>
+      <p><b>Sell</b> cards after a pack, or any time from your binder, to buy more packs. Once you could afford ten packs, <b>booster boxes</b> go on sale: ten packs opened at once.</p>
+      <p>Broke? Somebody will always give you a pack.</p>
+    </div>
+    <h3>Start over</h3>
+    <div class="row"><button class="btn red" id="resetBtn" type="button">Erase everything</button></div>
+  </div>
+</aside>
+
+<div class="confirm" id="confirm" hidden><div class="box glass" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle"><h2 id="confirmTitle"></h2><p id="confirmText"></p><div class="row"><button class="btn ghost glass" id="confirmNo" type="button">Cancel</button><button class="btn gold" id="confirmYes" type="button">OK</button></div></div></div>
+
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
