@@ -14,6 +14,7 @@ const HOLE = SPINE_M * .45;                // from a sheet's inner edge to its r
 const RING_R = HOLE + .4;                  // ring radius: a sheet lying flat has its holes on a ring's foot
 const BEND = .45;                          // how far a turning page's top outer corner leads the rest of it (radians)
 const LAYER = .2;                          // stacked sheets sit this far apart: a sheet's own thickness, sleeves and all
+const SEE = .4;                            // how much shows through a sheet's pockets: a card's back, or the page below
 const FONT = 'Fredoka, system-ui, sans-serif', BODY = 'Nunito, system-ui, sans-serif';
 
 // A card's front, back and rim as a fine grid, shaped like the real card (same size, corners and texture mapping), so a
@@ -67,6 +68,13 @@ export class Binder {
     this.scene.add(this.root);
     this.spread = 0; this.sheets = new Map(); this.list = []; this.turning = null; this.dimmed = 0; this.hover = null;
     this.tilt = new THREE.Vector2();
+    // while the binder dims behind a card being looked at, the sheets' see-through backings close up (veil 0 → 1), so
+    // whatever shows through dims along with the fronts
+    const veil = this.veil = { value: 0 };
+    this.veilShader = sh => {
+      sh.uniforms.uVeil = veil;
+      sh.fragmentShader = 'uniform float uVeil;\n' + sh.fragmentShader.replace('#include <alphamap_fragment>', 'diffuseColor.a *= mix(texture2D(alphaMap, vAlphaMapUv).g, 1., uVeil);');
+    };
     this.mats = this.makeMaterials();
     this.buildCover();
   }
@@ -93,6 +101,18 @@ export class Binder {
       }
       for (const fy of [.18, .5, .82]) { g.fillStyle = '#050407'; g.beginPath(); g.arc(SPINE_M * .45 * sx, h * fy, 9, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(255,255,255,.3)'; g.lineWidth = 2; g.stroke(); }
     });
+    // Where the cards sit, the backing is see-through: from one side of a sheet you make out the back of a card on the
+    // other side, or through a pocket that's empty on both, the page underneath. (Just inside a card's outline, so
+    // around a card the backing stays solid.)
+    const pocketsTex = tex(512, Math.round(512 * SHEET_H / SHEET_W), (g, w, h) => {
+      const sx = w / SHEET_W, sy = h / SHEET_H, a = Math.round(255 * (1 - SEE)), cw = CARD_W * .985 - .1, ch = CARD_H * .985 - .1;
+      g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+      g.fillStyle = `rgb(${a},${a},${a})`;
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const x = SPINE_M + c * (POCKET_W + GAP) + POCKET_W / 2, y = TOP_M + r * (POCKET_H + GAP) + POCKET_H / 2;
+        g.beginPath(); g.roundRect((x - cw / 2) * sx, (y - ch / 2) * sy, cw * sx, ch * sy, CARD_R * sx); g.fill();
+      }
+    }, false);
     // clear plastic over the cards: nearly invisible, but it catches the light
     const sleeveTex = tex(256, Math.round(256 * SHEET_H / SHEET_W), (g, w, h) => {
       g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
@@ -101,10 +121,12 @@ export class Binder {
       for (let r = 0; r <= ROWS; r++) { const y = (TOP_M + r * (POCKET_H + GAP) - GAP / 2) * sy; g.beginPath(); g.moveTo(SPINE_M * sx * .8, y); g.lineTo(w, y); g.stroke(); }
       for (let c = 0; c <= COLS; c++) { const x = (SPINE_M + c * (POCKET_W + GAP) - GAP / 2) * sx; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
     }, false);
+    const sheet = new THREE.MeshStandardMaterial({ map: sheetTex, alphaMap: pocketsTex, transparent: true, roughness: .9, side: THREE.DoubleSide });
+    sheet.onBeforeCompile = this.veilShader;
     return {
       cover: new THREE.MeshStandardMaterial({ map: leather, color: 0xffffff, roughness: .75, metalness: 0 }),
       edge: new THREE.MeshStandardMaterial({ color: 0x1c1738, roughness: .8 }),
-      sheet: new THREE.MeshStandardMaterial({ map: sheetTex, roughness: .9, side: THREE.DoubleSide }),
+      sheet,
       sleeve: new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: .06, roughness: .18, clearcoat: 1, clearcoatRoughness: .1, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.2, alphaMap: sleeveTex, alphaTest: 0 }),
       seams: new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .12, alphaMap: sleeveTex, depthWrite: false, side: THREE.DoubleSide }),
       ring: new THREE.MeshStandardMaterial({ color: 0xe8ecf2, metalness: 1, roughness: .2 }),
@@ -136,7 +158,7 @@ export class Binder {
     // the inside of the front cover: a title page
     this.titleTex = null;
     this.titleMesh = new THREE.Mesh(new THREE.PlaneGeometry(SHEET_W - .4, SHEET_H - .4), new THREE.MeshStandardMaterial({ roughness: .9 }));
-    this.titleMesh.position.set(-SPINE / 2 - SHEET_W / 2 - .1, 0, -.1);
+    this.titleMesh.position.set(-SPINE / 2 - SHEET_W / 2 - .1, 0, -.285);   // on the cover, under every sheet on the left
     this.book.add(this.titleMesh);
   }
   paintTitle() {
@@ -222,7 +244,11 @@ export class Binder {
     const g = new THREE.Group();
     const page = (z, flip) => {
       const geo = new THREE.PlaneGeometry(SHEET_W, SHEET_H, 24, 6);
-      if (flip) geo.rotateY(Math.PI);
+      if (flip) {   // turned to face the back, with its texture mirrored back so the seams still run between the pockets
+        geo.rotateY(Math.PI);
+        const uv = geo.attributes.uv;
+        for (let j = 0; j < uv.count; j++) uv.setX(j, 1 - uv.getX(j));
+      }
       geo.translate(SHEET_W / 2 - HOLE, 0, z);
       geo.userData.rest = geo.attributes.position.array.slice();
       return geo;
@@ -263,15 +289,16 @@ export class Binder {
     s.group.traverse(o => { if (o.geometry && o.isMesh && !o.userData.card) o.geometry.dispose(); });
     s.group.removeFromParent();
   }
-  // Sheets 0 … spread−1 are turned over to the left; the rest lie on the right.
+  // Sheets 0 … spread−1 are turned over to the left; the rest lie on the right. The open sheets are built, and the one
+  // under each, which shows through their empty pockets (the open ones first, so their faces load first).
   showSpread() {
-    const keep = new Set([this.spread - 1, this.spread].filter(i => i >= 0 && i < this.sheetCount));
+    const keep = new Set([this.spread, this.spread - 1, this.spread + 1, this.spread - 2].filter(i => i >= 0 && i < this.sheetCount));
     for (const [i, s] of this.sheets) if (!keep.has(i)) { this.disposeSheet(s); this.sheets.delete(i); }
     for (const i of keep) { const s = this.sheet(i); this.bend(s, 0); this.place(s, i < this.spread ? Math.PI : 0, this.restZ(i, this.spread)); }
-    this.titleMesh.visible = this.spread === 0;
+    this.titleMesh.visible = this.spread <= 1;   // it shows through the first sheet's empty pockets too
   }
-  // How high sheet i rests with the binder open at a spread: the top sheet of each side on top, the next one a layer
-  // down (it's only there while a page turns over it).
+  // How high sheet i rests with the binder open at a spread: the top sheet of each side on top, each one under it a
+  // layer down. Two layers down is under the covers, out of sight.
   restZ(i, spread) { return i < spread ? .02 - (spread - 1 - i) * LAYER : -(i - spread) * LAYER; }
   // The see-through sleeves of the sheet that's turning draw after everyone else's (they're on top).
   setLayer(s, top) { for (const o of s.clear) o.renderOrder = (top ? 4 : 2) + (o.material === this.mats.seams ? 1 : 0); }
@@ -330,18 +357,17 @@ export class Binder {
     if (next < 0 || next > this.maxSpread) { this.sound.denied?.(); return; }
     this.sound.page();
     const turning = dir > 0 ? this.sheet(this.spread) : this.sheet(this.spread - 1);
-    // make sure what's underneath exists
-    if (dir > 0 && next < this.sheetCount) this.sheet(next);
-    if (dir < 0 && next - 1 >= 0) this.sheet(next - 1);
-    if (dir < 0 && next === 0) this.titleMesh.visible = true;
-    // it swings over on the rings, curling as if pulled by its top outer corner. The sheet it uncovers rises into place
-    // once it has lifted clear, and the sheet it lands on sinks a layer first, so no two pages ever share a depth.
+    // make sure what's underneath exists: the sheet it uncovers, and the one under that (it'll show through)
+    for (const j of dir > 0 ? [next, next + 1] : [next - 1, next - 2]) if (j >= 0 && j < this.sheetCount) this.sheet(j);
+    if (next <= 1) this.titleMesh.visible = true;
+    // It swings over on the rings, curling as if pulled by its top outer corner. Every other sheet shifts a layer: on
+    // the side it leaves they rise once it has lifted clear, and on the side it lands they sink first, so no two pages
+    // ever share a depth.
     const from = dir > 0 ? 0 : Math.PI, to = dir > 0 ? Math.PI : 0, i = turning.i;
     const z0 = this.restZ(i, this.spread), z1 = this.restZ(i, next);
-    const under = this.sheets.get(dir > 0 ? i + 1 : i - 1), onto = this.sheets.get(dir > 0 ? i - 1 : i + 1);
-    const uz0 = under && this.restZ(under.i, this.spread), uz1 = under && this.restZ(under.i, next);
-    const oz0 = onto && this.restZ(onto.i, this.spread), oz1 = onto && this.restZ(onto.i, next);
-    if (under) this.place(under, dir > 0 ? 0 : Math.PI, uz0);
+    const others = [...this.sheets.values()].filter(s => s !== turning)
+      .map(s => ({ s, phi: s.i < this.spread ? Math.PI : 0, a: this.restZ(s.i, this.spread), b: this.restZ(s.i, next) }));
+    for (const o of others) this.place(o.s, o.phi, o.a);
     this.hover = null;
     this.setLayer(turning, true);
     const ramp = (k, a, b) => Math.min(1, Math.max(0, (k - a) / (b - a)));
@@ -350,8 +376,7 @@ export class Binder {
       this.place(turning, phi, z0 + (z1 - z0) * x);
       // the corner leads, but never past lying flat: coming down, it settles onto the page below instead of through it
       this.bend(turning, dir * Math.min(BEND * Math.sin(k * Math.PI), (dir > 0 ? Math.PI - phi : phi) * .85));
-      if (under) this.place(under, dir > 0 ? 0 : Math.PI, uz0 + (uz1 - uz0) * ramp(k, .25, .6));
-      if (onto) this.place(onto, dir > 0 ? Math.PI : 0, oz0 + (oz1 - oz0) * ramp(k, .3, .65));
+      for (const o of others) this.place(o.s, o.phi, o.a + (o.b - o.a) * (o.b > o.a ? ramp(k, .25, .6) : ramp(k, .3, .65)));
     }, this.ease.inOut);
     if (portrait) { this.side = dir > 0 ? 'left' : 'right'; this.pan(.7); }
     await this.turning;
@@ -368,6 +393,7 @@ export class Binder {
   visibleCards() {
     const out = [];
     for (const s of this.sheets.values()) {
+      if (s.i !== this.spread && s.i !== this.spread - 1) continue;   // the sheets underneath only show through
       const onLeft = s.group.rotation.y < -Math.PI / 2;
       for (const c of s.cards) { const back = c.holder.rotation.y !== 0; if (back === onLeft && c.holder.visible) out.push(c); }
     }
@@ -406,6 +432,7 @@ export class Binder {
     this.tilt.x += (ty - .1 - this.tilt.x) * Math.min(1, dt * 4); this.tilt.y += (tx - this.tilt.y) * Math.min(1, dt * 4);
     this.book.rotation.set(this.tilt.x, this.tilt.y, 0);
     this.dimmed += ((this.dimTarget ?? 0) - this.dimmed) * Math.min(1, dt * 8);
+    this.veil.value = this.dimmed * .6;
     for (const s of this.sheets.values()) for (const c of s.cards) {
       if (c.inspecting) continue;
       const on = c === this.hover ? 1 : 0;
