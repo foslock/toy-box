@@ -954,6 +954,9 @@ async function summary(cards, stack, set) {
   }
   // hovering tilts a card toward you; clicking looks closer
   let hover = null;
+  // where the pointer is from a card's middle, measured on the grid rather than on the card: the card tilts, and
+  // measuring on it would feed its own tilt back in
+  const offCard = c => localAt(stack)?.sub(c.holder.position);
   handler = {
     cursor: () => hover ? 'point' : '',
     hover() {
@@ -961,23 +964,31 @@ async function summary(cards, stack, set) {
       // clearly off it, or it flickers up and down at its edge
       const c = pickCard(cards);
       if (c || !hover) { hover = c; return; }
-      const l = localAt(hover.holder);
+      const l = offCard(hover);
       if (!l || Math.abs(l.x) > CARD_W / 2 + .6 || Math.abs(l.y) > CARD_H / 2 + .6) hover = null;
     },
-    up(e, tap) { if (!tap) return; const c = pickCard(cards); if (c) inspect(c, { from: 'summary', onSell: () => { c.mark = c.mark === 'sell' ? null : 'sell'; render(); } }).then(() => { render(); hint(`This pack is worth <b>${money(total)}</b> · tap a card for a closer look`); }); },
+    up(e, tap) {
+      if (!tap) return;
+      const c = pickCard(cards);
+      if (!c) return;
+      // it isn't hovered while it's up close, and after it's back only if the pointer is on a card again
+      hover = null;
+      inspect(c, { from: 'summary', onSell: () => { c.mark = c.mark === 'sell' ? null : 'sell'; render(); } }).then(() => { hover = pickCard(cards); render(); hint(`This pack is worth <b>${money(total)}</b> · tap a card for a closer look`); });
+    },
     key(e) { if (e.key === 'Enter') { finish(); return true; } },
   };
   tickers.add(dt => {
     for (const c of cards) {
       c.stamp = damp(c.stamp ?? 0, c.mark === 'sold' ? 1 : 0, 9, dt);
       c.sash = c.stamp;
-      const on = c === hover && !c.inspecting ? 1 : 0;
+      const on = c === hover && c !== inspecting ? 1 : 0;
       c.hov = damp(c.hov ?? 0, on, 10, dt);
       c.mesh.position.z = c.hov * .8;
-      if (c.inspecting) continue;
-      const l = on ? localAt(c.holder) : null;
-      c.holder.rotation.x = damp(c.holder.rotation.x, on && l ? -l.y * .05 : 0, 8, dt);
-      c.holder.rotation.y = damp(c.holder.rotation.y, on && l ? l.x * .08 : 0, 8, dt);
+      if (c === inspecting) continue;   // up close, or on its way back: it's moving on its own
+      // it leans toward the pointer, never further than it would with the pointer at its edge
+      const l = on ? offCard(c) : null;
+      c.holder.rotation.x = damp(c.holder.rotation.x, l ? -clamp(l.y, -CARD_H / 2, CARD_H / 2) * .05 : 0, 8, dt);
+      c.holder.rotation.y = damp(c.holder.rotation.y, l ? clamp(l.x, -CARD_W / 2, CARD_W / 2) * .08 : 0, 8, dt);
     }
     return active;
   });
@@ -1036,12 +1047,20 @@ async function inspect(card, o = {}) {
   const hiEntry = card.entry?.width === HI ? null : faces.get(card.data, HI, true);
   const loEntry = hiEntry ? card.entry : null;
   if (hiEntry) { faces.get(card.data, card.entry.width); card.set(hiEntry); }
-  // out of the binder, it slides up out of its sleeve first, the way you'd pull a card out of a pocket
-  const fromSleeve = o.from === 'binder', slid = fromSleeve ? [saved.p.x, saved.p.y + CARD_H * .72, saved.p.z + (saved.p.z < 0 ? -.14 : .14)] : null;
+  // Out of the binder, it's drawn right up out of its sleeve first, the way you'd pull a card out of a pocket. It's
+  // lifted off the page before it moves, so it slides over the card above it rather than into it, and its top tips out
+  // a touch: it pivots on its bottom edge, so no part of it ever dips back toward the page. (up: 0 in the sleeve, 1
+  // clear of it; lift: 0 on the page, 1 held off it; face: +1 on the front of a sheet, -1 on the back.)
+  const fromSleeve = o.from === 'binder', face = saved.p.z < 0 ? -1 : 1, PULL = CARD_H * 1.05, half = CARD_H / 2 * saved.s.y;
+  const pose = (up, lift) => {
+    const a = .05 * lift;
+    return { p: [saved.p.x, saved.p.y + PULL * up - half * (1 - Math.cos(a)), saved.p.z + face * (.14 * lift + half * Math.sin(a))], r: [saved.r.x + face * a, saved.r.y, saved.r.z] };
+  };
+  const inSleeve = (up, lift) => { const q = pose(up, lift); h.position.set(...q.p); h.rotation.set(...q.r); };
   $('tags').style.visibility = 'hidden';
   if (fromSleeve) {
     sound.sleeve();
-    await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z], short: true }, .34, ease.out);
+    await anim(.42, (x, k) => inSleeve(ease.inOut(k), Math.min(1, k / .15)), ease.linear);
   }
   scene.attach(h);
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
@@ -1114,10 +1133,12 @@ async function inspect(card, o = {}) {
   } else {
     sound.whoosh(.4);
     parent.attach(h);
-    if (fromSleeve) {   // back over its pocket, then down into the sleeve
-      await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z], s: saved.s.toArray(), short: true }, .38, ease.inOut);
+    if (fromSleeve) {   // back over its pocket, held off the page, then down into the sleeve: it only settles onto the page
+      // once it's clear of the card above, so it stays in front the whole way
+      await moveTo(h, { ...pose(1, 1), s: saved.s.toArray(), short: true }, .38, ease.inOut);
       sound.sleeve();
-      await moveTo(h, { p: saved.p.toArray(), r: [saved.r.x, saved.r.y, saved.r.z], short: true }, .3, ease.in);
+      await anim(.4, (x, k) => { const up = 1 - ease.inOut(k); inSleeve(up, Math.min(1, up * PULL / .45)); }, ease.linear);
+      h.position.copy(saved.p); h.rotation.copy(saved.r);
     } else await moveTo(h, { p: saved.p.toArray(), r: [saved.r.x, saved.r.y, saved.r.z], s: saved.s.toArray(), short: true }, .35, ease.inOut);
   }
   if (hiEntry) card.set(loEntry);
@@ -1474,5 +1495,5 @@ function demo() {
   flash = .25;
   requestAnimationFrame(frame);
 }
-if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, phoneTilt, get S() { return S; }, get current() { return current; }, get mode() { return mode; } };
+if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, phoneTilt, get S() { return S; }, get current() { return current; }, get mode() { return mode; }, set timeScale(v) { timeScale = v; } };
 start();

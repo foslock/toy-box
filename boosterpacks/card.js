@@ -121,7 +121,9 @@ const FRAG = /* glsl */`
     #include <colorspace_fragment>
   }`;
 
-const LIGHT = new THREE.Vector3(-.42, .62, 1).normalize();
+// The light is low and off to the upper left, so a card held square to you reads clean, with no glare over its name;
+// the shine sweeps in as you tilt it toward the light.
+const LIGHT = new THREE.Vector3(-1.1, .9, .9).normalize();
 let GEO = null, EDGE = null, NO_EDGE = null, BACK = null;
 export const cardTime = { value: 0 };
 
