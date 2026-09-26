@@ -20,6 +20,10 @@ const lin = (g, x0, y0, x1, y1, stops) => { const gr = g.createLinearGradient(x0
 const mix = (a, b, t) => { const A = new THREE.Color(a), B = new THREE.Color(b); return '#' + A.lerp(B, t).getHexString(); };
 export const SILVER = ['#f7f8fa', '#d3d8df', '#fbfcfd', '#bfc6cf', '#eef1f4'];
 export const GOLD = ['#fff3c4', '#e2ae45', '#fff6d6', '#c58a26', '#f7d77c'];
+export const WHITE = ['#ffffff', '#f2f3f5', '#ffffff', '#e9ebef', '#fcfcfd'];
+// A card's border, picture frame and info pill: white for commons, silver for uncommons, gold for rares (and for any
+// holo full art).
+const trim = (item, v, full = false) => item.rarity === 'R' || (full && v & HOLO) ? GOLD : item.rarity === 'U' ? SILVER : WHITE;
 const metal = (g, x0, y0, x1, y1, cols) => lin(g, x0, y0, x1, y1, cols.map((c, i) => [i / (cols.length - 1), c]));
 
 function fitFont(g, text, weight, size, family, maxW, min = size * .55) {
@@ -87,7 +91,7 @@ function defaultScene(g, w, h, o, type) {
 
 /* ---------- normal card ---------- */
 function drawNormal(g, set, item, v, art) {
-  const type = set.types[item.type], rare = item.rarity === 'R', cols = rare ? GOLD : SILVER;
+  const type = set.types[item.type], rare = item.rarity === 'R', cols = trim(item, v);
   // border
   g.fillStyle = metal(g, 0, 0, CW, CH, cols); g.fillRect(0, 0, CW, CH);
   g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2; rr(g, 21, 21, CW - 42, CH - 42, 22); g.stroke();
@@ -178,7 +182,7 @@ function footer(g, set, item, v, y, color, light = false) {
 
 /* ---------- full-art card ---------- */
 function drawFull(g, set, item, v, art) {
-  const type = set.types[item.type], rare = item.rarity === 'R', cols = rare || v & HOLO ? GOLD : SILVER;
+  const type = set.types[item.type], cols = trim(item, v, true);
   scenePaint(g, set, item, CW, CH, true);
   if (art) g.drawImage(art, 0, 0, CW, CH);
   // legibility shades top and bottom

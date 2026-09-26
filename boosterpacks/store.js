@@ -78,6 +78,7 @@ function fresh() {
     packs: { [SETS[0].id]: 1 },           // the first pack is on the house
     cards: [],                            // card keys in the order they were collected
     opened: 0, boxesOpened: 0, boxUnlocked: {},
+    unlocked: {},                         // expansion sets the player has unlocked (see isUnlocked)
     settings: { autoSell: false, sound: true, tilt: true, sort: 'set' },
     stats: { earned: 0, spent: 0, sold: 0, donated: 0, best: null, bestValue: 0, tipAutoSell: 0 },
     seen: {},                              // item keys ("set:item") ever pulled, for the checklist
@@ -104,6 +105,8 @@ function sanitize(raw) {
   s.opened = Math.max(0, Math.floor(raw.opened) || 0);
   s.boxesOpened = Math.max(0, Math.floor(raw.boxesOpened) || 0);
   s.boxUnlocked = raw.boxUnlocked && typeof raw.boxUnlocked === 'object' ? { ...raw.boxUnlocked } : {};
+  s.unlocked = {};
+  if (raw.unlocked && typeof raw.unlocked === 'object') for (const [k, on] of Object.entries(raw.unlocked)) if (SET_BY_ID[k] && on) s.unlocked[k] = true;
   s.settings = { ...s.settings, ...(raw.settings && typeof raw.settings === 'object' ? raw.settings : {}) };
   s.settings.autoSell = !!s.settings.autoSell; s.settings.sound = s.settings.sound !== false; s.settings.tilt = s.settings.tilt !== false;
   if (!['set', 'value', 'new'].includes(s.settings.sort)) s.settings.sort = 'set';
@@ -132,6 +135,25 @@ export function reset() { S = fresh(); rebuild(); save(true); return S; }
 export function replaceWith(raw) { S = sanitize(raw); rebuild(); save(true); return S; }
 export function useState(s) { S = s; rebuild(); }
 
+/* ---------- expansions ---------- */
+// A set with an unlock rule ({ set, found }) stays locked until the binder holds that many different cards from the
+// other set. Once unlocked it stays unlocked, even if those cards are sold later.
+export const isUnlocked = set => !set.unlock || !SET_BY_ID[set.unlock.set] || !!S.unlocked[set.id];
+export function unlockProgress(set) {
+  const from = SET_BY_ID[set.unlock?.set];
+  if (!from) return null;
+  const found = new Set();
+  for (const k of owned.keys()) { const c = parseKey(k); if (c.set === from.id && from.itemById[c.id]) found.add(c.id); }
+  return { have: Math.min(found.size, set.unlock.found), need: set.unlock.found, from };
+}
+// Sets that have just unlocked (they're remembered as unlocked from now on).
+export function checkSetUnlocks() {
+  const out = [];
+  for (const set of SETS) if (!isUnlocked(set)) { const p = unlockProgress(set); if (p && p.have >= p.need) { S.unlocked[set.id] = true; out.push(set); } }
+  if (out.length) save();
+  return out;
+}
+
 /* ---------- actions ---------- */
 export const packsInHand = () => Object.values(S.packs).reduce((a, b) => a + b, 0);
 export function takePack(setId) { if (!(S.packs[setId] > 0)) return false; S.packs[setId]--; if (!S.packs[setId]) delete S.packs[setId]; save(); return true; }
@@ -140,9 +162,9 @@ export function canAfford(cents) { return S.money >= cents; }
 export function spend(cents) { if (S.money < cents) return false; S.money -= cents; S.stats.spent += cents; save(); return true; }
 export function earn(cents) { S.money += cents; S.stats.earned += cents; save(); }
 export function buyPack(set) { if (!spend(packPrice(set))) return false; givePack(set.id); return true; }
-export function checkBoxUnlock(set) { if (!S.boxUnlocked[set.id] && S.money >= boxUnlockAt(set)) { S.boxUnlocked[set.id] = true; save(); return true; } return false; }
+export function checkBoxUnlock(set) { if (isUnlocked(set) && !S.boxUnlocked[set.id] && S.money >= boxUnlockAt(set)) { S.boxUnlocked[set.id] = true; save(); return true; } return false; }
 export function donate(set) { S.stats.donated++; givePack(set.id); }
-export const needsDonation = () => packsInHand() === 0 && SETS.every(set => S.money < packPrice(set));
+export const needsDonation = () => packsInHand() === 0 && SETS.filter(isUnlocked).every(set => S.money < packPrice(set));
 
 // Put freshly pulled cards in the collection. Returns, for each card, whether it was new and whether it was a duplicate
 // (a copy of the same card was already there — counting earlier cards in the same batch).

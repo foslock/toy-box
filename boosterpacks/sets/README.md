@@ -1,8 +1,9 @@
 # Card sets
 
-Every card in Booster Packs belongs to a set. **Around the House** (`house/`) is the first. The game reads everything
-about a set from its folder: the cards, their prices and text, the categories they belong to, the art behind each item,
-the 3D models, and the pack wrapper. To add a set, make a new folder here and register it.
+Every card in Booster Packs belongs to a set. **Around the House** (`house/`) is the first; **Backyard** (`backyard/`)
+is the first expansion, locked until a player's binder holds 50 different Around the House cards. The game reads
+everything about a set from its folder: the cards, their prices and text, the categories they belong to, the art behind
+each item, the 3D models, and the pack wrapper. To add a set, make a new folder here and register it.
 
 ```
 sets/
@@ -11,6 +12,7 @@ sets/
 │   ├── set.js          the set: its cards, prices, categories, wrappers
 │   ├── rooms.js        its categories ("rooms"): colours, icons, painted backgrounds
 │   └── models/*.js     one 3D model per card, split into files however you like
+├── backyard/           an expansion: set.js, types.js (six "patches") and models/
 └── yourset/ …
 ```
 
@@ -37,8 +39,10 @@ const set = {
   types: TYPES,                 // your categories, below
   typeLabel: 'Place',           // what a category is called
   wrappers: [                   // pack wrapper designs: a rare shown big on the front, over three colours
-    { hero: 'sandcastle', colors: ['#063a5e', '#1aa0d8', '#c8f4ff'], accent: '#ffd76a' },
+    { hero: 'sandcastle', colors: ['#063a5e', '#1aa0d8', '#c8f4ff'], accent: '#ffd76a' },   // accentInk: the name banner's colour
   ],
+  unlock: { set: 'house', found: 50 },   // optional: locked until the binder holds 50 different cards from 'house'
+  symbol(g, x, y, r) { /* optional: the set's glyph in each card's footer, in the current fillStyle */ },
   blurb: 'Printed on the back of the pack.',
   items: LIST.map(([id, name, type, rarity, dollars, [move, power, text], flavor, size], i) => ({
     id, name, type, rarity, price: Math.round(dollars * 100), move: { name: move, power, text }, flavor, size, no: i + 1,
@@ -68,6 +72,10 @@ them.
 the House gives its seven dearest rares fixed odds, from 1 in 45 packs to 1 in 2,000 for the piano.
 
 **Numbering.** `no` is the card's number in the set (`001/100`). The binder sorts by it.
+
+**Expansions.** A set with `unlock` shows in the shop with a lock and the player's progress (say, 🔒 23/50) until their
+binder holds that many different cards from the other set. Then it unlocks for good, even if those cards are sold
+later: confetti, and its first pack is on the house. Saves remember unlocked sets in `unlocked`.
 
 **Weakness, resistance, upkeep.** Each card's stat row comes from its category (`weak`, `resist`: another category's
 key) and its price (upkeep dots). An item can override any of them with its own `weak`, `resist` or `upkeep`.

@@ -67,6 +67,8 @@
   .sets { display: flex; gap: 6px; padding: 4px; border-radius: 999px; }
   .sets button { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: none; cursor: pointer; font: 600 13.5px/1 Fredoka; color: var(--ink-2); }
   .sets button[aria-pressed="true"] { background: rgba(255, 255, 255, .14); color: var(--ink); }
+  .sets button.locked { color: var(--ink-3); cursor: help; }
+  .sets button.locked small { font: 700 11px/1 Nunito; opacity: .8; margin-left: 2px; }
 
   .nopack { position: fixed; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 7.6 / 12.2; box-sizing: border-box; border-radius: 16px; pointer-events: none;
     border: 2px dashed rgba(255, 255, 255, .16); background: radial-gradient(80% 60% at 50% 45%, rgba(255, 255, 255, .05), transparent); display: grid; place-items: center; animation: ghostIn .5s ease-out; }
@@ -91,9 +93,15 @@
   .badge.sold { background: var(--good); color: #0b3b22; }
   .tally { position: fixed; left: 50%; top: max(66px, calc(env(safe-area-inset-top) + 58px)); transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; font: 600 15px/1 Fredoka; z-index: 4; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .tally b { color: var(--gold); font-weight: 700; }
-  .dots { display: inline-flex; gap: 4px; margin-left: 10px; vertical-align: 1px; }
+  .dots { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; vertical-align: 0; }
   .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .2); }
-  .dots i.on { background: var(--ink); } .dots i.R { box-shadow: 0 0 0 1.5px var(--gold); }
+  .dots i.on { background: var(--ink); }
+  /* uncommons are diamonds and the rare a gold star, like the symbols on the cards; a little gap between the groups */
+  .dots i.U { width: 6px; height: 6px; border-radius: 1px; transform: rotate(45deg); margin: 0 1px; background: rgba(170, 200, 255, .28); }
+  .dots i.U.on { background: #bcd4ff; }
+  .dots i.C + i.U, .dots i.U + i.R { margin-left: 7px; }
+  .dots i.R { width: 12px; height: 12px; border-radius: 0; background: rgba(255, 215, 106, .35); clip-path: polygon(50% 0, 62% 35%, 98% 36%, 69% 58%, 80% 94%, 50% 72%, 20% 94%, 31% 58%, 2% 36%, 38% 35%); }
+  .dots i.R.on { background: var(--gold); }
 
   .tag.t3 { box-shadow: 0 0 0 1.5px rgba(255, 215, 106, .75), 0 0 26px -4px rgba(255, 215, 106, .7), 0 10px 30px -14px rgba(0, 0, 0, .7); }
   .tag.t4 { box-shadow: 0 0 0 2px rgba(255, 223, 130, .95), 0 0 40px -2px rgba(255, 215, 106, .85), 0 10px 30px -14px rgba(0, 0, 0, .7); }
@@ -265,6 +273,7 @@
       <p><b>Every card has a value.</b> Commons are worth up to $1 and uncommons up to $10, and most are worth a lot less. A rare can be worth anything; the dearest are the hardest to find. 1 card in 40 is <b>Holo</b> (5×), 1 in 20 is <b>Full Art</b> (2×), and a card that's both is worth 50×.</p>
       <p><b>Look closer:</b> tap a card after a pack or in your binder. Drag it, or on a phone just tilt the phone, to catch the light on its foil, and tap outside it to put it back.</p>
       <p><b>Sell</b> cards after a pack, or any time from your binder, to buy more packs. Once you could afford ten packs, <b>booster boxes</b> go on sale: ten packs opened at once.</p>
+      <p><b>Expansions:</b> once your binder holds 50 different Around the House cards, the <b>Backyard</b> set unlocks, with packs of its own.</p>
       <p>Broke? Somebody will always give you a pack.</p>
     </div>
     <h3>Start over</h3>

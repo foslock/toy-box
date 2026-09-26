@@ -1,16 +1,60 @@
-// The binder: an open ring binder whose sheets have twelve sleeves a side (three across, four down). It never runs out
+// The binder: an open ring binder whose sheets have nine sleeves a side (three across, three down). It never runs out
 // of sheets. Only the sheets near the open spread are built; cards load their faces as they come into view.
 import { LO } from './faces.js';
-import { CARD_W, CARD_H } from './card.js';
+import { CARD_W, CARD_H, CARD_T, CARD_R } from './card.js';
 import { SETS } from './sets/index.js';
 
-const COLS = 3, ROWS = 4, PER_SIDE = COLS * ROWS, PER_SHEET = PER_SIDE * 2;
+const COLS = 3, ROWS = 3, PER_SIDE = COLS * ROWS, PER_SHEET = PER_SIDE * 2;
 const POCKET_W = CARD_W + .34, POCKET_H = CARD_H + .34, GAP = .14;
 const SPINE_M = 1.35, OUTER_M = .45, TOP_M = .55;
 const SHEET_W = SPINE_M + COLS * POCKET_W + (COLS - 1) * GAP + OUTER_M;
 const SHEET_H = TOP_M * 2 + ROWS * POCKET_H + (ROWS - 1) * GAP;
 const SPINE = 1.1, COVER_PAD = .7;
+const HOLE = SPINE_M * .45;                // from a sheet's inner edge to its ring holes
+const RING_R = HOLE + .4;                  // ring radius: a sheet lying flat has its holes on a ring's foot
+const BEND = .45;                          // how far a turning page's top outer corner leads the rest of it (radians)
+const LAYER = .2;                          // stacked sheets sit this far apart: a sheet's own thickness, sleeves and all
 const FONT = 'Fredoka, system-ui, sans-serif', BODY = 'Nunito, system-ui, sans-serif';
+
+// A card's front, back and rim as a fine grid, shaped like the real card (same size, corners and texture mapping), so a
+// card can bend along with its page while the page turns. The real card geometry is one flat slab.
+let GRID = null;
+function gridCard(THREE) {
+  if (GRID) return GRID;
+  const nx = 12, ny = 16, W = CARD_W, H = CARD_H, R = CARD_R, t = CARD_T / 2;
+  const face = new THREE.PlaneGeometry(W, H, nx, ny), fp = face.attributes.position;
+  for (let i = 0; i < fp.count; i++) {   // round the corners: pull corner points in onto the curve
+    let x = fp.getX(i), y = fp.getY(i);
+    const ex = Math.abs(x) - (W / 2 - R), ey = Math.abs(y) - (H / 2 - R), d = Math.hypot(ex, ey);
+    if (ex > 0 && ey > 0 && d > R) { x = Math.sign(x) * (W / 2 - R + ex / d * R); y = Math.sign(y) * (H / 2 - R + ey / d * R); }
+    fp.setXY(i, x, y);
+  }
+  const P = [], U = [], I = [];
+  const n = fp.count, faceIdx = face.index.array;
+  for (const side of [1, -1]) {   // front (+z), then the back, turned over so it reads right from behind
+    const o = P.length / 3;
+    for (let i = 0; i < n; i++) { const x = fp.getX(i), y = fp.getY(i); P.push(side * x, y, side * t); U.push(x / W + .5, y / H + .5); }
+    for (const k of faceIdx) I.push(o + k);
+  }
+  const at = (ix, iy) => iy * (nx + 1) + ix, outline = [];   // the outline, counter-clockwise from the bottom left
+  for (let ix = 0; ix < nx; ix++) outline.push(at(ix, ny));
+  for (let iy = ny; iy > 0; iy--) outline.push(at(nx, iy));
+  for (let ix = nx; ix > 0; ix--) outline.push(at(ix, 0));
+  for (let iy = 0; iy < ny; iy++) outline.push(at(0, iy));
+  const rim = P.length / 3;
+  for (const k of outline) { const x = fp.getX(k), y = fp.getY(k); P.push(x, y, t, x, y, -t); U.push(0, 0, 0, 0); }
+  const m = outline.length;
+  for (let j = 0; j < m; j++) { const a = rim + j * 2, b = rim + ((j + 1) % m) * 2; I.push(a, a + 1, b + 1, a, b + 1, b); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+  geo.setIndex(I);
+  const fi = faceIdx.length;
+  geo.addGroup(0, fi, 0); geo.addGroup(fi, fi, 1); geo.addGroup(fi * 2, m * 6, 2);
+  geo.computeVertexNormals();
+  face.dispose();
+  return (GRID = geo);
+}
 
 export class Binder {
   constructor(ctx) {
@@ -77,14 +121,18 @@ export class Binder {
     this.spineMesh = new THREE.Mesh(new THREE.BoxGeometry(SPINE + .2, ch, t), m.cover);
     this.spineMesh.position.set(0, 0, -t / 2 - .45);
     this.book.add(this.leftCover, this.rightCover, this.spineMesh);
-    // rings, half above the sheets
+    // rings: an arch standing up over the spine at each row of holes, dipping into the mechanism at both ends
     for (const fy of [.32, 0, -.32]) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(.62, .09, 12, 32, Math.PI), m.ring);
-      ring.rotation.set(0, Math.PI / 2, 0); ring.position.set(0, fy * SHEET_H, -.1);
+      const geo = new THREE.TorusGeometry(RING_R, .085, 12, 48, Math.PI + .5); geo.rotateZ(-.25);
+      const ring = new THREE.Mesh(geo, m.ring);
+      ring.rotation.set(Math.PI / 2, 0, 0); ring.position.set(0, fy * SHEET_H, 0);
       this.book.add(ring);
     }
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(.5, SHEET_H * .8, .12), m.ring);
-    bar.position.set(0, 0, -.22); this.book.add(bar);
+    // the ring mechanism: a metal plate along the spine, under the pages
+    // (a shallow arch of a wide cylinder running up the spine; its edges sink under the covers)
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, SHEET_H * .86, 40, 1, true, -.75, 1.5), m.ring);
+    plate.position.set(0, 0, -.2 - 1.8);
+    this.book.add(plate);
     // the inside of the front cover: a title page
     this.titleTex = null;
     this.titleMesh = new THREE.Mesh(new THREE.PlaneGeometry(SHEET_W - .4, SHEET_H - .4), new THREE.MeshStandardMaterial({ roughness: .9 }));
@@ -102,9 +150,11 @@ export class Binder {
     const st = this.store.collectionStats();
     let y = 270;
     for (const p of st.perSet) {
-      g.fillStyle = '#fff'; g.font = `600 26px ${FONT}`; g.fillText(p.set.name, w / 2, y);
-      g.fillStyle = 'rgba(255,255,255,.7)'; g.font = `600 19px ${BODY}`; g.fillText(`${p.found} of ${p.total} found · ${p.variants} of ${p.totalVariants} with every finish`, w / 2, y + 30);
-      const bw = w - 140, fr = p.found / p.total;
+      const locked = !this.store.isUnlocked(p.set), u = locked ? this.store.unlockProgress(p.set) : null;
+      g.fillStyle = locked ? 'rgba(255,255,255,.55)' : '#fff'; g.font = `600 26px ${FONT}`; g.fillText((locked ? '🔒 ' : '') + p.set.name, w / 2, y);
+      g.fillStyle = 'rgba(255,255,255,.7)'; g.font = `600 19px ${BODY}`;
+      g.fillText(locked ? `Unlocks with ${u.need} different ${u.from.name} cards · ${u.have} so far` : `${p.found} of ${p.total} found · ${p.variants} of ${p.totalVariants} with every finish`, w / 2, y + 30);
+      const bw = w - 140, fr = locked ? u.have / u.need : p.found / p.total;
       g.fillStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.roundRect(70, y + 48, bw, 12, 6); g.fill();
       g.fillStyle = '#ffd76a'; g.beginPath(); g.roundRect(70, y + 48, Math.max(12, bw * fr), 12, 6); g.fill();
       y += 120;
@@ -164,23 +214,30 @@ export class Binder {
     this.load();
     this.showSpread();
   }
-  // A sheet: a group pivoting on the spine; its front faces +z when it lies on the right.
+  // A sheet: a group whose origin sits on the rings at its holes; the page runs out along its +x, and its front faces +z
+  // when it lies on the right. Its page and sleeves are finely divided so they can bend as the sheet turns.
   sheet(i) {
     if (this.sheets.has(i)) return this.sheets.get(i);
     const THREE = this.THREE, m = this.mats;
     const g = new THREE.Group();
-    g.position.set(SPINE / 2 - .15, 0, 0);
-    const base = new THREE.Mesh(new THREE.PlaneGeometry(SHEET_W, SHEET_H), m.sheet);
-    base.position.set(SHEET_W / 2, 0, 0);
+    const page = (z, flip) => {
+      const geo = new THREE.PlaneGeometry(SHEET_W, SHEET_H, 24, 6);
+      if (flip) geo.rotateY(Math.PI);
+      geo.translate(SHEET_W / 2 - HOLE, 0, z);
+      geo.userData.rest = geo.attributes.position.array.slice();
+      return geo;
+    };
+    const base = new THREE.Mesh(page(0), m.sheet);
     g.add(base);
+    const bendGeos = [base.geometry];
     for (const side of [1, -1]) {
-      const sleeve = new THREE.Mesh(new THREE.PlaneGeometry(SHEET_W, SHEET_H), m.sleeve);
-      sleeve.position.set(SHEET_W / 2, 0, side * .09); sleeve.renderOrder = 2;
-      const seams = new THREE.Mesh(sleeve.geometry, m.seams); seams.position.copy(sleeve.position); seams.renderOrder = 3;
-      if (side < 0) { sleeve.rotation.y = Math.PI; seams.rotation.y = Math.PI; }
+      const geo = page(side * .09, side < 0);
+      const sleeve = new THREE.Mesh(geo, m.sleeve); sleeve.renderOrder = 2;
+      const seams = new THREE.Mesh(geo, m.seams); seams.renderOrder = 3;
       g.add(sleeve, seams);
+      bendGeos.push(geo);
     }
-    const sheet = { i, group: g, cards: [] };
+    const sheet = { i, group: g, cards: [], bendGeos, bent: false, clear: g.children.filter(o => o.renderOrder) };
     for (let k = 0; k < PER_SHEET; k++) {
       const idx = i * PER_SHEET + k, e = this.list[idx];
       if (!e) break;
@@ -189,8 +246,9 @@ export class Binder {
       card.entryAt = e.at;
       // on the back of a sheet the columns run the other way, so once it's turned over they still read left to right
       const c = back ? COLS - 1 - col : col;
-      const cx = SPINE_M + c * (POCKET_W + GAP) + POCKET_W / 2, cy = SHEET_H / 2 - TOP_M - row * (POCKET_H + GAP) - POCKET_H / 2;
-      card.holder.position.set(cx, cy, back ? -.045 : .045);
+      const cx = SPINE_M + c * (POCKET_W + GAP) + POCKET_W / 2 - HOLE, cy = SHEET_H / 2 - TOP_M - row * (POCKET_H + GAP) - POCKET_H / 2;
+      card.rest = { x: cx, y: cy, z: back ? -.045 : .045, ry: back ? Math.PI : 0 };
+      card.holder.position.set(cx, cy, card.rest.z);
       if (back) card.holder.rotation.y = Math.PI;
       card.holder.scale.setScalar(.985);
       g.add(card.holder);
@@ -209,12 +267,56 @@ export class Binder {
   showSpread() {
     const keep = new Set([this.spread - 1, this.spread].filter(i => i >= 0 && i < this.sheetCount));
     for (const [i, s] of this.sheets) if (!keep.has(i)) { this.disposeSheet(s); this.sheets.delete(i); }
-    for (const i of keep) {
-      const s = this.sheet(i);
-      s.group.rotation.y = i < this.spread ? -Math.PI : 0;
-      s.group.position.z = i < this.spread ? .02 : 0;
-    }
+    for (const i of keep) { const s = this.sheet(i); this.bend(s, 0); this.place(s, i < this.spread ? Math.PI : 0, this.restZ(i, this.spread)); }
     this.titleMesh.visible = this.spread === 0;
+  }
+  // How high sheet i rests with the binder open at a spread: the top sheet of each side on top, the next one a layer
+  // down (it's only there while a page turns over it).
+  restZ(i, spread) { return i < spread ? .02 - (spread - 1 - i) * LAYER : -(i - spread) * LAYER; }
+  // The see-through sleeves of the sheet that's turning draw after everyone else's (they're on top).
+  setLayer(s, top) { for (const o of s.clear) o.renderOrder = (top ? 4 : 2) + (o.material === this.mats.seams ? 1 : 0); }
+  // A sheet turned by phi (0 lying on the right, π on the left) hangs on the rings by its holes: they sit on the
+  // rings' arc, and the page runs straight out from the rings' centre.
+  place(s, phi, z = 0) {
+    s.group.position.set(RING_R * Math.cos(phi), 0, RING_R * Math.sin(phi) + z);
+    s.group.rotation.set(0, -phi, 0);
+  }
+  // Curl a sheet as it turns, as if pulled by its top outer corner: that corner leads by a (radians) and the rest of the
+  // page follows, less and less toward the rings and the bottom edge. a = 0 lays it flat again.
+  bend(s, a) {
+    if (!a && !s.bent) return;
+    s.bent = !!a;
+    const L = SHEET_W - HOLE, out = [0, 0, 0];
+    // Where a point of the flat page (x along it from the holes, height y, z off its face) goes when curled. The page
+    // turns by w·(x/L)² at x, w bigger toward the top; x and z below are that bend integrated (as short series).
+    const curl = (x, y, z) => {
+      if (x <= 0 || !a) { out[0] = x; out[1] = y; out[2] = z; return out; }
+      const w = a * (.45 + .55 * (y / SHEET_H + .5)), u = x / L, u2 = u * u, w2 = w * w, ang = w * u2;
+      const X = L * u * (1 - w2 * u2 * u2 / 10 + w2 * w2 * u2 * u2 * u2 * u2 / 216), Z = L * w * u * u2 * (1 / 3 - w2 * u2 * u2 / 42);
+      out[0] = X - Math.sin(ang) * z; out[1] = y; out[2] = Z + Math.cos(ang) * z;
+      return out;
+    };
+    for (const geo of s.bendGeos) {
+      const p = geo.attributes.position, r = geo.userData.rest;
+      for (let j = 0; j < p.count; j++) { curl(r[j * 3], r[j * 3 + 1], r[j * 3 + 2]); p.setXYZ(j, out[0], out[1], out[2]); }
+      p.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingSphere();
+    }
+    // cards bend with it: each one's grid, carried into the sheet's space, curled, and carried back
+    const THREE = this.THREE, M = this._m ??= new THREE.Matrix4(), Mi = this._mi ??= new THREE.Matrix4(), v = this._v ??= new THREE.Vector3();
+    for (const c of s.cards) {
+      if (c.inspecting) continue;
+      if (!a) { if (c.flatGeo) { c.bendGeo.dispose(); c.mesh.geometry = c.flatGeo; c.flatGeo = c.bendGeo = null; } continue; }
+      if (!c.flatGeo) { c.flatGeo = c.mesh.geometry; c.bendGeo = gridCard(THREE).clone(); c.mesh.geometry = c.bendGeo; }
+      c.holder.updateMatrix(); c.mesh.updateMatrix();
+      M.multiplyMatrices(c.holder.matrix, c.mesh.matrix); Mi.copy(M).invert();
+      const rest = GRID.attributes.position, p = c.bendGeo.attributes.position;
+      for (let j = 0; j < rest.count; j++) {
+        v.fromBufferAttribute(rest, j).applyMatrix4(M);
+        curl(v.x, v.y, v.z); v.set(out[0], out[1], out[2]).applyMatrix4(Mi);
+        p.setXYZ(j, v.x, v.y, v.z);
+      }
+      p.needsUpdate = true; c.bendGeo.computeBoundingSphere();
+    }
   }
   async turn(dir) {
     if (this.turning) return this.turning;
@@ -232,14 +334,29 @@ export class Binder {
     if (dir > 0 && next < this.sheetCount) this.sheet(next);
     if (dir < 0 && next - 1 >= 0) this.sheet(next - 1);
     if (dir < 0 && next === 0) this.titleMesh.visible = true;
-    const from = turning.group.rotation.y, to = dir > 0 ? -Math.PI : 0;
-    this.turning = this.anim(.62, (x, k) => {
-      turning.group.rotation.y = from + (to - from) * x;
-      turning.group.position.z = .02 + Math.sin(k * Math.PI) * 1.2;
-      turning.group.rotation.x = Math.sin(k * Math.PI) * .05;
+    // it swings over on the rings, curling as if pulled by its top outer corner. The sheet it uncovers rises into place
+    // once it has lifted clear, and the sheet it lands on sinks a layer first, so no two pages ever share a depth.
+    const from = dir > 0 ? 0 : Math.PI, to = dir > 0 ? Math.PI : 0, i = turning.i;
+    const z0 = this.restZ(i, this.spread), z1 = this.restZ(i, next);
+    const under = this.sheets.get(dir > 0 ? i + 1 : i - 1), onto = this.sheets.get(dir > 0 ? i - 1 : i + 1);
+    const uz0 = under && this.restZ(under.i, this.spread), uz1 = under && this.restZ(under.i, next);
+    const oz0 = onto && this.restZ(onto.i, this.spread), oz1 = onto && this.restZ(onto.i, next);
+    if (under) this.place(under, dir > 0 ? 0 : Math.PI, uz0);
+    this.hover = null;
+    this.setLayer(turning, true);
+    const ramp = (k, a, b) => Math.min(1, Math.max(0, (k - a) / (b - a)));
+    this.turning = this.anim(.7, (x, k) => {
+      const phi = from + (to - from) * x;
+      this.place(turning, phi, z0 + (z1 - z0) * x);
+      // the corner leads, but never past lying flat: coming down, it settles onto the page below instead of through it
+      this.bend(turning, dir * Math.min(BEND * Math.sin(k * Math.PI), (dir > 0 ? Math.PI - phi : phi) * .85));
+      if (under) this.place(under, dir > 0 ? 0 : Math.PI, uz0 + (uz1 - uz0) * ramp(k, .25, .6));
+      if (onto) this.place(onto, dir > 0 ? Math.PI : 0, oz0 + (oz1 - oz0) * ramp(k, .3, .65));
     }, this.ease.inOut);
-    if (portrait) { this.side = dir > 0 ? 'left' : 'right'; this.pan(.62); }
+    if (portrait) { this.side = dir > 0 ? 'left' : 'right'; this.pan(.7); }
     await this.turning;
+    this.bend(turning, 0);
+    this.setLayer(turning, false);
     this.turning = null;
     this.spread = next;
     this.showSpread();

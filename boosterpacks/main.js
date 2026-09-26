@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { SETS, SET_BY_ID, READY } from './sets/index.js';
 import * as store from './store.js';
-import { S, money, RARITY, VARIANT_NAME, HOLO, FULL, MULT, itemOf, valueOf, cardKey } from './store.js';
+import { S, money, RARITY, VARIANT_NAME, HOLO, FULL, MULT, SLOTS, itemOf, valueOf, cardKey } from './store.js';
 import { Studio } from './studio.js';
 import { FaceCache, HI, LO, artSize } from './faces.js';
 import { Card, CARD_W, CARD_H, cardTime } from './card.js';
@@ -91,10 +91,14 @@ function tickAnims(dt) {
   }
 }
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+// to.short: turn the shortest way to the new rotation (slerp), for moves between parents where the same orientation can
+// come out as very different angles (a card going back into a sleeve on a turned-over binder page). Without it the
+// angles are tweened as given, so a move can spin a whole turn on purpose.
 function moveTo(obj, to, dur, e = ease.inOut) {
   const p0 = obj.position.clone(), s0 = obj.scale.clone(), r0 = obj.rotation.clone();
   const p1 = to.p ? V(...to.p) : p0, s1 = to.s == null ? s0 : typeof to.s === 'number' ? V(to.s, to.s, to.s) : V(...to.s);
   const r1 = to.r ? new THREE.Euler(...to.r) : r0;
+  const q0 = to.short ? obj.quaternion.clone() : null, q1 = q0 && new THREE.Quaternion().setFromEuler(r1);
   const token = {}; obj.userData.move = token;
   return anim(dur, (x, k) => {
     if (obj.userData.move !== token) return;
@@ -102,7 +106,8 @@ function moveTo(obj, to, dur, e = ease.inOut) {
     if (to.arc) obj.position.z += Math.sin(k * Math.PI) * to.arc;
     if (to.lift) obj.position.y += Math.sin(k * Math.PI) * to.lift;
     obj.scale.lerpVectors(s0, s1, x);
-    obj.rotation.set(lerp(r0.x, r1.x, x), lerp(r0.y, r1.y, x), lerp(r0.z, r1.z, x));
+    if (q0) { obj.quaternion.slerpQuaternions(q0, q1, x); if (k >= 1) obj.rotation.copy(r1); }   // end on the exact angles asked for
+    else obj.rotation.set(lerp(r0.x, r1.x, x), lerp(r0.y, r1.y, x), lerp(r0.z, r1.z, x));
   }, e);
 }
 
@@ -175,7 +180,7 @@ addEventListener('keydown', e => {
   if ($('menu').classList.contains('open')) { if (e.key === 'Escape') closeMenu(); return; }
   if (!$('confirm').hidden) return;
   if (handler?.key?.(e) === true) { e.preventDefault(); return; }
-  if ((e.key === 'b' || e.key === 'B') && !$('binderBtn').disabled && mode === 'shop') { openBinder(); }
+  if ((e.key === 'b' || e.key === 'B') && !$('binderBtn').disabled) { if (mode === 'shop') openBinder(); else if (mode === 'summary') leaveForBinder?.(); }
 });
 
 /* ---------- DOM helpers ---------- */
@@ -432,8 +437,15 @@ function refreshShop() {
   if (!sets.hidden) {
     sets.textContent = '';
     for (const s of SETS) {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = s.name + (S.packs[s.id] ? ` · ${S.packs[s.id]}` : '');
-      b.setAttribute('aria-pressed', s === selectedSet); b.onclick = () => { selectedSet = s; if (current && current.set !== s && S.packs[s.id]) { dropCurrent(); presentPack(); } refreshShop(); };
+      const b = document.createElement('button'); b.type = 'button';
+      if (!store.isUnlocked(s)) {   // locked: shows how close it is, and says how to unlock it
+        const p = store.unlockProgress(s), how = `Find ${p.need} different ${p.from.name} cards to unlock ${s.name}. You have ${p.have}.`;
+        b.className = 'locked'; b.innerHTML = `<span aria-hidden="true">🔒</span> ${s.name} <small>${p.have}/${p.need}</small>`; b.title = how;
+        b.onclick = () => { sound.denied(); toast(how, 3600); };
+      } else {
+        b.textContent = s.name + (S.packs[s.id] ? ` · ${S.packs[s.id]}` : '');
+        b.setAttribute('aria-pressed', s === selectedSet); b.onclick = () => { selectedSet = s; if (current && current.set !== s && S.packs[s.id]) { dropCurrent(); presentPack(); } refreshShop(); };
+      }
       sets.append(b);
     }
   }
@@ -446,7 +458,20 @@ function updatePackCount() {
   if (current && n > 1) hint(`<b>${n} packs</b> to open · swipe across the dotted line to tear this one`, 0);
 }
 function checkUnlock() {
+  if (mode === 'shop') for (const set of store.checkSetUnlocks()) unlockSet(set);
   for (const set of SETS) if (store.checkBoxUnlock(set)) { toast(`🎉 <b>Booster boxes unlocked!</b> Ten ${set.name} packs at once.`, 4200); sound.sparkle(2); setTimeout(() => $('boxBtn')?.classList.add('new'), 60); }
+}
+// A new expansion: confetti, and its first pack is on the house (it takes the floating pack's place).
+function unlockSet(set) {
+  store.givePack(set.id);
+  selectedSet = set;
+  toast(`🎉 <b>${set.name} unlocked!</b> A whole new set to collect. Your first ${set.name} pack is on the house.`, 5200);
+  sound.fanfare('holo', 3);
+  flashBackdrop(.6, '#fff1c4');
+  particles.rain(view.W * 1.1, VIEW_H * .6, 2.2, { colors: ['#ffd76a', '#6fd3ff', '#ff8fb8', '#9df28a', '#ffffff'], rate: 70, speed: 5, size: .42 });
+  if (current && current.set !== set && current.state === 'idle' && !current.dir) dropCurrent();
+  if (!current) presentPack();
+  live(`${set.name} unlocked. Your first ${set.name} pack is free.`);
 }
 function buyPack() {
   const set = selectedSet;
@@ -632,9 +657,10 @@ async function openFlow(pack) {
   moveTo(ph, { p: [ph.position.x, ph.position.y - VIEW_H * 1.2, -2], r: [.4, .3, .5] }, .8, ease.in).then(() => { if (current === pack) current = null; pack.dispose(); });
   current = null;
   await reveal(cards, stack, set);
-  await summary(cards, stack, set);
+  const toBinder = await summary(cards, stack, set);
   stack.removeFromParent();
   home();
+  if (toBinder) openBinder();
 }
 
 function pullHandler(pack, stack, base) {
@@ -692,8 +718,10 @@ function placeTag() {
   tagEl.style.left = p.x + 'px'; tagEl.style.top = Math.min(innerHeight - 150, p.y + 12) + 'px';
 }
 let packTotal = 0, revealed = 0;
+// One mark per card in the pack, shaped like its rarity's symbol on the cards: ● common, ◆ uncommon, ★ rare.
+const PACK_RARITIES = SLOTS.flatMap(([r, n]) => Array(n).fill(r));
 function tally() {
-  const dots = Array.from({ length: 9 }, (_, i) => `<i class="${i < revealed ? 'on' : ''} ${i === 8 ? 'R' : ''}"></i>`).join('');
+  const dots = PACK_RARITIES.map((r, i) => `<i class="${r}${i < revealed ? ' on' : ''}"></i>`).join('');
   $('tally').innerHTML = `Pack value <b>${money(packTotal)}</b><span class="dots">${dots}</span>`;
   $('tally').hidden = false;
 }
@@ -913,8 +941,10 @@ async function summary(cards, stack, set) {
       { label: n ? `Sell ${n} for ${money(sell, { short: true })}${keep ? ` · keep ${keep}` : ''}` : `Put ${keep === 9 ? 'all 9' : keep} in the binder`, cls: 'gold', onClick: () => finish() },
     ].filter(Boolean));
   };
-  let finish;
+  let finish, toBinder = false;
   const done = new Promise(res => { finish = res; });
+  leaveForBinder = () => { toBinder = true; finish(); };
+  $('binderBtn').disabled = false;
   render();
   const total = cards.reduce((s, c) => s + valueOf(c.data), 0);
   hint(`This pack is worth <b>${money(total)}</b> · tap a card for a closer look`);
@@ -926,7 +956,14 @@ async function summary(cards, stack, set) {
   let hover = null;
   handler = {
     cursor: () => hover ? 'point' : '',
-    hover() { hover = pickCard(cards); },
+    hover() {
+      // a lifted card tilts toward the pointer, which pulls its near edge in; keep hold of it until the pointer is
+      // clearly off it, or it flickers up and down at its edge
+      const c = pickCard(cards);
+      if (c || !hover) { hover = c; return; }
+      const l = localAt(hover.holder);
+      if (!l || Math.abs(l.x) > CARD_W / 2 + .6 || Math.abs(l.y) > CARD_H / 2 + .6) hover = null;
+    },
     up(e, tap) { if (!tap) return; const c = pickCard(cards); if (c) inspect(c, { from: 'summary', onSell: () => { c.mark = c.mark === 'sell' ? null : 'sell'; render(); } }).then(() => { render(); hint(`This pack is worth <b>${money(total)}</b> · tap a card for a closer look`); }); },
     key(e) { if (e.key === 'Enter') { finish(); return true; } },
   };
@@ -946,7 +983,8 @@ async function summary(cards, stack, set) {
   });
   layoutChanged = () => { const G2 = gridLayout(cards.length); stack.scale.setScalar(G2.s); stack.position.y = G2.y; };
   await done;
-  active = false;
+  active = false; leaveForBinder = null;
+  $('binderBtn').disabled = true;
   handler = null; hint('');
   setActions([]);
   chips.forEach(el => el.remove());
@@ -974,7 +1012,9 @@ async function summary(cards, stack, set) {
   cards.forEach(disposeCard);
   checkUnlock();
   await sleep(.25);
+  return toBinder;
 }
+let leaveForBinder = null;   // while the summary is up: finish it and open the binder
 function pickCard(cards) {
   raycaster.setFromCamera(pointer.ndc, camera);
   const hits = raycaster.intersectObjects(cards.filter(c => c.holder.visible && !c.inspecting).map(c => c.mesh), false);
@@ -997,11 +1037,11 @@ async function inspect(card, o = {}) {
   const loEntry = hiEntry ? card.entry : null;
   if (hiEntry) { faces.get(card.data, card.entry.width); card.set(hiEntry); }
   // out of the binder, it slides up out of its sleeve first, the way you'd pull a card out of a pocket
-  const fromSleeve = o.from === 'binder', slid = fromSleeve ? [saved.p.x, saved.p.y + CARD_H * .72, saved.p.z + .14] : null;
+  const fromSleeve = o.from === 'binder', slid = fromSleeve ? [saved.p.x, saved.p.y + CARD_H * .72, saved.p.z + (saved.p.z < 0 ? -.14 : .14)] : null;
   $('tags').style.visibility = 'hidden';
   if (fromSleeve) {
     sound.sleeve();
-    await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z] }, .34, ease.out);
+    await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z], short: true }, .34, ease.out);
   }
   scene.attach(h);
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
@@ -1024,7 +1064,7 @@ async function inspect(card, o = {}) {
   $('actions').style.visibility = 'hidden';
   for (const id of ['binderbar', 'pager']) $(id).style.visibility = 'hidden';
   if (prevMode === 'binder') binder.dim(true);
-  await moveTo(h, { p: [0, y, Z], r: [0, 0, 0], s }, .45, ease.out);
+  await moveTo(h, { p: [0, y, Z], r: [0, 0, 0], s, short: true }, .45, ease.out);
   panel.style.visibility = '';
   hint('');
   let resolveBack;
@@ -1047,6 +1087,9 @@ async function inspect(card, o = {}) {
     key(e) { if (e.key === 'Escape' || e.key === 'Backspace') { resolveBack(); return true; } },
   };
   tickers.add(dt => {
+    // stop before touching the card once it's on its way back: by then it may belong to a turned-over binder page,
+    // where this tilt would show its back for a frame
+    if (mode !== 'inspect' || !card.inspecting) return false;
     t += dt;
     // on a phone, tilting it turns the card (a finger dragging it wins), and the idle sway stays small
     const gyro = phoneTilt.live && !dragging, sway = phoneTilt.live ? .3 : 1;
@@ -1054,7 +1097,6 @@ async function inspect(card, o = {}) {
     tilt.x = damp(tilt.x, tx + Math.sin(t * .9) * .05 * sway, gyro ? 14 : 7, dt);
     tilt.y = damp(tilt.y, ty + Math.sin(t * .7) * .08 * sway, gyro ? 14 : 7, dt);
     h.rotation.set(tilt.x, tilt.y, 0);
-    return mode === 'inspect' && card.inspecting;
   });
   await back;
   $('inspect').hidden = true; hint('');
@@ -1073,10 +1115,10 @@ async function inspect(card, o = {}) {
     sound.whoosh(.4);
     parent.attach(h);
     if (fromSleeve) {   // back over its pocket, then down into the sleeve
-      await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z], s: saved.s.toArray() }, .38, ease.inOut);
+      await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z], s: saved.s.toArray(), short: true }, .38, ease.inOut);
       sound.sleeve();
-      await moveTo(h, { p: saved.p.toArray(), r: saved.r.toArray() }, .3, ease.in);
-    } else await moveTo(h, { p: saved.p.toArray(), r: saved.r.toArray(), s: saved.s.toArray() }, .35, ease.inOut);
+      await moveTo(h, { p: saved.p.toArray(), r: [saved.r.x, saved.r.y, saved.r.z], short: true }, .3, ease.in);
+    } else await moveTo(h, { p: saved.p.toArray(), r: [saved.r.x, saved.r.y, saved.r.z], s: saved.s.toArray(), short: true }, .35, ease.inOut);
   }
   if (hiEntry) card.set(loEntry);
   $('tags').style.visibility = '';
@@ -1214,7 +1256,7 @@ async function pickBinderCard(card, at) {
   if (result === 'sell') { await binder.refresh(); refreshBinderUI(); }
   handler = handlerBefore;
 }
-$('binderBtn').addEventListener('click', () => { sound.ensure(); if (mode === 'shop') openBinder(); });
+$('binderBtn').addEventListener('click', () => { sound.ensure(); if (mode === 'shop') openBinder(); else if (mode === 'summary') leaveForBinder?.(); });
 $('closeBinder').addEventListener('click', () => closeBinder());
 $('prevPage').addEventListener('click', async () => { await binder.turn(-1); refreshBinderUI(); });
 $('nextPage').addEventListener('click', async () => { await binder.turn(1); refreshBinderUI(); });
@@ -1239,7 +1281,8 @@ function openMenu() {
   const st = store.collectionStats(), best = S.stats.best ? store.parseKey(S.stats.best) : null, bi = best && itemOf(best);
   $('stats').innerHTML = [
     ['Packs opened', S.opened.toLocaleString('en-US')], ['Booster boxes', S.boxesOpened.toLocaleString('en-US')],
-    ['Cards in binder', st.count.toLocaleString('en-US')], ...st.perSet.map(p => [`${p.set.name} found`, `${p.found} / ${p.total}`]),
+    ['Cards in binder', st.count.toLocaleString('en-US')],
+    ...st.perSet.map(p => { if (store.isUnlocked(p.set)) return [`${p.set.name} found`, `${p.found} / ${p.total}`]; const u = store.unlockProgress(p.set); return [p.set.name, `🔒 ${u.have}/${u.need} ${u.from.name}`]; }),
     ['Binder is worth', money(st.value)], ['Cards sold', S.stats.sold.toLocaleString('en-US')], ['Earned from sales', money(S.stats.earned)],
     ['Free packs', String(S.stats.donated)], ['Best pull', bi ? `${bi.name}${best.v & 3 ? ' (' + VARIANT_NAME[best.v & 3] + ')' : ''} · ${money(S.stats.bestValue, { short: true })}` : '—'],
   ].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
@@ -1344,7 +1387,7 @@ function frame(now) {
   frameAvg = lerp(frameAvg, dt * 1000, .1);
   if (calm && !made && T > 2) warmOne();   // not while the first pack is still flying in
   renderer.render(scene, camera);
-  if (first) { first = false; window.toyboxReady?.(); if (DEMO) setTimeout(() => { window.__done = true; }, 400); }
+  if (first) { first = false; window.toyboxReady?.(); if (DEMO) setTimeout(() => { window.__done = true; }, 1200); }
   requestAnimationFrame(frame);
 }
 function* summaryChips() { for (const o of stage.children) for (const h of o.children ?? []) { const card = h.children?.[0]?.userData?.card; if (card?.chip) yield card; } }
@@ -1406,7 +1449,8 @@ async function start() {
 // ?demo: a still for the preview image — a fanned hand of good pulls in front of an open pack.
 function demo() {
   const set = SETS[0];
-  const hand = [['teddy', 0], ['duck', 1], ['piano', 3], ['robovac', 2], ['toaster', 0]].filter(([id]) => set.itemById[id]);
+  // a hand from both sets: [set, item, finish]
+  const hand = [['backyard', 'goodboy', 2], ['house', 'duck', 1], ['house', 'piano', 3], ['backyard', 'monarch', 1], ['house', 'toaster', 0]].filter(([sid, id]) => SET_BY_ID[sid]?.itemById[id]);
   S.money = 14275; for (let i = 0; i < 86; i++) S.cards.push(`${set.id}:${set.items[i % set.items.length].id}:0`);
   shownMoney = S.money; $('money').textContent = money(S.money); updateCount();
   $('hint').classList.add('off'); $('actions').textContent = '';
@@ -1416,8 +1460,8 @@ function demo() {
   pack.holder.scale.setScalar(ps); pack.holder.position.set(view.W * .27, -.3, -3); pack.holder.rotation.set(.04, -.42, .09);
   const fan = new THREE.Group(); stage.add(fan);
   const s = Math.min(.5 * VIEW_H / CARD_H, .15 * view.W / CARD_W);
-  hand.forEach(([id, v], i) => {
-    const c = { set: set.id, id, v };
+  hand.forEach(([sid, id, v], i) => {
+    const c = { set: sid, id, v };
     const card = makeCard(c, faces.get(c, HI, true));
     const k = i - (hand.length - 1) / 2, mid = k === 0;
     card.holder.position.set(k * CARD_W * .8, -Math.abs(k) * 1.5 + (mid ? .9 : 0), mid ? 1.4 : -Math.abs(k) * .25);
@@ -1427,7 +1471,7 @@ function demo() {
   });
   fan.scale.setScalar(s); fan.position.set(-view.W * .14, -.2, 1.5);
   particles.burst(V(-view.W * .14, 1.5, 3), 90, { colors: ['#ff8ad8', '#ffe38a', '#8affc8', '#8ad8ff', '#fff'], speed: 16, size: .42, life: 30, gravity: 0, drag: 5, spread: 9 });
-  flash = .5;
+  flash = .25;
   requestAnimationFrame(frame);
 }
 if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, phoneTilt, get S() { return S; }, get current() { return current; }, get mode() { return mode; } };
