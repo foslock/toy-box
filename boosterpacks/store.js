@@ -43,7 +43,8 @@ for (const set of SETS) {
   }
 }
 export const packPrice = set => set.price;
-export const boxPrice = set => set.price * BOX_PAYS_FOR;
+// A box of 10 packs costs the set's boxPrice, or else 9 packs' worth; it goes on sale once you could afford 10 packs.
+export const boxPrice = set => set.boxPrice ?? set.price * BOX_PAYS_FOR;
 export const boxUnlockAt = set => set.price * BOX_PACKS;
 
 // What's in a pack: no item twice, the rare last, and at most one holo and one full art (they can land on the same card).

@@ -90,6 +90,12 @@ function defaultScene(g, w, h, o, type) {
 }
 
 /* ---------- normal card ---------- */
+// The panel's usual texture: faint diagonal stripes in the type's colour.
+function stripes(g, w, h, type) {
+  g.save(); g.globalAlpha = .07; g.strokeStyle = type.color; g.lineWidth = 10;
+  for (let x = -h; x < w; x += 34) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + h, 0); g.stroke(); }
+  g.restore();
+}
 function drawNormal(g, set, item, v, art) {
   const type = set.types[item.type], rare = item.rarity === 'R', cols = trim(item, v);
   // border
@@ -99,8 +105,7 @@ function drawNormal(g, set, item, v, art) {
   rr(g, 22, 22, CW - 44, CH - 44, 22); g.save(); g.clip();
   g.fillStyle = lin(g, 0, 22, 0, CH, [[0, mix(type.light, '#ffffff', .25)], [.45, type.light], [1, mix(type.light, type.color, .55)]]);
   g.fillRect(0, 0, CW, CH);
-  g.globalAlpha = .07; g.strokeStyle = type.color; g.lineWidth = 10;
-  for (let x = -CH; x < CW; x += 34) { g.beginPath(); g.moveTo(x, CH); g.lineTo(x + CH, 0); g.stroke(); }
+  (set.panel ?? stripes)(g, CW, CH, type);   // a set can print its own texture on the panel
   g.globalAlpha = .08; g.fillStyle = type.dark; type.icon(g, CW * .78, CH * .8, 190);
   g.globalAlpha = 1;
   g.restore();

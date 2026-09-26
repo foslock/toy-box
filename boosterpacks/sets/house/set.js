@@ -115,9 +115,11 @@ const ODDS = { gamingpc: 45, fridge: 70, clawfoot: 120, grandfatherclock: 200, p
 const set = {
   id: 'house',
   name: 'Around the House',
+  short: 'House',                      // on the set switch, on narrow screens
   series: 'Series 1',
   code: 'HOM',
-  price: 499,                          // a pack, in cents (see store.js for how boxes are priced)
+  price: 499,                          // a pack, in cents
+  boxPrice: 4499,                      // a booster box of 10 packs
   // How much more often cheap cards turn up than dear ones, per rarity: weight = (cheapest / value) ^ curve.
   // Rares are all equally likely (curve 0), except the dear ones in ODDS, which have fixed odds.
   curve: { C: .35, U: .55, R: 0 },

@@ -167,47 +167,50 @@ export class Binder {
     const g = c.getContext('2d');
     const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#221b44'); gr.addColorStop(1, '#161229'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
     g.strokeStyle = 'rgba(255,215,106,.55)'; g.lineWidth = 3; g.strokeRect(24, 24, w - 48, h - 48);
-    g.textAlign = 'center'; g.fillStyle = '#ffd76a'; g.font = `700 46px ${FONT}`; g.fillText('ODDS & ENDS', w / 2, 150);
-    g.fillStyle = 'rgba(255,255,255,.8)'; g.font = `800 17px ${BODY}`; g.fillText('M Y   C O L L E C T I O N', w / 2, 185);
+    g.textAlign = 'center'; g.fillStyle = '#ffd76a'; g.font = `700 46px ${FONT}`; g.fillText('ODDS & ENDS', w / 2, 122);
+    g.fillStyle = 'rgba(255,255,255,.8)'; g.font = `800 17px ${BODY}`; g.fillText('M Y   C O L L E C T I O N', w / 2, 156);
     // Centred lines of coloured parts ([text, colour]), laid out the first of the given ways that fits well inside the
-    // frame (each way is a list of lines). Returns the last line's y.
-    const say = (ways, y, lh) => {
-      const width = parts => g.measureText(parts.map(p => p[0]).join(' ')).width, space = g.measureText(' ').width;
-      const lines = ways.find(ls => ls.every(l => width(l) <= w - 104)) ?? ways[ways.length - 1];
+    // frame (each way is a list of lines).
+    const width = parts => g.measureText(parts.map(p => p[0]).join(' ')).width;
+    const fit = ways => ways.find(ls => ls.every(l => width(l) <= w - 104)) ?? ways[ways.length - 1];
+    const say = (lines, y, lh) => {
+      const space = g.measureText(' ').width;
       g.textAlign = 'left';
       lines.forEach((parts, i) => {
         let x = (w - width(parts)) / 2;
         for (const [t, col] of parts) { g.fillStyle = col; g.fillText(t, x, y + i * lh); x += g.measureText(t).width + space; }
       });
       g.textAlign = 'center';
-      return y + (lines.length - 1) * lh;
     };
     // each set: how many of its cards you've found (gold), and how many with every finish too (blue)
-    const FOUND = '#ffd76a', EVERY = '#8fd0ff', DIM = 'rgba(255,255,255,.7)';
+    const FOUND = '#ffd76a', EVERY = '#8fd0ff', DIM = 'rgba(255,255,255,.7)', LH = 24;
     const bar = (x, y, bw, fr, col) => { if (fr > 0) { g.fillStyle = col; g.beginPath(); g.roundRect(x, y, Math.max(12, bw * Math.min(1, fr)), 12, 6); g.fill(); } };
     const st = this.store.collectionStats();
-    let y = 270;
-    for (const p of st.perSet) {
+    g.font = `600 19px ${BODY}`;
+    const blocks = st.perSet.map(p => {
       const locked = !this.store.isUnlocked(p.set), u = locked ? this.store.unlockProgress(p.set) : null;
+      let lines;
+      if (locked) { const a = [`Unlocks with ${u.need} different`, DIM], b = [`${u.from.name} cards · ${u.have} so far`, DIM]; lines = fit([[[a, b]], [[a], [b]]]); }
+      else { const a = [`${p.found} of ${p.total} found`, FOUND], b = [`${p.variants} of ${p.totalVariants} with every finish`, EVERY]; lines = fit([[[a, ['·', DIM], b]], [[a], [b]]]); }
+      return { p, locked, u, lines, h: 58 + (lines.length - 1) * LH };   // from the name's baseline to the bottom of the bar
+    });
+    // spread the sets out evenly between the heading and the footer
+    const top = 214, bottom = h - 138, total = blocks.reduce((a, b) => a + b.h, 0);
+    const gap = blocks.length > 1 ? Math.min(66, (bottom - top - total) / (blocks.length - 1)) : 0;
+    let y = top + Math.max(0, (bottom - top - total - gap * (blocks.length - 1)) / 2);
+    for (const { p, locked, u, lines, h: bh } of blocks) {
       g.fillStyle = locked ? 'rgba(255,255,255,.55)' : '#fff'; g.font = `600 26px ${FONT}`; g.fillText((locked ? '🔒 ' : '') + p.set.name, w / 2, y);
       g.font = `600 19px ${BODY}`;
-      let end;
-      if (locked) {
-        const a = [`Unlocks with ${u.need} different`, DIM], b = [`${u.from.name} cards · ${u.have} so far`, DIM];
-        end = say([[[a, b]], [[a], [b]]], y + 30, 24);
-      } else {
-        const a = [`${p.found} of ${p.total} found`, FOUND], b = [`${p.variants} of ${p.totalVariants} with every finish`, EVERY];
-        end = say([[[a, ['·', DIM], b]], [[a], [b]]], y + 30, 24);
-      }
-      const by = end + 18, bw = w - 140;
+      say(lines, y + 28, LH);
+      const by = y + bh - 12, bw = w - 140;
       g.fillStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.roundRect(70, by, bw, 12, 6); g.fill();
       if (locked) bar(70, by, bw, u.have / u.need, 'rgba(255,255,255,.5)');
       else { bar(70, by, bw, p.found / p.total, FOUND); bar(70, by, bw, p.variants / p.totalVariants, EVERY); }   // every finish is never ahead of found
-      y = by + 72;
+      y += bh + gap;
     }
     g.fillStyle = 'rgba(255,255,255,.7)'; g.font = `600 19px ${BODY}`;
-    g.fillText(`${st.count.toLocaleString('en-US')} cards · worth $${Math.round(st.value / 100).toLocaleString('en-US')}`, w / 2, h - 120);
-    g.font = `italic 600 17px ${BODY}`; g.fillStyle = 'rgba(255,255,255,.5)'; g.fillText('Tap a card to take it out of its sleeve.', w / 2, h - 80);
+    g.fillText(`${st.count.toLocaleString('en-US')} cards · worth $${Math.round(st.value / 100).toLocaleString('en-US')}`, w / 2, h - 92);
+    g.font = `italic 600 17px ${BODY}`; g.fillStyle = 'rgba(255,255,255,.5)'; g.fillText('Tap a card to take it out of its sleeve.', w / 2, h - 58);
     this.titleTex?.dispose();
     this.titleTex = new THREE.CanvasTexture(c); this.titleTex.colorSpace = THREE.SRGBColorSpace;
     this.titleMesh.material.map = this.titleTex; this.titleMesh.material.needsUpdate = true;

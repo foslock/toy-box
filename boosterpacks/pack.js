@@ -43,11 +43,14 @@ export function makeWrapper(set, wrap, hero, W = 1024) {
   const hy = H * .56;
   const rg = g.createRadialGradient(W / 2, hy, 30, W / 2, hy, W * .85); rg.addColorStop(0, light); rg.addColorStop(.5, mid + '00'); rg.addColorStop(1, mid + '00');
   g.fillStyle = rg; g.globalAlpha = .9; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
-  g.save(); g.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 32; i++) { const a0 = (i / 32) * TAU, a1 = a0 + TAU / 64; g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.moveTo(W / 2, hy); g.arc(W / 2, hy, H, a0, a1); g.closePath(); g.fill(); }
   const R = mulberry(hashString(wrap.hero));
-  for (let i = 0; i < 90; i++) { const x = R() * W, y = R() * H, s = 2 + R() * 7; g.fillStyle = `rgba(255,255,255,${.2 + R() * .5})`; g.beginPath(); g.moveTo(x, y - s * 2); g.quadraticCurveTo(x, y, x + s * 2, y); g.quadraticCurveTo(x, y, x, y + s * 2); g.quadraticCurveTo(x, y, x - s * 2, y); g.quadraticCurveTo(x, y, x, y - s * 2); g.fill(); }
-  g.restore();
+  if (set.wrapperArt) set.wrapperArt(g, W, H, hy, wrap, R);   // a set can paint its own background behind the hero
+  else {   // rays from behind the hero, and sparkles
+    g.save(); g.globalCompositeOperation = 'screen';
+    for (let i = 0; i < 32; i++) { const a0 = (i / 32) * TAU, a1 = a0 + TAU / 64; g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.moveTo(W / 2, hy); g.arc(W / 2, hy, H, a0, a1); g.closePath(); g.fill(); }
+    for (let i = 0; i < 90; i++) { const x = R() * W, y = R() * H, s = 2 + R() * 7; g.fillStyle = `rgba(255,255,255,${.2 + R() * .5})`; g.beginPath(); g.moveTo(x, y - s * 2); g.quadraticCurveTo(x, y, x + s * 2, y); g.quadraticCurveTo(x, y, x, y + s * 2); g.quadraticCurveTo(x, y, x - s * 2, y); g.quadraticCurveTo(x, y, x, y - s * 2); g.fill(); }
+    g.restore();
+  }
   // hero item
   if (hero) { const hw = W * .98, hh = hw * hero.height / hero.width; g.drawImage(hero, (W - hw) / 2, hy - hh * .5, hw, hh); }
   // logo and series banner

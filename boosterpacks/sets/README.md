@@ -1,7 +1,8 @@
 # Card sets
 
 Every card in Booster Packs belongs to a set. **Around the House** (`house/`) is the first; **Backyard** (`backyard/`)
-is the first expansion, locked until a player's binder holds 50 different Around the House cards. The game reads
+is the first expansion, locked until a player's binder holds 50 different Around the House cards; **Outer Space**
+(`space/`) comes next, locked until the binder holds 38 different Backyard cards (three quarters of it). The game reads
 everything about a set from its folder: the cards, their prices and text, the categories they belong to, the art behind
 each item, the 3D models, and the pack wrapper. To add a set, make a new folder here and register it.
 
@@ -13,6 +14,7 @@ sets/
 │   ├── rooms.js        its categories ("rooms"): colours, icons, painted backgrounds
 │   └── models/*.js     one 3D model per card, split into files however you like
 ├── backyard/           an expansion: set.js, types.js (six "patches") and models/
+├── space/              the next one: six "sectors", its own card panels and pack art (see types.js)
 └── yourset/ …
 ```
 
@@ -32,9 +34,11 @@ const ODDS = { sandcastle: 500 };
 const set = {
   id: 'beach',                  // short, lowercase, never changes (saves refer to cards as "beach:shell:0")
   name: 'Beach Day',            // shown on packs, cards and in the binder
+  short: 'Beach',               // optional: a shorter name for the set switch on narrow screens
   series: 'Series 2',
   code: 'BCH',                  // printed in each card's footer
-  price: 499,                   // one pack, in cents; a booster box is 9× this and unlocks at 10×
+  price: 499,                   // one pack, in cents; booster boxes go on sale once a player could afford 10 packs
+  boxPrice: 4499,               // optional: a box of 10 packs, in cents (without it, a box costs 9 packs' worth)
   curve: { C: .35, U: .55, R: 0 },    // how much rarer the dearer cards are within a rarity (0 = all equally likely)
   types: TYPES,                 // your categories, below
   typeLabel: 'Place',           // what a category is called
@@ -43,6 +47,8 @@ const set = {
   ],
   unlock: { set: 'house', found: 50 },   // optional: locked until the binder holds 50 different cards from 'house'
   symbol(g, x, y, r) { /* optional: the set's glyph in each card's footer, in the current fillStyle */ },
+  panel(g, w, h, type) { /* optional: the texture printed on each card's panel (the default is faint stripes) */ },
+  wrapperArt(g, W, H, heroY, wrap, rand) { /* optional: the pack wrapper's background behind the hero (default: rays) */ },
   blurb: 'Printed on the back of the pack.',
   items: LIST.map(([id, name, type, rarity, dollars, [move, power, text], flavor, size], i) => ({
     id, name, type, rarity, price: Math.round(dollars * 100), move: { name: move, power, text }, flavor, size, no: i + 1,
@@ -64,7 +70,8 @@ Aim for at least 10 of each so packs don't repeat themselves, and roughly 3 comm
 $10, both bunched toward the cheap end, and lets rares be worth anything ($2 to $1,500), with a pack at $4.99. A pack's
 cards are worth about $21 on average but about $15 at the median, because a few rares are very dear: nearly every pack
 pays for the next one, and the rare ones pay for many more. If your values are on a different scale, move `price` with
-them.
+them. The expansions cost more and are valued to match: Backyard's packs are $6.99 and its values 1.4 times Around the
+House's; Outer Space's packs are $8.99 and its values about 1.8 times (commons up to $1.41, rares up to $2,700).
 
 **How often cards turn up.** Within a rarity, `curve` makes cheap cards more common: an item's weight is
 (cheapest value / its value) ^ curve, so 0 makes them all equally likely. An item can instead set `weight`, or fixed
@@ -74,7 +81,8 @@ the House gives its seven dearest rares fixed odds, from 1 in 45 packs to 1 in 2
 **Numbering.** `no` is the card's number in the set (`001/100`). The binder sorts by it.
 
 **Expansions.** A set with `unlock` shows in the shop with a lock and the player's progress (say, 🔒 23/50) until their
-binder holds that many different cards from the other set. Then it unlocks for good, even if those cards are sold
+binder holds that many different cards from the other set (which can itself be an expansion: Outer Space unlocks from
+Backyard). Then it unlocks for good, even if those cards are sold
 later: confetti, and its first pack is on the house. Saves remember unlocked sets in `unlocked`.
 
 **Weakness, resistance, upkeep.** Each card's stat row comes from its category (`weak`, `resist`: another category's
@@ -95,8 +103,9 @@ export const TYPES = {
 ```
 
 `scene` is optional (a plain gradient in the category's colours is used without it). `house/rooms.js` has eight
-worked examples: tiled walls, counters, wallpaper, a lawn with a picket fence. The game adds the glow, sparkles and
-light rays on top, so a scene only needs the room.
+worked examples: tiled walls, counters, wallpaper, a lawn with a picket fence; `space/types.js` has night skies,
+holographic floors and heads-up-display lines. The game adds the glow, sparkles and light rays on top, so a scene only
+needs the room. Icons are drawn in one colour on top of the card: fill and stroke them, but don't erase (cut holes).
 
 ## 3. Models
 

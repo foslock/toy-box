@@ -69,6 +69,9 @@
   .sets button[aria-pressed="true"] { background: rgba(255, 255, 255, .14); color: var(--ink); }
   .sets button.locked { color: var(--ink-3); cursor: help; }
   .sets button.locked small { font: 700 11px/1 Nunito; opacity: .8; margin-left: 2px; }
+  .sets button { white-space: nowrap; }
+  .sets .short { display: none; }
+  @media (max-width: 480px) { .sets .full { display: none; } .sets .short { display: inline; } .sets button { padding: 0 10px; } }
 
   .nopack { position: fixed; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 7.6 / 12.2; box-sizing: border-box; border-radius: 16px; pointer-events: none;
     border: 2px dashed rgba(255, 255, 255, .16); background: radial-gradient(80% 60% at 50% 45%, rgba(255, 255, 255, .05), transparent); display: grid; place-items: center; animation: ghostIn .5s ease-out; }
@@ -172,6 +175,8 @@
   .inspect .info .nm { font: 600 20px/1.2 Fredoka; }
   .inspect .info .sub { font: 600 13px/1.3 Nunito; color: var(--ink-2); margin-top: 3px; }
   .inspect .info .val { font: 700 24px/1.2 Fredoka; color: var(--gold); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .inspect .info .from { font: 800 11.5px/1.3 Nunito; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-top: 5px; }
+  #inShare svg { width: 18px; height: 18px; flex: none; }
 
   .result { position: fixed; z-index: 8; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100% - 32px)); box-sizing: border-box; padding: 22px 24px 18px; border-radius: 26px; text-align: center; }
   .result.low { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); }
@@ -238,8 +243,8 @@
 </div>
 
 <div class="inspect" id="inspect" hidden>
-  <div class="info glass"><div class="nm" id="inName"></div><div class="sub" id="inSub"></div><div class="val" id="inVal"></div></div>
-  <div class="actions"><button class="btn ghost glass" id="inBack" type="button">Back</button><button class="btn red" id="inSell" type="button">Sell</button></div>
+  <div class="info glass"><div class="nm" id="inName"></div><div class="sub" id="inSub"></div><div class="val" id="inVal"></div><div class="from" id="inFrom" hidden>Shared with you · just for looking</div></div>
+  <div class="actions"><button class="btn ghost glass" id="inBack" type="button">Back</button><button class="btn ghost glass" id="inShare" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7.5 7.5 4.5-4.5 4.5 4.5"/><path d="M5.5 11.5V19a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-7.5"/></svg>Share</button><button class="btn red" id="inSell" type="button">Sell</button></div>
 </div>
 
 <div class="result glass" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
@@ -274,7 +279,8 @@
       <p><b>Every card has a value.</b> Commons are worth up to $1 and uncommons up to $10, and most are worth a lot less. A rare can be worth anything; the dearest are the hardest to find. 1 card in 40 is <b>Holo</b> (5×), 1 in 20 is <b>Full Art</b> (2×), and a card that's both is worth 50×.</p>
       <p><b>Look closer:</b> tap a card after a pack or in your binder. Drag it, or on a phone just tilt the phone, to catch the light on its foil, and tap outside it to put it back.</p>
       <p><b>Sell</b> cards after a pack, or any time from your binder, to buy more packs. Once you could afford ten packs, <b>booster boxes</b> go on sale: ten packs opened at once.</p>
-      <p><b>Expansions:</b> once your binder holds 50 different Around the House cards, the <b>Backyard</b> set unlocks, with packs of its own.</p>
+      <p><b>Share a pull:</b> tap a card for a closer look, then <b>Share</b> to send a link to it. Whoever opens the link can admire the card, but it stays yours: it isn't added to their binder, and they can't sell it.</p>
+      <p><b>Expansions:</b> once your binder holds 50 different Around the House cards, the <b>Backyard</b> set unlocks, with packs of its own. Find 38 different Backyard cards and <b>Outer Space</b> opens up.</p>
       <p>Broke? Somebody will always give you a pack.</p>
     </div>
     <h3>Start over</h3>

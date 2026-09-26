@@ -13,6 +13,7 @@ import { Sound } from './sound.js';
 import { Binder } from './binder.js';
 import { BoxOpening } from './box.js';
 import { PhoneTilt } from './motion.js';
+import { seal, unseal } from './share.js';
 
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -168,11 +169,13 @@ function updateCursor() { const c = handler?.cursor?.() || ''; canvas.className 
 let lastInput = -1e9;
 for (const t of ['pointermove', 'pointerdown', 'keydown', 'wheel']) addEventListener(t, () => { lastInput = performance.now(); }, { capture: true, passive: true });
 const quiet = () => performance.now() - Math.max(lastInput, phoneTilt.movedAt) > 1000 && !pointer.down && (mode === 'shop' || mode === 'summary' || mode === 'binder');
-// Tilting the phone turns the floating pack and any zoomed card. An iPhone asks first, and only from a touch: the first
-// one while there's something to tilt.
+// Tilting the phone turns whatever single thing is on show: the floating pack (torn open or not), the card on top as
+// the cards are revealed, and any zoomed card. An iPhone asks first, and only from a touch: the first one while there's
+// something to tilt.
 const phoneTilt = new PhoneTilt(), TILT = TOUCH && phoneTilt.supported;
 phoneTilt.onDenied = () => { S.settings.tilt = false; store.save(); $('tiltSwitch').setAttribute('aria-checked', false); };
-const tiltWanted = () => TILT && S.settings.tilt && (mode === 'inspect' || (mode === 'shop' && current?.state === 'idle' && !current.dir));
+const tiltWanted = () => TILT && S.settings.tilt && (mode === 'inspect' || mode === 'reveal' ||
+  (mode === 'shop' && current?.state === 'idle' && !current.dir) || (mode === 'opening' && current?.state === 'open'));
 function syncTilt() { if (tiltWanted()) phoneTilt.start(); else phoneTilt.stop(); }
 for (const t of ['touchend', 'click']) addEventListener(t, () => { if (phoneTilt.on) phoneTilt.ask(); }, true);
 addEventListener('keydown', e => {
@@ -265,6 +268,39 @@ async function fadeAway(card, delay = 0) {
   const h = card.holder, s0 = h.scale.x, y0 = h.position.y;
   await anim(.45, x => { card.fade = 1 - x; h.position.y = y0 + x * CARD_H * .08 * s0; h.scale.setScalar(s0 * (1 - x * .06)); }, ease.in);
   h.visible = false; card.fade = 1;
+}
+
+/* ---------- sharing a card ---------- */
+// A link that shows one card to whoever opens it (?card= and a sealed token, see share.js). It's only for looking: the
+// card isn't added to their collection, and they can't sell it.
+function shareLink(c) { const u = new URL(location.pathname, location.origin); u.searchParams.set('card', seal(c)); return u.href; }
+async function shareCard(c) {
+  const item = itemOf(c), url = shareLink(c), what = `${c.v & 3 ? VARIANT_NAME[c.v & 3] + ' ' : ''}${item.name}`;
+  const text = `I pulled ${/^[aeiou]/i.test(what) ? 'an' : 'a'} ${what}, worth ${money(valueOf(c))}, in Booster Packs!`;
+  sound.click();
+  if (navigator.share) {   // phones: the share sheet
+    try { await navigator.share({ title: 'Booster Packs', text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(url); toast('Link copied. Anyone who opens it can see this card, but it stays yours.', 3600); }
+  catch { prompt('Copy this link to share the card:', url); }
+}
+// Opened from a shared link: fly the card up to look at, then carry on with the game. Nothing about it is saved.
+// Resolves false if the link doesn't name a card this version of the game has.
+async function showShared(token) {
+  const c = unseal(String(token));
+  const rest = location.search.slice(1).split('&').filter(p => p && !p.startsWith('card=')).join('&');   // the link, without the card
+  history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+  if (!c || !store.knownCard(c)) { toast('That card link doesn’t work. It may have been mistyped, or be for a newer version of the game.', 3800); return false; }
+  const entry = faces.get(c, HI, true);
+  await new Promise(res => faces.when(entry, res));
+  const card = makeCard(c, entry), h = card.holder;
+  h.position.set(0, -VIEW_H * .9, 2); h.rotation.set(-.4, 0, .1);   // it rises from below the screen, and sinks back after
+  stage.add(h);
+  const item = itemOf(c);
+  live(`Shared with you: ${c.v & 3 ? VARIANT_NAME[c.v & 3] + ' ' : ''}${item.name}, worth ${money(valueOf(c))}.`);
+  await inspect(card, { from: 'shared' });
+  disposeCard(card);
+  return true;
 }
 
 /* ---------- cards in the scene ---------- */
@@ -440,10 +476,10 @@ function refreshShop() {
       const b = document.createElement('button'); b.type = 'button';
       if (!store.isUnlocked(s)) {   // locked: shows how close it is, and says how to unlock it
         const p = store.unlockProgress(s), how = `Find ${p.need} different ${p.from.name} cards to unlock ${s.name}. You have ${p.have}.`;
-        b.className = 'locked'; b.innerHTML = `<span aria-hidden="true">🔒</span> ${s.name} <small>${p.have}/${p.need}</small>`; b.title = how;
+        b.className = 'locked'; b.innerHTML = `<span aria-hidden="true">🔒</span> ${setLabel(s)} <small>${p.have}/${p.need}</small>`; b.title = how;
         b.onclick = () => { sound.denied(); toast(how, 3600); };
       } else {
-        b.textContent = s.name + (S.packs[s.id] ? ` · ${S.packs[s.id]}` : '');
+        b.innerHTML = setLabel(s) + (S.packs[s.id] ? ` · ${S.packs[s.id]}` : '');
         b.setAttribute('aria-pressed', s === selectedSet); b.onclick = () => { selectedSet = s; if (current && current.set !== s && S.packs[s.id]) { dropCurrent(); presentPack(); } refreshShop(); };
       }
       sets.append(b);
@@ -452,6 +488,8 @@ function refreshShop() {
   $('binderBtn').disabled = false;
   updatePackCount();
 }
+// A set's name for the switch, and its short name for narrow screens (the page shows one or the other).
+const setLabel = s => `<span class="full">${s.name}</span><span class="short">${s.short ?? s.name}</span>`;
 const busy = () => mode !== 'shop' && mode !== 'binder';
 function updatePackCount() {
   const n = store.packsInHand();
@@ -465,6 +503,7 @@ function checkUnlock() {
 function unlockSet(set) {
   store.givePack(set.id);
   selectedSet = set;
+  warmFirst(set);
   toast(`🎉 <b>${set.name} unlocked!</b> A whole new set to collect. Your first ${set.name} pack is on the house.`, 5200);
   sound.fanfare('holo', 3);
   flashBackdrop(.6, '#fff1c4');
@@ -537,6 +576,7 @@ function relayoutPack() {
 async function presentPack() {
   const set = packSetToOpen();
   if (!set) return;
+  warmFirst(set);   // its pictures are drawn while it floats here, not when it's torn open
   showGhost(false);
   const wi = Math.floor(Math.random() * set.wrappers.length);
   const pack = current = new Pack(set, set.wrappers[wi], wrapperPrints(set, wi));
@@ -620,8 +660,8 @@ async function openFlow(pack) {
   store.takePack(set.id);
   const results = store.collect(pack.contents);
   S.opened++; store.save();
+  mode = 'opening';   // (first, so a set these cards unlock is celebrated back in the shop, not over this pack)
   updateCount(); checkUnlock();
-  mode = 'opening';
   handler = null; setActions([]); $('sets').hidden = true; $('binderBtn').disabled = true;
   const ritual = S.opened <= 3 && !REDUCED;
   // the stack, inside the pack
@@ -741,6 +781,7 @@ async function reveal(cards, stack, set) {
     // the rest of the stack shuffles forward; the card on top lifts clear of it so it can turn without clipping
     const lifts = order.slice(i).map((c, k) => { const z0 = c.holder.position.z, z1 = k === 0 ? 1.6 : (4 - k) * .034; return anim(.22, x => { c.holder.position.z = lerp(z0, z1, x); }, ease.out); });
     await lifts[0];
+    const stopTilt = cardTilt(card);
     const tier = tierOf(card.data);
     if (card.faceDown) {
       const kind = specialKind(card.data);
@@ -761,20 +802,17 @@ async function reveal(cards, stack, set) {
     }
     revealed = i + 1; packTotal += valueOf(card.data); tally();
     showTag(card, stack);
-    // sway a little so the foil catches the light
-    let swaying = true;
-    tickers.add(dt => { const m = card.mesh; if (!swaying) { m.rotation.set(0, 0, 0); return false; } m.rotation.y = damp(m.rotation.y, Math.sin(T * .8) * .08, 4, dt); m.rotation.x = damp(m.rotation.x, Math.sin(T * .6) * .04, 4, dt); });
     if (last) {
       hint('Tap for a look at all nine', 900);
       if (!skipping) await waitSwipe(card, stack, true);
-      swaying = false;
+      stopTilt();
       card.fx?.release();
       hideTag(); hint('');
       break;
     }
     if (!skipping) { hint(i === 0 ? (TOUCH ? 'Swipe the card away for the next one' : 'Swipe or click for the next card') : '', i === 0 ? 700 : 0); }
     const dir = skipping ? -1 : await waitSwipe(card, stack);
-    swaying = false;
+    stopTilt();
     card.fx?.release();
     hideTag(); hint('');
     await flingAway(card, stack, dir);
@@ -784,6 +822,23 @@ async function reveal(cards, stack, set) {
   setActions([]);
   const lastCard = order[order.length - 1];
   if (S.settings.autoSell && lastCard.result.dupe && !lastCard.soldAuto) autoSell(lastCard);
+}
+// The card on top, while it's revealed: it sways a little so its foil catches the light, or on a phone holds still in
+// space as the phone tilts (a finger on it holds it where it is). Face down, the up-down tilt is mirrored, since the card
+// is turned over; while it flips it eases flat. Returns a function that stops it.
+function cardTilt(card) {
+  let on = true;
+  tickers.add(dt => {
+    const m = card.mesh;
+    if (!on) { m.rotation.set(0, 0, 0); return false; }
+    const gyro = phoneTilt.live;
+    if (gyro && pointer.down) return;
+    const side = Math.cos(card.holder.rotation.y), still = card.flipping ? 0 : 1, sway = gyro ? .3 : 1;
+    const tx = gyro ? clamp(phoneTilt.x, -.5, .5) * side : 0, ty = gyro ? clamp(phoneTilt.y, -.6, .6) : 0;
+    m.rotation.x = damp(m.rotation.x, (tx + Math.sin(T * .6) * .04 * sway) * still, gyro ? 12 : 4, dt);
+    m.rotation.y = damp(m.rotation.y, (ty + Math.sin(T * .8) * .08 * sway) * still, gyro ? 12 : 4, dt);
+  });
+  return () => { on = false; };
 }
 let waiting = null;   // resolves whatever the reveal is waiting on (for Skip)
 function waitTap(card, stack) {
@@ -1064,13 +1119,18 @@ async function inspect(card, o = {}) {
   }
   scene.attach(h);
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
+  const shared = o.from === 'shared';   // someone else's card, from a link: just for looking (no selling, no sharing on)
   $('inName').innerHTML = `${item.name}${c.v & HOLO ? '<span class="badge holo">HOLO</span>' : ''}${c.v & FULL ? '<span class="badge full">FULL ART</span>' : ''}`;
-  const copies = store.copies(cardKey(c));
+  const copies = shared ? 0 : store.copies(cardKey(c));
   $('inSub').textContent = `${r.symbol} ${r.name} · ${set.types[item.type].name} · No. ${String(item.no).padStart(3, '0')} · ${set.name}${copies > 1 ? ` · you have ${copies}` : ''}`;
   $('inVal').textContent = money(valueOf(c));
+  $('inFrom').hidden = !shared;
+  $('inBack').textContent = shared ? 'Close' : 'Back';
+  $('inShare').hidden = shared;
+  $('inShare').onclick = () => shareCard(c);
   const selling = o.from === 'summary';
   $('inSell').textContent = selling ? (card.mark === 'sell' ? 'Don’t sell' : `Sell for ${money(valueOf(c), { short: true })}`) : `Sell for ${money(valueOf(c), { short: true })}`;
-  $('inSell').hidden = card.mark === 'sold';
+  $('inSell').hidden = shared || card.mark === 'sold';
   const panel = $('inspect');
   panel.style.visibility = 'hidden'; panel.hidden = false;
   const panelTop = panel.getBoundingClientRect().top;
@@ -1387,7 +1447,7 @@ function frame(now) {
     if (pack.detached && !pack.tornFired) { pack.tornFired = true; pack.onTorn(); }
     // it leans toward the pointer, or (on a phone) holds still in space as the phone tilts, catching the light;
     // a finger on it holds it where it is
-    const gyro = phoneTilt.live && pack.state === 'idle' && !pack.dir;
+    const gyro = phoneTilt.live && (pack.state === 'open' || (pack.state === 'idle' && !pack.dir));
     const hoverTilt = !TOUCH && pointer.over && pack.state === 'idle' ? V(-pointer.ndc.y * .22, pointer.ndc.x * .3, 0) : V();
     const want = pack.dragTilt ?? (gyro ? (pointer.down ? pack.tilt : V(clamp(phoneTilt.x, -.45, .45), clamp(phoneTilt.y, -.55, .55), 0)) : hoverTilt);
     pack.tilt.x = damp(pack.tilt.x, want.x, gyro ? 12 : 6, dt); pack.tilt.y = damp(pack.tilt.y, want.y, gyro ? 12 : 6, dt);
@@ -1430,6 +1490,14 @@ function warmArt() {
   const owned = new Set(S.cards.map(k => k.split(':').slice(0, 2).join(':')));
   for (const set of SETS) for (const item of set.items) (owned.has(set.id + ':' + item.id) ? warmQueue.unshift([set, item]) : warmQueue.push([set, item]));
 }
+// Move one set's items to the front of the queue: its pack is up next, or it has just unlocked. (Some pictures, such as
+// the painted planets, take most of a second the first time; better while the player is looking at the pack.)
+function warmFirst(set) {
+  const mine = warmQueue.filter(([s]) => s === set);
+  if (!mine.length) return;
+  const rest = warmQueue.filter(([s]) => s !== set);
+  warmQueue.splice(0, warmQueue.length, ...mine, ...rest);
+}
 function warmOne() {
   if (!warmQueue.length || faces.pending()) return;
   const [set, item] = warmQueue.shift(), [w, h] = artSize(LO, false);
@@ -1465,9 +1533,10 @@ async function start() {
   const firstSet = packSetToOpen();
   if (firstSet) { const contents = store.rollPack(firstSet); prepared = { set: firstSet, contents, entries: contents.map(c => faces.get(c, HI, true)) }; }
   requestAnimationFrame(frame);
-  if (S.opened === 0 && store.packsInHand() > 0 && !S.cards.length) setTimeout(() => toast('Your first pack is on the house. 🎁', 3200), 900);
+  const shared = Q.get('card') ? await showShared(Q.get('card')) : null;   // opened from a shared card's link: that card first
+  if (S.opened === 0 && store.packsInHand() > 0 && !S.cards.length) setTimeout(() => toast('Your first pack is on the house. 🎁', 3200), shared === false ? 4000 : 900);
+  warmArt();   // (the queue first, so the first pack's set can go to the front of it)
   home();
-  warmArt();
 }
 // ?demo: a still for the preview image — a fanned hand of good pulls in front of an open pack.
 function demo() {

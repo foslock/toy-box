@@ -225,6 +225,7 @@ export function createKit() {
 export function disposeObject(root, keepPrograms = false) {
   root.traverse(o => {
     if (o.geometry) o.geometry.dispose();
+    if (o.isInstancedMesh) o.dispose();   // its per-instance buffers live on the mesh, not the geometry
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
     for (const m of ms) { for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'bumpMap']) m[key]?.dispose?.(); if (!keepPrograms) m.dispose(); }
   });

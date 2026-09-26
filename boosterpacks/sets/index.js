@@ -2,8 +2,9 @@
 // README.md in this folder), import it here and add it to SETS. Players see sets in this order.
 import house from './house/set.js';
 import backyard from './backyard/set.js';
+import space from './space/set.js';
 
-export const SETS = [house, backyard];
+export const SETS = [house, backyard, space];
 export const SET_BY_ID = Object.fromEntries(SETS.map(s => [s.id, s]));
 // Resolves when every set's models have loaded (or failed to).
 export const READY = Promise.all(SETS.map(s => s.ready));
