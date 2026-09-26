@@ -193,7 +193,8 @@
     .wallet { height: 38px; font-size: 17px; padding: 0 12px 0 6px; }
     .hbtn { height: 38px; padding: 0 12px; } .hbtn.icon { width: 38px; }
     .btn { height: 46px; padding: 0 16px; font-size: 15px; }
-    .binderbar { padding-left: 6px; gap: 6px; }
+    /* too narrow for everything in one row: the buttons drop to a second row (a 42px-tall row is still a pill) */
+    .binderbar { padding-left: 6px; gap: 6px; flex-wrap: wrap; justify-content: center; border-radius: 21px; width: max-content; }
     .binderbar .ttl { display: none; }
     .binderbar .ttl small { display: none; }
     .tag .nm { font-size: 17px; } .tag .val { font-size: 19px; }

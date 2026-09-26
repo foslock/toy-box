@@ -1270,6 +1270,8 @@ function refreshBinderUI() {
   $('sellDupes').textContent = `Sell ${d.length} duplicate${d.length === 1 ? '' : 's'}`;
   $('pageLabel').textContent = binder.pageLabel();
   $('prevPage').disabled = !binder.canPrev(); $('nextPage').disabled = !binder.canNext();
+  // on a phone the toolbar can go from two rows to one (the duplicates are sold): give the binder the room
+  if (mode === 'binder' && binder.area) { const a = binderArea(); if (Math.abs(a.h - binder.area.h) > .01) { binder.area = a; binder.layout(); } }
 }
 async function pickBinderCard(card, at) {
   const handlerBefore = handler;
