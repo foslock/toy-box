@@ -55,6 +55,21 @@ function houseGlyph(g, x, y, r) {
   g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y - r * .05); g.lineTo(x + r * .7, y - r * .05); g.lineTo(x + r * .7, y + r * .85);
   g.lineTo(x - r * .7, y + r * .85); g.lineTo(x - r * .7, y - r * .05); g.lineTo(x - r, y - r * .05); g.closePath(); g.fill();
 }
+// The value printed on a card, and the name's font: as big as fits beside it. The foil mask sets the name the same way.
+const valueText = (item, v) => money(item.price * [1, 5, 2, 50][v & 3], { short: true });
+function nameFont(g, item, v) {
+  g.font = `700 40px ${FONT}`;
+  fitFont(g, item.name, 700, 46, FONT, CW - 104 - g.measureText(valueText(item, v)).width - 30 - 46);
+}
+// The little info line under the art, and how wide its pill is (the silver sheen on it is exactly as wide).
+function ribbon(g, set, item) {
+  const text = `No. ${String(item.no).padStart(3, '0')}  ·  ${set.types[item.type].name}  ·  ${item.size}`;
+  g.font = `italic 600 21px ${BODY}`;
+  const w = Math.min(CW - 120, g.measureText(text).width + 56);
+  return { text, w, x: CW / 2 - w / 2 };
+}
+// A full-art card's metal border: everything outside a window 18 in from the edge, its corners rounded like the card's.
+function fullFrame(g) { g.beginPath(); g.rect(0, 0, CW, CH); g.roundRect(18, 18, CW - 36, CH - 36, 21); }
 function setSymbol(g, set, x, y, r, color) {
   g.save(); g.fillStyle = color;
   if (set.symbol) set.symbol(g, x, y, r); else houseGlyph(g, x, y, r);
@@ -86,13 +101,11 @@ function drawNormal(g, set, item, v, art) {
   g.globalAlpha = 1;
   g.restore();
   // header: name, value, type
-  const valueText = money(item.price * [1, 5, 2, 50][v & 3], { short: true });
-  g.font = `700 40px ${FONT}`; const vw = g.measureText(valueText).width;
   typeBadge(g, type, CW - 66, 74, 25);
-  g.fillStyle = type.dark; g.textBaseline = 'alphabetic'; g.textAlign = 'right';
-  g.fillText(valueText, CW - 104, 90);
+  g.font = `700 40px ${FONT}`; g.fillStyle = type.dark; g.textBaseline = 'alphabetic'; g.textAlign = 'right';
+  g.fillText(valueText(item, v), CW - 104, 90);
   g.fillStyle = rare ? lin(g, 0, 50, 0, 92, [[0, '#a8761a'], [.55, '#7a4e06'], [1, '#5c3a02']]) : INK; g.textAlign = 'left';
-  fitFont(g, item.name, 700, 46, FONT, CW - 104 - vw - 30 - 46);
+  nameFont(g, item, v);
   g.fillText(item.name, 46, 90);
   // art window
   g.save(); rr(g, ART.x, ART.y, ART.w, ART.h, 10); g.clip();
@@ -103,12 +116,10 @@ function drawNormal(g, set, item, v, art) {
   g.lineWidth = 9; g.strokeStyle = metal(g, ART.x, ART.y, ART.x + ART.w, ART.y + ART.h, cols); rr(g, ART.x - 4, ART.y - 4, ART.w + 8, ART.h + 8, 13); g.stroke();
   g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.35)'; rr(g, ART.x, ART.y, ART.w, ART.h, 10); g.stroke();
   // info ribbon
-  const rib = `No. ${String(item.no).padStart(3, '0')}  ·  ${type.name}  ·  ${item.size}`;
-  g.font = `italic 600 21px ${BODY}`;
-  const rw = Math.min(CW - 120, g.measureText(rib).width + 56);
-  g.fillStyle = metal(g, CW / 2 - rw / 2, 0, CW / 2 + rw / 2, 0, cols); rr(g, CW / 2 - rw / 2, 604, rw, 34, 17); g.fill();
+  const rib = ribbon(g, set, item);
+  g.fillStyle = metal(g, rib.x, 0, rib.x + rib.w, 0, cols); rr(g, rib.x, 604, rib.w, 34, 17); g.fill();
   g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1.5; g.stroke();
-  g.fillStyle = INK; g.textAlign = 'center'; fitFont(g, rib, 'italic 600', 21, BODY, rw - 30); g.fillText(rib, CW / 2, 628);
+  g.fillStyle = INK; g.textAlign = 'center'; fitFont(g, rib.text, 'italic 600', 21, BODY, rib.w - 30); g.fillText(rib.text, CW / 2, 628);
   // move
   const pips = { C: 1, U: 2, R: 3 }[item.rarity];
   for (let i = 0; i < pips; i++) typeBadge(g, type, 72 + i * 42, 690, 18);
@@ -173,9 +184,9 @@ function drawFull(g, set, item, v, art) {
   // legibility shades top and bottom
   g.fillStyle = lin(g, 0, 0, 0, 260, [[0, 'rgba(10,6,20,.62)'], [1, 'rgba(10,6,20,0)']]); g.fillRect(0, 0, CW, 260);
   // value tag (measured first, so the name knows how much room it has)
-  const valueText = money(item.price * [1, 5, 2, 50][v & 3], { short: true });
+  const value = valueText(item, v);
   g.font = `700 38px ${FONT}`;
-  const tw = g.measureText(valueText).width + 44, tx = CW - 40 - tw, ty = 50;
+  const tw = g.measureText(value).width + 44, tx = CW - 40 - tw, ty = 50;
   // name: big, outlined, a little slanted
   g.save(); g.translate(44, 104); g.transform(1, 0, -.12, 1, 0, 0);
   const name = item.name.toUpperCase();
@@ -191,7 +202,7 @@ function drawFull(g, set, item, v, art) {
   g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 12; g.shadowOffsetY = 4;
   g.fillStyle = metal(g, tx, ty, tx + tw, ty + 64, GOLD); rr(g, tx, ty, tw, 64, 32); g.fill(); g.restore();
   g.strokeStyle = 'rgba(120,70,0,.5)'; g.lineWidth = 2; rr(g, tx + 4, ty + 4, tw - 8, 56, 28); g.stroke();
-  g.fillStyle = '#3b2600'; g.textAlign = 'center'; g.fillText(valueText, tx + tw / 2, ty + 46);
+  g.fillStyle = '#3b2600'; g.textAlign = 'center'; g.fillText(value, tx + tw / 2, ty + 46);
   typeBadge(g, type, tx - 38, ty + 32, 26);
   g.fillStyle = lin(g, 0, CH - 90, 0, CH, [[0, 'rgba(10,6,20,0)'], [1, 'rgba(10,6,20,.55)']]); g.fillRect(0, CH - 90, CW, 90);
   // frosted panel with the move
@@ -211,8 +222,8 @@ function drawFull(g, set, item, v, art) {
   const mt = wrap(g, item.move.text, 600, 25, BODY, pw - 56, 3);
   g.fillStyle = '#2b2533'; mt.lines.forEach((l, i) => g.fillText(l, px + 28, py + 100 + i * mt.size * 1.24));
   // border
-  g.lineWidth = 18; g.strokeStyle = metal(g, 0, 0, CW, CH, cols); g.strokeRect(9, 9, CW - 18, CH - 18);
-  g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.7)'; rr(g, 22, 22, CW - 44, CH - 44, 16); g.stroke();
+  fullFrame(g); g.fillStyle = metal(g, 0, 0, CW, CH, cols); g.fill('evenodd');
+  g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.7)'; rr(g, 22, 22, CW - 44, CH - 44, 17); g.stroke();
   footer(g, set, item, v, CH - 34, '#ffffff', true);
 }
 
@@ -233,7 +244,7 @@ function drawMask(set, item, v, art) {
       r.globalCompositeOperation = 'source-over';
     }
     b.fillRect(0, 0, CW, CH); b.globalCompositeOperation = 'destination-out'; rr(b, 34, 818, CW - 68, 190, 22); b.fill();
-    gg.lineWidth = 18; gg.strokeStyle = '#fff'; gg.strokeRect(9, 9, CW - 18, CH - 18);
+    fullFrame(gg); gg.fill('evenodd');
   } else {
     if (holo) {
       r.globalAlpha = .16; r.fillRect(22, 22, CW - 44, CH - 44); r.globalAlpha = 1;
@@ -246,9 +257,9 @@ function drawMask(set, item, v, art) {
     if (rare || item.rarity === 'U' || holo) {
       gg.lineWidth = 12; gg.strokeStyle = '#fff'; rr(gg, ART.x - 4, ART.y - 4, ART.w + 8, ART.h + 8, 13); gg.stroke();
       gg.lineWidth = 22; rr(gg, 11, 11, CW - 22, CH - 22, 26); gg.stroke();
-      rr(gg, CW / 2 - 290, 604, 580, 34, 17); gg.fill();
+      const rib = ribbon(gg, set, item); rr(gg, rib.x, 604, rib.w, 34, 17); gg.fill();
     }
-    if (rare) { gg.font = `700 46px ${FONT}`; gg.textBaseline = 'alphabetic'; gg.fillText(item.name, 46, 90); }
+    if (rare) { nameFont(gg, item, v); gg.textBaseline = 'alphabetic'; gg.textAlign = 'left'; gg.fillText(item.name, 46, 90); }
   }
   const out = document.createElement('canvas'); out.width = MW; out.height = MH;
   const o = out.getContext('2d'), img = o.createImageData(MW, MH), d = img.data;
@@ -324,6 +335,31 @@ export function cardBack() {
   return backCache;
 }
 
+/* ---------- the SOLD sash ---------- */
+// A red ribbon across the card, corner to corner, with SOLD on it. Drawn in the face's own design space.
+export function soldSash() {
+  const c = document.createElement('canvas'); c.width = CW; c.height = CH;
+  const g = c.getContext('2d'), L = CH * 1.8, H = 156;
+  g.translate(CW / 2, CH / 2); g.rotate(-.68);
+  g.save(); g.shadowColor = 'rgba(50,0,12,.5)'; g.shadowBlur = 26; g.shadowOffsetY = 10;
+  g.fillStyle = lin(g, 0, -H / 2, 0, H / 2, [[0, '#ff6a78'], [.45, '#e3263f'], [1, '#9e0c25']]);
+  g.fillRect(-L / 2, -H / 2, L, H);
+  g.restore();
+  // a sheen along the top edge, and stitching
+  g.fillStyle = lin(g, 0, -H / 2, 0, -H / 2 + 40, [[0, 'rgba(255,255,255,.35)'], [1, 'rgba(255,255,255,0)']]); g.fillRect(-L / 2, -H / 2, L, 40);
+  g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 4; g.setLineDash([18, 10]);
+  for (const y of [-H / 2 + 15, H / 2 - 15]) { g.beginPath(); g.moveTo(-L / 2, y); g.lineTo(L / 2, y); g.stroke(); }
+  g.setLineDash([]);
+  // the word, spaced out by hand (canvas letter-spacing isn't everywhere yet)
+  const word = [...'SOLD'], gap = 16;
+  g.font = `700 108px ${FONT}`; g.textBaseline = 'middle'; g.textAlign = 'left';
+  const ws = word.map(ch => g.measureText(ch).width), total = ws.reduce((a, b) => a + b, 0) + gap * (word.length - 1);
+  g.shadowColor = 'rgba(90,0,24,.55)'; g.shadowOffsetY = 5; g.fillStyle = '#ffffff';
+  let x = -total / 2;
+  word.forEach((ch, i) => { g.fillText(ch, x, 8); x += ws[i] + gap; });
+  return c;
+}
+
 /* ---------- compose + cache ---------- */
 // The size of the item picture a face of this width needs.
 export const artSize = (width, full) => { const k = width / CW; return full ? [Math.round(CW * k), Math.round(CH * k)] : [Math.round(ART.w * k), Math.round(ART.h * k)]; };
@@ -355,6 +391,11 @@ export class FaceCache {
     t.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
+  }
+  // The SOLD sash every sold card shares (premultiplied, so its soft shadow blends cleanly).
+  get sash() {
+    if (!this._sash) { this._sash = this.texture(soldSash(), true); this._sash.premultiplyAlpha = true; }
+    return this._sash;
   }
   // Ask for a face; returns an entry that fills in (entry.ready) when it's made. Call release() when done with it.
   get(card, width = HI, urgent = false) {

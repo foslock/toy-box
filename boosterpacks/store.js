@@ -15,7 +15,7 @@ export const RARITY = {
   R: { name: 'Rare', symbol: '★', order: 2 },
 };
 const KEY = 'boosterpacks.save';
-const FORMAT = 1;
+const FORMAT = 2;          // 2: cards revalued (a pack went from $250 to $4.99)
 
 /* ---------- cards ---------- */
 // A card is { set, id, v }: set id, item id, variant bits. Its key is "set:item:v".
@@ -28,13 +28,18 @@ export const itemOf = c => SET_BY_ID[c.set]?.itemById[c.id];
 export const valueOf = c => { const it = itemOf(c); return it ? it.price * MULT[c.v & 3] : 0; };
 export const knownCard = c => !!itemOf(c);
 
+// Within a rarity, cheap cards turn up more often than dear ones: weight = (cheapest / value) ^ curve (curve 0 makes
+// them all equal). An item can have its own weight, or fixed odds (one pack in `odds`); the rest share what's left.
 for (const set of SETS) {
   set.itemById = Object.fromEntries(set.items.map(i => [i.id, i]));
   set.pools = {};
   for (const [r] of SLOTS) {
     const items = set.items.filter(i => i.rarity === r), min = Math.min(...items.map(i => i.price));
-    const w = items.map(i => i.weight ?? Math.pow(min / i.price, set.curve?.[r] ?? .5)), total = w.reduce((a, b) => a + b, 0);
-    set.pools[r] = { items, cum: w.reduce((acc, x, i) => (acc.push((acc[i - 1] ?? 0) + x / total), acc), []) };
+    const fixed = items.reduce((a, i) => a + (i.odds ? 1 / i.odds : 0), 0);
+    const free = items.filter(i => !i.odds), w0 = free.map(i => i.weight ?? Math.pow(min / i.price, set.curve?.[r] ?? .5)), sum0 = w0.reduce((a, b) => a + b, 0);
+    const p = items.map(i => i.odds ? 1 / i.odds : (w0[free.indexOf(i)] / sum0) * Math.max(0, 1 - fixed));
+    const total = p.reduce((a, b) => a + b, 0);
+    set.pools[r] = { items, cum: p.reduce((acc, x, i) => (acc.push((acc[i - 1] ?? 0) + x / total), acc), []) };
   }
 }
 export const packPrice = set => set.price;
@@ -89,6 +94,9 @@ function sanitize(raw) {
   const s = fresh();
   s.created = Number.isFinite(raw.created) ? raw.created : s.created;
   s.money = Math.max(0, Math.round(Number(raw.money) || 0));
+  // Format 1 saves were priced for $250 packs: scale their money so it buys as many packs as it did.
+  const old = (Number(raw.format) || 1) < 2, rescale = c => Math.round(c * 499 / 25000);
+  if (old) s.money = rescale(s.money);
   s.packs = {};
   if (raw.packs && typeof raw.packs === 'object') for (const [k, n] of Object.entries(raw.packs)) if (SET_BY_ID[k] && n > 0) s.packs[k] = Math.min(9999, Math.floor(n));
   if (!Array.isArray(raw.cards)) throw new Error('That save has no collection in it.');
@@ -100,6 +108,8 @@ function sanitize(raw) {
   s.settings.autoSell = !!s.settings.autoSell; s.settings.sound = s.settings.sound !== false;
   if (!['set', 'value', 'new'].includes(s.settings.sort)) s.settings.sort = 'set';
   if (raw.stats && typeof raw.stats === 'object') for (const k of Object.keys(s.stats)) if (raw.stats[k] != null) s.stats[k] = raw.stats[k];
+  if (old) { s.stats.earned = rescale(s.stats.earned || 0); s.stats.spent = rescale(s.stats.spent || 0); }
+  if (s.stats.best) { const c = parseKey(s.stats.best); s.stats.bestValue = knownCard(c) ? valueOf(c) : 0; }
   s.seen = raw.seen && typeof raw.seen === 'object' ? { ...raw.seen } : {};
   for (const k of s.cards) { const c = parseKey(k); s.seen[`${c.set}:${c.id}`] = 1; }
   return s;

@@ -98,7 +98,9 @@ export function makeWrapper(set, wrap, hero, W = 1024) {
   b.fillStyle = '#231d2b'; b.textAlign = 'left'; b.textBaseline = 'alphabetic';
   b.font = `700 ${W * .045}px ${FONT}`; b.fillText('Each pack holds 9 cards', W * .15, H * .3);
   b.font = `600 ${W * .032}px ${BODY}`;
-  [['●', '5 Common', 'under $10'], ['◆', '3 Uncommon', '$10 to $100'], ['★', '1 Rare', 'over $100']].forEach(([s, a, c], i) => {
+  const top = r => Math.max(0, ...set.items.filter(i => i.rarity === r).map(i => i.price)), usd = c => '$' + (c / 100).toFixed(c % 100 ? 2 : 0);
+  const tiers = set.tiers ?? { C: `worth up to ${usd(top('C'))}`, U: `worth up to ${usd(top('U'))}`, R: 'worth anything' };
+  [['●', '5 Common', tiers.C], ['◆', '3 Uncommon', tiers.U], ['★', '1 Rare', tiers.R]].forEach(([s, a, c], i) => {
     const y = H * .345 + i * W * .07; b.fillStyle = i === 2 ? '#c8901c' : '#231d2b'; b.fillText(s, W * .15, y); b.fillStyle = '#231d2b'; b.fillText(a, W * .21, y); b.fillStyle = '#6a6275'; b.fillText(c, W * .55, y);
   });
   b.font = `600 ${W * .028}px ${BODY}`; b.fillStyle = '#231d2b';

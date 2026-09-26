@@ -15,6 +15,7 @@ export class BoxOpening {
     this.packs3d = []; this.live = new Set(); this.fast = false; this.pulls = [];
   }
   update(dt) {
+    if (this.spot) { const s = this.spot, h = s.card.holder; s.t += dt; h.rotation.y = Math.sin(s.t * 1.3) * .3; h.rotation.x = Math.sin(s.t * .9) * .08; }
     for (const p of this.packs3d) {
       p.update(dt);
       if (p.state === 'float') { p.group.position.y = Math.sin(performance.now() / 700 + p.k) * .12; }
@@ -139,8 +140,12 @@ export class BoxOpening {
         const pos = card.pack.holder.position;
         return moveTo(card.holder, { p: [pos.x, pos.y + (rare ? 1.2 : .9) * G.s * 3, 2 + i * .01] }, rare ? .4 : .26, ease.out);
       })));
-      // specials flip over with a flourish
+      // specials flip over with a flourish, bigger the more they're worth; only the dearest in a round makes a sound
       const specials = cards.filter(c => c.holder.rotation.y !== 0);
+      const loudest = [...cards].sort((a, b) => valueOf(b.data) - valueOf(a.data))[0];
+      const centre = card => { card.holder.updateWorldMatrix(true, false); return new THREE.Vector3().applyMatrix4(card.holder.matrixWorld); };
+      const behind = { backZ: 1.2 };   // cards in a round sit at z ≈ 2 over their packs
+      for (const card of cards) if (!specials.includes(card) && this.tierOf(card.data) >= 2) this.celebrate(card.data, centre(card), { ...behind, mini: true, quiet: true });
       if (specials.length) {
         if (rare) this.hint('Ten rares!');
         await Promise.all(specials.map((card, i) => sleep(i * (rare ? .09 : .05)).then(() => this.anim(rare ? .5 : .35, (x, k) => {
@@ -148,16 +153,13 @@ export class BoxOpening {
           card.holder.position.z = 2 + Math.sin(k * Math.PI) * 2;
           if (!card.popped && x > .5) {
             card.popped = true;
-            const kind = (card.data.v & 3) === 3 ? 'both' : card.data.v & HOLO ? 'holo' : card.data.v & FULL ? 'full' : 'rare';
-            if (kind !== 'rare' || !this.fast) {
-              card.holder.updateWorldMatrix(true, false);
-              const at = new THREE.Vector3().applyMatrix4(card.holder.matrixWorld);
-              if (kind === 'rare') { particles.burst(at, 14, { colors: ['#ffd76a', '#fff3c4'], speed: 6, size: .4, life: .8 }); if (i % 3 === 0) sound.sparkle(0); }
-              else this.celebrate(kind, at);
-            }
+            if (!this.fast || this.tierOf(card.data) >= 3) this.celebrate(card.data, centre(card), { ...behind, mini: true, quiet: card !== loudest });
           }
         }, ease.inOut))));
       }
+      // every card worth $250 or more gets pulled out front for a proper show, dearest last; over $1,000 even when skipping
+      const stars = cards.filter(c => { const t = this.tierOf(c.data); return t >= 5 || (t >= 4 && !this.fast); }).sort((a, b) => valueOf(a.data) - valueOf(b.data));
+      for (const star of stars) await this.spotlight(star, this.tierOf(star.data));
       for (const card of cards) {
         const v = valueOf(card.data);
         this.pulls.push({ c: card.data, v });
@@ -208,6 +210,22 @@ export class BoxOpening {
         ['Everything in the box', money(total)], ...(soldTotal ? [['Duplicates sold', '+' + money(soldTotal)]] : []),
       ],
     };
+  }
+  async spotlight(card, tier) {
+    const { moveTo, ease } = this, h = card.holder;
+    if (tier >= 5) this.setTimeScale(1);
+    const saved = { p: h.position.toArray(), s: h.scale.x, r: [h.rotation.x, h.rotation.y, h.rotation.z] };
+    const s = Math.min(.56 * this.VIEW_H / CARD_H, .72 * this.view.W / CARD_W);
+    this.sound.whoosh(.7);
+    await moveTo(h, { p: [0, .4, 7], s, r: [0, 0, 0] }, .55, ease.out);
+    h.updateWorldMatrix(true, false);
+    const fx = this.celebrate(card.data, new THREE.Vector3().applyMatrix4(h.matrixWorld), { linger: true, backZ: 5.5 });
+    this.hint(tier >= 5 ? 'What a pull! Tap to keep going' : 'Tap to keep going');
+    this.spot = { card, t: 0 };
+    await this.tapOnce(tier >= 5 ? 8000 : 3500);
+    this.spot = null; fx.release(); this.hint('');
+    await moveTo(h, { p: saved.p, s: saved.s, r: saved.r }, .45, ease.inOut);
+    if (this.fast) this.setTimeScale(10);
   }
   skipAll() { this.fast = true; this.setTimeScale(10); this.setActions([]); }
   dispose() {

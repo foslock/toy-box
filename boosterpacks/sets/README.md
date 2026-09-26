@@ -20,18 +20,20 @@ sets/
 import { TYPES } from './types.js';
 
 const LIST = [
-  // [id, name, type, rarity, price in dollars, [move, power, move text], flavor text, size line]
-  ['shell', 'Moon Shell', 'beach', 'C', 1.50, ['Echo', 10, 'Hold it to your ear.'], 'Sounds like the sea. Or a fan.', 'Ø 2 in · 1 oz'],
+  // [id, name, type, rarity, value in dollars, [move, power, move text], flavor text, size line]
+  ['shell', 'Moon Shell', 'beach', 'C', 0.15, ['Echo', 10, 'Hold it to your ear.'], 'Sounds like the sea. Or a fan.', 'Ø 2 in · 1 oz'],
   // … commons, uncommons and rares
 ];
+
+const ODDS = { sandcastle: 500 };
 
 const set = {
   id: 'beach',                  // short, lowercase, never changes (saves refer to cards as "beach:shell:0")
   name: 'Beach Day',            // shown on packs, cards and in the binder
   series: 'Series 2',
   code: 'BCH',                  // printed in each card's footer
-  price: 25000,                 // one pack, in cents; a booster box is 9× this and unlocks at 10×
-  curve: { C: .35, U: .5, R: .72 },   // how much rarer the pricey cards are within a rarity (0 = all equally likely)
+  price: 499,                   // one pack, in cents; a booster box is 9× this and unlocks at 10×
+  curve: { C: .35, U: .55, R: 0 },    // how much rarer the dearer cards are within a rarity (0 = all equally likely)
   types: TYPES,                 // your categories, below
   typeLabel: 'Place',           // what a category is called
   wrappers: [                   // pack wrapper designs: a rare shown big on the front, over three colours
@@ -40,6 +42,7 @@ const set = {
   blurb: 'Printed on the back of the pack.',
   items: LIST.map(([id, name, type, rarity, dollars, [move, power, text], flavor, size], i) => ({
     id, name, type, rarity, price: Math.round(dollars * 100), move: { name: move, power, text }, flavor, size, no: i + 1,
+    odds: ODDS[id],             // optional: { sandcastle: 500 } makes one pack in 500 hold the sandcastle
   })),
   models: {},
 };
@@ -53,10 +56,16 @@ export default set;
 Aim for at least 10 of each so packs don't repeat themselves, and roughly 3 commons : 3 uncommons : 2 rares
 (Around the House has 37 / 34 / 29). An item may set `weight` to override how often it turns up within its rarity.
 
-**Prices.** Card values drive the whole economy. Around the House keeps commons under $10, uncommons at $10–$100
-and rares over $100, with a pack at $250. A pack's cards are worth about $980 on average but only about $530 at the
-median, because a few rares are very dear, so most packs lose a little and a few pay for many more. If your prices
-are on a different scale, move `price` with them.
+**Values.** Card values drive the whole economy. Around the House keeps commons at up to $1 and uncommons at up to
+$10, both bunched toward the cheap end, and lets rares be worth anything ($2 to $1,500), with a pack at $4.99. A pack's
+cards are worth about $21 on average but about $15 at the median, because a few rares are very dear: nearly every pack
+pays for the next one, and the rare ones pay for many more. If your values are on a different scale, move `price` with
+them.
+
+**How often cards turn up.** Within a rarity, `curve` makes cheap cards more common: an item's weight is
+(cheapest value / its value) ^ curve, so 0 makes them all equally likely. An item can instead set `weight`, or fixed
+`odds`: `odds: 2000` means one pack in 2,000 has it, and every other card of that rarity shares what's left. Around
+the House gives its seven dearest rares fixed odds, from 1 in 45 packs to 1 in 2,000 for the piano.
 
 **Numbering.** `no` is the card's number in the set (`001/100`). The binder sorts by it.
 

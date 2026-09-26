@@ -103,7 +103,19 @@ export class Particles {
         size: (o.size ?? 1) * (.5 + Math.random()), color, kind: o.kind ?? 0, gravity: o.gravity ?? -4, drag: o.drag ?? 2.2, spin: Math.random() * 6 });
     }
   }
+  // Things raining down across a width w from height top (world units), for dur seconds: o.kind, o.colors, o.rate (per second).
+  rain(w, top, dur, o = {}) { this.rains = this.rains || []; this.rains.push({ w, top, t: 0, dur, acc: 0, o }); }
   update(dt) {
+    for (const r of this.rains || []) {
+      r.t += dt; r.acc += dt * (r.o.rate ?? 60) * (r.t < r.dur ? 1 : 0);
+      while (r.acc >= 1) {
+        r.acc--;
+        const color = r.o.colors ? r.o.colors[Math.floor(Math.random() * r.o.colors.length)] : '#ffd76a';
+        this.spawn({ p: new THREE.Vector3((Math.random() - .5) * r.w, r.top + Math.random() * 2, (r.o.z ?? 4) + Math.random() * 2), v: new THREE.Vector3((Math.random() - .5) * 2, -(r.o.speed ?? 6) * (.6 + Math.random() * .6), 0),
+          life: r.o.life ?? 3.2, size: (r.o.size ?? .45) * (.6 + Math.random() * .8), color, kind: r.o.kind ?? 2, gravity: -2, drag: .4, spin: Math.random() * 6, fade: r.o.kind === 3 ? false : true });
+      }
+    }
+    if (this.rains) this.rains = this.rains.filter(r => r.t < r.dur + 4);
     const L = this.list;
     for (let i = L.length - 1; i >= 0; i--) {
       const q = L[i];
@@ -165,3 +177,29 @@ export function makeRim(color = '#ffd76a') {
   m.scale.set(6.3 * 256 / 160, 8.8 * 340 / 244, 1);
   return m;
 }
+
+/* ---------- celebration pieces: light rays and a shockwave ring ---------- */
+let raysTex = null, ringTex = null;
+function raysTexture() {
+  if (raysTex) return raysTex;
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d'), n = 24;
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2, a1 = a0 + Math.PI * 2 / n * (i % 2 ? .35 : .55);
+    const gr = g.createRadialGradient(256, 256, 20, 256, 256, 256);
+    gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(.4, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(256, 256); g.arc(256, 256, 256, a0, a1); g.closePath(); g.fill();
+  }
+  return (raysTex = new THREE.CanvasTexture(c));
+}
+function ringTexture() {
+  if (ringTex) return ringTex;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 90, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.72, 'rgba(255,255,255,.9)'); gr.addColorStop(.8, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  return (ringTex = new THREE.CanvasTexture(c));
+}
+const additive = (map, color) => new THREE.MeshBasicMaterial({ map, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0, toneMapped: false });
+export function makeRays(color = '#fff2c0') { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), additive(raysTexture(), color)); m.renderOrder = -2; return m; }
+export function makeRing(color = '#ffffff') { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), additive(ringTexture(), color)); m.renderOrder = 21; return m; }

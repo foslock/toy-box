@@ -95,6 +95,27 @@
   .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .2); }
   .dots i.on { background: var(--ink); } .dots i.R { box-shadow: 0 0 0 1.5px var(--gold); }
 
+  .tag.t3 { box-shadow: 0 0 0 1.5px rgba(255, 215, 106, .75), 0 0 26px -4px rgba(255, 215, 106, .7), 0 10px 30px -14px rgba(0, 0, 0, .7); }
+  .tag.t4 { box-shadow: 0 0 0 2px rgba(255, 223, 130, .95), 0 0 40px -2px rgba(255, 215, 106, .85), 0 10px 30px -14px rgba(0, 0, 0, .7); }
+  .tag.t5 { box-shadow: 0 0 0 2px #fff, 0 0 50px 6px rgba(255, 170, 230, .75), 0 10px 30px -14px rgba(0, 0, 0, .7); animation: tagGlow 1.4s ease-in-out infinite; }
+  .tag.t4 .val, .tag.t5 .val { font-size: 27px; }
+  @keyframes tagGlow { 50% { box-shadow: 0 0 0 2px #fff, 0 0 70px 14px rgba(140, 220, 255, .8), 0 10px 30px -14px rgba(0, 0, 0, .7); } }
+  .banner { position: fixed; left: 50%; top: max(58px, calc(env(safe-area-inset-top) + 50px)); z-index: 9; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center;
+    pointer-events: none; text-align: center; white-space: nowrap; animation: bannerIn .6s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .banner.out { animation: bannerOut .4s ease-in forwards; }
+  .banner b { font: 700 36px/1 Fredoka, sans-serif; letter-spacing: .02em; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .3), 0 0 26px rgba(255, 215, 106, .85); }
+  .banner span { margin-top: 4px; font: 700 28px/1.1 Fredoka, sans-serif; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 rgba(0, 0, 0, .3), 0 0 18px rgba(255, 215, 106, .6); }
+  .banner small { margin-top: 6px; font: 800 12px/1 Nunito, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .85); text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+  .banner.t4 b { font-size: 46px; }
+  .banner.t4 span { font-size: 32px; }
+  .banner.t5 b { font-size: 66px; color: transparent; text-shadow: none; background: linear-gradient(90deg, #ff8ad8, #ffe38a, #8affc8, #8ad8ff, #c79bff, #ff8ad8); background-size: 200% 100%;
+    -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .35)) drop-shadow(0 0 20px rgba(255, 255, 255, .6)); animation: shimmer 1.1s linear infinite; }
+  .banner.t5 span { font-size: 40px; }
+  .banner.full b { text-shadow: 0 2px 0 rgba(0, 0, 0, .3), 0 0 26px rgba(200, 225, 255, .9); }
+  @keyframes bannerIn { from { opacity: 0; transform: translateX(-50%) scale(.5); } }
+  @keyframes bannerOut { to { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.94); } }
+  @keyframes shimmer { to { background-position: 200% 0; } }
+  @media (max-width: 480px) { .banner b { font-size: 28px; } .banner.t4 b { font-size: 34px; } .banner.t5 b { font-size: 46px; } .banner span { font-size: 22px; } .banner.t5 span { font-size: 30px; } }
   .chip { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px; padding: 3px 3px 3px 10px; border-radius: 999px; pointer-events: auto; white-space: nowrap; font: 700 13.5px/1 Fredoka; font-variant-numeric: tabular-nums; }
   .chip button { height: 26px; padding: 0 10px; border: 0; border-radius: 999px; cursor: pointer; font: 600 12.5px/1 Fredoka; background: rgba(255, 255, 255, .14); color: var(--ink); }
   .chip button:hover { background: rgba(255, 255, 255, .24); }
@@ -170,7 +191,7 @@
     .tag .nm { font-size: 17px; } .tag .val { font-size: 19px; }
   }
   @media (max-width: 480px) { .name { display: none; } }
-  @media (prefers-reduced-motion: reduce) { .panel, .toast, .hint { transition: none; } .btn.new, .wallet.up, .hbtn.bump { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .panel, .toast, .hint { transition: none; } .btn.new, .wallet.up, .hbtn.bump, .tag.t5, .banner.t5 b { animation: none; } }
 </style>
 </head>
 <body>
@@ -186,6 +207,7 @@
 <div class="nopack" id="nopack" hidden><span>No packs yet</span></div>
 <div class="tags" id="tags"></div>
 <div class="tally glass" id="tally" hidden></div>
+<div class="banner" id="banner" hidden aria-hidden="true"><b id="bannerTitle"></b><span id="bannerValue"></span><small id="bannerSub"></small></div>
 
 <div class="bottom" id="bottom">
   <p class="hint glass off" id="hint"></p>
@@ -239,7 +261,7 @@
     <h3>How to play</h3>
     <div class="help">
       <p><b>Open a pack:</b> swipe across the dotted line at the top to tear it, pull the cards out, then swipe or tap through them. The rare is always last. Special cards arrive face down and glowing: tap to flip them.</p>
-      <p><b>Every card has a price.</b> Commons are under $10, uncommons $10 to $100, rares over $100. 1 card in 40 is <b>Holo</b> (5×), 1 in 20 is <b>Full Art</b> (2×), and a card that's both is worth 50×.</p>
+      <p><b>Every card has a value.</b> Commons are worth up to $1 and uncommons up to $10, and most are worth a lot less. A rare can be worth anything; the dearest are the hardest to find. 1 card in 40 is <b>Holo</b> (5×), 1 in 20 is <b>Full Art</b> (2×), and a card that's both is worth 50×.</p>
       <p><b>Sell</b> cards after a pack, or any time from your binder, to buy more packs. Once you could afford ten packs, <b>booster boxes</b> go on sale: ten packs opened at once.</p>
       <p>Broke? Somebody will always give you a pack.</p>
     </div>

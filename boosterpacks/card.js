@@ -59,9 +59,9 @@ const VERT = /* glsl */`
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
 const FRAG = /* glsl */`
-  uniform sampler2D map, maskMap;
+  uniform sampler2D map, maskMap, sashMap;
   uniform vec4 uFoil;          // holo, metal, etch, glitter
-  uniform float uTime, uSide, uDim, uFlash, uSold, uReady;
+  uniform float uTime, uSide, uDim, uFlash, uSold, uSash, uReady;
   uniform vec3 uTint;
   varying vec2 vUv; varying vec3 vV; varying vec3 vL;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -108,9 +108,14 @@ const FRAG = /* glsl */`
       col *= 1. + w * etch * .07 * show;
       col += pow(nh, 30.) * etch * .5;
     }
+    col = mix(col, col * uTint, uSold);
+    // the SOLD sash, stamped on: it lands from a little bigger
+    if (uSash > .001) {
+      vec4 s = texture2D(sashMap, (vUv - .5) / mix(1.3, 1., uSash) + .5);
+      col = col * (1. - s.a * uSash) + s.rgb * uSash;
+    }
     col += gloss * (1. + holo * .8);
     col += uFlash * vec3(1., .96, .88);
-    col = mix(col, col * uTint, uSold);
     col *= uDim;
     gl_FragColor = vec4(col, 1.);
     #include <colorspace_fragment>
@@ -126,7 +131,7 @@ export function cardMaterial(side, entry) {
     uniforms: {
       map: { value: entry?.tex ?? null }, maskMap: { value: entry?.mask ?? null },
       uFoil: { value: new THREE.Vector4(...(entry?.foil ?? [0, 0, 0, 0])) },
-      uTime: cardTime, uSide: { value: side }, uDim: { value: 1 }, uFlash: { value: 0 }, uSold: { value: 0 },
+      uTime: cardTime, uSide: { value: side }, uDim: { value: 1 }, uFlash: { value: 0 }, uSold: { value: 0 }, sashMap: { value: null }, uSash: { value: 0 },
       uReady: { value: entry?.ready ? 1 : 0 }, uTint: { value: new THREE.Color(1, .45, .45) }, uLight: { value: LIGHT },
     },
   });
@@ -165,5 +170,6 @@ export class Card {
   set dim(v) { this.front.uniforms.uDim.value = v; }
   set flash(v) { this.front.uniforms.uFlash.value = v; }
   set sold(v) { this.front.uniforms.uSold.value = v; }
+  set sash(v) { const u = this.front.uniforms; if (v > .001 && !u.sashMap.value) u.sashMap.value = this.faces.sash; u.uSash.value = v; }
   dispose() { if (this.entry) this.faces.release(this.entry); this.entry = null; this.front.dispose(); this.mesh.removeFromParent(); }
 }

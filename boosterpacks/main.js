@@ -8,7 +8,7 @@ import { Studio } from './studio.js';
 import { FaceCache, HI, LO, artSize } from './faces.js';
 import { Card, CARD_W, CARD_H, cardTime } from './card.js';
 import { Pack, makeWrapper, foilEnvironment, PW, PH, TEAR_Y } from './pack.js';
-import { makeBackdrop, Particles, makeGlow, makeRim } from './fx.js';
+import { makeBackdrop, Particles, makeGlow, makeRim, makeRays, makeRing } from './fx.js';
 import { Sound } from './sound.js';
 import { Binder } from './binder.js';
 import { BoxOpening } from './box.js';
@@ -245,24 +245,129 @@ function makeCard(c, entry) {
 }
 function disposeCard(card) { card.dispose(); card.holder.removeFromParent(); card.aura?.removeFromParent(); }
 
-// Glow and a lit rim behind a face-down special card. It lives beside the card (not on it) so it never turns over.
-function addAura(card, kind) {
-  const g = new THREE.Group(), glow = makeGlow(AURA[kind], 20), rim = makeRim(AURA[kind]);
-  glow.position.z = -.35; rim.position.z = -.08;
-  g.add(glow, rim); g.userData = { glow, rim, kind, on: 0, card };
+// Glow and a lit rim behind a face-down special card, bigger and busier the more the card is worth. It sits behind
+// the whole stack (not on the card), so the card can lift and turn over without ever passing through it.
+function addAura(card, kind, tier) {
+  const g = new THREE.Group(), size = 17 + tier * 3.5, glow = makeGlow(AURA[kind], size), rim = makeRim(AURA[kind]);
+  rim.scale.multiplyScalar(1.06);
+  g.add(glow, rim);
+  g.userData = { glow, rim, kind, tier, card, size, on: 0, rimOn: 0, flare: 0, spark: 0 };
   card.holder.parent.add(g); card.aura = g;
+  if (tier >= 4) sound.rumble(1.8, tier >= 5 ? 1.3 : .7);
   return g;
 }
 function tickAura(a, dt, t) {
-  const u = a.userData; u.on = damp(u.on, u.target ?? 1, 5, dt);
-  const h = u.card.holder;
-  a.position.copy(h.position); a.scale.copy(h.scale); a.rotation.z = h.rotation.z;
-  const pulse = .75 + .25 * Math.sin(t * 4);
-  if (u.kind === 'holo' || u.kind === 'both') { const c = new THREE.Color().setHSL((t * .25) % 1, .9, .7); u.glow.material.color.copy(c); u.rim.material.color.copy(c); }
-  u.glow.material.opacity = u.on * pulse * (u.kind === 'both' ? 1 : .8);
-  u.rim.material.opacity = u.on * (.65 + .35 * pulse);
-  u.glow.scale.setScalar(20 + 2 * Math.sin(t * 2.3));
+  const u = a.userData, h = u.card.holder;
+  u.on = damp(u.on, u.target ?? 1, 5, dt); u.rimOn = damp(u.rimOn, u.rimTarget ?? 1, 10, dt); u.flare = damp(u.flare, u.flareTarget ?? 0, 6, dt);
+  a.position.set(h.position.x, h.position.y, -.6);
+  a.scale.setScalar(h.scale.x); a.rotation.z = h.rotation.z;
+  const pulse = .72 + .28 * Math.sin(t * (4 + u.tier * 1.3));
+  if (u.kind === 'holo' || u.kind === 'both') { const c = new THREE.Color().setHSL((t * (.25 + u.tier * .05)) % 1, .9, .7); u.glow.material.color.copy(c); u.rim.material.color.copy(c); }
+  u.glow.material.opacity = Math.min(.95, u.on * pulse * (.5 + u.tier * .07) + u.flare * .45);
+  u.rim.material.opacity = u.rimOn * u.on * (.6 + .4 * pulse);
+  u.glow.scale.setScalar(u.size * (1 + .05 * Math.sin(t * 2.3) + u.flare * .9));
+  if (u.target === 0) return;
+  // sparks fly off the edge of a card worth $50 or more
+  if (u.tier >= 3) {
+    u.spark += dt * (u.tier - 2) * 9;
+    h.updateWorldMatrix(true, false);
+    while (u.spark >= 1) {
+      u.spark--;
+      const side = Math.random() * 4 | 0, f = Math.random() - .5;
+      const lp = side < 2 ? V(f * CARD_W, (side ? .5 : -.5) * CARD_H, 0) : V((side === 2 ? .5 : -.5) * CARD_W, f * CARD_H, 0);
+      const wp = lp.applyMatrix4(h.matrixWorld), out = lp.clone().normalize().multiplyScalar(1.5 + u.tier * .5);
+      const colors = PALETTE[u.kind];
+      particles.spawn({ p: wp, v: V(out.x, out.y + 1, 1), life: .7 + Math.random() * .5, size: .25 + u.tier * .05, color: colors[Math.random() * colors.length | 0], gravity: 0, drag: 1.5 });
+    }
+  }
+  // …and one worth $250 or more trembles while it waits
+  if (u.tier >= 4 && !u.card.flipping) { const j = (u.tier - 3) * .03; u.card.mesh.position.set((Math.random() - .5) * j, (Math.random() - .5) * j, 0); }
 }
+
+/* ---------- fanfare: the more a card is worth, the bigger the show ---------- */
+const TIER_AT = [100, 1000, 5000, 25000, 100000];   // cents: $1, $10, $50, $250, $1,000
+const tierOf = c => TIER_AT.reduce((t, e) => t + (valueOf(c) >= e ? 1 : 0), 0);
+const finishOf = c => (c.v & 3) === 3 ? 'both' : c.v & HOLO ? 'holo' : c.v & FULL ? 'full' : itemOf(c)?.rarity === 'R' ? 'rare' : 'plain';
+const PALETTE = {
+  plain: ['#ffffff', '#fff3c4', '#ffe08a'],
+  rare: ['#ffd76a', '#fff3c4', '#ffb347'],
+  holo: ['#ff8ad8', '#ffe38a', '#8affc8', '#8ad8ff', '#c79bff'],
+  full: ['#ffffff', '#dff1ff', '#b8d8ff', '#e8dcff'],
+  both: ['#ff8ad8', '#ffe38a', '#8affc8', '#8ad8ff', '#c79bff', '#ffffff', '#ffd76a'],
+};
+const FINISH_NAME = { plain: '', rare: 'Rare', holo: 'Holo', full: 'Full Art', both: 'Holo Full Art' };
+const HEADLINE = ['', '', 'Nice pull!', 'Great pull!', 'Huge pull!', 'JACKPOT!'];
+let shake = 0;
+const fxLive = new Set();
+function fxAdd(mesh, step) { scene.add(mesh); const f = { mesh, t: 0, step }; fxLive.add(f); return f; }
+function tickFx(dt) {
+  for (const f of fxLive) {
+    f.t += dt;
+    if (f.step(f, dt) === false) { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); fxLive.delete(f); }
+  }
+}
+// Celebrate a card at a world position. o.mini: a smaller show (a booster box deals ten at once); o.quiet: no sound;
+// o.linger: the rays and banner stay until release() is called. Returns { tier, release }.
+function celebrate(c, at, o = {}) {
+  const full = tierOf(c), tier = o.mini ? Math.min(2, full) : full, kind = finishOf(c), colors = PALETTE[kind];
+  const k = o.mini ? .5 : 1;
+  if (!o.quiet) sound.fanfare(kind === 'plain' ? 'rare' : kind, tier);
+  particles.burst(at, Math.round([24, 40, 70, 110, 170, 260][tier] * k), { colors, speed: [7, 9, 11, 13, 16, 20][tier], size: .5 + tier * .03, life: 1.1 + tier * .12, gravity: -3, spread: 2 });
+  if (kind === 'holo' || kind === 'both' || tier >= 3) particles.burst(at, Math.round([12, 20, 30, 55, 90, 160][tier] * k), { colors, speed: 8 + tier, size: .35, life: 1.8, kind: 2, gravity: -7, spread: 3 });
+  flashBackdrop([.3, .35, .5, .7, 1, 1.4][tier] * (o.mini ? .6 : 1), colors[0]);
+  let rays = null, banner = false, released = false;
+  if (tier >= 2) {
+    const m = makeRays(colors[0]), size = [0, 0, 13, 18, 26, 38][tier] * (o.mini ? .6 : 1), peak = [0, 0, .22, .3, .42, .6][tier];
+    m.position.set(at.x, at.y, o.backZ ?? at.z - 1.5); m.scale.set(1, 1, 1);   // behind the card (and whatever it's resting on)
+    rays = fxAdd(m, (f, dt) => {
+      const inT = Math.min(1, f.t / .35), life = o.linger ? Infinity : 1.2 + tier * .3;
+      f.out = released || f.t > life ? (f.out ?? 0) + dt / .6 : 0;
+      m.material.opacity = peak * inT * Math.max(0, 1 - (f.out || 0));
+      m.scale.setScalar(size * (.6 + .4 * inT) * (1 + .04 * Math.sin(f.t * 3)));
+      m.rotation.z += dt * (.18 + tier * .04);
+      if (kind === 'holo' || kind === 'both') m.material.color.setHSL((f.t * .15) % 1, .8, .75);
+      return (f.out ?? 0) < 1;
+    });
+  }
+  if (tier >= 3 && !o.mini) {
+    for (let i = 0; i < (tier >= 5 ? 3 : 1); i++) {
+      const m = makeRing(colors[i % colors.length]);
+      m.position.set(at.x, at.y, o.backZ ?? at.z - 1.5);
+      fxAdd(m, f => { const q = (f.t - i * .22) / .8; if (q < 0) return true; m.scale.setScalar(6 + q * (24 + tier * 4)); m.material.opacity = Math.max(0, .75 * (1 - q)); return q < 1; });
+    }
+  }
+  if (!o.mini) {
+    if (tier >= 4) shake = Math.max(shake, tier >= 5 ? .55 : .22);
+    if (tier >= 4) particles.rain(view.W * 1.1, VIEW_H * .6, tier >= 5 ? 5 : 2, { colors, rate: tier >= 5 ? 120 : 55, speed: 5, size: .42 });
+    if (tier >= 5) {
+      particles.rain(view.W, VIEW_H * .6, 3.5, { kind: 3, colors: ['#ffd76a'], rate: 22, speed: 7, size: .55 });
+      for (let i = 0; i < 8; i++) setTimeout(() => {
+        const p = V((Math.random() - .5) * view.W * .8, (Math.random() * .6 - .1) * VIEW_H * .5, 2);
+        particles.burst(p, 70, { colors: [colors[i % colors.length], '#ffffff'], speed: 13, size: .45, life: 1.5, gravity: -5, spread: .5 });
+        sound.firework();
+      }, 350 + i * 420);
+    }
+    if (tier >= 3) { showBanner(c, tier, kind); banner = true; }
+  }
+  const release = () => { released = true; if (banner) { banner = false; hideBanner(); } };
+  if (!o.linger) setTimeout(release, 1600 + tier * 500);
+  else if (banner) setTimeout(() => { if (banner) { banner = false; hideBanner(); } }, tier >= 5 ? 4800 : 3000);
+  return { tier, release };
+}
+let bannerTimer = 0;
+function showBanner(c, tier, kind) {
+  const el = $('banner'), v = valueOf(c);
+  clearInterval(bannerTimer);
+  el.className = `banner t${tier} ${kind}`; el.hidden = false;
+  $('bannerTitle').textContent = HEADLINE[tier];
+  $('bannerSub').textContent = [FINISH_NAME[kind], itemOf(c).name].filter(Boolean).join(' · ');
+  const t0 = performance.now(), dur = tier >= 5 ? 1800 : 900;
+  const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 3); $('bannerValue').textContent = money(Math.round(v * e)); if (k >= 1) clearInterval(bannerTimer); };
+  tick(); bannerTimer = setInterval(tick, 33);
+  $('tally').style.visibility = 'hidden';
+  live(`${HEADLINE[tier]} ${itemOf(c).name}, worth ${money(v)}.`);
+}
+function hideBanner() { $('banner').classList.add('out'); setTimeout(() => { if ($('banner').classList.contains('out')) $('banner').hidden = true; }, 400); $('tally').style.visibility = ''; }
 
 /* ---------- pack wrappers ---------- */
 const printCache = new Map();
@@ -539,7 +644,8 @@ function showTag(card, stackGroup) {
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
   const v = valueOf(c), mult = MULT[c.v & 3];
   const badges = [card.result.isNew ? '<span class="badge new">NEW</span>' : '', c.v & HOLO ? '<span class="badge holo">HOLO</span>' : '', c.v & FULL ? '<span class="badge full">FULL ART</span>' : '', !card.result.isNew ? '<span class="badge dupe">DUPLICATE</span>' : ''].join('');
-  if (!tagEl) { tagEl = document.createElement('div'); tagEl.className = 'tag glass'; $('tags').append(tagEl); }
+  if (!tagEl) { tagEl = document.createElement('div'); $('tags').append(tagEl); }
+  tagEl.className = `tag glass t${tierOf(c)} ${finishOf(c)}`;
   tagEl.innerHTML = `<span class="rar">${r.symbol} ${r.name} · ${set.types[item.type].name}</span><span class="nm">${item.name}${badges}</span><span class="val">${mult > 1 ? `<s>${money(item.price, { short: true })}</s>` : ''}${money(v, { short: true })}${mult > 1 ? ` <small>${mult}×</small>` : ''}</span>`;
   tagEl.style.opacity = 1;
   tagFor = { card, stackGroup };
@@ -575,16 +681,24 @@ async function reveal(cards, stack, set) {
     // the rest of the stack shuffles forward; the card on top lifts clear of it so it can turn without clipping
     const lifts = order.slice(i).map((c, k) => { const z0 = c.holder.position.z, z1 = k === 0 ? 1.6 : (4 - k) * .034; return anim(.22, x => { c.holder.position.z = lerp(z0, z1, x); }, ease.out); });
     await lifts[0];
+    const tier = tierOf(card.data);
     if (card.faceDown) {
       const kind = specialKind(card.data);
-      const aura = addAura(card, kind);
+      const aura = addAura(card, kind, tier);
       sound.sparkle(kind === 'rare' ? 0 : 1);
-      hint(kind === 'rare' ? 'Your rare! Tap to flip it' : 'Something shiny… tap to flip it');
+      hint(tier >= 5 ? 'Whoa. Tap to flip it' : tier >= 4 ? 'This one feels heavy… tap to flip it' : kind === 'rare' ? 'Your rare! Tap to flip it' : 'Something shiny… tap to flip it');
       if (!skipping) await waitTap(card, stack);
       hint('');
-      await flipUp(card, stack, kind);
-      aura.userData.target = 0; setTimeout(() => aura.removeFromParent(), 800);
-    } else if (i === 0) sound.pop();
+      const was = timeScale;
+      if (tier >= 5) timeScale = 1;   // a jackpot plays out in full, even when skipping
+      await flipUp(card, stack, kind, tier);
+      setTimeout(() => aura.removeFromParent(), 900);
+      if (tier >= 5 && skipping) { await sleep(3); card.fx?.release(); }
+      timeScale = was;
+    } else {
+      if (i === 0) sound.pop();
+      if (tier >= 2) { card.holder.updateWorldMatrix(true, false); stack.updateWorldMatrix(true, false); card.fx = celebrate(card.data, V().applyMatrix4(card.holder.matrixWorld), { mini: true, backZ: V().applyMatrix4(stack.matrixWorld).z - .8 }); }
+    }
     revealed = i + 1; packTotal += valueOf(card.data); tally();
     showTag(card, stack);
     // sway a little so the foil catches the light
@@ -594,12 +708,14 @@ async function reveal(cards, stack, set) {
       hint('Tap for a look at all nine', 900);
       if (!skipping) await waitSwipe(card, stack, true);
       swaying = false;
+      card.fx?.release();
       hideTag(); hint('');
       break;
     }
     if (!skipping) { hint(i === 0 ? (TOUCH ? 'Swipe the card away for the next one' : 'Swipe or click for the next card') : '', i === 0 ? 700 : 0); }
     const dir = skipping ? -1 : await waitSwipe(card, stack);
     swaying = false;
+    card.fx?.release();
     hideTag(); hint('');
     await flingAway(card, stack, dir);
     if (S.settings.autoSell && card.result.dupe) autoSell(card);
@@ -659,33 +775,45 @@ async function flingAway(card, stack, dir) {
   h.visible = false;
   card.gone = dir;
 }
-async function flipUp(card, stack, kind) {
+async function flipUp(card, stack, kind, tier) {
+  const h = card.holder, big = tier >= 4, jackpot = tier >= 5;
+  card.flipping = true; card.mesh.position.set(0, 0, 0);
+  const aura = card.aura?.userData;
+  if (aura) { aura.rimTarget = 0; aura.flareTarget = .2 + tier * .06; }
+  if (big) {   // the wind-up: it shivers and pulls back, with a drum roll for a jackpot
+    if (jackpot) sound.drumroll(1.35); else sound.swell(.7);
+    const z1 = h.position.z;
+    await anim(jackpot ? 1.3 : .6, (x, k) => {
+      h.position.z = z1 + x * (jackpot ? 1.2 : .6);
+      card.mesh.position.x = Math.sin(k * 90) * .07 * k; card.mesh.rotation.z = Math.sin(k * 70) * .035 * k;
+    }, ease.in);
+    card.mesh.position.set(0, 0, 0); card.mesh.rotation.set(0, 0, 0);
+  }
   sound.flip();
-  const h = card.holder, z0 = h.position.z;
-  let flashed = false;
-  await anim(kind === 'rare' ? .62 : .75, (x, k) => {
-    h.rotation.y = Math.PI * (1 - x);
-    h.position.z = z0 + Math.sin(k * Math.PI) * 3;
-    h.scale.setScalar(1 + Math.sin(k * Math.PI) * .1);
-    if (!flashed && x > .5) {
-      flashed = true;
+  stack.updateWorldMatrix(true, false);
+  const backZ = V().applyMatrix4(stack.matrixWorld).z - .8;   // light goes behind the whole stack, never over the card
+  const z0 = h.position.z, turns = jackpot ? 1 : 0, sweep = Math.PI + turns * Math.PI * 2;
+  const reveal = 1 - (Math.PI / 2) / sweep;   // the point in the turn where the face comes round for good
+  let fx = null;
+  await anim([.62, .62, .7, .8, 1, 1.5][tier], (x, k) => {
+    h.rotation.y = Math.PI - x * sweep;
+    h.position.z = z0 + Math.sin(k * Math.PI) * (3 + tier * .45);
+    h.scale.setScalar(1 + Math.sin(k * Math.PI) * (.1 + tier * .03));
+    if (!fx && x > reveal) {
       card.faceDown = false;
       h.updateWorldMatrix(true, false);
-      const center = V().applyMatrix4(h.matrixWorld);
-      celebrate(kind, center);
+      fx = celebrate(card.data, V().applyMatrix4(h.matrixWorld), { linger: tier >= 4, backZ });
+      card.flash = .25 + tier * .05;
     }
   }, ease.inOut);
-  card.flash = 0;
-  if (kind !== 'rare') {   // tilt it about so the foil shows off
-    await anim(1.3, (x, k) => { h.rotation.y = Math.sin(k * Math.PI * 2) * .38 * (1 - k * .6); h.rotation.x = Math.sin(k * Math.PI * 3) * .12 * (1 - k); }, ease.linear);
+  h.rotation.y = 0;
+  card.flipping = false; card.fx = fx;
+  anim(.45, x => { card.flash = (.25 + tier * .05) * (1 - x); }, ease.out);
+  if (aura) { aura.target = 0; aura.flareTarget = 0; }
+  if (kind !== 'rare' || tier >= 3) {   // tilt it about so the foil shows off
+    await anim(1.2 + tier * .15, (x, k) => { h.rotation.y = Math.sin(k * Math.PI * 2) * .38 * (1 - k * .6); h.rotation.x = Math.sin(k * Math.PI * 3) * .12 * (1 - k); }, ease.linear);
   }
-}
-function celebrate(kind, at) {
-  sound.reveal(kind);
-  const colors = { rare: ['#ffd76a', '#fff3c4', '#ffb347'], holo: ['#ff8ad8', '#ffe38a', '#8affc8', '#8ad8ff', '#c79bff'], full: ['#ffffff', '#dff1ff', '#b8d8ff'], both: ['#ff8ad8', '#ffe38a', '#8affc8', '#8ad8ff', '#c79bff', '#ffffff'] }[kind];
-  particles.burst(at, kind === 'both' ? 120 : kind === 'rare' ? 50 : 80, { colors, speed: kind === 'both' ? 16 : 11, size: .55, life: 1.3, gravity: -3, spread: 2 });
-  if (kind !== 'rare') particles.burst(at, kind === 'both' ? 90 : 40, { colors, speed: 9, size: .35, life: 1.8, kind: 2, gravity: -7, spread: 3 });
-  flashBackdrop(kind === 'both' ? 1 : .6, colors[0]);
+  h.rotation.set(0, 0, h.rotation.z);
 }
 let flash = 0;
 function flashBackdrop(amount, color = '#ffd76a') { flash = Math.max(flash, amount); backdrop.uniforms.uGlowColor.value.set(color); }
@@ -746,6 +874,7 @@ async function summary(cards, stack, set) {
     });
     const dupes = cards.filter(c => c.result.dupe && !c.mark);
     const keep = cards.filter(c => !c.mark).length;
+    if (cards.every(c => c.mark === 'sold')) { setActions([{ label: 'Next', cls: 'gold', onClick: () => finish() }]); return; }
     setActions([
       dupes.length ? { label: `Sell duplicates`, sub: `${dupes.length}`, onClick: () => { dupes.forEach(c => { c.mark = 'sell'; }); render(); } } : null,
       { label: n ? 'Keep all' : 'Sell all', onClick: () => { const any = cards.some(c => c.mark === 'sell'); cards.forEach(c => { if (c.mark !== 'sold') c.mark = any ? null : 'sell'; }); render(); } },
@@ -771,13 +900,15 @@ async function summary(cards, stack, set) {
   };
   tickers.add(dt => {
     for (const c of cards) {
-      if (c.inspecting) continue;
-      const on = c === hover ? 1 : 0;
+      c.stamp = damp(c.stamp ?? 0, c.mark === 'sold' ? 1 : 0, 9, dt);
+      c.sash = c.stamp;
+      const on = c === hover && !c.inspecting ? 1 : 0;
       c.hov = damp(c.hov ?? 0, on, 10, dt);
+      c.mesh.position.z = c.hov * .8;
+      if (c.inspecting) continue;
       const l = on ? localAt(c.holder) : null;
       c.holder.rotation.x = damp(c.holder.rotation.x, on && l ? -l.y * .05 : 0, 8, dt);
       c.holder.rotation.y = damp(c.holder.rotation.y, on && l ? l.x * .08 : 0, 8, dt);
-      c.mesh.position.z = c.hov * .8;
     }
     return active;
   });
@@ -789,6 +920,7 @@ async function summary(cards, stack, set) {
   chips.forEach(el => el.remove());
   cards.forEach(c => { c.chip = null; c.mesh.position.z = 0; });
   // sell the marked ones, the rest go in the binder
+  const away = [];
   let delay = 0;
   const sells = cards.filter(c => c.mark === 'sell');
   for (const c of sells) {
@@ -797,19 +929,22 @@ async function summary(cards, stack, set) {
     const at = V().applyMatrix4(c.holder.matrixWorld);
     payout(at, v, delay);
     const h = c.holder;
-    sleep(delay / 1000).then(() => moveTo(h, { s: .01, r: [0, Math.PI * 2, 0] }, .35, ease.in));
+    away.push(sleep(delay / 1000).then(() => moveTo(h, { s: .01, r: [0, Math.PI * 2, 0] }, .35, ease.in)));
     delay += 90;
   }
   if (sells.length) { updateCount(); live(`Sold ${sells.length} ${sells.length === 1 ? 'card' : 'cards'}.`); }
+  // the ones sold already just fold away
+  cards.filter(c => c.mark === 'sold').forEach((c, i) => away.push(sleep(i * .04).then(() => moveTo(c.holder, { s: .01, r: [0, 0, .6] }, .3, ease.in))));
   const keep = cards.filter(c => c.mark !== 'sell' && c.mark !== 'sold');
   await sleep(sells.length ? .3 : 0);
   if (keep.length) sound.slide();
-  await Promise.all(keep.map((c, i) => sleep(i * .06).then(async () => {
+  away.push(...keep.map((c, i) => sleep(i * .06).then(async () => {
     const h = c.holder; stage.attach(h);
     const target = binderWorld(4);
     await moveTo(h, { p: [target.x, target.y, target.z], s: .06, r: [0, 0, (Math.random() - .5)] }, .55, ease.in);
     h.visible = false;
   })));
+  await Promise.all(away);
   if (keep.length) { updateCount(true); sound.pop(); }
   cards.forEach(disposeCard);
   checkUnlock();
@@ -817,13 +952,17 @@ async function summary(cards, stack, set) {
 }
 function pickCard(cards) {
   raycaster.setFromCamera(pointer.ndc, camera);
-  const hits = raycaster.intersectObjects(cards.filter(c => c.holder.visible).map(c => c.mesh), false);
+  const hits = raycaster.intersectObjects(cards.filter(c => c.holder.visible && !c.inspecting).map(c => c.mesh), false);
   return hits.length ? hits[0].object.userData.card : null;
 }
 
 /* ---------- looking closely at one card ---------- */
+let inspecting = null;
 async function inspect(card, o = {}) {
+  if (inspecting) return 'busy';
+  inspecting = card;
   const prevHandler = handler, prevMode = mode;
+  handler = null;   // a second tap while it flies up mustn't pick another card
   mode = 'inspect'; card.inspecting = true;
   const h = card.holder, parent = h.parent;
   const saved = { p: h.position.clone(), r: h.rotation.clone(), s: h.scale.clone() };
@@ -831,17 +970,14 @@ async function inspect(card, o = {}) {
   const hiEntry = card.entry?.width === HI ? null : faces.get(card.data, HI, true);
   const loEntry = hiEntry ? card.entry : null;
   if (hiEntry) { faces.get(card.data, card.entry.width); card.set(hiEntry); }
+  // out of the binder, it slides up out of its sleeve first, the way you'd pull a card out of a pocket
+  const fromSleeve = o.from === 'binder', slid = fromSleeve ? [saved.p.x, saved.p.y + CARD_H * .72, saved.p.z + .14] : null;
+  $('tags').style.visibility = 'hidden';
+  if (fromSleeve) {
+    sound.sleeve();
+    await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z] }, .34, ease.out);
+  }
   scene.attach(h);
-  // fit the card between the top bar and the panel at the bottom (it sits 8 units closer, so it looks bigger)
-  const Z = 8, k = (CAM_Z - Z) / CAM_Z, top = 64, bottom = TOUCH ? 190 : 176;
-  const room = (innerHeight - top - bottom) / innerHeight * VIEW_H * k;
-  const s = Math.min(room / CARD_H, .9 * view.W * k / CARD_W);
-  const y = ((innerHeight / 2 - (top + (innerHeight - top - bottom) / 2)) / innerHeight) * VIEW_H * k;
-  sound.whoosh(.6);
-  $('actions').style.visibility = 'hidden';
-  for (const id of ['binderbar', 'pager']) $(id).style.visibility = 'hidden';
-  if (prevMode === 'binder') binder.dim(true);
-  await moveTo(h, { p: [0, y, Z], r: [0, 0, 0], s }, .45, ease.out);
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
   $('inName').innerHTML = `${item.name}${c.v & HOLO ? '<span class="badge holo">HOLO</span>' : ''}${c.v & FULL ? '<span class="badge full">FULL ART</span>' : ''}`;
   const copies = store.copies(cardKey(c));
@@ -850,8 +986,21 @@ async function inspect(card, o = {}) {
   const selling = o.from === 'summary';
   $('inSell').textContent = selling ? (card.mark === 'sell' ? 'Don’t sell' : `Sell for ${money(valueOf(c), { short: true })}`) : `Sell for ${money(valueOf(c), { short: true })}`;
   $('inSell').hidden = card.mark === 'sold';
-  $('inspect').hidden = false;
-  hint(TOUCH ? 'Drag to tilt it' : 'Drag to tilt it and catch the light', 200);
+  const panel = $('inspect');
+  panel.style.visibility = 'hidden'; panel.hidden = false;
+  const panelTop = panel.getBoundingClientRect().top;
+  // fit the card between the top bar and the panel at the bottom (it sits 8 units closer, so it looks bigger)
+  const Z = 8, k = (CAM_Z - Z) / CAM_Z, top = 64, bottom = innerHeight - panelTop + 10;
+  const room = (innerHeight - top - bottom) / innerHeight * VIEW_H * k;
+  const s = Math.min(room / CARD_H, .9 * view.W * k / CARD_W);
+  const y = ((innerHeight / 2 - (top + (innerHeight - top - bottom) / 2)) / innerHeight) * VIEW_H * k;
+  sound.whoosh(.6);
+  $('actions').style.visibility = 'hidden';
+  for (const id of ['binderbar', 'pager']) $(id).style.visibility = 'hidden';
+  if (prevMode === 'binder') binder.dim(true);
+  await moveTo(h, { p: [0, y, Z], r: [0, 0, 0], s }, .45, ease.out);
+  panel.style.visibility = '';
+  hint('');
   let resolveBack;
   const back = new Promise(res => { resolveBack = res; });
   let result = 'back';
@@ -863,7 +1012,12 @@ async function inspect(card, o = {}) {
     down() { dragging = true; },
     move() { if (dragging) target.set(clamp((pointer.y - pointer.sy) * .006, -.7, .7), clamp((pointer.x - pointer.sx) * .008, -.9, .9), 0); },
     hover() { if (!TOUCH) target.set(-pointer.ndc.y * .35, pointer.ndc.x * .5, 0); },
-    up(e, tap) { dragging = false; if (!TOUCH) return; target.set(0, 0, 0); if (tap) resolveBack(); },
+    up(e, tap) {
+      dragging = false;
+      if (TOUCH) target.set(0, 0, 0);
+      // a click or tap anywhere off the card puts it back
+      if (tap) { raycaster.setFromCamera(pointer.ndc, camera); if (!raycaster.intersectObject(card.mesh, false).length) resolveBack(); }
+    },
     key(e) { if (e.key === 'Escape' || e.key === 'Backspace') { resolveBack(); return true; } },
   };
   tickers.add(dt => { t += dt; tilt.x = damp(tilt.x, target.x + Math.sin(t * .9) * .05, 7, dt); tilt.y = damp(tilt.y, target.y + Math.sin(t * .7) * .08, 7, dt); h.rotation.set(tilt.x, tilt.y, 0); return mode === 'inspect' && card.inspecting; });
@@ -881,13 +1035,18 @@ async function inspect(card, o = {}) {
   } else {
     sound.whoosh(.4);
     parent.attach(h);
-    await moveTo(h, { p: saved.p.toArray(), r: saved.r.toArray(), s: saved.s.toArray() }, .35, ease.inOut);
+    if (fromSleeve) {   // back over its pocket, then down into the sleeve
+      await moveTo(h, { p: slid, r: [saved.r.x - .05, saved.r.y, saved.r.z], s: saved.s.toArray() }, .38, ease.inOut);
+      sound.sleeve();
+      await moveTo(h, { p: saved.p.toArray(), r: saved.r.toArray() }, .3, ease.in);
+    } else await moveTo(h, { p: saved.p.toArray(), r: saved.r.toArray(), s: saved.s.toArray() }, .35, ease.inOut);
   }
   if (hiEntry) card.set(loEntry);
+  $('tags').style.visibility = '';
   $('actions').style.visibility = '';
   for (const id of ['binderbar', 'pager']) $(id).style.visibility = '';
   if (prevMode === 'binder') binder.dim(false);
-  mode = prevMode; handler = prevHandler;
+  mode = prevMode; handler = prevHandler; inspecting = null;
   return result;
 }
 
@@ -905,7 +1064,7 @@ async function buyBox() {
   S.opened += packs.length; S.boxesOpened++; store.save();
   updateCount();
   const box = new BoxOpening({ THREE, set, packs, results, stage, faces, makeCard, disposeCard, anim, sleep, moveTo, ease, sound, particles, view, VIEW_H, wrapperPrints, Pack, PW, PH,
-    celebrate, payout, binderWorld, flashBackdrop, setActions, hint, tally: html => { $('tally').innerHTML = html; $('tally').hidden = !html; },
+    celebrate, tierOf, tapOnce, payout, binderWorld, flashBackdrop, setActions, hint, tally: html => { $('tally').innerHTML = html; $('tally').hidden = !html; },
     autoSell: S.settings.autoSell, sell: key => { const v = store.sell(key); updateCount(); return v; }, updateCount, setTimeScale: s => { timeScale = s; }, V });
   tickers.add(dt => { box.update(dt); return mode === 'box'; });
   const summary = await box.run();
@@ -914,6 +1073,16 @@ async function buyBox() {
   await showResult(summary);
   box.dispose();
   home();
+}
+// Resolves on the next tap or key press (anywhere), or after ms.
+function tapOnce(ms = Infinity) {
+  return new Promise(res => {
+    const before = handler; let timer = 0;
+    const done = () => { clearTimeout(timer); if (handler === h) handler = before; res(); };
+    const h = { cursor: () => 'point', up: (e, tap) => { if (tap) done(); }, key: e => { if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') { done(); return true; } } };
+    handler = h;
+    if (ms < Infinity) timer = setTimeout(done, ms);
+  });
 }
 function showResult(r) {
   $('resultTitle').textContent = r.title;
@@ -1093,6 +1262,9 @@ function frame(now) {
   for (const fn of tickers) if (fn(dt) === false) tickers.delete(fn);
   cardTime.value = T;
   backdrop.uniforms.uTime.value = T;
+  tickFx(dt);
+  shake = damp(shake, 0, 3.5, dt);
+  camera.position.set((Math.random() - .5) * shake, (Math.random() - .5) * shake, CAM_Z);
   flash = damp(flash, 0, 2.2, dt); backdrop.uniforms.uGlow.value = flash;
   // the floating pack
   const pack = current;
@@ -1184,7 +1356,7 @@ async function start() {
 function demo() {
   const set = SETS[0];
   const hand = [['teddy', 0], ['duck', 1], ['piano', 3], ['robovac', 2], ['toaster', 0]].filter(([id]) => set.itemById[id]);
-  S.money = 421750; for (let i = 0; i < 86; i++) S.cards.push(`${set.id}:${set.items[i % set.items.length].id}:0`);
+  S.money = 14275; for (let i = 0; i < 86; i++) S.cards.push(`${set.id}:${set.items[i % set.items.length].id}:0`);
   shownMoney = S.money; $('money').textContent = money(S.money); updateCount();
   $('hint').classList.add('off'); $('actions').textContent = '';
   const pack = new Pack(set, set.wrappers[0], wrapperPrints(set, 0));

@@ -72,6 +72,57 @@ export class Sound {
     else if (kind === 'full') { [392, 494, 587, 784].forEach((f, i) => this.bell(f, { at: i * .09, gain: .08, dur: 1.4 })); }
     else { this.tone(50, { to: 35, dur: 1, gain: .4 }); for (let i = 0; i < 18; i++) this.bell(523 * Math.pow(2, i / 6), { at: i * .045, gain: .05, dur: 1.4 }); [262, 330, 392, 523].forEach(f => this.tone(f, { at: .8, dur: 2.2, gain: .06, type: 'triangle', attack: .3 })); }
   }
+  // ---- fanfare, scaled to how much a card is worth (tier 0 = pennies … 5 = over $1,000) ----
+  boom(g = 1) { this.tone(90, { to: 32, glide: .5, dur: .9, gain: .5 * g }); this.noise({ type: 'lowpass', f: 300, to: 80, dur: .5, gain: .25 * g }); }
+  crash(g = 1, at = 0) {
+    this.noise({ at, type: 'highpass', f: 4500, q: .5, dur: 2.2, gain: .22 * g, attack: .003 });
+    this.noise({ at, f: 7000, to: 3500, q: .6, dur: 1.4, gain: .12 * g });
+  }
+  swell(dur = 1, g = 1) { this.noise({ type: 'highpass', f: 2000, to: 7000, q: .4, dur, gain: .12 * g, attack: dur * .9 }); }
+  rumble(dur = 1.5, g = 1) { this.noise({ type: 'lowpass', f: 90, to: 160, q: .8, dur, gain: .35 * g, attack: dur * .6, rate: .5 }); this.tone(55, { dur, gain: .12 * g, attack: dur * .6 }); }
+  drumroll(dur = 1.2) {
+    let t = 0, gap = .09;
+    while (t < dur) { this.noise({ at: t, f: 1800, q: .9, dur: .06, gain: .06 + .12 * (t / dur) }); t += gap; gap = Math.max(.028, gap * .93); }
+    this.swell(dur, 1.2);
+  }
+  brass(freqs, o = {}) {
+    const c = this.ensure(); if (!c) return;
+    const t = c.currentTime + (o.at ?? 0), dur = o.dur ?? .6, peak = o.gain ?? .06;
+    const f = c.createBiquadFilter(), g = c.createGain();
+    f.type = 'lowpass'; f.Q.value = 1.1;
+    f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(3200, t + .07); f.frequency.exponentialRampToValueAtTime(1400, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + .035); g.gain.setValueAtTime(peak, t + dur * .75); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
+    f.connect(g); g.connect(this.master);
+    for (const fr of freqs) for (const d of [-8, 6]) { const osc = c.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = fr; osc.detune.value = d; osc.connect(f); osc.start(t); osc.stop(t + dur + .05); }
+  }
+  applause(dur = 3, g = 1) {
+    for (let i = 0; i < dur * 45; i++) {
+      const at = Math.pow(Math.random(), 1.6) * dur;
+      this.noise({ at, f: 1100 + Math.random() * 1800, q: 1.4, dur: .02 + Math.random() * .04, gain: (.03 + Math.random() * .05) * g * (1 - at / dur * .7) });
+    }
+  }
+  firework(at = 0) {
+    this.tone(700, { at, to: 2600, glide: .45, dur: .5, gain: .025 });
+    this.noise({ at: at + .48, type: 'lowpass', f: 1400, to: 200, dur: .5, gain: .3 });
+    for (let i = 0; i < 12; i++) this.noise({ at: at + .55 + Math.random() * .7, f: 3000 + Math.random() * 4000, q: 6, dur: .03, gain: .05 + Math.random() * .05 });
+  }
+  sleeve() { this.noise({ f: 1400, to: 3200, q: 1.1, dur: .22, gain: .1, attack: .05 }); this.noise({ at: .05, type: 'highpass', f: 5000, dur: .12, gain: .04 }); }
+  // What plays as a special card turns over. kind: 'rare' | 'holo' | 'full' | 'both'; tier 0–5 by value.
+  fanfare(kind, tier) {
+    this.reveal(kind);
+    if (tier >= 2) this.sparkle(tier - 1);
+    if (tier >= 3) this.boom(.6 + .1 * tier);
+    if (tier >= 4) { this.crash(tier === 5 ? 1.2 : .8); [523, 659, 784, 1047, 1319].forEach((f, i) => this.bell(f, { at: .1 + i * .06, gain: .06, dur: 1.8 })); }
+    if (tier >= 5) {
+      const C = [262, 330, 392, 523], F = [349, 440, 523], G = [392, 494, 587], hi = [523, 659, 784];
+      [0, .14, .28].forEach(at => this.brass([392, 523], { at, dur: .12, gain: .05 }));
+      this.brass([...hi, 1047], { at: .42, dur: 1.1, gain: .06 });
+      this.brass(F, { at: 1.55, dur: .3, gain: .055 }); this.brass(G, { at: 1.85, dur: .3, gain: .055 }); this.brass([...C, 784], { at: 2.15, dur: 1.9, gain: .065 });
+      this.crash(1, 2.15); this.boom(1);
+      this.applause(4, 1);
+      for (let i = 0; i < 14; i++) this.bell(1760 + (i % 5) * 180, { at: 2.2 + i * .06 + Math.random() * .03, gain: .03, dur: .35 });
+    }
+  }
   cash() {   // ka-ching
     this.noise({ f: 5000, q: 3, dur: .05, gain: .18 });
     this.bell(1568, { at: .06, gain: .11, dur: .9 }); this.bell(2093, { at: .12, gain: .09, dur: 1.1 });
