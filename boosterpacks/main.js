@@ -1273,7 +1273,7 @@ async function inspect(card, o = {}) {
   $('inShare').onclick = () => shareCard(c);
   const selling = o.from === 'summary';
   $('inSell').textContent = selling ? (card.mark === 'sell' ? 'Don’t sell' : `Sell for ${money(valueOf(c), { short: true })}`) : `Sell for ${money(valueOf(c), { short: true })}`;
-  $('inSell').hidden = shared || card.mark === 'sold';
+  $('inSell').hidden = shared || o.from === 'result' || card.mark === 'sold';
   $('inPlay').hidden = !(shared && o.invite);   // someone new, here from a shared link: the way into the game
   const panel = $('inspect');
   panel.style.visibility = 'hidden'; panel.hidden = false;
@@ -1404,12 +1404,13 @@ function tapOnce(ms = Infinity) {
 }
 function showResult(r) {
   $('resultTitle').textContent = r.title;
-  $('resultSub').textContent = r.sub;
+  $('resultSub').textContent = r.sub + (r.best?.length ? ` ${TOUCH ? 'Tap' : 'Click'} one of your best pulls for a closer look.` : '');
   $('resultStats').innerHTML = r.stats.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
   $('result').classList.toggle('low', !!r.best?.length);
   $('result').hidden = false; $('resultDone').focus();
   // the best pulls, fanned out in the space above the panel
   const shelf = new THREE.Group(), shown = [];
+  let hover = null;   // the card under the pointer
   if (r.best?.length) {
     const top = document.querySelector('.hud').getBoundingClientRect().bottom + 12, bottom = $('result').getBoundingClientRect().top - 14;
     const hPx = Math.max(60, bottom - top), n = r.best.length;
@@ -1423,12 +1424,41 @@ function showResult(r) {
       card.holder.position.set(k * CARD_W * 1.08, -VIEW_H / s, -Math.abs(k) * .3);
       card.holder.rotation.set(0, Math.PI, -k * .05);
       shelf.add(card.holder); shown.push(card);
-      sleep(.15 + i * .12).then(() => moveTo(card.holder, { p: [k * CARD_W * 1.08, -Math.abs(k) * .25, -Math.abs(k) * .3], r: [0, 0, -k * .05] }, .7, ease.out)).then(() => { if (c.v & 3) sound.sparkle(1); });
+      sleep(.15 + i * .12).then(() => moveTo(card.holder, { p: [k * CARD_W * 1.08, -Math.abs(k) * .25, -Math.abs(k) * .3], r: [0, 0, -k * .05] }, .7, ease.out)).then(() => { card.arrived = true; if (c.v & 3) sound.sparkle(1); });
     });
-    tickers.add(() => { shown.forEach((c, i) => { c.mesh.rotation.y = Math.sin(T * .9 + i) * .12; c.mesh.rotation.x = Math.sin(T * .7 + i * 2) * .05; }); return !!shelf.parent; });
+    // they sway so their foil catches the light, and the one under the pointer lifts toward you
+    tickers.add(dt => {
+      shown.forEach((c, i) => {
+        c.hov = damp(c.hov ?? 0, c === hover ? 1 : 0, 10, dt);
+        if (c.inspecting) { c.mesh.rotation.set(0, 0, 0); c.mesh.position.z = 0; return; }   // (up close, inspect turns it)
+        c.mesh.position.z = c.hov * .8;
+        c.mesh.rotation.y = Math.sin(T * .9 + i) * .12; c.mesh.rotation.x = Math.sin(T * .7 + i * 2) * .05;
+      });
+      return !!shelf.parent;
+    });
   }
+  // Any of them can be picked up for a closer look, one at a time, once it has landed; the panel steps aside meanwhile.
+  // (No selling from here: the box may have sold a duplicate already, and they're all in the binder.)
+  const before = handler, pick = () => pickCard(shown.filter(c => c.arrived));
+  if (shown.length) handler = {
+    cursor: () => (hover ? 'point' : ''),
+    hover() { hover = pick(); },
+    async up(e, tap) {
+      const card = tap ? pick() : null;
+      if (!card) return;
+      hover = null;
+      $('result').style.visibility = 'hidden';
+      await inspect(card, { from: 'result' });
+      $('result').style.visibility = '';
+      $('resultDone').focus({ preventScroll: true });
+    },
+  };
   return new Promise(res => {
-    const close = v => { $('result').hidden = true; $('result').classList.remove('low'); shown.forEach(disposeCard); shelf.removeFromParent(); res(v); };
+    const close = v => {
+      if (inspecting) return;
+      handler = before;
+      $('result').hidden = true; $('result').classList.remove('low'); shown.forEach(disposeCard); shelf.removeFromParent(); res(v);
+    };
     $('resultDone').onclick = () => close('done');
     $('resultBinder').onclick = () => { close('binder'); setTimeout(openBinder, 50); };
   });
