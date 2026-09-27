@@ -1,5 +1,6 @@
 // Series 1: Around the House. 100 household things, valued like trading cards: commons are worth up to $1 and
-// uncommons up to $10, both mostly toward the cheap end; a rare can be worth anything, from $2 to a $1,500 piano.
+// uncommons up to $10, both mostly toward the cheap end; a rare can be worth anything, from $2 to a $1,500 piano. Past
+// them, three mythic rares and two legends (see RARITY in ../../store.js): a Ming vase is the most valuable of all.
 import { ROOMS } from './rooms.js';
 
 // [id, name, room, rarity, card value in dollars, [move, power, move text], flavor text, size line]
@@ -107,6 +108,12 @@ const LIST = [
   ['washer', 'Washing Machine', 'laundry', 'R', 12.54, ['Spin Cycle', 140, 'Shuffle every item in play. It walks across the floor.'], 'Eats exactly one sock per load.', 'HT 38 in · 150 lb'],
   ['robovac', 'Robot Vacuum', 'laundry', 'R', 7.48, ['Auto Clean', 110, 'Attacks every turn on its own. Gets stuck under the couch.'], 'The cat rides it. The cat is in charge.', 'Ø 14 in · 8 lb'],
   ['sewingmachine', 'Sewing Machine', 'laundry', 'R', 4.57, ['Zigzag', 110, 'This attack hits twice, in a zigzag.'], 'Grandma’s. Still threads itself better than you do.', 'W 16 in · 15 lb'],
+  // ---- mythic rares and legends: numbered past the end of the set, like secret rares ----
+  ['goldtoilet', 'Solid Gold Toilet', 'bathroom', 'M', 35, ['Royal Flush', 220, 'Flush every item in play away. They come back next turn, a little shinier.'], 'Eighteen karats, fully plumbed and completely unnecessary. Please knock.', 'HT 30 in · 230 lb of gold'],
+  ['canopybed', 'Royal Canopy Bed', 'bedroom', 'M', 42, ['Beauty Sleep', 200, 'Heal all damage from this item. Nobody may wake it before noon.'], 'Four gilded posts, velvet drapes and forty pillows. The cat still sleeps on your feet.', 'Super King · 8 ft posts'],
+  ['supercar', 'Supercar', 'garage', 'M', 55, ['Zero to Sixty', 240, 'This item always attacks first. Ignore speed bumps.'], 'Lives under a cover in the garage and goes out twice a year, both times to the car wash.', 'L 15 ft · 800 hp'],
+  ['mingvase', 'Ming Vase', 'living', 'L', 2000, ['Don’t Touch', 280, 'No item may attack this one. Everyone tiptoes past.'], 'Six hundred years old and one game of indoor catch away from being a puzzle.', 'HT 18 in · Ming dynasty'],
+  ['treasurechest', 'Treasure Chest', 'bedroom', 'L', 2500, ['Buried Treasure', 300, 'Search your deck for any 3 cards. The map was in the junk drawer all along.'], 'It was under the bed the whole time. So was the other sock.', 'W 3 ft · 1,001 gold coins'],
 ];
 
 // The dearest rares turn up one pack in this many; every other rare shares the rest equally.
@@ -122,7 +129,7 @@ const set = {
   boxPrice: 4499,                      // a booster box of 10 packs
   // How much more often cheap cards turn up than dear ones, per rarity: weight = (cheapest / value) ^ curve.
   // Rares are all equally likely (curve 0), except the dear ones in ODDS, which have fixed odds.
-  curve: { C: .35, U: .55, R: 0 },
+  curve: { C: .35, U: .55, R: 0, M: 0, L: 0 },
   types: ROOMS,
   typeLabel: 'Room',
   // Pack wrappers: each shows one of these rares big on the front, over its colors.

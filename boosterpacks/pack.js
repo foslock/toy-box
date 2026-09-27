@@ -2,7 +2,8 @@
 // and the cards inside can then be pulled out of the opening.
 import * as THREE from 'three';
 import { mulberry, hashString } from './kit.js';
-import { GOLD } from './faces.js';
+import { GOLD, rarityMark } from './faces.js';
+import { MYTHIC_RATE, LEGEND_RATE } from './store.js';
 
 export const PW = 7.6, PH = 12.2, CRIMP = .85, TEAR_Y = PH / 2 - 1.25, THICK = .5;
 const NX = 56, NY_BODY = 60, NY_CAP = 10, TAU = Math.PI * 2;
@@ -97,21 +98,26 @@ export function makeWrapper(set, wrap, hero, W = 1024) {
   b.fillStyle = 'rgba(255,255,255,.18)'; b.fillRect(W / 2 - 22, 0, 6, H);
   logo(b, W / 2, H * .2, W * .1, dark);
   const panel = (y, h) => { b.fillStyle = 'rgba(255,255,255,.92)'; b.beginPath(); b.roundRect(W * .1, y, W * .8, h, 28); b.fill(); };
-  panel(H * .26, H * .3);
+  panel(H * .245, H * .345);
   b.fillStyle = '#231d2b'; b.textAlign = 'left'; b.textBaseline = 'alphabetic';
-  b.font = `700 ${W * .045}px ${FONT}`; b.fillText('Each pack holds 9 cards', W * .15, H * .3);
+  b.font = `700 ${W * .045}px ${FONT}`; b.fillText('Each pack holds 9 cards', W * .15, H * .285);
   b.font = `600 ${W * .032}px ${BODY}`;
   const top = r => Math.max(0, ...set.items.filter(i => i.rarity === r).map(i => i.price)), usd = c => '$' + (c / 100).toFixed(c % 100 ? 2 : 0);
   const tiers = set.tiers ?? { C: `worth up to ${usd(top('C'))}`, U: `worth up to ${usd(top('U'))}`, R: 'worth anything' };
-  [['●', '5 Common', tiers.C], ['◆', '3 Uncommon', tiers.U], ['★', '1 Rare', tiers.R]].forEach(([s, a, c], i) => {
-    const y = H * .345 + i * W * .07; b.fillStyle = i === 2 ? '#c8901c' : '#231d2b'; b.fillText(s, W * .15, y); b.fillStyle = '#231d2b'; b.fillText(a, W * .21, y); b.fillStyle = '#6a6275'; b.fillText(c, W * .55, y);
-  });
+  const odds = r => `1 pack in ${Math.round(1 / r).toLocaleString('en-US')}`, has = r => set.items.some(i => i.rarity === r);
+  // …and, in the rare's place now and then, a mythic or a legend
+  [['C', '5 Common', tiers.C], ['U', '3 Uncommon', tiers.U], ['R', '1 Rare', tiers.R], has('M') && ['M', 'or a Mythic Rare', odds(MYTHIC_RATE)], has('L') && ['L', 'or a Legend', odds(LEGEND_RATE)]]
+    .filter(Boolean).forEach(([r, a, c], i) => {
+      const y = H * .33 + i * H * .043;
+      b.fillStyle = r === 'R' ? '#c8901c' : '#231d2b'; rarityMark(b, r, W * .15, y, W * .032, r === 'M' ? '#e8561c' : '#c8901c');
+      b.fillStyle = '#231d2b'; b.fillText(a, W * .21, y); b.fillStyle = '#6a6275'; b.fillText(c, W * .55, y);
+    });
   b.font = `600 ${W * .028}px ${BODY}`; b.fillStyle = '#231d2b';
-  b.fillText('1 card in 40 is Holo (worth 5×).', W * .15, H * .5); b.fillText('1 in 20 is Full Art (2×). Both: 50×!', W * .15, H * .53);
-  panel(H * .6, H * .2);
-  b.fillStyle = '#231d2b'; b.font = `700 ${W * .036}px ${FONT}`; b.fillText(`Collect all ${set.items.length}!`, W * .15, H * .645);
+  b.fillText('1 card in 40 is Holo (5×), 1 in 20 Full Art (2×). Both: 50×!', W * .15, H * .56);   // (misprints are a surprise)
+  panel(H * .635, H * .17);
+  b.fillStyle = '#231d2b'; b.font = `700 ${W * .036}px ${FONT}`; b.fillText(`Collect all ${set.items.length}!`, W * .15, H * .675);
   b.font = `italic 600 ${W * .026}px ${BODY}`; b.fillStyle = '#6a6275';
-  const lines = (set.blurb || '').match(/.{1,38}(\s|$)/g) || []; lines.slice(0, 3).forEach((l, i) => b.fillText(l.trim(), W * .15, H * .69 + i * W * .04));
+  const lines = (set.blurb || '').match(/.{1,38}(\s|$)/g) || []; lines.slice(0, 3).forEach((l, i) => b.fillText(l.trim(), W * .15, H * .715 + i * W * .04));
   // barcode
   b.fillStyle = '#fff'; b.fillRect(W * .58, H * .84, W * .3, H * .07); b.fillStyle = '#111';
   for (let x = W * .6, i = 0; x < W * .86; i++) { const w = 2 + (R() * 4 | 0); if (i % 2) b.fillRect(x, H * .848, w, H * .045); x += w + 2; }

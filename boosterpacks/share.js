@@ -30,7 +30,7 @@ const unb64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/'))
 // A card ({ set, id, v }) → a token for a link.
 export function seal(c) {
   const salt = crypto.getRandomValues(new Uint8Array(SALT));
-  const text = new TextEncoder().encode(`${c.set}:${c.id}:${c.v & 3}`), ks = keystream(salt, text.length);
+  const text = new TextEncoder().encode(`${c.set}:${c.id}:${c.v}`), ks = keystream(salt, text.length);   // (a misprint's own offset too)
   return b64([VERSION, ...salt, ...text.map((x, i) => x ^ ks[i]), ...check(salt, text)]);
 }
 // A token → the card, or null if it isn't one of ours (mistyped, edited or made up).
@@ -43,6 +43,7 @@ export function unseal(token) {
     const text = body.map((x, i) => x ^ ks[i]);
     if (check(salt, text).some((x, i) => x !== mac[i])) return null;
     const [set, id, v, ...rest] = new TextDecoder().decode(text).split(':');
-    return rest.length || !/^[0-3]$/.test(v) ? null : { set, id, v: +v };
+    const n = +v;   // a finish (0–3), or a misprint with its offset (bit 4 set, below 2048)
+    return rest.length || !/^\d{1,4}$/.test(v) || n >= 2048 || (n > 3 && !(n & 4)) ? null : { set, id, v: n };
   } catch { return null; }
 }

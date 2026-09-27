@@ -2,10 +2,13 @@
 // localStorage and can be exported to a file or a code and imported back.
 import { SETS, SET_BY_ID } from './sets/index.js';
 
-export const HOLO = 1, FULL = 2;
-export const MULT = [1, 5, 2, 50];                                  // value by variant: plain, holo, full art, holo full art
+export const HOLO = 1, FULL = 2, MISPRINT = 4;
+export const MULT = [1, 5, 2, 50];                                  // value by finish: plain, holo, full art, holo full art
+export const MISPRINT_MULT = 15;                                    // …and a misprint of any of them is worth 15 times that
 export const VARIANT_NAME = ['', 'Holo', 'Full Art', 'Holo Full Art'];
 export const HOLO_RATE = 1 / 40, FULL_RATE = 1 / 20;                // per card; a pack never has more than one of each
+export const MISPRINT_RATE = 1 / 1000;                              // per card
+export const MYTHIC_RATE = 1 / 50, LEGEND_RATE = 1 / 3000;          // per pack: one of these in the rare's place
 export const SLOTS = [['C', 5], ['U', 3], ['R', 1]];               // 9 cards: 5 common, 3 uncommon, 1 rare (the rare is last)
 export const PACK_SIZE = 9;
 export const BOX_PACKS = 10, BOX_PAYS_FOR = 9;                       // a box is 10 packs for the price of 9
@@ -13,28 +16,41 @@ export const RARITY = {
   C: { name: 'Common', symbol: '●', order: 0 },
   U: { name: 'Uncommon', symbol: '◆', order: 1 },
   R: { name: 'Rare', symbol: '★', order: 2 },
+  // Above rare, a few cards in each set, numbered past the end of it like secret rares (101/100): always full art, and
+  // twice as likely as anything else to be holo
+  M: { name: 'Mythic Rare', symbol: '✸', order: 3, top: true },
+  L: { name: 'Legend', symbol: '♛', order: 4, top: true },
 };
+export const isTop = item => !!RARITY[item?.rarity]?.top;
 const KEY = 'boosterpacks.save';   // (named for the game's old title, Booster Packs: kept so saves carry over)
 const FORMAT = 2;          // 2: cards revalued (a pack went from $250 to $4.99)
 
 /* ---------- cards ---------- */
-// A card is { set, id, v }: set id, item id, variant bits. Its key is "set:item:v".
+// A card is { set, id, v }: set id, item id, variant bits. Its key is "set:item:v". The bits: 1 holo, 2 full art, 4 a
+// misprint; a misprint's own offset (1–255, see faces.js) rides in the bits above those, so no two misprints are alike.
 export const cardKey = c => `${c.set}:${c.id}:${c.v}`;
+export const validV = v => Number.isInteger(v) && v >= 0 && v < 2048 && (v < 4 || !!(v & MISPRINT));
+export const multOf = v => MULT[v & 3] * (v & MISPRINT ? MISPRINT_MULT : 1);
+// "Holo", "Full Art Misprint", "" for a plain card
+export const finishLabel = v => [VARIANT_NAME[v & 3], v & MISPRINT ? 'Misprint' : ''].filter(Boolean).join(' ');
 export function parseKey(key) {
   const [set, id, v] = String(key).split(':');
   return { set, id, v: +v || 0 };
 }
 export const itemOf = c => SET_BY_ID[c.set]?.itemById[c.id];
-export const valueOf = c => { const it = itemOf(c); return it ? it.price * MULT[c.v & 3] : 0; };
+export const valueOf = c => { const it = itemOf(c); return it ? it.price * multOf(c.v) : 0; };
 export const knownCard = c => !!itemOf(c);
 
 // Within a rarity, cheap cards turn up more often than dear ones: weight = (cheapest / value) ^ curve (curve 0 makes
 // them all equal). An item can have its own weight, or fixed odds (one pack in `odds`); the rest share what's left.
 for (const set of SETS) {
   set.itemById = Object.fromEntries(set.items.map(i => [i.id, i]));
+  if (Object.keys(set.itemById).length !== set.items.length) console.error(`Set ${set.id} uses an item id twice: one of them can never be pulled.`);
+  set.printed = set.items.filter(i => !isTop(i)).length;   // the number printed on its cards (the top ones go past it)
   set.pools = {};
-  for (const [r] of SLOTS) {
+  for (const r of Object.keys(RARITY)) {
     const items = set.items.filter(i => i.rarity === r), min = Math.min(...items.map(i => i.price));
+    if (!items.length) continue;
     const fixed = items.reduce((a, i) => a + (i.odds ? 1 / i.odds : 0), 0);
     const free = items.filter(i => !i.odds), w0 = free.map(i => i.weight ?? Math.pow(min / i.price, set.curve?.[r] ?? .5)), sum0 = w0.reduce((a, b) => a + b, 0);
     const p = items.map(i => i.odds ? 1 / i.odds : (w0[free.indexOf(i)] / sum0) * Math.max(0, 1 - fixed));
@@ -48,11 +64,15 @@ export const boxPrice = set => set.boxPrice ?? set.price * BOX_PAYS_FOR;
 export const boxUnlockAt = set => set.price * BOX_PACKS;
 
 // What's in a pack: no item twice, the rare last, and at most one holo and one full art (they can land on the same card).
+// Now and then a mythic (1 pack in 50) or a legend (1 in 3,000) takes the rare's place: always full art, and twice as
+// likely to be holo. Any card can come out misprinted (1 in 1,000), each misprint in its own way.
 export function rollPack(set, rand = Math.random) {
   const cards = [], taken = new Set();
   for (const [r, n] of SLOTS) {
-    const { items, cum } = set.pools[r];
     for (let k = 0; k < n; k++) {
+      let tier = r;
+      if (r === 'R') { const x = rand(); tier = x < LEGEND_RATE && set.pools.L ? 'L' : x < LEGEND_RATE + MYTHIC_RATE && set.pools.M ? 'M' : 'R'; }
+      const { items, cum } = set.pools[tier];
       let item, guard = 0;
       do { const x = rand(); item = items[Math.min(items.length - 1, cum.findIndex(c => x <= c))] ?? items[0]; } while (taken.has(item.id) && ++guard < 200);
       taken.add(item.id);
@@ -61,6 +81,10 @@ export function rollPack(set, rand = Math.random) {
   }
   if (rand() < HOLO_RATE * PACK_SIZE) cards[Math.floor(rand() * PACK_SIZE)].v |= HOLO;
   if (rand() < FULL_RATE * PACK_SIZE) cards[Math.floor(rand() * PACK_SIZE)].v |= FULL;
+  for (const c of cards) {
+    if (isTop(set.itemById[c.id])) { c.v |= FULL; if (!(c.v & HOLO) && rand() < HOLO_RATE / (1 - HOLO_RATE)) c.v |= HOLO; }   // (1/40 + 39/40 × 1/39 = 1/20)
+    if (rand() < MISPRINT_RATE) c.v |= MISPRINT | (1 + Math.floor(rand() * 255)) << 3;
+  }
   return cards;
 }
 
@@ -110,7 +134,7 @@ function sanitize(raw) {
   s.packs = {};
   if (raw.packs && typeof raw.packs === 'object') for (const [k, n] of Object.entries(raw.packs)) if (SET_BY_ID[k] && n > 0) s.packs[k] = Math.min(9999, Math.floor(n));
   if (!Array.isArray(raw.cards)) throw new Error('That save has no collection in it.');
-  s.cards = raw.cards.filter(k => typeof k === 'string' && /^[\w-]+:[\w-]+:[0-3]$/.test(k));
+  s.cards = raw.cards.filter(k => typeof k === 'string' && /^[\w-]+:[\w-]+:\d{1,4}$/.test(k) && validV(parseKey(k).v));
   s.opened = Math.max(0, Math.floor(raw.opened) || 0);
   s.boxesOpened = Math.max(0, Math.floor(raw.boxesOpened) || 0);
   s.boxUnlocked = raw.boxUnlocked && typeof raw.boxUnlocked === 'object' ? { ...raw.boxUnlocked } : {};
@@ -133,7 +157,7 @@ function sanitize(raw) {
     binder: b && typeof b === 'object' ? { spread: Math.max(0, Math.floor(b.spread) || 0), side: b.side === 'left' ? 'left' : 'right', filter: SET_BY_ID[b.filter] ? b.filter : '' } : null };
   return s;
 }
-const isKey = k => typeof k === 'string' && /^[\w-]+:[\w-]+:[0-3]$/.test(k) && knownCard(parseKey(k));
+const isKey = k => typeof k === 'string' && /^[\w-]+:[\w-]+:\d{1,4}$/.test(k) && validV(parseKey(k).v) && knownCard(parseKey(k));
 const flags = (a, n) => Array.from({ length: n }, (_, i) => Array.isArray(a) ? a[i] ?? null : null);
 function validHand(h) {
   if (!h || !SET_BY_ID[h.set] || !Array.isArray(h.cards) || h.cards.length !== PACK_SIZE || !h.cards.every(isKey)) return null;
@@ -219,6 +243,8 @@ export function checkBoxUnlock(set) { if (isUnlocked(set) && !S.boxUnlocked[set.
 export function donate(set) { S.stats.donated++; givePack(set.id); }
 export const needsDonation = () => packsInHand() === 0 && SETS.filter(isUnlocked).every(set => S.money < packPrice(set));
 
+// A misprint, a mythic or a legend is never a duplicate, however many you have: it's never sold as one, by hand or on its own.
+export const neverDupe = c => !!(c.v & MISPRINT) || isTop(itemOf(c));
 // Put freshly pulled cards in the collection. Returns, for each card, whether it was new and whether it was a duplicate
 // (a copy of the same card was already there — counting earlier cards in the same batch).
 export function collect(cards) {
@@ -229,7 +255,7 @@ export function collect(cards) {
     S.seen[`${c.set}:${c.id}`] = 1;
     const value = valueOf(c);
     if (value > S.stats.bestValue) { S.stats.bestValue = value; S.stats.best = key; }
-    out.push({ card: c, key, isNew: !had, newItem, dupe: had, value });
+    out.push({ card: c, key, isNew: !had, newItem, dupe: had && !neverDupe(c), value });
   }
   save();
   return out;
@@ -245,10 +271,10 @@ export function sell(key, at = -1) {
   save();
   return v;
 }
-// Every extra copy beyond the first of each exact card (same item, same variant).
+// Every extra copy beyond the first of each exact card (same item, same variant), but never a misprint, mythic or legend.
 export function duplicates() {
   const seen = new Set(), list = [];
-  S.cards.forEach((k, i) => { if (seen.has(k)) list.push({ key: k, at: i }); else seen.add(k); });
+  S.cards.forEach((k, i) => { if (seen.has(k)) { if (!neverDupe(parseKey(k))) list.push({ key: k, at: i }); } else seen.add(k); });
   return list;
 }
 export function sellMany(list) {
@@ -271,8 +297,9 @@ export function sortedCollection(sort = S.settings.sort, filterSet = null) {
 export function collectionStats() {
   const perSet = SETS.map(set => {
     const found = new Set(), variants = new Set();
-    for (const k of owned.keys()) { const c = parseKey(k); if (c.set !== set.id || !set.itemById[c.id]) continue; found.add(c.id); variants.add(k); }
-    return { set, found: found.size, total: set.items.length, variants: variants.size, totalVariants: set.items.length * 4 };
+    // (a misprint counts as its finish: finding every finish never needs one; a mythic or legend only has its two full-art ones)
+    for (const k of owned.keys()) { const c = parseKey(k); if (c.set !== set.id || !set.itemById[c.id]) continue; found.add(c.id); variants.add(`${c.id}:${c.v & 3}`); }
+    return { set, found: found.size, total: set.items.length, variants: variants.size, totalVariants: set.items.reduce((n, i) => n + (isTop(i) ? 2 : 4), 0) };
   });
   let value = 0, count = 0;
   for (const k of S.cards) { const c = parseKey(k); if (!knownCard(c)) continue; value += valueOf(c); count++; }

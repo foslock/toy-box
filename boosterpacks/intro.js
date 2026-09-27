@@ -29,7 +29,7 @@ const CHORD = { Em: [HZ.E3, HZ.G3, HZ.B3, HZ.E4], C: [HZ.C3, HZ.E3, HZ.G3, HZ.C4
 const ROOT = { Em: HZ.E2, C: HZ.C2, D: HZ.D2, B: HZ.B1, E: HZ.E2 };
 
 /* ---------- speed lines: the focus lines of a manga panel, and streaks for things racing past ---------- */
-function speedLines() {
+export function speedLines() {
   const u = { uTime: { value: 0 }, uOpacity: { value: 0 }, uInner: { value: .6 }, uMode: { value: 0 }, uAspect: { value: 1 }, uFlick: { value: 12 },
     uCenter: { value: new THREE.Vector2() }, uColor: { value: new THREE.Color('#ffffff') } };
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -59,7 +59,7 @@ function speedLines() {
   return { mesh, u };
 }
 // An impact frame: the whole picture turned negative for a moment.
-function negative() {
+export function negative() {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     depthTest: false, depthWrite: false, transparent: true, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
     blendSrc: THREE.OneMinusDstColorFactor, blendDst: THREE.ZeroFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
@@ -67,6 +67,52 @@ function negative() {
   mesh.frustumCulled = false; mesh.renderOrder = 1000; mesh.visible = false;
   return mesh;
 }
+
+/* ---------- shouted words and name plates (the fanfares for a mythic or a legend use them too) ---------- */
+// A word shouted across the screen in outlined display type. o: x, y (% of the screen), r (degrees), size (CSS), fill
+// ('rainbow', 'gold', 'fire'), c and sh (fill and shadow colours), cls ('jit' shakes, 'rise' floats off), life (seconds).
+export function shout(stage, text, o = {}) {
+  const el = document.createElement('div');
+  el.className = 'i-word' + (o.cls ? ' ' + o.cls : '');
+  el.style.left = (o.x ?? 50) + '%'; el.style.top = (o.y ?? 50) + '%';
+  el.style.setProperty('--r', (o.r ?? -8) + 'deg'); el.style.setProperty('--s', o.size ?? 'clamp(56px, 16vw, 150px)');
+  const span = document.createElement('span');
+  span.className = 'ol' + (o.fill ? ' ' + o.fill : ''); span.dataset.t = text; span.textContent = text;
+  if (o.c) span.style.setProperty('--c', o.c);
+  if (o.sh) span.style.setProperty('--sh', o.sh);
+  el.append(span); stage.append(el);
+  // keep it on the screen: smaller if it's wider than the screen, then nudged in from the edges
+  let b = el.getBoundingClientRect();
+  const room = innerWidth - 16;
+  if (b.width > room) { el.style.setProperty('--s', parseFloat(getComputedStyle(el).fontSize) * room / b.width + 'px'); b = el.getBoundingClientRect(); }
+  const shift = b.left < 8 ? 8 - b.left : b.right > innerWidth - 8 ? innerWidth - 8 - b.right : 0;
+  if (shift) el.style.left = (o.x ?? 50) / 100 * innerWidth + shift + 'px';
+  if (o.life) setTimeout(() => hush(el), o.life * 1000);
+  return el;
+}
+export function hush(el) { if (!el?.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); }
+// A card's name plate: its set on a coloured tag, its name, and its finish (o.rarity: its rarity's name before that).
+// where: { mid } (centred), { x } (px from the left), and { y } (px from the top; center: the middle there) or { bottom }.
+export function namePlate(stage, item, v, tag, color, where) {
+  const el = document.createElement('div'), fin = (v & 3) === 3 ? 'both' : v & 1 ? 'holo' : v & 2 ? 'full' : '';
+  el.className = 'i-plate' + (where.mid ? ' mid' : '');
+  el.style.setProperty('--c', color);
+  const part = (tagName, cls, text) => { const e = document.createElement(tagName); e.className = cls; e.textContent = text; el.append(e); return e; };
+  if (tag) part('span', 'i-set', tag);
+  const nm = part('b', 'ol nm', item.name.toUpperCase());
+  nm.dataset.t = item.name.toUpperCase(); nm.style.setProperty('--sh', color);
+  if (fin || where.rarity) part('span', 'fin ' + (fin || 'full'), [where.rarity, fin && `${VARIANT_NAME[v & 3]} · ${[1, 5, 2, 50][v & 3]}×`].filter(Boolean).join(' · ').toUpperCase());
+  el.style.fontSize = where.size ?? 'clamp(28px, 7.4vw, 64px)';
+  if (where.mid) { el.style.left = '50%'; el.style.transform = 'translateX(-50%) skewX(-9deg)'; }
+  else el.style.left = where.x + 'px';
+  if (where.bottom != null) el.style.bottom = where.bottom + 'px';
+  else { el.style.top = where.y + 'px'; if (where.center) el.style.transform = 'translateY(-50%) skewX(-9deg)'; }
+  stage.append(el);
+  const room = where.mid ? innerWidth - 32 : innerWidth - where.x - 20, w = nm.getBoundingClientRect().width;
+  if (w > room) el.style.fontSize = parseFloat(getComputedStyle(el).fontSize) * room / w + 'px';
+  return el;
+}
+export function dropPlate(el) { if (!el?.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 240); }
 
 export class Intro {
   constructor(ctx) {
@@ -229,26 +275,8 @@ export class Intro {
     this.kick.lines = .35; this.kick.zoom = shake * 1.6;
     this.$stage.classList.remove('shake'); void this.$stage.offsetWidth; this.$stage.classList.add('shake');
   }
-  word(text, o = {}) {
-    const el = document.createElement('div');
-    el.className = 'i-word' + (o.cls ? ' ' + o.cls : '');
-    el.style.left = (o.x ?? 50) + '%'; el.style.top = (o.y ?? 50) + '%';
-    el.style.setProperty('--r', (o.r ?? -8) + 'deg'); el.style.setProperty('--s', o.size ?? 'clamp(56px, 16vw, 150px)');
-    const span = document.createElement('span');
-    span.className = 'ol' + (o.fill ? ' ' + o.fill : ''); span.dataset.t = text; span.textContent = text;
-    if (o.c) span.style.setProperty('--c', o.c);
-    if (o.sh) span.style.setProperty('--sh', o.sh);
-    el.append(span); this.$stage.append(el);
-    // keep it on the screen: smaller if it's wider than the screen, then nudged in from the edges
-    let b = el.getBoundingClientRect();
-    const room = innerWidth - 16;
-    if (b.width > room) { el.style.setProperty('--s', parseFloat(getComputedStyle(el).fontSize) * room / b.width + 'px'); b = el.getBoundingClientRect(); }
-    const shift = b.left < 8 ? 8 - b.left : b.right > innerWidth - 8 ? innerWidth - 8 - b.right : 0;
-    if (shift) el.style.left = (o.x ?? 50) / 100 * innerWidth + shift + 'px';
-    if (o.life) setTimeout(() => this.unword(el), o.life * 1000);
-    return el;
-  }
-  unword(el) { if (!el?.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); }
+  word(text, o = {}) { return shout(this.$stage, text, o); }
+  unword(el) { hush(el); }
   // A line of narration, word by word; a *word* in stars is the big gold one.
   caption(text) {
     this.$cap?.classList.add('out');
@@ -266,27 +294,8 @@ export class Intro {
     this.$stage.append(el);
     this.live(text.replace(/\*/g, ''));
   }
-  // A card's name plate: its set on a colored tag, its name, and its finish (and a price counting up, for the jackpot).
-  plate(item, v, tag, color, where) {
-    const el = document.createElement('div'), fin = (v & 3) === 3 ? 'both' : v & 1 ? 'holo' : v & 2 ? 'full' : '';
-    el.className = 'i-plate' + (where.mid ? ' mid' : '');
-    el.style.setProperty('--c', color);
-    const part = (tagName, cls, text) => { const e = document.createElement(tagName); e.className = cls; e.textContent = text; el.append(e); return e; };
-    if (tag) part('span', 'i-set', tag);
-    const nm = part('b', 'ol nm', item.name.toUpperCase());
-    nm.dataset.t = item.name.toUpperCase(); nm.style.setProperty('--sh', color);
-    if (fin) part('span', 'fin ' + fin, `${VARIANT_NAME[v & 3].toUpperCase()} · ${[1, 5, 2, 50][v & 3]}×`);
-    el.style.fontSize = where.size ?? 'clamp(28px, 7.4vw, 64px)';
-    if (where.mid) { el.style.left = '50%'; el.style.transform = 'translateX(-50%) skewX(-9deg)'; }
-    else el.style.left = where.x + 'px';
-    if (where.bottom != null) el.style.bottom = where.bottom + 'px';
-    else { el.style.top = where.y + 'px'; if (where.center) el.style.transform = 'translateY(-50%) skewX(-9deg)'; }
-    this.$stage.append(el);
-    const room = where.mid ? innerWidth - 32 : innerWidth - where.x - 20, w = nm.getBoundingClientRect().width;
-    if (w > room) el.style.fontSize = parseFloat(getComputedStyle(el).fontSize) * room / w + 'px';
-    return el;
-  }
-  unplate(el) { if (!el?.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 240); }
+  plate(item, v, tag, color, where) { return namePlate(this.$stage, item, v, tag, color, where); }
+  unplate(el) { dropPlate(el); }
   add(mesh) { this.root.add(mesh); this.fx.push(mesh); return mesh; }
   drop(mesh) { mesh.removeFromParent(); mesh.geometry.dispose(); mesh.material.dispose(); this.fx.splice(this.fx.indexOf(mesh), 1); }
   ring(at, color, size = 30, delay = 0) {

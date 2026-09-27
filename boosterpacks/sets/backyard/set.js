@@ -59,6 +59,12 @@ const LIST = [
   ['scarab', 'Golden Scarab', 'bugs', 'R', 1680, ['Legend of the Yard', 250, 'Your opponent’s items stop to stare. They can’t attack for 2 turns.'], 'Dug up under the old oak. Might be a beetle. Might be treasure.', 'L 1.2 in · solid gleam'],
   ['lemonadestand', 'Lemonade Stand', 'patio', 'R', 3.50, ['Grand Opening', 110, 'Take 1 coin for every item in play. Business is booming.'], 'Five cents a cup, ten with ice, free for Grandma.', 'W 4 ft · 5¢ a cup'],
   ['firepit', 'Fire Pit', 'patio', 'R', 8.05, ['Campfire Stories', 130, 'Every item in play is Spooked. Somebody brings out marshmallows.'], 'Everyone sits too close, then moves when the smoke follows them.', 'Ø 3 ft · 4 logs'],
+  // ---- mythic rares and legends: numbered past the end of the set, like secret rares ----
+  ['fairyring', 'Fairy Ring', 'garden', 'M', 40, ['Midnight Dance', 200, 'Every item in play dances in a circle until morning. Nobody attacks.'], 'A perfect circle of mushrooms, overnight. Step inside and lose a whole afternoon.', 'Ø 6 ft · 13 toadstools'],
+  ['geode', 'Crystal Geode', 'play', 'M', 50, ['Crack Open', 210, 'Flip a coin. Heads: amethyst. Tails: still amethyst.'], 'A boring rock from the bottom of the sandbox, right up until the hammer.', 'Ø 14 in · amethyst'],
+  ['goldenkoi', 'Golden Koi', 'patio', 'M', 65, ['Lucky Splash', 220, 'Flip 3 coins. Draw a card for each heads. The pond remembers you.'], 'Has lived in the little patio pond for forty years and outlasted three fountains.', 'L 2 ft · 40 years old'],
+  ['unicorn', 'Unicorn', 'critters', 'L', 2200, ['Rainbow Charge', 300, 'Do 100 damage to each of your opponent’s items. Leaves glitter everywhere.'], 'Wandered in through the back gate and grazed the lawn in a perfect rainbow.', 'HT 5 ft · 1 horn'],
+  ['bigfoot', 'Bigfoot', 'critters', 'L', 2800, ['Blurry Photo', 320, 'This item can’t be targeted. Nobody believes you anyway.'], 'Seen behind the shed at dusk, eating the good tomatoes. The trail cam only got its thumb.', 'HT 8 ft · size 24 feet'],
 ];
 
 // The dearest rares turn up one pack in this many; every other rare shares the rest equally.
@@ -71,7 +77,7 @@ const set = {
   code: 'YRD',
   price: 699,
   boxPrice: 5499,
-  curve: { C: .35, U: .55, R: 0 },
+  curve: { C: .35, U: .55, R: 0, M: 0, L: 0 },
   types: TYPES,
   typeLabel: 'Patch',
   symbol: fence,                       // a bit of picket fence in each card's footer

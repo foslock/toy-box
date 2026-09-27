@@ -93,6 +93,7 @@
   .badge.holo { background: linear-gradient(90deg, #ff9ad5, #ffe38a, #8affc8, #8ad8ff, #c79bff); color: #2b1840; }
   .badge.full { background: #fff; color: #2b1840; }
   .badge.dupe { background: rgba(255, 255, 255, .16); color: var(--ink-2); }
+  .badge.misprint { background: repeating-linear-gradient(-45deg, #241c2e 0 5px, #3a2c48 5px 10px); color: #ff7b98; box-shadow: inset 0 0 0 1.5px #ff7b98; text-shadow: 1px 0 #3dd6ff; }
   .badge.sold { background: var(--good); color: #0b3b22; }
   .tally { position: fixed; left: 50%; top: max(66px, calc(env(safe-area-inset-top) + 58px)); transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; font: 600 15px/1 Fredoka; z-index: 4; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .tally b { color: var(--gold); font-weight: 700; }
@@ -102,13 +103,20 @@
   /* uncommons are diamonds and the rare a gold star, like the symbols on the cards; a little gap between the groups */
   .dots i.U { width: 6px; height: 6px; border-radius: 1px; transform: rotate(45deg); margin: 0 1px; background: rgba(170, 200, 255, .28); }
   .dots i.U.on { background: #bcd4ff; }
-  .dots i.C + i.U, .dots i.U + i.R { margin-left: 7px; }
+  .dots i.C + i.U, .dots i.U + i.R, .dots i.U + i.M, .dots i.U + i.L { margin-left: 7px; }
   .dots i.R { width: 12px; height: 12px; border-radius: 0; background: rgba(255, 215, 106, .35); clip-path: polygon(50% 0, 62% 35%, 98% 36%, 69% 58%, 80% 94%, 50% 72%, 20% 94%, 31% 58%, 2% 36%, 38% 35%); }
   .dots i.R.on { background: var(--gold); }
+  /* a mythic's eight-point star and a legend's crown, once the card in the rare's place has been shown */
+  .dots i.M, .dots i.L { width: 13px; height: 13px; border-radius: 0; }
+  .dots i.M { clip-path: polygon(50% 0, 58.4% 29.7%, 85.4% 14.6%, 70.3% 41.6%, 100% 50%, 70.3% 58.4%, 85.4% 85.4%, 58.4% 70.3%, 50% 100%, 41.6% 70.3%, 14.6% 85.4%, 29.7% 58.4%, 0 50%, 29.7% 41.6%, 14.6% 14.6%, 41.6% 29.7%); background: #ff7a36; }
+  .dots i.L { width: 15px; height: 12px; clip-path: polygon(0 100%, 0 34%, 25% 64%, 50% 0, 75% 64%, 100% 34%, 100% 100%); background: linear-gradient(90deg, #ff8ad8, #ffe38a, #8affc8, #8ad8ff, #c79bff); }
 
   .tag.t3 { box-shadow: 0 0 0 1.5px rgba(255, 215, 106, .75), 0 0 26px -4px rgba(255, 215, 106, .7), 0 10px 30px -14px rgba(0, 0, 0, .7); }
   .tag.t4 { box-shadow: 0 0 0 2px rgba(255, 223, 130, .95), 0 0 40px -2px rgba(255, 215, 106, .85), 0 10px 30px -14px rgba(0, 0, 0, .7); }
   .tag.t5 { box-shadow: 0 0 0 2px #fff, 0 0 50px 6px rgba(255, 170, 230, .75), 0 10px 30px -14px rgba(0, 0, 0, .7); animation: tagGlow 1.4s ease-in-out infinite; }
+  .tag.rM { box-shadow: 0 0 0 2px #ff8a3d, 0 0 44px 2px rgba(255, 120, 50, .8), 0 10px 30px -14px rgba(0, 0, 0, .7); }
+  .tag.rL { box-shadow: 0 0 0 2px #fff, 0 0 60px 10px rgba(190, 150, 255, .8), 0 10px 30px -14px rgba(0, 0, 0, .7); animation: tagGlow 1.4s ease-in-out infinite; }
+  .tag.rM .rar { color: #ffb27a; } .tag.rL .rar { color: #fff; }
   .tag.t4 .val, .tag.t5 .val { font-size: 27px; }
   @keyframes tagGlow { 50% { box-shadow: 0 0 0 2px #fff, 0 0 70px 14px rgba(140, 220, 255, .8), 0 10px 30px -14px rgba(0, 0, 0, .7); } }
   .banner { position: fixed; left: 50%; top: max(58px, calc(env(safe-area-inset-top) + 50px)); z-index: 9; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center;
@@ -123,6 +131,7 @@
     -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .35)) drop-shadow(0 0 20px rgba(255, 255, 255, .6)); animation: shimmer 1.1s linear infinite; }
   .banner.t5 span { font-size: 40px; }
   .banner.full b { text-shadow: 0 2px 0 rgba(0, 0, 0, .3), 0 0 26px rgba(200, 225, 255, .9); }
+  .banner.misprint b { color: #fff; text-shadow: -3px 0 #ff3d6e, 3px 0 #2fd8ff, 0 2px 0 rgba(0, 0, 0, .35); transform: skewX(-6deg); }
   @keyframes bannerIn { from { opacity: 0; transform: translateX(-50%) scale(.5); } }
   @keyframes bannerOut { to { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.94); } }
   @keyframes shimmer { to { background-position: 200% 0; } }
@@ -195,7 +204,7 @@
 
   /* ---------- the intro: an anime-style trailer the first time a new player opens the game ---------- */
   .hud, .name, .bottom { transition: opacity .5s; }
-  body.intro-on .hud, body.intro-on .name, body.intro-on .bottom, body.intro-on .toast, body.intro-on .nopack { opacity: 0; pointer-events: none; }
+  body.intro-on .hud, body.intro-on .name, body.intro-on .bottom, body.intro-on .toast, body.intro-on .nopack, body.intro-on .tally { opacity: 0; pointer-events: none; }
   body.intro-on .bottom > * { pointer-events: none; }
   .intro { position: fixed; inset: 0; z-index: 60; overflow: hidden; pointer-events: none; color: #fff; transition: opacity .45s;
     font-family: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", Nunito, system-ui, sans-serif; font-weight: 400; }
@@ -213,6 +222,7 @@
   .ol { position: relative; display: inline-block; color: var(--o, #170d26); -webkit-text-stroke: .16em var(--o, #170d26); text-shadow: .06em .08em 0 var(--sh, #ff4d8d); white-space: nowrap; }
   .ol::after { content: attr(data-t); position: absolute; inset: 0; -webkit-text-stroke: 0; text-shadow: none; color: var(--c, #fff); }
   .ol.rainbow::after { color: transparent; background: linear-gradient(90deg, #ff8ad8, #ffe38a, #8affc8, #8ad8ff, #c79bff, #ff8ad8); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; animation: shimmer 1.1s linear infinite; }
+  .ol.fire::after { color: transparent; background: linear-gradient(180deg, #fff6c2 6%, #ffc24a 36%, #ff6a1f 66%, #c2240a 94%); -webkit-background-clip: text; background-clip: text; }
   .ol.gold::after { color: transparent; animation: iShine 2.8s ease-in-out .9s infinite;
     background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .95) 47%, transparent 56%) 150% 0 / 260% 100% no-repeat, linear-gradient(180deg, #fffbe8 6%, #ffe07a 38%, #f2a531 58%, #ffe9a6 90%);
     -webkit-background-clip: text; background-clip: text; }
@@ -395,6 +405,7 @@
       <p><b>Look closer:</b> tap a card after a pack or in your binder. Drag it, or on a phone just tilt the phone, to catch the light on its foil, and tap outside it to put it back.</p>
       <p><b>Sell</b> cards after a pack, or any time from your binder, to buy more packs. Once you could afford ten packs, <b>booster boxes</b> go on sale: ten packs opened at once.</p>
       <p><b>Share a pull:</b> tap a card for a closer look, then <b>Share</b> to send a link to it. Whoever opens the link can admire the card, but it stays yours: it isn't added to their binder, and they can't sell it.</p>
+      <p><b>Mythic rares and legends:</b> now and then one takes a pack's rare slot: a mythic about 1 pack in 50, a legend about 1 in 3,000. They're numbered past the end of their set, always full art and twice as likely to be holo, and legends are the most valuable cards in the game. Your pack's star doesn't give them away until you see the card, and they never count as duplicates.</p>
       <p><b>Expansions:</b> once your binder holds 50 different Around the House cards, the <b>Backyard</b> set unlocks, with packs of its own. Find 38 different Backyard cards and <b>Outer Space</b> opens up.</p>
       <p>Broke? Somebody will always give you a pack.</p>
     </div>

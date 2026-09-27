@@ -4,9 +4,14 @@
 import * as THREE from 'three';
 import { LO, GOLD } from './faces.js';
 import { CARD_W, CARD_H } from './card.js';
-import { money, itemOf, valueOf, HOLO, FULL, VARIANT_NAME } from './store.js';
+import { TEAR_Y, PH } from './pack.js';
+import { money, itemOf, valueOf, HOLO, FULL, MISPRINT, isTop, finishLabel } from './store.js';
 
 const FONT = 'Fredoka, system-ui, sans-serif', BODY = 'Nunito, system-ui, sans-serif';
+// A card dealt from a pack comes all the way out of its top before it comes forward: this far above the pack's top edge
+// (in pack units) at the most, its bottom edge just clear of the torn opening.
+const CLEAR = .15, CARD_S = 1.02, REACH = TEAR_Y + CLEAR + CARD_H * CARD_S - PH / 2;
+const ROW_DEPTH = .35;   // each row of packs sits this much nearer than the row above, so a card pulled out passes in front of it
 
 export class BoxOpening {
   constructor(ctx) {
@@ -22,16 +27,19 @@ export class BoxOpening {
       if (p.state === 'float') { p.group.position.y = Math.sin(performance.now() / 700 + p.k) * .12; }
     }
   }
+  // The packs in a grid, in the band between the round's tally (under the top bar) and the Skip button, with room above
+  // the top row for its cards to come all the way out (so the packs sit a little low in the band).
   grid() {
-    const n = 10, gap = 1, availW = this.view.W * .94, availH = this.VIEW_H * .66;
+    const n = 10, gap = 1, availW = this.view.W * .94, B = this.band(0, 40);
     let best = null;
     for (const cols of [2, 3, 4, 5, 10]) {
-      const rows = Math.ceil(n / cols), s = Math.min(availW / (cols * this.PW + (cols - 1) * gap), availH / (rows * this.PH + (rows - 1) * gap));
+      const rows = Math.ceil(n / cols), s = Math.min(availW / (cols * this.PW + (cols - 1) * gap), B.h / (rows * this.PH + (rows - 1) * gap + REACH));
       if (!best || s > best.s) best = { cols, rows, s };
     }
+    const mid = B.y - REACH * best.s / 2;   // the middle of the rows of packs
     const at = i => {
       const r = Math.floor(i / best.cols), c = i % best.cols, inRow = Math.min(best.cols, n - r * best.cols);
-      return new THREE.Vector3((c - (inRow - 1) / 2) * (this.PW + gap) * best.s, ((best.rows - 1) / 2 - r) * (this.PH + gap) * best.s + (this.view.portrait ? .6 : 0), 0);
+      return new THREE.Vector3((c - (inRow - 1) / 2) * (this.PW + gap) * best.s, mid + ((best.rows - 1) / 2 - r) * (this.PH + gap) * best.s, (r - best.rows + 1) * ROW_DEPTH);
     };
     return { ...best, at };
   }
@@ -138,6 +146,7 @@ export class BoxOpening {
     await sleep(.25);
     // 5. deal: every pack gives up one card per round, all at once
     let revealed = 0, newCount = 0, soldTotal = 0, holos = 0, fulls = 0, total = 0, best = null;
+    const found = { M: 0, L: 0, misprint: 0 };   // mythics, legends and misprints, for the results
     const tallyNow = r => this.tally(`Booster box · round <b>${r}</b>/9 · ${revealed}/90 cards · <b>${newCount}</b> new${soldTotal ? ` · sold ${money(soldTotal, { short: true })}` : ''}`);
     tallyNow(0);
     for (let r = 0; r < 9; r++) {
@@ -145,7 +154,7 @@ export class BoxOpening {
       const round = this.packs3d.map((p, i) => ({ p, c: packs[i][r], res: results[i * 9 + r], e: entries[i * 9 + r] }));
       // wait (briefly) for faces
       for (let w = 0; w < 40 && round.some(x => !x.e.ready); w++) await sleep(.05);
-      const cs = G.s * 1.02;
+      const cs = G.s * CARD_S;
       const cards = round.map(x => {
         const card = this.makeCard(x.c, x.e);
         faces.get(x.c, LO);   // the card holds its own reference; the box keeps one until the end
@@ -159,9 +168,17 @@ export class BoxOpening {
         return card;
       });
       if (!this.fast) sound.slide();
+      // Each comes straight up out of the top of its pack, behind the wrapper, until it's clear of the opening; only then
+      // does it come forward and settle over the pack. It comes forward before it drops, so it never passes back through
+      // the wrapper. (In the time a plain lift took, so it moves a little faster.)
       await Promise.all(cards.map((card, i) => sleep(i * .025).then(() => {
-        const pos = card.pack.holder.position;
-        return moveTo(card.holder, { p: [pos.x, pos.y + (rare ? 1.2 : .9) * G.s * 3, 2 + i * .01] }, rare ? .4 : .26, ease.out);
+        const h = card.holder, pos = card.pack.holder.position, y0 = h.position.y, z0 = h.position.z;
+        const out = pos.y + (TEAR_Y + CLEAR + CARD_H * CARD_S / 2) * G.s, rest = pos.y + (rare ? 1.2 : .9) * G.s * 3, z1 = 2 + i * .01, split = .55;
+        return this.anim(rare ? .4 : .26, (x, k) => {
+          if (k < split) { const u = ease.inOut(k / split); h.position.set(pos.x, y0 + (out - y0) * u, z0); return; }
+          const u = (k - split) / (1 - split);
+          h.position.set(pos.x, out + (rest - out) * u * u * u, z0 + (z1 - z0) * (1 - Math.pow(1 - u, 3)));
+        }, ease.linear);
       })));
       // specials flip over with a flourish, bigger the more they're worth; only the dearest in a round makes a sound
       const specials = cards.filter(c => c.holder.rotation.y !== 0);
@@ -181,7 +198,8 @@ export class BoxOpening {
         }, ease.inOut))));
       }
       // every card worth $250 or more gets pulled out front for a proper show, dearest last; over $1,000 even when skipping
-      const stars = cards.filter(c => { const t = this.tierOf(c.data); return t >= 5 || (t >= 4 && !this.fast); }).sort((a, b) => valueOf(a.data) - valueOf(b.data));
+      // (and every mythic or legend, with its own show, even when skipping)
+      const stars = cards.filter(c => { const t = this.tierOf(c.data); return t >= 5 || (t >= 4 && !this.fast) || isTop(itemOf(c.data)); }).sort((a, b) => valueOf(a.data) - valueOf(b.data));
       for (const star of stars) await this.spotlight(star, this.tierOf(star.data));
       for (const card of cards) {
         const v = valueOf(card.data);
@@ -189,6 +207,8 @@ export class BoxOpening {
         revealed++; total += v;
         if (card.res.isNew) newCount++;
         if (card.data.v & HOLO) holos++;
+        if (isTop(itemOf(card.data))) found[itemOf(card.data).rarity]++;
+        if (card.data.v & MISPRINT) found.misprint++;
         if (card.data.v & FULL) fulls++;
         if (!best || v > best.v) best = { c: card.data, v };
       }
@@ -232,20 +252,31 @@ export class BoxOpening {
       sub: `90 cards from 10 ${set.name} packs, straight into your binder.`,
       stats: [
         ['New cards', newCount], ['Holos', holos], ['Full arts', fulls],
-        ['Best pull', bi ? `${bi.name}${best.c.v & 3 ? ' · ' + VARIANT_NAME[best.c.v & 3] : ''} · ${money(best.v, { short: true })}` : '—'],
+        ...(found.L ? [['Legends', `♛ ${found.L}`]] : []), ...(found.M ? [['Mythic rares', `✸ ${found.M}`]] : []), ...(found.misprint ? [['Misprints', String(found.misprint)]] : []),
+        ['Best pull', bi ? `${bi.name}${finishLabel(best.c.v) ? ' · ' + finishLabel(best.c.v) : ''} · ${money(best.v, { short: true })}` : '—'],
         ['Everything in the box', money(total)], ...(soldTotal ? [['Duplicates sold', '+' + money(soldTotal)]] : []),
       ],
     };
   }
   async spotlight(card, tier) {
-    const { moveTo, ease } = this, h = card.holder;
-    if (tier >= 5) this.setTimeScale(1);
+    const { moveTo, ease } = this, h = card.holder, top = isTop(itemOf(card.data)) ? itemOf(card.data).rarity : null;
+    if (tier >= 5 || top) this.setTimeScale(1);
     const saved = { p: h.position.toArray(), s: h.scale.x, r: [h.rotation.x, h.rotation.y, h.rotation.z] };
     const s = Math.min(.56 * this.VIEW_H / CARD_H, .72 * this.view.W / CARD_W);
     this.sound.whoosh(.7);
     await moveTo(h, { p: [0, .4, 7], s, r: [0, 0, 0] }, .55, ease.out);
     h.updateWorldMatrix(true, false);
-    const fx = this.celebrate(card.data, new THREE.Vector3().applyMatrix4(h.matrixWorld), { linger: true, backZ: 5.5 });
+    const at = new THREE.Vector3().applyMatrix4(h.matrixWorld);
+    if (top) {   // a mythic or a legend: its own show (see fanfare.js), then back to its place
+      this.spot = { card, t: 0 };
+      const fx = this.celebrate(card.data, at, { linger: true, backZ: 5.5, quiet: true, noBanner: true });
+      await this.fanfare().present(card, top, at);
+      this.spot = null; fx.release();
+      await moveTo(h, { p: saved.p, s: saved.s, r: saved.r }, .45, ease.inOut);
+      if (this.fast) this.setTimeScale(10);
+      return;
+    }
+    const fx = this.celebrate(card.data, at, { linger: true, backZ: 5.5 });
     this.hint(tier >= 5 ? 'What a pull! Tap to keep going' : 'Tap to keep going');
     this.spot = { card, t: 0 };
     await this.tapOnce(tier >= 5 ? 8000 : 3500);

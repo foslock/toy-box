@@ -66,6 +66,20 @@ export default set;
 Aim for at least 10 of each so packs don't repeat themselves, and roughly 3 commons : 3 uncommons : 2 rares
 (Around the House has 37 / 34 / 29). An item may set `weight` to override how often it turns up within its rarity.
 
+**Mythic rares and legends.** Past the rares, each set has three mythic rares (`M`) and two legends (`L`): now and then
+one takes the rare's place, a mythic in 1 pack in 50 and a legend in 1 in 3,000 (`MYTHIC_RATE` and `LEGEND_RATE` in
+`../store.js`), with every card of the tier equally likely (`curve` 0). They're always full art and twice as likely to
+be holo as other cards, never count as duplicates, and get their own frames, marks and a show when they're pulled
+(`../fanfare.js`). Price them so the average pack stays about where it was: the legends above every other card in the
+set, since they're rarer than its dearest rare, and the mythics a little above the ordinary rares (Around the House:
+$35 to $55 for mythics, $2,000 and $2,500 for legends). Put them at the end of `LIST`, so they're numbered past the end
+of the set like secret rares (`101/100`).
+
+**Misprints.** Any card can come out of a pack misprinted, 1 in 1,000, for no set's doing: the whole print is shifted
+on the card, differently for every misprint (its offset is kept in the card's variant bits), and it's worth 15 times the
+same card printed right. They're a surprise, so the game doesn't mention them anywhere, and they never count toward
+finding every finish or as duplicates.
+
 **Values.** Card values drive the whole economy. Around the House keeps commons at up to $1 and uncommons at up to
 $10, both bunched toward the cheap end, and lets rares be worth anything ($2 to $1,500), with a pack at $4.99. A pack's
 cards are worth about $21 on average but about $15 at the median, because a few rares are very dear: nearly every pack

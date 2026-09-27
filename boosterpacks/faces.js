@@ -2,10 +2,10 @@
 // that tells the card shader where the holo rainbow (red), metallic foil (green) and etched texture (blue) go.
 // Faces are made on demand, a few per frame, and cached with reference counts.
 import * as THREE from 'three';
-import { HOLO, FULL, RARITY, VARIANT_NAME, money, itemOf } from './store.js';
+import { HOLO, FULL, MISPRINT, RARITY, VARIANT_NAME, money, itemOf, multOf, isTop } from './store.js';
 import { SET_BY_ID } from './sets/index.js';
 import { finishScene } from './sets/house/rooms.js';
-import { hashString } from './kit.js';
+import { hashString, mulberry } from './kit.js';
 
 export const CW = 768, CH = 1072;
 export const HI = 768, LO = 320;                 // face widths in pixels
@@ -23,7 +23,23 @@ export const GOLD = ['#fff3c4', '#e2ae45', '#fff6d6', '#c58a26', '#f7d77c'];
 export const WHITE = ['#ffffff', '#f2f3f5', '#ffffff', '#e9ebef', '#fcfcfd'];
 // A card's border, picture frame and info pill: white for commons, silver for uncommons, gold for rares (and for any
 // holo full art).
-const trim = (item, v, full = false) => item.rarity === 'R' || (full && v & HOLO) ? GOLD : item.rarity === 'U' ? SILVER : WHITE;
+export const MYTHIC = ['#ffe4c9', '#ff7a36', '#fff2e3', '#c83f16', '#ffbd80'];           // fire-gilded orange
+export const LEGEND = ['#fff7fd', '#b99aff', '#ffffff', '#72d6ff', '#ffc8f0', '#fff3a6'];   // opal: every colour at once
+const trim = (item, v, full = false) => item.rarity === 'L' ? LEGEND : item.rarity === 'M' ? MYTHIC
+  : item.rarity === 'R' || (full && v & HOLO) ? GOLD : item.rarity === 'U' ? SILVER : WHITE;
+const PIPS = { C: 1, U: 2, R: 3, M: 3, L: 4 };
+// A card's rarity mark: ● ◆ ★ are type, but a mythic's eight-point star and a legend's crown are drawn, since not every
+// device's fonts have them. x, y: where the type would start, on its baseline.
+export function rarityMark(g, rarity, x, y, size, color) {
+  if (!RARITY[rarity]?.top) { g.fillText(RARITY[rarity].symbol, x, y); return; }
+  const cx = x + size * .5, cy = y - size * .36, s = size * .56;
+  g.save(); g.beginPath();
+  if (rarity === 'M') for (let i = 0; i < 16; i++) { const a = i / 16 * TAU - Math.PI / 2, r = i % 2 ? s * .42 : s; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+  else [[-1, .62], [-1, -.3], [-.5, .12], [0, -.78], [.5, .12], [1, -.3], [1, .62]].forEach(([px, py]) => g.lineTo(cx + px * s, cy + py * s));
+  g.closePath(); g.fillStyle = color; g.fill();
+  g.lineWidth = size * .08; g.strokeStyle = 'rgba(0,0,0,.35)'; g.stroke();
+  g.restore();
+}
 const metal = (g, x0, y0, x1, y1, cols) => lin(g, x0, y0, x1, y1, cols.map((c, i) => [i / (cols.length - 1), c]));
 
 function fitFont(g, text, weight, size, family, maxW, min = size * .55) {
@@ -60,7 +76,7 @@ function houseGlyph(g, x, y, r) {
   g.lineTo(x - r * .7, y + r * .85); g.lineTo(x - r * .7, y - r * .05); g.lineTo(x - r, y - r * .05); g.closePath(); g.fill();
 }
 // The value printed on a card, and the name's font: as big as fits beside it. The foil mask sets the name the same way.
-const valueText = (item, v) => money(item.price * [1, 5, 2, 50][v & 3], { short: true });
+const valueText = (item, v) => money(item.price * multOf(v), { short: true });
 function nameFont(g, item, v) {
   g.font = `700 40px ${FONT}`;
   fitFont(g, item.name, 700, 46, FONT, CW - 104 - g.measureText(valueText(item, v)).width - 30 - 46);
@@ -97,7 +113,7 @@ function stripes(g, w, h, type) {
   g.restore();
 }
 function drawNormal(g, set, item, v, art) {
-  const type = set.types[item.type], rare = item.rarity === 'R', cols = trim(item, v);
+  const type = set.types[item.type], rare = item.rarity === 'R' || isTop(item), cols = trim(item, v);
   // border
   g.fillStyle = metal(g, 0, 0, CW, CH, cols); g.fillRect(0, 0, CW, CH);
   g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2; rr(g, 21, 21, CW - 42, CH - 42, 22); g.stroke();
@@ -130,7 +146,7 @@ function drawNormal(g, set, item, v, art) {
   g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1.5; g.stroke();
   g.fillStyle = INK; g.textAlign = 'center'; fitFont(g, rib.text, 'italic 600', 21, BODY, rib.w - 30); g.fillText(rib.text, CW / 2, 628);
   // move
-  const pips = { C: 1, U: 2, R: 3 }[item.rarity];
+  const pips = PIPS[item.rarity];
   for (let i = 0; i < pips; i++) typeBadge(g, type, 72 + i * 42, 690, 18);
   const nameX = 72 + pips * 42 - 4;
   g.textAlign = 'right'; g.fillStyle = INK; g.font = `700 50px ${FONT}`; g.fillText(String(item.move.power), CW - 50, 708);
@@ -174,12 +190,12 @@ function statRow(g, set, item, y) {
   g.beginPath(); g.moveTo(56, y + 80); g.lineTo(CW - 56, y + 80); g.stroke(); g.globalAlpha = 1;
 }
 function footer(g, set, item, v, y, color, light = false) {
-  const r = RARITY[item.rarity];
   g.textBaseline = 'alphabetic'; g.textAlign = 'left';
   g.font = `900 21px ${BODY}`; g.fillStyle = item.rarity === 'R' ? '#c8901c' : color;
-  g.fillText(r.symbol, 48, y);
+  rarityMark(g, item.rarity, 48, y, 21, item.rarity === 'M' ? '#ff8a3d' : item.rarity === 'L' ? '#ffd76a' : g.fillStyle);
   g.font = `800 17px ${BODY}`; g.fillStyle = color;
-  g.fillText(`${set.code} ${String(item.no).padStart(3, '0')}/${String(set.items.length).padStart(3, '0')}${v & HOLO ? '  ✦ HOLO' : ''}`, 76, y - 1);
+  // (mythics and legends are numbered past the end of the set: 101/100)
+  g.fillText(`${set.code} ${String(item.no).padStart(3, '0')}/${String(set.printed ?? set.items.length).padStart(3, '0')}${v & HOLO ? '  ✦ HOLO' : ''}`, 76, y - 1);
   setSymbol(g, set, CW / 2, y - 8, 10, color);
   g.textAlign = 'right'; g.font = `italic 600 16px ${BODY}`; g.fillStyle = light ? 'rgba(255,255,255,.8)' : 'rgba(29,24,36,.6)';
   g.fillText(`Odds & Ends · ${set.name}`, CW - 48, y - 1);
@@ -187,8 +203,9 @@ function footer(g, set, item, v, y, color, light = false) {
 
 /* ---------- full-art card ---------- */
 function drawFull(g, set, item, v, art) {
-  const type = set.types[item.type], cols = trim(item, v, true);
+  const type = set.types[item.type], cols = trim(item, v, true), top = isTop(item);
   scenePaint(g, set, item, CW, CH, true);
+  if (top) burst(g, item.rarity === 'L');
   if (art) g.drawImage(art, 0, 0, CW, CH);
   // legibility shades top and bottom
   g.fillStyle = lin(g, 0, 0, 0, 260, [[0, 'rgba(10,6,20,.62)'], [1, 'rgba(10,6,20,0)']]); g.fillRect(0, 0, CW, 260);
@@ -209,7 +226,7 @@ function drawFull(g, set, item, v, art) {
   g.fillText(`${type.name.toUpperCase()}  ·  ${RARITY[item.rarity].name.toUpperCase()}${v & HOLO ? '  ·  HOLO' : ''}`, 50, 146);
   g.restore();
   g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 12; g.shadowOffsetY = 4;
-  g.fillStyle = metal(g, tx, ty, tx + tw, ty + 64, GOLD); rr(g, tx, ty, tw, 64, 32); g.fill(); g.restore();
+  g.fillStyle = metal(g, tx, ty, tx + tw, ty + 64, top ? cols : GOLD); rr(g, tx, ty, tw, 64, 32); g.fill(); g.restore();
   g.strokeStyle = 'rgba(120,70,0,.5)'; g.lineWidth = 2; rr(g, tx + 4, ty + 4, tw - 8, 56, 28); g.stroke();
   g.fillStyle = '#3b2600'; g.textAlign = 'center'; g.fillText(value, tx + tw / 2, ty + 46);
   typeBadge(g, type, tx - 38, ty + 32, 26);
@@ -222,7 +239,7 @@ function drawFull(g, set, item, v, art) {
   g.fillStyle = 'rgba(255,255,255,.58)'; g.fillRect(px, py, pw, ph);
   g.restore();
   g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2.5; rr(g, px, py, pw, ph, 22); g.stroke();
-  const pips = { C: 1, U: 2, R: 3 }[item.rarity];
+  const pips = PIPS[item.rarity];
   for (let i = 0; i < pips; i++) typeBadge(g, type, px + 40 + i * 40, py + 44, 17);
   const nameX = px + 40 + pips * 40 - 4;
   g.textAlign = 'right'; g.fillStyle = INK; g.font = `700 46px ${FONT}`; g.fillText(String(item.move.power), px + pw - 26, py + 60);
@@ -233,14 +250,46 @@ function drawFull(g, set, item, v, art) {
   // border
   fullFrame(g); g.fillStyle = metal(g, 0, 0, CW, CH, cols); g.fill('evenodd');
   g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.7)'; rr(g, 22, 22, CW - 44, CH - 44, 17); g.stroke();
+  if (top) ornaments(g, item.rarity === 'L');
   footer(g, set, item, v, CH - 34, '#ffffff', true);
+}
+// Behind a mythic's or a legend's picture: a burst of light rays (fiery for a mythic, every colour for a legend).
+function burst(g, legend) {
+  const cx = CW / 2, cy = CH * .5, n = 28;
+  g.save(); g.globalCompositeOperation = 'screen';
+  for (let i = 0; i < n; i++) {
+    const a0 = i / n * TAU, a1 = a0 + TAU / n * .45;
+    const gr = g.createRadialGradient(cx, cy, 30, cx, cy, CH * .75);
+    const c = legend ? `hsla(${(i * 360 / n * 3) % 360},95%,72%,` : i % 2 ? 'rgba(255,190,90,' : 'rgba(255,120,60,';
+    gr.addColorStop(0, c + '.55)'); gr.addColorStop(.6, c + '.16)'); gr.addColorStop(1, c + '0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, CH, a0, a1); g.closePath(); g.fill();
+  }
+  const glow = g.createRadialGradient(cx, cy, 0, cx, cy, CW * .55);
+  glow.addColorStop(0, legend ? 'rgba(255,255,255,.55)' : 'rgba(255,220,170,.5)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, CW, CH);
+  g.restore();
+}
+// A second, inner frame line in the rarity's metal, with a jewel at each corner.
+function ornaments(g, legend) {
+  const cols = legend ? LEGEND : MYTHIC, gem = legend ? ['#ffffff', '#c9b3ff', '#6fd4ff'] : ['#fff1d6', '#ff6a2a', '#9e2a0c'];
+  g.save();
+  g.lineWidth = 4; g.strokeStyle = metal(g, 0, 0, CW, CH, cols); rr(g, 30, 30, CW - 60, CH - 60, 14); g.stroke();
+  for (const [x, y] of [[30, 30], [CW - 30, 30], [30, CH - 30], [CW - 30, CH - 30]]) {
+    g.save(); g.translate(x, y); g.rotate(Math.PI / 4);
+    g.fillStyle = metal(g, -13, -13, 13, 13, cols); g.fillRect(-13, -13, 26, 26);
+    const jr = g.createRadialGradient(-3, -3, 1, 0, 0, 9); gem.forEach((c, i) => jr.addColorStop(i / (gem.length - 1), c));
+    g.fillStyle = jr; g.fillRect(-8, -8, 16, 16);
+    g.lineWidth = 1.5; g.strokeStyle = 'rgba(0,0,0,.35)'; g.strokeRect(-13, -13, 26, 26);
+    g.restore();
+  }
+  g.restore();
 }
 
 /* ---------- foil masks ---------- */
 const MW = 256, MH = Math.round(256 * CH / CW);
 function layer() { const c = document.createElement('canvas'); c.width = MW; c.height = MH; const g = c.getContext('2d'); g.scale(MW / CW, MH / CH); return [c, g]; }
 function drawMask(set, item, v, art) {
-  const full = v & FULL, holo = v & HOLO, rare = item.rarity === 'R';
+  const full = v & FULL, holo = v & HOLO, rare = item.rarity === 'R' || isTop(item);
   const [R, r] = layer(), [G, gg] = layer(), [B, b] = layer();
   r.fillStyle = gg.fillStyle = b.fillStyle = '#fff';
   if (full) {
@@ -254,6 +303,7 @@ function drawMask(set, item, v, art) {
     }
     b.fillRect(0, 0, CW, CH); b.globalCompositeOperation = 'destination-out'; rr(b, 34, 818, CW - 68, 190, 22); b.fill();
     fullFrame(gg); gg.fill('evenodd');
+    if (isTop(item) && !holo) { fullFrame(r); r.fill('evenodd'); }   // a mythic's or legend's frame is always foil
   } else {
     if (holo) {
       r.globalAlpha = .16; r.fillRect(22, 22, CW - 44, CH - 44); r.globalAlpha = 1;
@@ -279,10 +329,10 @@ function drawMask(set, item, v, art) {
 }
 // How strong each foil is for a card: [holo, metal, etch, glitter]
 export function foilFor(item, v) {
-  const rare = item.rarity === 'R';
-  if ((v & 3) === 3) return [1.15, .9, .7, 1.25];
+  const rare = item.rarity === 'R' || isTop(item), legend = item.rarity === 'L';
+  if ((v & 3) === 3) return isTop(item) ? [1.3, 1.1, .8, 1.7] : [1.15, .9, .7, 1.25];
   if (v & HOLO) return [1, rare ? 1 : .7, 0, 1];
-  if (v & FULL) return [0, rare ? 1 : .8, 1, .4];
+  if (v & FULL) return isTop(item) ? [legend ? .95 : .6, 1.15, 1, legend ? 1.3 : .8] : [0, rare ? 1 : .8, 1, .4];
   return [0, rare ? 1 : item.rarity === 'U' ? .55 : 0, 0, 0];
 }
 
@@ -382,7 +432,32 @@ export function composeFace(studio, card, width = HI) {
   const art = studio.art(set, item, full ? 'full' : 'art', artW, artH);
   if (full) drawFull(g, set, item, card.v, art); else drawNormal(g, set, item, card.v, art);
   const mask = drawMask(set, item, card.v, art);
+  if (card.v & MISPRINT) { const m = misprintOf(card.v >> 3); misprint(canvas, m, true); misprint(mask, m, false); }
   return { canvas, mask, foil: foilFor(item, card.v) };
+}
+// A misprint: the sheet slipped in the press, so the whole print sits off-centre on the card (a sliver of the next card
+// on the sheet shows along an edge or two, across the gutter between them), and the second pass of ink landed a little
+// out of register. How far and which way comes from the misprint's own number (1–255): always the same for that card,
+// and never quite like another.
+function misprintOf(n) {
+  const R = mulberry(Math.imul(n, 2654435761) ^ 0x5eed), a = R() * TAU, far = .045 + R() * .075;
+  return { x: Math.cos(a) * far, y: Math.sin(a) * far * .7, gx: (R() < .5 ? -1 : 1) * (.005 + R() * .008), gy: (R() - .5) * .01 };
+}
+function misprint(c, m, ink) {
+  const w = c.width, h = c.height, copy = document.createElement('canvas');
+  copy.width = w; copy.height = h; copy.getContext('2d').drawImage(c, 0, 0);
+  const g = c.getContext('2d');
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = ink ? '#f2eee4' : '#000'; g.fillRect(0, 0, w, h);   // bare card stock (no foil on it)
+  const dx = Math.round(m.x * w), dy = Math.round(m.y * h), gut = Math.round(w * .028);
+  const tiles = (ox, oy) => { for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) g.drawImage(copy, dx + ox + i * (w + gut), dy + oy + j * (h + gut)); };
+  tiles(0, 0);
+  if (ink) {   // the off-register pass: a faint second print, a hair off, doubling every edge
+    g.globalCompositeOperation = 'multiply'; g.globalAlpha = .2;
+    tiles(Math.round(m.gx * w), Math.round(m.gy * h));
+  }
+  g.restore();
+  copy.width = copy.height = 1;
 }
 
 export class FaceCache {

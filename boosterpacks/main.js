@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { SETS, SET_BY_ID, READY } from './sets/index.js';
 import * as store from './store.js';
-import { S, money, RARITY, VARIANT_NAME, HOLO, FULL, MULT, SLOTS, itemOf, valueOf, cardKey } from './store.js';
+import { S, money, RARITY, HOLO, FULL, MISPRINT, SLOTS, itemOf, valueOf, cardKey, multOf, finishLabel, isTop } from './store.js';
 import { Studio } from './studio.js';
 import { FaceCache, HI, LO, artSize } from './faces.js';
 import { Card, CARD_W, CARD_H, cardTime } from './card.js';
@@ -16,6 +16,7 @@ import { PhoneTilt } from './motion.js';
 import { seal, unseal } from './share.js';
 import { Intro } from './intro.js';
 import { Coach } from './coach.js';
+import { Fanfare } from './fanfare.js';
 
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -32,7 +33,8 @@ const ease = {
   inOut: x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
   back: x => { const c = 1.5; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); },
 };
-const isSpecial = c => (c.v & 3) !== 0 || itemOf(c)?.rarity === 'R';
+const isSpecial = c => (c.v & 3) !== 0 || itemOf(c)?.rarity === 'R' || isTop(itemOf(c));
+const topOf = c => (isTop(itemOf(c)) ? itemOf(c).rarity : null);   // 'M' or 'L' for a mythic or a legend
 const specialKind = c => ((c.v & 3) === 3 ? 'both' : c.v & HOLO ? 'holo' : c.v & FULL ? 'full' : 'rare');
 const AURA = { rare: '#ffcf5a', holo: '#ff8ae0', full: '#dff1ff', both: '#ffffff' };
 
@@ -301,7 +303,7 @@ async function fadeAway(card, delay = 0) {
 // card isn't added to their collection, and they can't sell it.
 function shareLink(c) { const u = new URL(location.pathname, location.origin); u.searchParams.set('card', seal(c)); return u.href; }
 async function shareCard(c) {
-  const item = itemOf(c), url = shareLink(c), what = `${c.v & 3 ? VARIANT_NAME[c.v & 3] + ' ' : ''}${item.name}`;
+  const item = itemOf(c), url = shareLink(c), what = `${finishLabel(c.v) ? finishLabel(c.v) + ' ' : ''}${item.name}`;
   const text = `I pulled ${/^[aeiou]/i.test(what) ? 'an' : 'a'} ${what}, worth ${money(valueOf(c))}, in Odds & Ends!`;
   sound.click();
   if (navigator.share) {   // phones: the share sheet
@@ -324,7 +326,7 @@ async function showShared(token) {
   h.position.set(0, -VIEW_H * .9, 2); h.rotation.set(-.4, 0, .1);   // it rises from below the screen, and sinks back after
   stage.add(h);
   const item = itemOf(c);
-  live(`Shared with you: ${c.v & 3 ? VARIANT_NAME[c.v & 3] + ' ' : ''}${item.name}, worth ${money(valueOf(c))}.`);
+  live(`Shared with you: ${finishLabel(c.v) ? finishLabel(c.v) + ' ' : ''}${item.name}, worth ${money(valueOf(c))}.`);
   const invite = introDue();
   if (invite) { intro = newIntro(); setTimeout(() => intro?.prepare(), 1200); }   // once the card has come up
   const result = await inspect(card, { from: 'shared', invite });
@@ -485,7 +487,7 @@ function celebrate(c, at, o = {}) {
         sound.firework();
       }, 350 + i * 420);
     }
-    if (tier >= 3) { showBanner(c, tier, kind); banner = true; }
+    if ((tier >= 3 || c.v & MISPRINT) && !o.noBanner) { showBanner(c, tier, kind); banner = true; }
   }
   const release = () => { released = true; if (banner) { banner = false; hideBanner(); } };
   if (!o.linger) setTimeout(release, 1600 + tier * 500);
@@ -496,14 +498,15 @@ let bannerTimer = 0;
 function showBanner(c, tier, kind) {
   const el = $('banner'), v = valueOf(c);
   clearInterval(bannerTimer);
-  el.className = `banner t${tier} ${kind}`; el.hidden = false;
-  $('bannerTitle').textContent = HEADLINE[tier];
-  $('bannerSub').textContent = [FINISH_NAME[kind], itemOf(c).name].filter(Boolean).join(' · ');
+  const misprint = c.v & MISPRINT, head = misprint ? 'MISPRINT!' : HEADLINE[tier];
+  el.className = `banner t${Math.max(3, tier)} ${kind}${misprint ? ' misprint' : ''}`; el.hidden = false;
+  $('bannerTitle').textContent = head;
+  $('bannerSub').textContent = [finishLabel(c.v) || FINISH_NAME[kind], itemOf(c).name].filter(Boolean).join(' · ');
   const t0 = performance.now(), dur = tier >= 5 ? 1800 : 900;
   const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 3); $('bannerValue').textContent = money(Math.round(v * e)); if (k >= 1) clearInterval(bannerTimer); };
   tick(); bannerTimer = setInterval(tick, 33);
   $('tally').style.visibility = 'hidden';
-  live(`${HEADLINE[tier]} ${itemOf(c).name}, worth ${money(v)}.`);
+  live(`${head} ${itemOf(c).name}, worth ${money(v)}.`);
 }
 function hideBanner() { $('banner').classList.add('out'); setTimeout(() => { if ($('banner').classList.contains('out')) $('banner').hidden = true; }, 400); $('tally').style.visibility = ''; }
 
@@ -851,14 +854,15 @@ function revealLayout() {
 let tagEl = null, tagFor = null;
 function showTag(card, stackGroup) {
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
-  const v = valueOf(c), mult = MULT[c.v & 3];
-  const badges = [card.result.isNew ? '<span class="badge new">NEW</span>' : '', c.v & HOLO ? '<span class="badge holo">HOLO</span>' : '', c.v & FULL ? '<span class="badge full">FULL ART</span>' : '', !card.result.isNew ? '<span class="badge dupe">DUPLICATE</span>' : ''].join('');
+  const v = valueOf(c), mult = multOf(c.v);
+  const badges = [card.result.isNew ? '<span class="badge new">NEW</span>' : '', c.v & HOLO ? '<span class="badge holo">HOLO</span>' : '', c.v & FULL ? '<span class="badge full">FULL ART</span>' : '',
+    c.v & MISPRINT ? '<span class="badge misprint">MISPRINT</span>' : '', card.result.dupe ? '<span class="badge dupe">DUPLICATE</span>' : ''].join('');
   if (!tagEl) { tagEl = document.createElement('div'); $('tags').append(tagEl); }
-  tagEl.className = `tag glass t${tierOf(c)} ${finishOf(c)}`;
+  tagEl.className = `tag glass t${tierOf(c)} ${finishOf(c)} r${item.rarity}`;
   tagEl.innerHTML = `<span class="rar">${r.symbol} ${r.name} · ${set.types[item.type].name}</span><span class="nm">${item.name}${badges}</span><span class="val">${mult > 1 ? `<s>${money(item.price, { short: true })}</s>` : ''}${money(v, { short: true })}${mult > 1 ? ` <small>${mult}×</small>` : ''}</span>`;
   tagEl.style.opacity = 1;
   tagFor = { card, stackGroup };
-  live(`${r.name}${c.v & 3 ? ' ' + VARIANT_NAME[c.v & 3] : ''}: ${item.name}, worth ${money(v)}${card.result.isNew ? '. New!' : ''}`);
+  live(`${r.name}${finishLabel(c.v) ? ' ' + finishLabel(c.v) : ''}: ${item.name}, worth ${money(v)}${card.result.isNew ? '. New!' : ''}`);
 }
 function hideTag() { if (tagEl) tagEl.style.opacity = 0; tagFor = null; }
 function placeTag() {
@@ -869,10 +873,12 @@ function placeTag() {
   tagEl.style.left = p.x + 'px'; tagEl.style.top = Math.min(innerHeight - 150, p.y + 12) + 'px';
 }
 let packTotal = 0, revealed = 0;
-// One mark per card in the pack, shaped like its rarity's symbol on the cards: ● common, ◆ uncommon, ★ rare.
+// One mark per card in the pack, shaped like its rarity's symbol on the cards: ● common, ◆ uncommon, ★ rare. The rare's
+// star turns into a mythic's or a legend's mark only once that card has been shown.
 const PACK_RARITIES = SLOTS.flatMap(([r, n]) => Array(n).fill(r));
+let packMarks = PACK_RARITIES.slice();
 function tally() {
-  const dots = PACK_RARITIES.map((r, i) => `<i class="${r}${i < revealed ? ' on' : ''}"></i>`).join('');
+  const dots = packMarks.map((r, i) => `<i class="${r}${i < revealed ? ' on' : ''}"></i>`).join('');
   $('tally').innerHTML = `Pack value <b>${money(packTotal)}</b><span class="dots">${dots}</span>`;
   $('tally').hidden = false;
 }
@@ -883,7 +889,8 @@ async function reveal(cards, stack, set, from = 0) {
   const skip = () => { skipping = true; timeScale = 6; setActions([]); hint(''); waiting?.(-1); };
   if (S.opened > 1) setActions([{ label: 'Skip to the end', cls: 'ghost glass', onClick: skip }]);
   const L = revealLayout();
-  revealed = from; packTotal = cards.slice(0, from).reduce((t, c) => t + valueOf(c.data), 0); tally();
+  revealed = from; packTotal = cards.slice(0, from).reduce((t, c) => t + valueOf(c.data), 0);
+  packMarks = PACK_RARITIES.map((r, i) => (i < from ? itemOf(cards[i].data)?.rarity ?? r : r)); tally();
   await moveTo(stack, { p: [0, L.y, 2], s: L.s, r: [0, 0, 0] }, .55, ease.inOut);
   layoutChanged = () => { const L2 = revealLayout(); stack.scale.setScalar(L2.s); stack.position.y = L2.y; };
   const order = cards.slice();
@@ -911,9 +918,9 @@ async function reveal(cards, stack, set, from = 0) {
       timeScale = was;
     } else {
       if (i === 0) sound.pop();
-      if (tier >= 2) { card.holder.updateWorldMatrix(true, false); stack.updateWorldMatrix(true, false); card.fx = celebrate(card.data, V().applyMatrix4(card.holder.matrixWorld), { mini: true, backZ: V().applyMatrix4(stack.matrixWorld).z - .8 }); }
+      if (tier >= 2 || card.data.v & MISPRINT) { card.holder.updateWorldMatrix(true, false); stack.updateWorldMatrix(true, false); card.fx = celebrate(card.data, V().applyMatrix4(card.holder.matrixWorld), { mini: !(card.data.v & MISPRINT), backZ: V().applyMatrix4(stack.matrixWorld).z - .8 }); }
     }
-    revealed = i + 1; packTotal += valueOf(card.data); tally();
+    revealed = i + 1; packTotal += valueOf(card.data); packMarks[i] = itemOf(card.data).rarity; tally();
     showTag(card, stack);
     if (last) {
       guide('all', 'Tap for a look at all nine', 900, { kind: 'tap', at: () => screenOf(card.holder) });
@@ -1020,11 +1027,12 @@ async function flingAway(card, stack, dir) {
   card.gone = dir;
 }
 async function flipUp(card, stack, kind, tier) {
-  const h = card.holder, big = tier >= 4, jackpot = tier >= 5;
+  const top = topOf(card.data), h = card.holder, big = tier >= 4, jackpot = tier >= 5 || !!top;
   card.flipping = true; card.mesh.position.set(0, 0, 0);
   const aura = card.aura?.userData;
   if (aura) { aura.rimTarget = 0; aura.flareTarget = .2 + tier * .06; }
-  if (big) {   // the wind-up: it shivers and pulls back, with a drum roll for a jackpot
+  if (top) await fanfare().windUp(card, top);   // a mythic or a legend: a build-up of its own (see fanfare.js)
+  else if (big) {   // the wind-up: it shivers and pulls back, with a drum roll for a jackpot
     if (jackpot) sound.drumroll(1.35); else sound.swell(.7);
     const z1 = h.position.z;
     await anim(jackpot ? 1.3 : .6, (x, k) => {
@@ -1039,14 +1047,16 @@ async function flipUp(card, stack, kind, tier) {
   const z0 = h.position.z, turns = jackpot ? 1 : 0, sweep = Math.PI + turns * Math.PI * 2;
   const reveal = 1 - (Math.PI / 2) / sweep;   // the point in the turn where the face comes round for good
   let fx = null;
-  await anim([.62, .62, .7, .8, 1, 1.5][tier], (x, k) => {
+  await anim(top ? Math.max(1.1, [.62, .62, .7, .8, 1, 1.5][tier]) : [.62, .62, .7, .8, 1, 1.5][tier], (x, k) => {
     h.rotation.y = Math.PI - x * sweep;
     h.position.z = z0 + Math.sin(k * Math.PI) * (3 + tier * .45);
     h.scale.setScalar(1 + Math.sin(k * Math.PI) * (.1 + tier * .03));
     if (!fx && x > reveal) {
       card.faceDown = false;
       h.updateWorldMatrix(true, false);
-      fx = celebrate(card.data, V().applyMatrix4(h.matrixWorld), { linger: tier >= 4, backZ });
+      const at = V().applyMatrix4(h.matrixWorld);
+      fx = celebrate(card.data, at, { linger: tier >= 4 || !!top, backZ, quiet: !!top, noBanner: !!top });
+      if (top) fanfare().hit(card, top, at);
       card.flash = .25 + tier * .05;
     }
   }, ease.inOut);
@@ -1054,10 +1064,18 @@ async function flipUp(card, stack, kind, tier) {
   card.flipping = false; card.fx = fx;
   anim(.45, x => { card.flash = (.25 + tier * .05) * (1 - x); }, ease.out);
   if (aura) { aura.target = 0; aura.flareTarget = 0; }
+  const show = top ? fanfare().finish(card, top) : null;   // (its name and price come in while it turns)
   if (kind !== 'rare' || tier >= 3) {   // tilt it about so the foil shows off
     await anim(1.2 + tier * .15, (x, k) => { h.rotation.y = Math.sin(k * Math.PI * 2) * .38 * (1 - k * .6); h.rotation.x = Math.sin(k * Math.PI * 3) * .12 * (1 - k); }, ease.linear);
   }
   h.rotation.set(0, 0, h.rotation.z);
+  await show;
+}
+// The mythic and legend shows, made the first time one is pulled.
+let fanfareShow = null;
+function fanfare() {
+  return fanfareShow ??= new Fanfare({ scene, cam, shake: v => { shake = Math.max(shake, v); }, tickers, sound, particles, backdrop, flashBackdrop, makeRays, makeRing,
+    anim, sleep, ease, view, VIEW_H, toScreen, REDUCED, live });
 }
 let flash = 0;
 function flashBackdrop(amount, color = '#ffd76a') { flash = Math.max(flash, amount); backdrop.uniforms.uGlowColor.value.set(color); }
@@ -1263,7 +1281,7 @@ async function inspect(card, o = {}) {
   scene.attach(h);
   const c = card.data, item = itemOf(c), r = RARITY[item.rarity], set = SET_BY_ID[c.set];
   const shared = o.from === 'shared';   // someone else's card, from a link: just for looking (no selling, no sharing on)
-  $('inName').innerHTML = `${item.name}${c.v & HOLO ? '<span class="badge holo">HOLO</span>' : ''}${c.v & FULL ? '<span class="badge full">FULL ART</span>' : ''}`;
+  $('inName').innerHTML = `${item.name}${c.v & HOLO ? '<span class="badge holo">HOLO</span>' : ''}${c.v & FULL ? '<span class="badge full">FULL ART</span>' : ''}${c.v & MISPRINT ? '<span class="badge misprint">MISPRINT</span>' : ''}`;
   const copies = shared ? 0 : store.copies(cardKey(c));
   $('inSub').textContent = `${r.symbol} ${r.name} · ${set.types[item.type].name} · No. ${String(item.no).padStart(3, '0')} · ${set.name}${copies > 1 ? ` · you have ${copies}` : ''}`;
   $('inVal').textContent = money(valueOf(c));
@@ -1380,9 +1398,9 @@ async function playBox(set, packs, results) {
   mode = 'box'; handler = null; setActions([]); hint(''); $('sets').hidden = true; $('binderBtn').disabled = true;
   updateCount();
   results.forEach((r, i) => { r.i = i; r.sold = !!S.opening?.sold?.[i]; });
-  const box = new BoxOpening({ THREE, set, packs, results, stage, faces, makeCard, disposeCard, anim, sleep, moveTo, ease, sound, particles, view, VIEW_H, wrapperPrints, Pack, PW, PH,
+  const box = new BoxOpening({ THREE, set, packs, results, stage, faces, makeCard, disposeCard, anim, sleep, moveTo, ease, sound, particles, view, VIEW_H, band, wrapperPrints, Pack, PW, PH,
     celebrate, tierOf, tapOnce, payout, stampSold, fadeAway, binderWorld, flashBackdrop, setActions, hint, tally: html => { $('tally').innerHTML = html; $('tally').hidden = !html; },
-    autoSell: S.settings.autoSell, sell: (key, i) => { const v = store.sell(key); if (S.opening?.kind === 'box') S.opening.sold[i] = 1; updateCount(); return v; }, updateCount, setTimeScale: s => { timeScale = s; }, setFaceBudget: ms => { faceBudget = ms; }, V });
+    fanfare, autoSell: S.settings.autoSell, sell: (key, i) => { const v = store.sell(key); if (S.opening?.kind === 'box') S.opening.sold[i] = 1; updateCount(); return v; }, updateCount, setTimeScale: s => { timeScale = s; }, setFaceBudget: ms => { faceBudget = ms; }, V });
   tickers.add(dt => { box.update(dt); return mode === 'box'; });
   const summary = await box.run();
   S.opening = null; store.save(true);
@@ -1561,7 +1579,7 @@ function openMenu() {
     ['Cards in binder', st.count.toLocaleString('en-US')],
     ...st.perSet.map(p => { if (store.isUnlocked(p.set)) return [`${p.set.name} found`, `${p.found} / ${p.total}`]; const u = store.unlockProgress(p.set); return [p.set.name, `🔒 ${u.have}/${u.need} ${u.from.name}`]; }),
     ['Binder is worth', money(st.value)], ['Cards sold', S.stats.sold.toLocaleString('en-US')], ['Earned from sales', money(S.stats.earned)],
-    ['Free packs', String(S.stats.donated)], ['Best pull', bi ? `${bi.name}${best.v & 3 ? ' (' + VARIANT_NAME[best.v & 3] + ')' : ''} · ${money(S.stats.bestValue, { short: true })}` : '—'],
+    ['Free packs', String(S.stats.donated)], ['Best pull', bi ? `${bi.name}${finishLabel(best.v) ? ' (' + finishLabel(best.v) + ')' : ''} · ${money(S.stats.bestValue, { short: true })}` : '—'],
   ].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
   $('closeMenu').focus();
 }
@@ -1695,8 +1713,8 @@ function warmFirst(set) {
 }
 function warmOne() {
   if (!warmQueue.length || faces.pending()) return;
-  const [set, item] = warmQueue.shift(), [w, h] = artSize(LO, false);
-  if (!studio.has(set, item, 'art', w, h)) studio.art(set, item, 'art', w, h);
+  const [set, item] = warmQueue.shift(), full = isTop(item), [w, h] = artSize(LO, full);   // (mythics and legends are only ever full art)
+  if (!studio.has(set, item, full ? 'full' : 'art', w, h)) studio.art(set, item, full ? 'full' : 'art', w, h);
 }
 
 /* ---------- start ---------- */

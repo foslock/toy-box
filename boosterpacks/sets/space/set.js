@@ -59,6 +59,12 @@ const LIST = [
   ['sun', 'The Sun', 'stars', 'R', 10.80, ['Solar Flare', 140, 'Do 20 damage to every item in play. Wear sunscreen.'], 'Our star: big enough to hold a million Earths, and eight minutes away at the speed of light.', 'Ø 865,000 mi · 8 light-min'],
   ['blackhole', 'Black Hole', 'stars', 'R', 2700, ['Event Horizon', 250, 'Put your opponent’s item on the bottom of their deck. Nothing gets out.'], 'So heavy that not even light can leave. Please keep your hands inside the card.', 'Mass of 4 million Suns'],
   ['galaxy', 'Spiral Galaxy', 'stars', 'R', 9.00, ['Pinwheel', 140, 'Each player shuffles their hand into their deck and draws 4.'], 'Two hundred billion stars, all turning around a very heavy middle.', '100,000 light-years · 200 billion stars'],
+  // ---- mythic rares and legends: numbered past the end of the set, like secret rares ----
+  ['greatcomet', 'Great Comet', 'rocks', 'M', 48, ['Blazing Tail', 230, 'Do 40 damage to every item in play. Comes back in 76 years.'], 'A dirty snowball with a tail a hundred million miles long. Make a wish.', 'Ø 6 mi · 100M-mi tail'],
+  ['goldenrecord', 'Golden Record', 'launch', 'M', 60, ['Greetings', 220, 'Play every sound of Earth at once. Any item that understands it may join your side.'], 'Sounds of Earth, sent to whoever finds it first. The needle is included.', 'Ø 12 in · gold-plated'],
+  ['nebula', 'Nebula', 'stars', 'M', 78, ['Star Nursery', 240, 'Put 3 new items into play. They’ll shine in a million years.'], 'A cloud of glowing gas where stars are born, light-years tall and softer than it looks.', '5 light-years · stars forming'],
+  ['wormhole', 'Wormhole', 'worlds', 'L', 3200, ['Shortcut', 320, 'Swap this item with any card in either deck. It arrives before it left.'], 'A tunnel through space and time. The other end opens next Tuesday.', 'Ø 1 mi · both ends'],
+  ['supernova', 'Supernova', 'stars', 'L', 4000, ['Final Blaze', 350, 'Do 999 damage to everything. Briefly outshines the whole galaxy.'], 'A star going out with the biggest bang since the first one. Visible in daylight, for a while.', 'Ø 10B mi and growing'],
 ];
 
 // The dearest rares turn up one pack in this many; every other rare shares the rest equally.
@@ -72,7 +78,7 @@ const set = {
   code: 'SPC',
   price: 899,
   boxPrice: 6999,
-  curve: { C: .35, U: .55, R: 0 },
+  curve: { C: .35, U: .55, R: 0, M: 0, L: 0 },
   types: TYPES,
   typeLabel: 'Sector',
   symbol: planet,                      // a ringed planet in each card's footer
