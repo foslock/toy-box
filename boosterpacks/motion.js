@@ -1,7 +1,7 @@
-// Tilting a phone turns a zoomed-in card. The card seems to hold still while the phone tilts around it, as if you
-// were looking at a real card from a new angle, so its foil catches the light. The angles come from the phone's
-// orientation sensor, measured from how it was held when the card came up, and they ease back to the middle if the
-// phone stays tilted, so a card never ends up stuck on its side.
+// Tilting a phone turns the card (or pack) on show the same way, as if it were in your hand and you were tilting it,
+// so its foil catches the light. The angles come from the phone's orientation sensor, measured from how it was held
+// when the card came up, and they ease back to the middle if the phone stays tilted, so a card never ends up stuck on
+// its side.
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180, OUT = new THREE.Vector3(0, 0, 1);
@@ -55,12 +55,14 @@ export class PhoneTilt {
   update(dt) {
     if (!this.live) return;
     this.base.slerp(this.now, 1 - Math.exp(-dt / 3));   // the middle drifts to however the phone is held now
-    // where a card that stayed put (facing the phone as it was) faces now, in the phone's axes, then the screen's
+    // where a card that stayed put (facing the phone as it was) faces now, in the phone's axes, then the screen's…
     rel.copy(this.now).invert().multiply(this.base);
     n.copy(OUT).applyQuaternion(rel);
     const a = -(screen.orientation?.angle ?? window.orientation ?? 0) * DEG, c = Math.cos(a), s = Math.sin(a);
     const sx = n.x * c - n.y * s, sy = n.x * s + n.y * c;
-    const x = Math.atan2(-sy, n.z), y = Math.asin(Math.max(-1, Math.min(1, sx)));
+    // …and the card turns the other way from that: with the phone, not against it (top edge tipped toward you, the
+    // card's top comes toward you too; right edge away, the card's right edge goes away)
+    const x = Math.atan2(sy, n.z), y = -Math.asin(Math.max(-1, Math.min(1, sx)));
     if (Math.hypot(x - this.x, y - this.y) > .15 * Math.max(dt, .001)) this.movedAt = performance.now();
     this.x = x; this.y = y;
   }

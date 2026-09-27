@@ -947,8 +947,8 @@ async function reveal(cards, stack, set, from = 0) {
 // How far a card's corners swing forward or back when it's turned by x and y: half its height times sin x, plus half
 // its width times sin y.
 const swing = (x, y) => CARD_H / 2 * Math.abs(Math.sin(x)) + CARD_W / 2 * Math.abs(Math.sin(y));
-// The card on top, while it's revealed: it sways a little so its foil catches the light, or on a phone holds still in
-// space as the phone tilts (a finger on it holds it where it is). Face down, the up-down tilt is mirrored, since the card
+// The card on top, while it's revealed: it sways a little so its foil catches the light, or on a phone turns with the
+// phone as it's tilted (a finger on it holds it where it is). Face down, the up-down tilt is mirrored, since the card
 // is turned over; while it flips it eases flat. Returns a function that stops it.
 function cardTilt(card) {
   let on = true;
@@ -1639,7 +1639,7 @@ function frame(now) {
       for (let i = 0; i < Math.min(4, moved * 30); i++) particles.spawn({ p, v: V((Math.random() - .5) * 4, 2 + Math.random() * 4, 2 + Math.random() * 2), life: .5 + Math.random() * .4, size: .3 + Math.random() * .3, color: Math.random() < .5 ? '#fff6d0' : '#ffd76a', gravity: -8 });
     }
     if (pack.detached && !pack.tornFired) { pack.tornFired = true; pack.onTorn(); }
-    // it leans toward the pointer, or (on a phone) holds still in space as the phone tilts, catching the light;
+    // it leans toward the pointer, or (on a phone) turns with the phone as it's tilted, catching the light;
     // a finger on it holds it where it is
     const gyro = phoneTilt.live && (pack.state === 'open' || (pack.state === 'idle' && !pack.dir));
     const hoverTilt = !TOUCH && pointer.over && pack.state === 'idle' ? V(-pointer.ndc.y * .22, pointer.ndc.x * .3, 0) : V();
