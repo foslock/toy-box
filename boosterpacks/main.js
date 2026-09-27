@@ -1,5 +1,5 @@
-// Booster Packs: tear open packs of trading cards, flip through them, sell what you don't want and keep the rest in
-// a binder. Cards are household things priced like the real thing; holos and full arts are worth more.
+// Odds & Ends, a trading card game: tear open booster packs, flip through the cards, sell what you don't want and keep
+// the rest in a binder. Cards are household things priced like the real thing; holos and full arts are worth more.
 import * as THREE from 'three';
 import { SETS, SET_BY_ID, READY } from './sets/index.js';
 import * as store from './store.js';
@@ -14,6 +14,8 @@ import { Binder } from './binder.js';
 import { BoxOpening } from './box.js';
 import { PhoneTilt } from './motion.js';
 import { seal, unseal } from './share.js';
+import { Intro } from './intro.js';
+import { Coach } from './coach.js';
 
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
@@ -48,6 +50,7 @@ const VIEW_H = 20, FOV = 30;
 const CAM_Z = VIEW_H / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 const camera = new THREE.PerspectiveCamera(FOV, 1, .5, 400);
 camera.position.set(0, 0, CAM_Z);
+const cam = { zoom: 0, roll: 0 };   // the intro pushes in and tilts the camera
 scene.environment = foilEnvironment(renderer);
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.3); keyLight.position.set(-6, 9, 14);
 scene.add(keyLight, new THREE.AmbientLight(0xffffff, .3));
@@ -56,6 +59,8 @@ const particles = new Particles(); scene.add(particles.object);
 const stage = new THREE.Group(); scene.add(stage);
 const studio = new Studio();
 const faces = new FaceCache(renderer, studio);
+if (TOUCH) { studio.cacheMax = 8; studio.smallMax = 100; faces.max[HI] = 8; }   // a phone holds fewer pictures in memory
+let faceBudget = 0;   // ms a frame spends drawing card faces when something asks for more than usual (see buyBox)
 const sound = new Sound();
 sound.enabled = S.settings.sound && !DEMO;
 const view = { W: VIEW_H, H: VIEW_H, aspect: 1, px: 1, portrait: false };
@@ -189,12 +194,31 @@ addEventListener('keydown', e => {
 /* ---------- DOM helpers ---------- */
 const live = t => { $('live').textContent = ''; setTimeout(() => { $('live').textContent = t; }, 30); };
 let hintTimer = 0;
-function hint(html, delay = 0) {
+// gesture: while the walkthrough is on, a hand showing the move (see Coach.show); it goes with the next hint
+function hint(html, delay = 0, gesture = null) {
   clearTimeout(hintTimer);
+  coach?.show(null);
   const el = $('hint');
   if (!html) { el.classList.add('off'); return; }
-  hintTimer = setTimeout(() => { el.innerHTML = html; el.classList.remove('off'); }, delay);
+  hintTimer = setTimeout(() => { el.innerHTML = html; el.classList.toggle('coach', html.includes('coach-tag')); el.classList.remove('off'); coach?.show(gesture); }, delay);
 }
+/* ---------- the first pack's walkthrough ---------- */
+let coach = null, coachOutro = false;
+// A step of the walkthrough while it's on (its words, and a hand showing the move), or else the plain hint.
+function guide(step, html, delay = 0, gesture = null) { const line = coach?.line(step); hint(line ?? html, delay, line ? gesture : null); }
+function startCoach() {
+  coach = new Coach({ touch: TOUCH, busy: () => pointer.down, done: S.tutorialSteps, onFinish: step => { if (!S.tutorialSteps.includes(step)) { S.tutorialSteps.push(step); store.save(); } } });
+}
+function endCoach(outro = false) {
+  if (!coach) return;
+  coach.stop(); coach = null; coachOutro = outro;
+  S.tutorialDone = true; store.save();
+  const el = $('hint'); el.classList.remove('coach'); el.querySelectorAll('.coach-tag, .coach-skip').forEach(e => e.remove());
+}
+$('hint').addEventListener('click', e => { if (e.target.closest('.coach-skip')) { sound.click(); endCoach(); } });
+// where to point: a spot on a pack or card (in its own units), or the middle of a button
+const screenOf = (obj, x = 0, y = 0, z = 0) => { obj.updateWorldMatrix(true, false); return toScreen(V(x, y, z).applyMatrix4(obj.matrixWorld)); };
+const middleOf = el => { const r = el?.getBoundingClientRect(); return r?.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; };
 let toastTimer = 0;
 function toast(msg, ms = 2600) { const t = $('toast'); t.innerHTML = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); live(t.textContent); }
 function setActions(list = []) {
@@ -276,16 +300,17 @@ async function fadeAway(card, delay = 0) {
 function shareLink(c) { const u = new URL(location.pathname, location.origin); u.searchParams.set('card', seal(c)); return u.href; }
 async function shareCard(c) {
   const item = itemOf(c), url = shareLink(c), what = `${c.v & 3 ? VARIANT_NAME[c.v & 3] + ' ' : ''}${item.name}`;
-  const text = `I pulled ${/^[aeiou]/i.test(what) ? 'an' : 'a'} ${what}, worth ${money(valueOf(c))}, in Booster Packs!`;
+  const text = `I pulled ${/^[aeiou]/i.test(what) ? 'an' : 'a'} ${what}, worth ${money(valueOf(c))}, in Odds & Ends!`;
   sound.click();
   if (navigator.share) {   // phones: the share sheet
-    try { await navigator.share({ title: 'Booster Packs', text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    try { await navigator.share({ title: 'Odds & Ends', text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
   }
   try { await navigator.clipboard.writeText(url); toast('Link copied. Anyone who opens it can see this card, but it stays yours.', 3600); }
   catch { prompt('Copy this link to share the card:', url); }
 }
 // Opened from a shared link: fly the card up to look at, then carry on with the game. Nothing about it is saved.
-// Resolves false if the link doesn't name a card this version of the game has.
+// Someone who hasn't played yet is asked in (and the intro is drawn while they look, in case they say yes). Resolves
+// false if the link doesn't name a card this version of the game has, and 'play' if they asked to play.
 async function showShared(token) {
   const c = unseal(String(token));
   const rest = location.search.slice(1).split('&').filter(p => p && !p.startsWith('card=')).join('&');   // the link, without the card
@@ -298,9 +323,37 @@ async function showShared(token) {
   stage.add(h);
   const item = itemOf(c);
   live(`Shared with you: ${c.v & 3 ? VARIANT_NAME[c.v & 3] + ' ' : ''}${item.name}, worth ${money(valueOf(c))}.`);
-  await inspect(card, { from: 'shared' });
+  const invite = introDue();
+  if (invite) { intro = newIntro(); setTimeout(() => intro?.prepare(), 1200); }   // once the card has come up
+  const result = await inspect(card, { from: 'shared', invite });
   disposeCard(card);
+  if (result === 'play') return 'play';
+  intro?.dispose(); intro = null;
   return true;
+}
+
+/* ---------- the intro ---------- */
+// It plays when the game opens for someone new: no packs opened yet, and they haven't seen it since the game was last
+// erased (?intro plays it anyway, ?nointro never). Not over a shared card: that asks them in instead.
+const introDue = () => !DEMO && !Q.has('nointro') && (Q.has('intro') || (S.opened === 0 && !S.seenIntro));
+let intro = null;
+function newIntro() {
+  return new Intro({ scene, stage, view, VIEW_H, faces, makeCard, disposeCard, Pack, wrapperPrints, PW, PH, TEAR_Y, anim, sleep, moveTo, ease, sound, particles, backdrop,
+    flashBackdrop, makeGlow, makeRim, makeRays, makeRing, cam, shake: v => { shake = Math.max(shake, v); }, tickers, toScreen, live, TOUCH, REDUCED, set: SETS[0],
+    setHandler: h => { handler = h; updateCursor(); } });
+}
+// o.tapped: started from a tap, so it can go straight in. Afterwards the first pack comes with the walkthrough if they
+// asked for it.
+async function runIntro(o = {}) {
+  mode = 'intro'; handler = null; setActions([]); hint(''); $('sets').hidden = true;
+  intro ??= newIntro();
+  const choice = await intro.play(o);
+  intro = null;
+  S.seenIntro = true;
+  if (choice === 'tour' && S.opened === 0) startCoach(); else S.tutorialDone = true;
+  store.save();
+  mode = 'boot';
+  return choice;
 }
 
 /* ---------- cards in the scene ---------- */
@@ -451,7 +504,8 @@ function wrapperPrints(set, i) {
 }
 
 /* ---------- the shop ---------- */
-let mode = 'boot', current = null, selectedSet = SETS[0];
+let mode = 'boot', current = null, selectedSet = SET_BY_ID[S.place.set] && store.isUnlocked(SET_BY_ID[S.place.set]) ? SET_BY_ID[S.place.set] : SETS[0];
+function pickSet(set) { selectedSet = set; S.place.set = set.id; store.save(); }
 const DONORS = ['Grandma mailed you a pack. She says eat something.', 'You found a pack under the couch cushions.', 'A neighbor left a pack on your doorstep.',
   'The shop owner slipped you a pack. “Don’t tell anyone.”', 'A pack fell out of a cereal box.', 'Your cousin had a spare pack.', 'A pack blew in through the window. Lucky!'];
 
@@ -461,6 +515,7 @@ function packSetToOpen() {
 }
 function refreshShop() {
   if (mode !== 'shop') return;
+  if (!store.isUnlocked(selectedSet)) pickSet(SETS[0]);   // (after the game is erased, or another save is loaded)
   checkUnlock();
   const set = selectedSet, P = store.packPrice(set), B = store.boxPrice(set);
   const acts = [];
@@ -480,7 +535,7 @@ function refreshShop() {
         b.onclick = () => { sound.denied(); toast(how, 3600); };
       } else {
         b.innerHTML = setLabel(s) + (S.packs[s.id] ? ` · ${S.packs[s.id]}` : '');
-        b.setAttribute('aria-pressed', s === selectedSet); b.onclick = () => { selectedSet = s; if (current && current.set !== s && S.packs[s.id]) { dropCurrent(); presentPack(); } refreshShop(); };
+        b.setAttribute('aria-pressed', s === selectedSet); b.onclick = () => { pickSet(s); if (current && current.set !== s && S.packs[s.id]) { dropCurrent(); presentPack(); } refreshShop(); };
       }
       sets.append(b);
     }
@@ -502,7 +557,7 @@ function checkUnlock() {
 // A new expansion: confetti, and its first pack is on the house (it takes the floating pack's place).
 function unlockSet(set) {
   store.givePack(set.id);
-  selectedSet = set;
+  pickSet(set);
   warmFirst(set);
   toast(`🎉 <b>${set.name} unlocked!</b> A whole new set to collect. Your first ${set.name} pack is on the house.`, 5200);
   sound.fanfare('holo', 3);
@@ -578,7 +633,8 @@ async function presentPack() {
   if (!set) return;
   warmFirst(set);   // its pictures are drawn while it floats here, not when it's torn open
   showGhost(false);
-  const wi = Math.floor(Math.random() * set.wrappers.length);
+  const held = S.hand?.set === set.id ? S.hand : null;   // the one that was floating here before a reload
+  const wi = held ? held.w : Math.floor(Math.random() * set.wrappers.length);
   const pack = current = new Pack(set, set.wrappers[wi], wrapperPrints(set, wi));
   pack.holder = new THREE.Group(); pack.holder.add(pack.group); stage.add(pack.holder);
   const L = packLayout();
@@ -588,7 +644,8 @@ async function presentPack() {
   const ready = prepared?.set === set ? prepared : null;
   if (prepared && !ready) prepared.entries.forEach(e => faces.release(e));
   prepared = null;
-  pack.contents = ready ? ready.contents : store.rollPack(set);
+  pack.contents = ready ? ready.contents : held ? held.cards.map(store.parseKey) : store.rollPack(set);
+  S.hand = { set: set.id, w: wi, cards: pack.contents.map(cardKey) }; store.save();
   pack.torn = new Promise(res => { pack.onTorn = res; });
   sound.whoosh(.7);
   refreshShop();
@@ -599,7 +656,9 @@ async function presentPack() {
   if (mode === 'shop') {
     pack.state = 'idle';
     handler = tearHandler(pack);
-    hint(TOUCH ? 'Swipe across the dotted line to tear it open' : 'Drag across the dotted line to tear it open', 500);
+    if (coach?.did('keep')) endCoach();   // past the first pack's cards: the rest they can find for themselves
+    guide('tear', TOUCH ? 'Swipe across the dotted line to tear it open' : 'Drag across the dotted line to tear it open', 500,
+      { kind: 'swipe', from: () => screenOf(pack.group, -PW / 2 + 1, TEAR_Y, .3), to: () => screenOf(pack.group, PW / 2 - .5, TEAR_Y, .3) });
     updatePackCount();
   }
   if (mode === 'shop') layoutChanged = relayoutPack;
@@ -626,7 +685,7 @@ function tearHandler(pack) {
       if (!l) return;
       if (what === 'tear') {
         const dx = l.x - start.x;
-        if (!pack.dir && Math.abs(dx) > .3) { pack.startTear(Math.sign(dx)); hint(''); }
+        if (!pack.dir && Math.abs(dx) > .3) { pack.startTear(Math.sign(dx)); coach?.finish('tear'); hint(''); }
         if (pack.dir) pack.tearToward(l.x + pack.dir * .25);
       } else {
         pack.dragTilt = V(clamp(-(pointer.y - pointer.sy) * .004, -.5, .5), clamp((pointer.x - pointer.sx) * .006, -.8, .8), 0);
@@ -643,7 +702,7 @@ function tearHandler(pack) {
 }
 function autoTear(pack) {
   if (pack.dir) return;
-  pack.startTear(1); hint('');
+  pack.startTear(1); coach?.finish('tear'); hint('');
   anim(.55, x => pack.tearToward(-PW / 2 + x * (PW + 1)), ease.inOut);
 }
 
@@ -656,26 +715,20 @@ async function openFlow(pack) {
   sound.rip();
   particles.burst(pack.frontWorld(), 26, { colors: ['#fff6d0', '#ffd76a', '#ffffff'], speed: 9, size: .5, life: .8, gravity: -6 });
   flashBackdrop(.35);
-  // the cards are yours now
+  // the cards are yours now, and from here a reload picks the opening up where it was (see resumeOpening)
   store.takePack(set.id);
   const results = store.collect(pack.contents);
-  S.opened++; store.save();
+  S.opened++;
+  S.opening = { kind: 'pack', set: set.id, cards: pack.contents.map(cardKey), fresh: results.map(freshBits), at: 0, gone: [], sold: [], phase: 'reveal', marks: [] };
+  S.hand = null;
+  store.save(true);
   mode = 'opening';   // (first, so a set these cards unlock is celebrated back in the shop, not over this pack)
   updateCount(); checkUnlock();
   handler = null; setActions([]); $('sets').hidden = true; $('binderBtn').disabled = true;
   const ritual = S.opened <= 3 && !REDUCED;
   // the stack, inside the pack
-  const stack = new THREE.Group();
+  const { stack, cards } = stackOf(pack.contents, results, pack.entries);
   pack.slot.add(stack);
-  const cards = pack.contents.map((c, i) => {
-    const card = makeCard(c, pack.entries?.[i]);
-    card.index = i; card.result = results[i];
-    card.faceDown = isSpecial(c);
-    card.holder.rotation.set(0, card.faceDown ? Math.PI : 0, (Math.random() - .5) * .03);
-    card.holder.position.set((Math.random() - .5) * .06, (Math.random() - .5) * .06, (4 - i) * .034);
-    stack.add(card.holder);
-    return card;
-  });
   pack.entries = null;
   const inside = -.25;
   stack.position.y = inside;
@@ -684,8 +737,10 @@ async function openFlow(pack) {
   sound.slide();
   await anim(.4, x => { stack.position.y = inside + x * 1.05; }, ease.out);
   if (ritual) {
-    hint('Now pull the cards out ↑');
+    const top = inside + 1.05 + CARD_H * .22;
+    guide('pull', 'Now pull the cards out ↑', 0, { kind: 'swipe', from: () => screenOf(pack.slot, 0, top, .3), to: () => screenOf(pack.slot, 0, top + 5, .3) });
     await pullHandler(pack, stack, inside + 1.05);
+    coach?.finish('pull');
   } else await sleep(.18);
   // out they come, and the wrapper falls away
   sound.slide();
@@ -696,11 +751,52 @@ async function openFlow(pack) {
   const ph = pack.holder;
   moveTo(ph, { p: [ph.position.x, ph.position.y - VIEW_H * 1.2, -2], r: [.4, .3, .5] }, .8, ease.in).then(() => { if (current === pack) current = null; pack.dispose(); });
   current = null;
-  await reveal(cards, stack, set);
+  await finishOpening(cards, stack, set);
+}
+const freshBits = r => (r.isNew ? 1 : 0) | (r.dupe ? 2 : 0);
+// A pack's nine cards in a stack, the special ones face down (faceUp: all face up, for a summary picked up after a reload).
+function stackOf(contents, results, entries, faceUp = false) {
+  const stack = new THREE.Group();
+  const cards = contents.map((c, i) => {
+    const card = makeCard(c, entries?.[i]);
+    card.index = i; card.result = results[i];
+    card.faceDown = !faceUp && isSpecial(c);
+    card.holder.rotation.set(0, card.faceDown ? Math.PI : 0, (Math.random() - .5) * .03);
+    card.holder.position.set((Math.random() - .5) * .06, (Math.random() - .5) * .06, (4 - i) * .034);
+    stack.add(card.holder);
+    return card;
+  });
+  return { stack, cards };
+}
+// The rest of an opening, from the card at `from` (or straight to the summary if that's where it had got to).
+async function finishOpening(cards, stack, set, from = 0) {
+  if (S.opening?.phase !== 'summary') await reveal(cards, stack, set, from);
   const toBinder = await summary(cards, stack, set);
   stack.removeFromParent();
   home();
   if (toBinder) openBinder();
+  else if (coach && !current) guide('binder', '', 0, { kind: 'tap', at: () => middleOf($('binderBtn')) });
+}
+// After a reload in the middle of a pack: the cards not yet seen come back up in a stack, and it carries on from the next
+// one (or from the summary, with any cards marked to sell still marked).
+let resumeEntries = null;   // their faces, drawn while the page loaded
+async function resumeOpening() {
+  const o = S.opening, set = SET_BY_ID[o.set], later = o.phase === 'summary';
+  mode = 'opening'; handler = null; setActions([]); hint(''); $('sets').hidden = true; $('binderBtn').disabled = true; showGhost(false);
+  const contents = o.cards.map(store.parseKey);
+  const results = contents.map((c, i) => ({ card: c, key: o.cards[i], isNew: !!(o.fresh[i] & 1), dupe: !!(o.fresh[i] & 2) }));
+  const { stack, cards } = stackOf(contents, results, resumeEntries, later);
+  resumeEntries = null;
+  cards.forEach((card, i) => {
+    card.soldAuto = !!o.sold[i];
+    if (later || i < o.at) { card.gone = o.gone[i] ?? -1; card.holder.visible = false; }   // seen already, and swiped away
+  });
+  stage.add(stack);
+  const L = revealLayout();
+  stack.position.set(0, -VIEW_H, 2); stack.scale.setScalar(L.s);
+  sound.slide();
+  live('Picking up where you left off.');
+  await finishOpening(cards, stack, set, o.at);
 }
 
 function pullHandler(pack, stack, base) {
@@ -766,17 +862,17 @@ function tally() {
   $('tally').hidden = false;
 }
 
-async function reveal(cards, stack, set) {
+async function reveal(cards, stack, set, from = 0) {
   mode = 'reveal';
   let skipping = false;
   const skip = () => { skipping = true; timeScale = 6; setActions([]); hint(''); waiting?.(-1); };
   if (S.opened > 1) setActions([{ label: 'Skip to the end', cls: 'ghost glass', onClick: skip }]);
   const L = revealLayout();
-  packTotal = 0; revealed = 0; tally();
+  revealed = from; packTotal = cards.slice(0, from).reduce((t, c) => t + valueOf(c.data), 0); tally();
   await moveTo(stack, { p: [0, L.y, 2], s: L.s, r: [0, 0, 0] }, .55, ease.inOut);
   layoutChanged = () => { const L2 = revealLayout(); stack.scale.setScalar(L2.s); stack.position.y = L2.y; };
   const order = cards.slice();
-  for (let i = 0; i < order.length; i++) {
+  for (let i = from; i < order.length; i++) {
     const card = order[i], last = i === order.length - 1;
     // the rest of the stack shuffles forward; the card on top lifts clear of it so it can turn without clipping
     const lifts = order.slice(i).map((c, k) => { const z0 = c.holder.position.z, z1 = k === 0 ? 1.6 : (4 - k) * .034; return anim(.22, x => { c.holder.position.z = lerp(z0, z1, x); }, ease.out); });
@@ -787,8 +883,10 @@ async function reveal(cards, stack, set) {
       const kind = specialKind(card.data);
       const aura = addAura(card, kind, tier);
       sound.sparkle(kind === 'rare' ? 0 : 1);
-      hint(tier >= 5 ? 'Whoa. Tap to flip it' : tier >= 4 ? 'This one feels heavy… tap to flip it' : kind === 'rare' ? 'Your rare! Tap to flip it' : 'Something shiny… tap to flip it');
+      guide('flip', tier >= 5 ? 'Whoa. Tap to flip it' : tier >= 4 ? 'This one feels heavy… tap to flip it' : kind === 'rare' ? 'Your rare! Tap to flip it' : 'Something shiny… tap to flip it', 0,
+        { kind: 'tap', at: () => screenOf(card.holder) });
       if (!skipping) await waitTap(card, stack);
+      coach?.finish('flip');
       hint('');
       const was = timeScale;
       if (tier >= 5) timeScale = 1;   // a jackpot plays out in full, even when skipping
@@ -803,40 +901,56 @@ async function reveal(cards, stack, set) {
     revealed = i + 1; packTotal += valueOf(card.data); tally();
     showTag(card, stack);
     if (last) {
-      hint('Tap for a look at all nine', 900);
+      guide('all', 'Tap for a look at all nine', 900, { kind: 'tap', at: () => screenOf(card.holder) });
       if (!skipping) await waitSwipe(card, stack, true);
+      coach?.finish('all');
       stopTilt();
       card.fx?.release();
       hideTag(); hint('');
       break;
     }
-    if (!skipping) { hint(i === 0 ? (TOUCH ? 'Swipe the card away for the next one' : 'Swipe or click for the next card') : '', i === 0 ? 700 : 0); }
+    if (!skipping) {
+      if (i === 0) guide('swipe', TOUCH ? 'Swipe the card away for the next one' : 'Swipe or click for the next card', 700,
+        { kind: 'swipe', from: () => screenOf(card.holder, 0, -CARD_H * .1), to: () => screenOf(card.holder, -CARD_W * 1.1, -CARD_H * .1) });
+      else hint('');
+    }
     const dir = skipping ? -1 : await waitSwipe(card, stack);
+    if (i === 0) coach?.finish('swipe');
     stopTilt();
     card.fx?.release();
     hideTag(); hint('');
     await flingAway(card, stack, dir);
     if (S.settings.autoSell && card.result.dupe) autoSell(card);
+    const o = S.opening;   // (in the same save as any sale, so a reload can't sell it twice)
+    if (o?.kind === 'pack') { o.at = i + 1; o.gone[i] = dir; o.sold[i] = card.soldAuto ? 1 : 0; store.save(); }
   }
   timeScale = 1;
   setActions([]);
   const lastCard = order[order.length - 1];
   if (S.settings.autoSell && lastCard.result.dupe && !lastCard.soldAuto) autoSell(lastCard);
 }
+// How far a card's corners swing forward or back when it's turned by x and y: half its height times sin x, plus half
+// its width times sin y.
+const swing = (x, y) => CARD_H / 2 * Math.abs(Math.sin(x)) + CARD_W / 2 * Math.abs(Math.sin(y));
 // The card on top, while it's revealed: it sways a little so its foil catches the light, or on a phone holds still in
 // space as the phone tilts (a finger on it holds it where it is). Face down, the up-down tilt is mirrored, since the card
 // is turned over; while it flips it eases flat. Returns a function that stops it.
 function cardTilt(card) {
   let on = true;
+  phoneTilt.recenter();   // a new card: however the phone is held now counts as level
   tickers.add(dt => {
-    const m = card.mesh;
+    const m = card.mesh, h = card.holder;
     if (!on) { m.rotation.set(0, 0, 0); return false; }
     const gyro = phoneTilt.live;
     if (gyro && pointer.down) return;
-    const side = Math.cos(card.holder.rotation.y), still = card.flipping ? 0 : 1, sway = gyro ? .3 : 1;
+    const side = Math.cos(h.rotation.y), still = card.flipping ? 0 : 1, sway = gyro ? .3 : 1;
     const tx = gyro ? clamp(phoneTilt.x, -.5, .5) * side : 0, ty = gyro ? clamp(phoneTilt.y, -.6, .6) : 0;
     m.rotation.x = damp(m.rotation.x, (tx + Math.sin(T * .6) * .04 * sway) * still, gyro ? 12 : 4, dt);
     m.rotation.y = damp(m.rotation.y, (ty + Math.sin(T * .8) * .08 * sway) * still, gyro ? 12 : 4, dt);
+    // but never so far that a corner dips into the cards behind: it's only lifted so far clear of the stack (its height
+    // above it, less a margin and whatever its holder is turned by itself, as in a rare's flourish)
+    const room = Math.max(0, h.position.z - .3 - swing(h.rotation.x, h.rotation.y));
+    for (let i = 0; i < 3; i++) { const s = swing(m.rotation.x, m.rotation.y); if (s <= room) break; m.rotation.x *= room / s; m.rotation.y *= room / s; }
   });
   return () => { on = false; };
 }
@@ -961,13 +1075,15 @@ async function summary(cards, stack, set) {
   let active = true;
   const pos = i => { const r = Math.floor(i / G.cols), c = i % G.cols, inRow = Math.min(G.cols, cards.length - r * G.cols);
     return [(c - (inRow - 1) / 2) * (CARD_W + .55), ((G.rows - 1) / 2 - r) * (CARD_H + .55 * 2.2), 0]; };
+  const o = S.opening?.kind === 'pack' ? S.opening : null;
   cards.forEach((card, i) => {
     const h = card.holder;
     h.visible = true; h.scale.setScalar(1);
     if (card.gone) { h.position.set(card.gone * (view.W / 2 / G.s + CARD_W), pos(i)[1], 0); h.rotation.set(0, 0, -card.gone * .4); }
-    card.mark = card.soldAuto ? 'sold' : null;
+    card.mark = card.soldAuto ? 'sold' : o?.marks[i] ?? null;   // (marks made before a reload come back)
     card.sold = card.soldAuto ? .85 : 0;
   });
+  if (o) { o.phase = 'summary'; o.at = cards.length; cards.forEach((c, i) => { o.sold[i] = c.soldAuto ? 1 : 0; }); store.save(); }
   sound.slide();
   await Promise.all(cards.map((card, i) => sleep(i * .045).then(() => moveTo(card.holder, { p: pos(i), r: [0, 0, 0], s: 1 }, .5, ease.out))));
   $('tally').hidden = true;
@@ -987,8 +1103,10 @@ async function summary(cards, stack, set) {
       card.sold = card.mark === 'sell' ? .7 : card.mark === 'sold' ? .85 : 0;
       if (card.mark === 'sell') { sell += v; n++; }
     });
+    if (S.opening?.kind === 'pack') { S.opening.marks = cards.map(c => (c.mark === 'sell' ? 'sell' : null)); store.save(); }
     const dupes = cards.filter(c => c.result.dupe && !c.mark);
     const keep = cards.filter(c => !c.mark).length;
+    if (coach && !coach.did('sell') && cards.some(c => c.mark === 'sell')) { coach.finish('sell'); setTimeout(teach, 0); }
     if (cards.every(c => c.mark === 'sold')) { setActions([{ label: 'Next', cls: 'gold', onClick: () => finish() }]); return; }
     setActions([
       dupes.length ? { label: `Sell duplicates`, sub: `${dupes.length}`, onClick: () => { dupes.forEach(c => { c.mark = 'sell'; }); render(); } } : null,
@@ -1000,9 +1118,16 @@ async function summary(cards, stack, set) {
   const done = new Promise(res => { finish = res; });
   leaveForBinder = () => { toBinder = true; finish(); };
   $('binderBtn').disabled = false;
-  render();
   const total = cards.reduce((s, c) => s + valueOf(c.data), 0);
-  hint(`This pack is worth <b>${money(total)}</b> · tap a card for a closer look`);
+  // the walkthrough: sell one (the hand points at the cheapest card's Sell), then finish
+  const cheapest = () => cards.filter(c => !c.mark).sort((a, b) => valueOf(a.data) - valueOf(b.data))[0];
+  const teach = () => {
+    const plain = `This pack is worth <b>${money(total)}</b> · tap a card for a closer look`;
+    if (coach?.line('sell')) guide('sell', plain, 0, { kind: 'tap', at: () => middleOf(cheapest()?.chip?.querySelector('button')) });
+    else guide('keep', plain, 0, { kind: 'tap', at: () => middleOf($('actions').querySelector('.btn.gold')) });
+  };
+  render();
+  teach();
   if (!S.settings.autoSell && !S.stats.tipAutoSell && cards.some(c => c.result.dupe)) {
     S.stats.tipAutoSell = 1; store.save();
     setTimeout(() => toast('Tip: turn on <b>Auto-sell duplicates</b> in the ⋯ menu and cards you already own sell themselves.', 5200), 900);
@@ -1028,7 +1153,7 @@ async function summary(cards, stack, set) {
       if (!c) return;
       // it isn't hovered while it's up close, and after it's back only if the pointer is on a card again
       hover = null;
-      inspect(c, { from: 'summary', onSell: () => { c.mark = c.mark === 'sell' ? null : 'sell'; render(); } }).then(() => { hover = pickCard(cards); render(); hint(`This pack is worth <b>${money(total)}</b> · tap a card for a closer look`); });
+      inspect(c, { from: 'summary', onSell: () => { c.mark = c.mark === 'sell' ? null : 'sell'; render(); } }).then(() => { hover = pickCard(cards); render(); teach(); });
     },
     key(e) { if (e.key === 'Enter') { finish(); return true; } },
   };
@@ -1049,19 +1174,21 @@ async function summary(cards, stack, set) {
   });
   layoutChanged = () => { const G2 = gridLayout(cards.length); stack.scale.setScalar(G2.s); stack.position.y = G2.y; };
   await done;
+  coach?.finish('sell'); coach?.finish('keep');
   active = false; leaveForBinder = null;
   $('binderBtn').disabled = true;
   handler = null; hint('');
   setActions([]);
   chips.forEach(el => el.remove());
   cards.forEach(c => { c.chip = null; c.mesh.position.z = 0; });
-  // sell the marked ones: SOLD is stamped on each in turn, then they fade (with any sold already) as the rest go in the binder
-  const sells = cards.filter(c => c.mark === 'sell');
+  // sell the marked ones: SOLD is stamped on each in turn, then they fade (with any sold already) as the rest go in the binder.
+  // The sales and the end of the opening are saved together: nothing is left to pick up, and nothing sells twice.
+  const sells = cards.filter(c => c.mark === 'sell'), got = sells.map(c => store.sell(c.result.key));
+  S.opening = null; store.save(true);
   await Promise.all(sells.map((c, i) => {
-    const v = store.sell(c.result.key);
     c.holder.updateWorldMatrix(true, false);
     const at = V().applyMatrix4(c.holder.matrixWorld);
-    return sleep(i * .14).then(() => stampSold(c, () => payout(at, v)));
+    return sleep(i * .14).then(() => stampSold(c, () => payout(at, got[i])));
   }));
   if (sells.length) { updateCount(); live(`Sold ${sells.length} ${sells.length === 1 ? 'card' : 'cards'}.`); await sleep(.3); }
   const away = cards.filter(c => c.mark === 'sell' || c.mark === 'sold').map((c, i) => fadeAway(c, i * .03));
@@ -1096,6 +1223,7 @@ async function inspect(card, o = {}) {
   handler = null;   // a second tap while it flies up mustn't pick another card
   mode = 'inspect'; card.inspecting = true;
   syncTilt();   // now, so the tap that opened it can ask for the sensor
+  phoneTilt.recenter();
   const h = card.holder, parent = h.parent;
   const saved = { p: h.position.clone(), r: h.rotation.clone(), s: h.scale.clone() };
   // swap in the sharp face while it's big
@@ -1131,6 +1259,7 @@ async function inspect(card, o = {}) {
   const selling = o.from === 'summary';
   $('inSell').textContent = selling ? (card.mark === 'sell' ? 'Don’t sell' : `Sell for ${money(valueOf(c), { short: true })}`) : `Sell for ${money(valueOf(c), { short: true })}`;
   $('inSell').hidden = shared || card.mark === 'sold';
+  $('inPlay').hidden = !(shared && o.invite);   // someone new, here from a shared link: the way into the game
   const panel = $('inspect');
   panel.style.visibility = 'hidden'; panel.hidden = false;
   const panelTop = panel.getBoundingClientRect().top;
@@ -1151,6 +1280,7 @@ async function inspect(card, o = {}) {
   let result = 'back';
   $('inBack').onclick = () => { sound.click(); resolveBack(); };
   $('inSell').onclick = () => { result = 'sell'; resolveBack(); };
+  $('inPlay').onclick = () => { sound.ensure(); result = 'play'; resolveBack(); };   // (the tap lets the intro's music play)
   let tilt = V(), target = V(), dragging = false, t = 0;
   handler = {
     cursor: () => dragging ? 'grabbing' : 'grab',
@@ -1215,19 +1345,32 @@ async function buyBox() {
   const set = selectedSet, price = store.boxPrice(set);
   if (!store.spend(price)) { sound.denied(); return; }
   sound.buy();
+  const packs = Array.from({ length: store.BOX_PACKS }, () => store.rollPack(set));
+  const results = store.collect(packs.flat());
+  S.opened += packs.length; S.boxesOpened++;
+  S.opening = { kind: 'box', set: set.id, cards: packs.flat().map(cardKey), fresh: results.map(freshBits), sold: [] };
+  store.save(true);
+  await playBox(set, packs, results);
+}
+// After a reload in the middle of a box, it plays again from the top (its cards are in the binder already; any
+// duplicates it sold before are shown sold, not sold again).
+function resumeBox() {
+  const o = S.opening, flat = o.cards.map(store.parseKey);
+  const packs = Array.from({ length: store.BOX_PACKS }, (_, i) => flat.slice(i * store.PACK_SIZE, (i + 1) * store.PACK_SIZE));
+  return playBox(SET_BY_ID[o.set], packs, flat.map((c, i) => ({ card: c, key: o.cards[i], isNew: !!(o.fresh[i] & 1), dupe: !!(o.fresh[i] & 2) })));
+}
+async function playBox(set, packs, results) {
   showGhost(false);
   dropCurrent();
   mode = 'box'; handler = null; setActions([]); hint(''); $('sets').hidden = true; $('binderBtn').disabled = true;
-  const packs = Array.from({ length: store.BOX_PACKS }, () => store.rollPack(set));
-  const all = packs.flat();
-  const results = store.collect(all);
-  S.opened += packs.length; S.boxesOpened++; store.save();
   updateCount();
+  results.forEach((r, i) => { r.i = i; r.sold = !!S.opening?.sold?.[i]; });
   const box = new BoxOpening({ THREE, set, packs, results, stage, faces, makeCard, disposeCard, anim, sleep, moveTo, ease, sound, particles, view, VIEW_H, wrapperPrints, Pack, PW, PH,
     celebrate, tierOf, tapOnce, payout, stampSold, fadeAway, binderWorld, flashBackdrop, setActions, hint, tally: html => { $('tally').innerHTML = html; $('tally').hidden = !html; },
-    autoSell: S.settings.autoSell, sell: key => { const v = store.sell(key); updateCount(); return v; }, updateCount, setTimeScale: s => { timeScale = s; }, V });
+    autoSell: S.settings.autoSell, sell: (key, i) => { const v = store.sell(key); if (S.opening?.kind === 'box') S.opening.sold[i] = 1; updateCount(); return v; }, updateCount, setTimeScale: s => { timeScale = s; }, setFaceBudget: ms => { faceBudget = ms; }, V });
   tickers.add(dt => { box.update(dt); return mode === 'box'; });
   const summary = await box.run();
+  S.opening = null; store.save(true);
   timeScale = 1;
   checkUnlock();
   await showResult(summary);
@@ -1278,8 +1421,9 @@ function showResult(r) {
 
 /* ---------- the binder ---------- */
 const binder = new Binder({ THREE, scene, camera, faces, makeCard, disposeCard, anim, sleep, moveTo, ease, sound, view, VIEW_H, V, localAt, pointer, raycaster, store, S: () => S });
-async function openBinder() {
+async function openBinder(at = null) {   // at: the page to open it at (after a reload), else where it was left
   if (mode !== 'shop') return;
+  if (coach) endCoach(true);   // that's the walkthrough done; a last word when they're back from the binder
   showGhost(false);
   sound.page();
   mode = 'binder';
@@ -1292,6 +1436,8 @@ async function openBinder() {
   const sf = $('setFilter');
   sf.hidden = SETS.length < 2;
   if (!sf.hidden && !sf.options.length) { sf.innerHTML = `<option value="">All sets</option>` + SETS.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+  if (at) { binder.spread = at.spread; binder.side = at.side; binder.filter = at.filter || ''; }
+  sf.value = binder.filter || '';
   refreshBinderUI();
   binder.area = binderArea();
   await binder.open();
@@ -1304,10 +1450,12 @@ async function closeBinder() {
   handler = null;
   sound.page();
   $('binderbar').hidden = true; $('pager').hidden = true;
+  S.place.binder = null; store.save();
   await binder.close();
   $('binderBtn').disabled = false;
   mode = 'shop';
   home();
+  if (coachOutro) { coachOutro = false; setTimeout(() => toast('🎉 <b>You’re all set!</b> Sell the cards you don’t need, buy more packs, and fill that binder.', 5200), 400); }
   if (current) {
     const pack = current, L = packLayout();
     await moveTo(pack.holder, { p: [0, L.y, 0], s: L.s }, .45, ease.out);
@@ -1332,6 +1480,7 @@ function refreshBinderUI() {
   $('prevPage').disabled = !binder.canPrev(); $('nextPage').disabled = !binder.canNext();
   // on a phone the toolbar can go from two rows to one (the duplicates are sold): give the binder the room
   if (mode === 'binder' && binder.area) { const a = binderArea(); if (Math.abs(a.h - binder.area.h) > .01) { binder.area = a; binder.layout(); } }
+  if (mode === 'binder') { S.place.binder = { spread: binder.spread, side: binder.side ?? 'right', filter: binder.filter || '' }; store.save(); }   // (a reload opens it here)
 }
 async function pickBinderCard(card, at) {
   const handlerBefore = handler;
@@ -1382,7 +1531,7 @@ $('tiltSwitch').addEventListener('click', () => {
 });
 $('exportFile').addEventListener('click', () => {
   const blob = new Blob([store.exportJSON()], { type: 'application/json' }), a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = `booster-packs-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  a.href = URL.createObjectURL(blob); a.download = `odds-and-ends-${new Date().toISOString().slice(0, 10)}.json`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   $('exportMsg').textContent = 'Saved a file to your downloads.';
 });
@@ -1433,7 +1582,7 @@ function frame(now) {
   backdrop.uniforms.uTime.value = T;
   tickFx(dt);
   shake = damp(shake, 0, 3.5, dt);
-  camera.position.set((Math.random() - .5) * shake, (Math.random() - .5) * shake, CAM_Z);
+  camera.position.set((Math.random() - .5) * shake, (Math.random() - .5) * shake, CAM_Z - cam.zoom); camera.rotation.z = cam.roll;
   flash = damp(flash, 0, 2.2, dt); backdrop.uniforms.uGlow.value = flash;
   // the floating pack
   const pack = current;
@@ -1465,8 +1614,9 @@ function frame(now) {
   particles.update(dt);
   binder.update(dt, T);
   tickWallet(dt);
+  coach?.update(dt);
   const calm = quiet() && frameAvg < 22;
-  const made = faces.pump(mode === 'box' ? 10 : 7, calm);
+  const made = faces.pump(faceBudget || (mode === 'box' ? 10 : 7), calm);
   frameAvg = lerp(frameAvg, dt * 1000, .1);
   if (calm && !made && T > 2) warmOne();   // not while the first pack is still flying in
   renderer.render(scene, camera);
@@ -1529,14 +1679,34 @@ async function start() {
   await READY;
   if (DEMO) return demo();
   await warmUp();
-  // the first pack's cards are drawn now, behind the loading bar, so nothing stutters while you first play with it
+  // the first pack's cards are drawn now, behind the loading bar, so nothing stutters while you first play with it (or,
+  // if the page was left in the middle of a pack, that pack's)
   const firstSet = packSetToOpen();
-  if (firstSet) { const contents = store.rollPack(firstSet); prepared = { set: firstSet, contents, entries: contents.map(c => faces.get(c, HI, true)) }; }
+  if (S.opening?.kind === 'pack') resumeEntries = S.opening.cards.map(k => faces.get(store.parseKey(k), HI, true));
+  else if (firstSet) {
+    const contents = S.hand?.set === firstSet.id ? S.hand.cards.map(store.parseKey) : store.rollPack(firstSet);
+    prepared = { set: firstSet, contents, entries: contents.map(c => faces.get(c, HI, true)) };
+  }
   requestAnimationFrame(frame);
-  const shared = Q.get('card') ? await showShared(Q.get('card')) : null;   // opened from a shared card's link: that card first
-  if (S.opened === 0 && store.packsInHand() > 0 && !S.cards.length) setTimeout(() => toast('Your first pack is on the house. 🎁', 3200), shared === false ? 4000 : 900);
+  let shared = null;
+  if (Q.get('card')) {   // opened from a shared card's link: that card first
+    shared = await showShared(Q.get('card'));
+    if (shared === 'play') await runIntro({ tapped: true });
+  } else if (introDue() && !S.opening) await runIntro();
+  // the walkthrough, if it was under way when the page was left (from the step it had got to)
+  if (!coach && S.seenIntro && !S.tutorialDone) {
+    if (S.opened === 0 || S.opening || S.tutorialSteps.includes('keep')) startCoach(); else { S.tutorialDone = true; store.save(); }
+  }
+  if (!coach && S.opened === 0 && store.packsInHand() > 0 && !S.cards.length) setTimeout(() => toast('Your first pack is on the house. 🎁', 3200), shared === false ? 4000 : 900);
   warmArt();   // (the queue first, so the first pack's set can go to the front of it)
-  home();
+  // and back to where they were: the middle of a pack or a box, the binder, or the shop
+  if (S.opening?.kind === 'pack') resumeOpening();
+  else if (S.opening?.kind === 'box') resumeBox();
+  else {
+    home();
+    if (S.place.binder) openBinder(S.place.binder);
+    else if (coach?.did('keep') && !current) guide('binder', '', 0, { kind: 'tap', at: () => middleOf($('binderBtn')) });
+  }
 }
 // ?demo: a still for the preview image — a fanned hand of good pulls in front of an open pack.
 function demo() {
@@ -1566,5 +1736,6 @@ function demo() {
   flash = .25;
   requestAnimationFrame(frame);
 }
-if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, phoneTilt, get S() { return S; }, get current() { return current; }, get mode() { return mode; }, set timeScale(v) { timeScale = v; } };
+if (Q.has('debug')) window.__bp = { binder, scene, camera, stage, store, faces, phoneTilt, get S() { return S; }, get current() { return current; }, get mode() { return mode; }, set timeScale(v) { timeScale = v; },
+  get intro() { return intro; }, get coach() { return coach; } };
 start();

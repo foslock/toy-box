@@ -184,7 +184,7 @@ export class Studio {
     // keep plenty of small pictures (they're cheap) but only a few big ones
     const small = w <= 400, limit = small ? this.smallMax : this.cacheMax;
     const same = [...this.cache.keys()].filter(k2 => { const cc = this.cache.get(k2); return (cc.width <= 400) === small; });
-    for (let i = 0; i < same.length - limit; i++) this.cache.delete(same[i]);
+    for (let i = 0; i < same.length - limit; i++) { const old = this.cache.get(same[i]); old.width = old.height = 1; this.cache.delete(same[i]); }   // (freed now, not whenever)
     return c;
   }
   has(set, item, kind, w, h) { return this.cache.has(`${set.id}:${item.id}:${kind}:${w}x${h}`); }

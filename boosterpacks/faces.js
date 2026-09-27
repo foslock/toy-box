@@ -411,13 +411,13 @@ export class FaceCache {
   get(card, width = HI, urgent = false, later = false) {
     const key = `${card.set}:${card.id}:${card.v}@${width}`;
     let e = this.map.get(key);
-    if (!e) {
-      e = { key, card, width, ready: false, refs: 0, tex: null, mask: null, foil: [0, 0, 0, 0], waiters: [], used: 0 };
-      this.map.set(key, e);
-      if (urgent) this.make(e); else (later ? this.later : this.queue).push(e);
-    } else if (!e.ready && urgent) { this.unqueue(e); this.make(e); }
-    else if (!e.ready && !later) this.hurry([e]);
+    const fresh = !e;
+    if (fresh) { e = { key, card, width, ready: false, refs: 0, tex: null, mask: null, foil: [0, 0, 0, 0], waiters: [], used: 0 }; this.map.set(key, e); }
+    // counted as in use before it's made: making it trims the cache, and an uncounted face would be the first to go
     e.refs++; e.used = performance.now();
+    if (fresh) { if (urgent) this.make(e); else (later ? this.later : this.queue).push(e); }
+    else if (!e.ready && urgent) { this.unqueue(e); this.make(e); }
+    else if (!e.ready && !later) this.hurry([e]);
     return e;
   }
   unqueue(e) { this.queue = this.queue.filter(q => q !== e); this.later = this.later.filter(q => q !== e); }
@@ -431,6 +431,9 @@ export class FaceCache {
     const out = composeFace(this.studio, e.card, e.width);
     e.tex = this.texture(out.canvas, true); e.mask = this.texture(out.mask, false); e.foil = out.foil; e.ready = true;
     this.renderer.initTexture(e.tex); this.renderer.initTexture(e.mask);
+    // the pixels are on the graphics card now, so the canvases can go (phones cap a page's canvas memory, and a box of
+    // 90 cards would otherwise hold 90 of each)
+    out.canvas.width = out.canvas.height = out.mask.width = out.mask.height = 1;
     for (const fn of e.waiters.splice(0)) fn(e);
     this.trim(e.width);
   }

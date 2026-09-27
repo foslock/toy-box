@@ -1,6 +1,6 @@
 # Card sets
 
-Every card in Booster Packs belongs to a set. **Around the House** (`house/`) is the first; **Backyard** (`backyard/`)
+Every card in Odds & Ends belongs to a set. **Around the House** (`house/`) is the first; **Backyard** (`backyard/`)
 is the first expansion, locked until a player's binder holds 50 different Around the House cards; **Outer Space**
 (`space/`) comes next, locked until the binder holds 38 different Backyard cards (three quarters of it). The game reads
 everything about a set from its folder: the cards, their prices and text, the categories they belong to, the art behind

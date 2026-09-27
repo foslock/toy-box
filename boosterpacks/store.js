@@ -14,7 +14,7 @@ export const RARITY = {
   U: { name: 'Uncommon', symbol: '◆', order: 1 },
   R: { name: 'Rare', symbol: '★', order: 2 },
 };
-const KEY = 'boosterpacks.save';
+const KEY = 'boosterpacks.save';   // (named for the game's old title, Booster Packs: kept so saves carry over)
 const FORMAT = 2;          // 2: cards revalued (a pack went from $250 to $4.99)
 
 /* ---------- cards ---------- */
@@ -83,6 +83,14 @@ function fresh() {
     settings: { autoSell: false, sound: true, tilt: true, sort: 'set' },
     stats: { earned: 0, spent: 0, sold: 0, donated: 0, best: null, bestValue: 0, tipAutoSell: 0 },
     seen: {},                              // item keys ("set:item") ever pulled, for the checklist
+    seenIntro: false,                      // the title sequence has played (or was skipped)
+    tutorialDone: false,                   // the first pack's walkthrough is over (or was skipped)
+    tutorialSteps: [],                     // …and the steps of it done so far
+    // Where the player is, so a reload (or a crash) picks up right there. The cards in a pack are the player's the
+    // moment it's torn, so none of this is ever the only record of anything they own.
+    hand: null,                            // the pack floating in the shop: { set, w (its wrapper), cards (keys) }
+    opening: null,                         // a pack or box that's been opened but not finished (see main.js)
+    place: { set: null, binder: null },    // the set picked in the shop; the binder, if it's open: { spread, side, filter }
   };
 }
 export let S = fresh();
@@ -92,7 +100,7 @@ export const copies = key => owned.get(key) || 0;
 export const ownsItem = (set, id) => { for (let v = 0; v < 4; v++) if (owned.get(`${set}:${id}:${v}`)) return true; return false; };
 
 function sanitize(raw) {
-  if (!raw || typeof raw !== 'object') throw new Error('That isn’t a Booster Packs save.');
+  if (!raw || typeof raw !== 'object') throw new Error('That isn’t an Odds & Ends save.');
   const s = fresh();
   s.created = Number.isFinite(raw.created) ? raw.created : s.created;
   s.money = Math.max(0, Math.round(Number(raw.money) || 0));
@@ -116,7 +124,37 @@ function sanitize(raw) {
   if (s.stats.best) { const c = parseKey(s.stats.best); s.stats.bestValue = knownCard(c) ? valueOf(c) : 0; }
   s.seen = raw.seen && typeof raw.seen === 'object' ? { ...raw.seen } : {};
   for (const k of s.cards) { const c = parseKey(k); s.seen[`${c.set}:${c.id}`] = 1; }
+  s.seenIntro = !!raw.seenIntro; s.tutorialDone = !!raw.tutorialDone;
+  s.tutorialSteps = Array.isArray(raw.tutorialSteps) ? raw.tutorialSteps.filter(x => typeof x === 'string').slice(0, 20) : [];
+  s.hand = validHand(raw.hand);
+  s.opening = validOpening(raw.opening);
+  const pl = raw.place && typeof raw.place === 'object' ? raw.place : {}, b = pl.binder;
+  s.place = { set: SET_BY_ID[pl.set] ? pl.set : null,
+    binder: b && typeof b === 'object' ? { spread: Math.max(0, Math.floor(b.spread) || 0), side: b.side === 'left' ? 'left' : 'right', filter: SET_BY_ID[b.filter] ? b.filter : '' } : null };
   return s;
+}
+const isKey = k => typeof k === 'string' && /^[\w-]+:[\w-]+:[0-3]$/.test(k) && knownCard(parseKey(k));
+const flags = (a, n) => Array.from({ length: n }, (_, i) => Array.isArray(a) ? a[i] ?? null : null);
+function validHand(h) {
+  if (!h || !SET_BY_ID[h.set] || !Array.isArray(h.cards) || h.cards.length !== PACK_SIZE || !h.cards.every(isKey)) return null;
+  return { set: h.set, w: Math.max(0, Math.floor(h.w) || 0) % SET_BY_ID[h.set].wrappers.length, cards: h.cards.slice() };
+}
+// An opening left unfinished. A pack: { kind: 'pack', set, cards (keys), fresh (per card: 1 new, 2 a duplicate), at (how
+// many have been shown), gone (which way each shown one was swiped), sold (auto-sold as it went), phase ('reveal' or
+// 'summary'), marks (in the summary: 'sell' or null) }. A box: { kind: 'box', set, cards (90 keys, pack by pack), fresh,
+// sold }. Anything that doesn't add up is dropped: its cards are in the binder already.
+function validOpening(o) {
+  if (!o || typeof o !== 'object' || !SET_BY_ID[o.set] || !Array.isArray(o.cards) || !o.cards.every(isKey)) return null;
+  const n = o.kind === 'pack' ? PACK_SIZE : o.kind === 'box' ? PACK_SIZE * BOX_PACKS : 0;
+  if (!n || o.cards.length !== n) return null;
+  const out = { kind: o.kind, set: o.set, cards: o.cards.slice(), fresh: flags(o.fresh, n).map(x => (x | 0) & 3), sold: flags(o.sold, n).map(x => x ? 1 : 0) };
+  if (o.kind === 'pack') {
+    out.at = Math.min(n, Math.max(0, Math.floor(o.at) || 0));
+    out.gone = flags(o.gone, n).map(x => (x === 1 ? 1 : -1));
+    out.phase = o.phase === 'summary' ? 'summary' : 'reveal';
+    out.marks = flags(o.marks, n).map(x => (x === 'sell' ? 'sell' : null));
+  }
+  return out;
 }
 
 export function load() {
@@ -126,14 +164,28 @@ export function load() {
 }
 let saveTimer = 0, noSave = false;
 export function setNoSave(v) { noSave = v; }
+function write() {
+  clearTimeout(saveTimer); saveTimer = 0;
+  if (noSave) return;
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { console.warn('Could not save:', e.message); }
+}
+// Changes are written a moment later, so a burst of them (a box's worth of sales) is one write; save(true) writes now.
 export function save(now = false) {
   if (noSave) return;
-  clearTimeout(saveTimer);
-  const write = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { console.warn('Could not save:', e.message); } };
-  if (now) write(); else saveTimer = setTimeout(write, 250);
+  if (now) { write(); return; }
+  clearTimeout(saveTimer); saveTimer = setTimeout(write, 120);
+}
+// …and anything waiting is written the moment the page is hidden, closed or frozen (a phone can kill a tab it has put
+// away without another word).
+const flush = () => { if (saveTimer) write(); };
+if (typeof document !== 'undefined') {
+  addEventListener('pagehide', flush);
+  addEventListener('beforeunload', flush);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+  document.addEventListener('freeze', flush);
 }
 export function reset() { S = fresh(); rebuild(); save(true); return S; }
-export function replaceWith(raw) { S = sanitize(raw); rebuild(); save(true); return S; }
+export function replaceWith(raw) { S = sanitize(raw); S.opening = null; S.hand = null; S.place.binder = null; rebuild(); save(true); return S; }   // (a save from elsewhere starts in the shop)
 export function useState(s) { S = s; rebuild(); }
 
 /* ---------- expansions ---------- */
@@ -246,6 +298,6 @@ export async function parseImport(text) {
     if (!('DecompressionStream' in window)) throw new Error('This browser can’t read compressed codes. Try the save file instead.');
     raw = JSON.parse(new TextDecoder().decode(await pipe(unb64(t.slice(5)), new DecompressionStream('deflate-raw'))));
   } else if (t.startsWith('BP1.')) raw = JSON.parse(new TextDecoder().decode(unb64(t.slice(4))));
-  else throw new Error('That doesn’t look like a Booster Packs save code.');
+  else throw new Error('That doesn’t look like an Odds & Ends save code.');
   return sanitize(raw);
 }

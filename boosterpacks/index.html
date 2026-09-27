@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Booster Packs</title>
+<title>Odds &amp; Ends</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #fbf7ff; --ink-2: rgba(251, 247, 255, .74); --ink-3: rgba(251, 247, 255, .5); --glass: rgba(26, 19, 44, .56); --line: rgba(255, 255, 255, .14);
     --gold: #ffd76a; --gold-2: #f2b53a; --good: #5ee6a0; --bad: #ff7a8a; }
@@ -192,6 +192,98 @@
   .confirm h2 { margin: 0 0 8px; font-size: 20px; } .confirm p { margin: 0 0 16px; color: var(--ink-2); }
   .confirm .row { justify-content: flex-end; }
 
+  /* ---------- the intro: an anime-style trailer the first time a new player opens the game ---------- */
+  .hud, .name, .bottom { transition: opacity .5s; }
+  body.intro-on .hud, body.intro-on .name, body.intro-on .bottom, body.intro-on .toast, body.intro-on .nopack { opacity: 0; pointer-events: none; }
+  body.intro-on .bottom > * { pointer-events: none; }
+  .intro { position: fixed; inset: 0; z-index: 60; overflow: hidden; pointer-events: none; color: #fff; transition: opacity .45s;
+    font-family: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", Nunito, system-ui, sans-serif; font-weight: 400; }
+  .intro.out { opacity: 0; }
+  .intro button { pointer-events: auto; }
+  .i-bars i { position: absolute; left: 0; right: 0; height: 7vh; background: #05030a; transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+  .i-bars i:first-child { top: 0; transform: translateY(-101%); }
+  .i-bars i:last-child { bottom: 0; transform: translateY(101%); }
+  .intro.bars .i-bars i { transform: none; }
+  .i-stage { position: absolute; inset: 0; }
+  .i-stage.shake { animation: iShake .34s linear; }
+  @keyframes iShake { 20% { transform: translate(-8px, 5px); } 40% { transform: translate(7px, -6px); } 60% { transform: translate(-5px, -4px); } 80% { transform: translate(4px, 5px); } }
+  .i-white { position: absolute; inset: 0; background: #fff; opacity: 0; }
+  /* outlined display type: the letters themselves are the thick outline and ::after lays the fill over them */
+  .ol { position: relative; display: inline-block; color: var(--o, #170d26); -webkit-text-stroke: .16em var(--o, #170d26); text-shadow: .06em .08em 0 var(--sh, #ff4d8d); white-space: nowrap; }
+  .ol::after { content: attr(data-t); position: absolute; inset: 0; -webkit-text-stroke: 0; text-shadow: none; color: var(--c, #fff); }
+  .ol.rainbow::after { color: transparent; background: linear-gradient(90deg, #ff8ad8, #ffe38a, #8affc8, #8ad8ff, #c79bff, #ff8ad8); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; animation: shimmer 1.1s linear infinite; }
+  .ol.gold::after { color: transparent; animation: iShine 2.8s ease-in-out .9s infinite;
+    background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .95) 47%, transparent 56%) 150% 0 / 260% 100% no-repeat, linear-gradient(180deg, #fffbe8 6%, #ffe07a 38%, #f2a531 58%, #ffe9a6 90%);
+    -webkit-background-clip: text; background-clip: text; }
+  @keyframes iShine { 0% { background-position: 150% 0, 0 0; } 45%, 100% { background-position: -60% 0, 0 0; } }
+  .i-word { position: absolute; transform: translate(-50%, -50%) rotate(var(--r, -8deg)); font-size: var(--s, 72px); line-height: 1; }
+  .i-word > .ol { animation: iPop .32s cubic-bezier(.2, 1.7, .45, 1) both; }
+  .i-word.jit { animation: iJit .1s steps(2) infinite; }
+  .i-word.rise > .ol { animation: iPop .3s cubic-bezier(.2, 1.7, .45, 1) both, iRise 1.3s ease-in .3s forwards; }
+  .i-word.out > .ol { animation: iOut .22s ease-in forwards; }
+  @keyframes iPop { from { transform: scale(2.6); opacity: 0; } 55% { transform: scale(.9); opacity: 1; } to { transform: none; } }
+  @keyframes iRise { to { transform: translateY(-1.2em) scale(1.08); opacity: 0; } }
+  @keyframes iOut { to { transform: scale(1.3); opacity: 0; } }
+  @keyframes iJit { 50% { transform: translate(-50%, -50%) rotate(var(--r, -8deg)) translate(3px, -2px); } }
+  .i-cap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 900px); margin: 0; text-align: center; font: italic 900 clamp(28px, 7vw, 60px)/1.08 Nunito, system-ui, sans-serif; }
+  .i-cap span { display: inline-block; animation: iCap .38s cubic-bezier(.2, 1.4, .4, 1) both;
+    text-shadow: 2px 2px 0 #170d26, -2px 2px 0 #170d26, 2px -2px 0 #170d26, -2px -2px 0 #170d26, 0 3px 0 #170d26, 0 -3px 0 #170d26, 3px 0 0 #170d26, -3px 0 0 #170d26, 0 8px 22px rgba(0, 0, 0, .6); }
+  .i-cap em { font-style: inherit; color: var(--gold); }
+  .i-cap.out span { animation: iOut .2s ease-in forwards; }
+  @keyframes iCap { from { transform: scale(1.4) skewX(-14deg); opacity: 0; } }
+  .i-plate { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: .28em; font-size: clamp(30px, 8.6vw, 74px); line-height: 1; transform: skewX(-9deg); animation: iSlide .34s cubic-bezier(.2, 1.2, .35, 1) both; }
+  .i-plate.mid { align-items: center; text-align: center; }
+  .i-plate .nm { --c: #fff; }
+  .i-plate .i-set { font: 900 clamp(11px, 2.7vw, 16px)/1 Nunito, sans-serif; letter-spacing: .26em; text-transform: uppercase; color: #170d26; background: var(--c, #ffd76a); padding: .6em 1em .55em; box-shadow: .3em .3em 0 #170d26; }
+  .i-plate .fin { font: 900 clamp(13px, 3.2vw, 21px)/1 Nunito, sans-serif; letter-spacing: .12em; padding: .5em .8em .45em; border-radius: 6px; color: #2b1840; background: #fff; box-shadow: .25em .25em 0 #170d26; }
+  .i-plate .fin.holo { background: linear-gradient(90deg, #ff9ad5, #ffe38a, #8affc8, #8ad8ff, #c79bff); }
+  .i-plate .fin.both { background: linear-gradient(90deg, #fff, #ff9ad5, #ffe38a, #8affc8, #8ad8ff, #c79bff, #fff); }
+  .i-plate .val { font-size: .74em; --c: var(--gold); --sh: #b8501a; font-variant-numeric: tabular-nums; }
+  .i-plate.out { animation: iSlideOut .22s ease-in forwards; }
+  @keyframes iSlide { from { opacity: 0; translate: 34vw 0; } }
+  @keyframes iSlideOut { to { opacity: 0; translate: -34vw 0; } }
+  .i-start { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 14px; padding-bottom: calc(max(18px, env(safe-area-inset-bottom)) + 12vh); color: #fff; font: inherit; transition: opacity .3s; }
+  .i-start .press { font-size: clamp(22px, 6.2vw, 34px); letter-spacing: .16em; animation: iPulse 1.3s ease-in-out infinite; }
+  .i-start small { font: 800 12px/1 Nunito, sans-serif; letter-spacing: .22em; text-transform: uppercase; color: var(--ink-3); }
+  .i-start:focus-visible { outline: none; } .i-start:focus-visible .press { outline: 2px solid var(--gold); outline-offset: 10px; }
+  .i-start.gone { opacity: 0; pointer-events: none; }
+  @keyframes iPulse { 50% { opacity: .35; } }
+  .i-title { position: absolute; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 40px); translate: -50% 0; width: max-content; max-width: 96vw; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .i-kicker { font: 900 clamp(10px, 2.6vw, 14px)/1 Nunito, sans-serif; letter-spacing: .3em; text-transform: uppercase; color: rgba(255, 255, 255, .88); margin-bottom: .8em; text-shadow: 0 2px 8px rgba(0, 0, 0, .7); animation: iUp .5s .35s both; }
+  .i-logo { margin: 0; font: inherit; font-size: clamp(42px, min(15vw, 12vh), 128px); line-height: .94; display: flex; flex-direction: column; align-items: center; transform: skewX(-8deg); animation: iSlam .5s cubic-bezier(.2, 1.5, .35, 1) both; }
+  @media (min-aspect-ratio: 5/4) { .i-logo { flex-direction: row; gap: .28em; font-size: clamp(42px, min(8.6vw, 14vh), 124px); } .i-logo .amp { font-size: .72em; margin: 0; } }
+  .i-logo .ol { --sh: #e8455a; }
+  .i-logo .amp { font-size: .5em; margin: -.1em 0 -.04em; }
+  .i-jp { margin-top: .55em; padding: .4em 1.1em .35em; background: #e8455a; color: #fff; font-size: clamp(13px, 3.4vw, 21px); letter-spacing: .32em; transform: skewX(-8deg); box-shadow: .3em .3em 0 #170d26; animation: iSlide .4s .3s both; }
+  @keyframes iSlam { from { transform: skewX(-8deg) scale(3.2); opacity: 0; } 45% { opacity: 1; } 70% { transform: skewX(-8deg) scale(.94); } to { transform: skewX(-8deg); } }
+  .i-cta { position: absolute; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 6px); translate: -50% 0; width: calc(100% - 32px); display: flex; flex-direction: column; align-items: center; gap: 8px; animation: iUpX .5s cubic-bezier(.2, 1, .3, 1) both; }
+  .i-cta p { margin: 0 0 4px; font: 800 clamp(15px, 3.9vw, 19px)/1.3 Nunito, sans-serif; color: rgba(255, 255, 255, .9); text-shadow: 0 2px 10px rgba(0, 0, 0, .7); }
+  .i-cta .btn { height: 58px; padding: 0 30px; font-size: 19px; animation: glowBtn 1.6s ease-in-out infinite; }
+  .i-cta .btn svg { width: 22px; height: 22px; }
+  .i-link { height: 34px; padding: 0 12px; border: 0; background: none; color: var(--ink-2); font: 600 14.5px/1 Fredoka, sans-serif; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .i-link:hover { color: var(--ink); }
+  @keyframes iUp { from { opacity: 0; translate: 0 18px; } }
+  @keyframes iUpX { from { opacity: 0; translate: -50% 18px; } }
+  .i-skip { position: absolute; z-index: 3; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); height: 36px; padding: 0 12px 0 16px; border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .35); background: rgba(10, 6, 20, .5); color: rgba(255, 255, 255, .92); font: 600 14px/1 Fredoka, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+  .i-skip:hover { background: rgba(40, 30, 64, .85); }
+  .i-skip svg { width: 16px; height: 16px; }
+
+  /* ---------- the first pack's walkthrough: a hand showing the move, and a hint that says what it does ---------- */
+  .hint.coach { color: var(--ink); background: rgba(38, 25, 66, .82); box-shadow: 0 10px 30px -12px rgba(0, 0, 0, .8), inset 0 0 0 1.5px rgba(255, 215, 106, .7); font-size: 15.5px; }
+  .coach-tag { display: inline-block; margin-right: 7px; padding: 3px 7px 2px; border-radius: 6px; background: var(--gold); color: #2c1a00; font: 800 10.5px/1 Nunito, sans-serif; letter-spacing: .1em; text-transform: uppercase; vertical-align: 2px; }
+  .coach-skip { pointer-events: auto; margin-left: 6px; padding: 2px 3px; border: 0; background: none; color: var(--ink-3); font: 600 13px/1 Fredoka, sans-serif; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .coach-skip:hover { color: var(--ink); }
+  .hint.off .coach-skip { pointer-events: none; }
+  .coach-hand { position: fixed; z-index: 45; left: 0; top: 0; width: 60px; height: 60px; pointer-events: none; opacity: 0; transform-origin: 22px 3px; will-change: transform, opacity;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .45)); }
+  .coach-hand svg { display: block; width: 100%; height: 100%; }
+  .coach-tap { position: fixed; z-index: 44; width: 60px; height: 60px; margin: -30px 0 0 -30px; box-sizing: border-box; border-radius: 50%; border: 3px solid #fff; pointer-events: none; opacity: 0; }
+  .coach-tap.go { animation: coachTap .6s ease-out; }
+  @keyframes coachTap { from { transform: scale(.3); opacity: .95; } to { transform: scale(1.5); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .i-stage.shake, .i-word.jit, .ol.gold::after, .ol.rainbow::after, .i-cta .btn { animation: none; } }
+
   @media (max-width: 640px) {
     .name { font-size: 20px; }
     .name.hide-small { display: none; }
@@ -209,8 +301,8 @@
 </style>
 </head>
 <body>
-<canvas id="c" tabindex="0" aria-label="Booster packs. Swipe across the top of the pack to tear it open, then pull the cards out and flip through them. Keyboard: Space or Enter does the next thing, B opens the binder."></canvas>
-<h1 class="name" id="name"><span>Booster</span> Packs</h1>
+<canvas id="c" tabindex="0" aria-label="Odds &amp; Ends, a trading card game. Swipe across the top of the pack to tear it open, then pull the cards out and flip through them. Keyboard: Space or Enter does the next thing, B opens the binder."></canvas>
+<h1 class="name" id="name"><span>Odds</span> &amp; <span>Ends</span></h1>
 
 <div class="hud">
   <div class="wallet glass" id="wallet" role="status" aria-live="off" title="Your money"><span class="coin" aria-hidden="true">$</span><b id="money">$0.00</b></div>
@@ -244,7 +336,7 @@
 
 <div class="inspect" id="inspect" hidden>
   <div class="info glass"><div class="nm" id="inName"></div><div class="sub" id="inSub"></div><div class="val" id="inVal"></div><div class="from" id="inFrom" hidden>Shared with you · just for looking</div></div>
-  <div class="actions"><button class="btn ghost glass" id="inBack" type="button">Back</button><button class="btn ghost glass" id="inShare" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7.5 7.5 4.5-4.5 4.5 4.5"/><path d="M5.5 11.5V19a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-7.5"/></svg>Share</button><button class="btn red" id="inSell" type="button">Sell</button></div>
+  <div class="actions"><button class="btn ghost glass" id="inBack" type="button">Back</button><button class="btn ghost glass" id="inShare" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7.5 7.5 4.5-4.5 4.5 4.5"/><path d="M5.5 11.5V19a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-7.5"/></svg>Share</button><button class="btn red" id="inSell" type="button">Sell</button><button class="btn gold" id="inPlay" type="button" hidden>Interested in playing? <small>First pack free</small></button></div>
 </div>
 
 <div class="result glass" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
@@ -254,10 +346,30 @@
 </div>
 
 <div class="toast glass" id="toast" role="status"></div>
+<div class="coach-hand" id="coachHand" aria-hidden="true"><svg viewBox="0 0 64 64"><g fill="#1d1230" stroke="#1d1230" stroke-width="5" stroke-linejoin="round"><rect x="17.5" y="3" width="12" height="30" rx="6"/><rect x="15" y="24" width="33" height="27" rx="10"/><rect x="27.5" y="21" width="11" height="14" rx="5.5"/><rect x="37" y="24" width="10" height="13" rx="5"/><rect x="5" y="31" width="17" height="11" rx="5.5" transform="rotate(32 13.5 36.5)"/><rect x="19" y="47" width="27" height="13" rx="3"/></g><g fill="#fff"><rect x="17.5" y="3" width="12" height="30" rx="6"/><rect x="15" y="24" width="33" height="27" rx="10"/><rect x="27.5" y="21" width="11" height="14" rx="5.5"/><rect x="37" y="24" width="10" height="13" rx="5"/><rect x="5" y="31" width="17" height="11" rx="5.5" transform="rotate(32 13.5 36.5)"/></g><rect x="19" y="47" width="27" height="13" rx="3" fill="#ffd76a"/><path d="M33 26.5v6M42 29v5.5" stroke="#cfc4de" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></div>
+<div class="coach-tap" id="coachTap" aria-hidden="true"></div>
+
+<div class="intro" id="intro" hidden>
+  <div class="i-bars" aria-hidden="true"><i></i><i></i></div>
+  <div class="i-stage" id="iStage" aria-hidden="true"></div>
+  <div class="i-white" id="iWhite"></div>
+  <button class="i-start" id="iStart" type="button"><span class="press" id="iPress">Tap to start</span><small>Sound on 🔊</small></button>
+  <div class="i-title" id="iTitle" hidden>
+    <span class="i-kicker">Trading Card Game</span>
+    <h2 class="i-logo"><span class="ol gold" data-t="ODDS">ODDS</span><span class="ol gold amp" data-t="&amp;">&amp;</span><span class="ol gold" data-t="ENDS">ENDS</span></h2>
+    <span class="i-jp" aria-hidden="true">オッズ＆エンズ</span>
+  </div>
+  <div class="i-cta" id="iCta" hidden>
+    <p id="iTagline">Rip packs. Pull rares. Collect them all.</p>
+    <button class="btn gold" id="iGo" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5V20h14v-7.5M12 8.5V20M12 8.5c-1.6-3.6-5.7-3.9-5.7-1.6 0 1.4 2.4 1.6 5.7 1.6ZM12 8.5c1.6-3.6 5.7-3.9 5.7-1.6 0 1.4-2.4 1.6-5.7 1.6Z"/></svg>Open your free pack</button>
+    <button class="i-link" id="iNoTour" type="button">I know how to play</button>
+  </div>
+  <button class="i-skip" id="iSkip" type="button">Skip intro<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+</div>
 <p class="sr" id="live" aria-live="polite"></p>
 
 <aside class="panel" id="menu" aria-label="Menu">
-  <header><h2>Booster Packs</h2><button class="hbtn icon" id="closeMenu" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+  <header><h2>Odds &amp; Ends</h2><button class="hbtn icon" id="closeMenu" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
   <div class="scroll">
     <h3>Settings</h3>
     <div class="setting"><p>Auto-sell duplicates<small>After you see a card you already own (same card, same finish), it's sold for you.</small></p><button class="switch" id="autoSell" type="button" role="switch" aria-checked="false" aria-label="Auto-sell duplicates"></button></div>
@@ -266,7 +378,7 @@
     <h3>Your stats</h3>
     <dl class="stats" id="stats"></dl>
     <h3>Save</h3>
-    <p>Your collection lives in this browser. Take it with you as a file or a code.</p>
+    <p>Your collection lives in this browser and saves as you go. Close the tab halfway through a pack and you’ll pick up right where you were. Take it with you as a file or a code.</p>
     <div class="row"><button class="btn gold" id="exportFile" type="button">Download save</button><button class="btn ghost glass" id="exportCode" type="button">Copy save code</button></div>
     <p class="msg" id="exportMsg" aria-live="polite"></p>
     <h3>Load a save</h3>

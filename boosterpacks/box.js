@@ -84,6 +84,14 @@ export class BoxOpening {
     this.setActions([{ label: 'Skip', cls: 'ghost glass', onClick: () => this.skipAll() }]);
     await moveTo(box, { p: [0, -.3 - 11.5 * bs, 0] }, .55, ease.back);
     sound.thump();
+    // While the box sits closed, draw all 90 faces (a first box of a set can mean dozens of pictures never drawn
+    // before), so the show that follows runs smoothly instead of drawing as it goes.
+    const drawn = () => entries.filter(e => e.ready).length;
+    if (drawn() < entries.length) {
+      this.setFaceBudget(40);
+      for (let t = 0; drawn() < entries.length && t < 600; t++) { this.hint(`Unboxing… ${drawn()}/${entries.length}`); await sleep(.05); }
+      this.setFaceBudget(0); this.hint('');
+    }
     // packs inside, standing in a row front to back
     for (let i = 0; i < 10; i++) {
       const p = new this.Pack(set, set.wrappers[(wi + i) % set.wrappers.length], this.wrapperPrints(set, (wi + i) % set.wrappers.length));
@@ -189,15 +197,16 @@ export class BoxOpening {
       if (rare) this.hint('');
       // away: into the binder, or sold on the spot if it's a duplicate and auto-sell is on (SOLD stamped on it first)
       const target = this.binderWorld(4);
-      const firstDupe = this.autoSell ? cards.find(c => c.res.dupe) : null;
+      const firstDupe = cards.find(c => (this.autoSell && c.res.dupe) || c.res.sold) ?? null;
       await Promise.all(cards.map((card, i) => sleep(i * .02).then(async () => {
         const h = card.holder;
-        if (this.autoSell && card.res.dupe) {
-          const v = this.sell(card.res.key);
+        if ((this.autoSell && card.res.dupe) || card.res.sold) {
+          // (a box played again after a reload shows the ones it sold before as sold, and doesn't sell them twice)
+          const before = card.res.sold, v = before ? valueOf(card.data) : this.sell(card.res.key, card.res.i);
           soldTotal += v;
           h.updateWorldMatrix(true, false);
           const at = new THREE.Vector3().applyMatrix4(h.matrixWorld);
-          await this.stampSold(card, v ? () => this.payout(at, v, 0) : null, card === firstDupe);
+          await this.stampSold(card, v && !before ? () => this.payout(at, v, 0) : null, card === firstDupe);
           await this.fadeAway(card, .25);
         } else {
           await moveTo(h, { p: [target.x, target.y, target.z], s: G.s * .08, r: [0, 0, (Math.random() - .5)] }, .38, ease.in);

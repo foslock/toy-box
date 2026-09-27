@@ -31,6 +31,8 @@ export class PhoneTilt {
     this.on = false; this.fresh = false;
     removeEventListener('deviceorientation', this.read);
   }
+  // However the phone is held right now becomes level: a new card has come up, and it should start out facing you.
+  recenter() { this.base = this.fresh ? this.now.clone() : null; this.x = this.y = 0; }
   // Ask for the sensor if the browser wants permission. Only works from a tap or click. Resolves true if allowed.
   ask(again = false) {
     if (again && this.state === 'no') this.state = 'ask';

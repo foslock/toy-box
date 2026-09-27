@@ -10,6 +10,7 @@ export class Sound {
       this.out = c.createDynamicsCompressor(); this.out.threshold.value = -16; this.out.ratio.value = 4;
       this.master = c.createGain(); this.master.gain.value = .6;
       this.master.connect(this.out); this.out.connect(c.destination);
+      this.dest = this.master;
       const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.noiseBuf = buf;
@@ -18,6 +19,9 @@ export class Sound {
     return this.ctx;
   }
   set(on) { this.enabled = on; if (!on && this.ctx) this.ctx.suspend(); else this.ensure(); }
+  // A channel of its own (for music that may need to stop early): everything played inside fn goes through it.
+  bus() { const c = this.ensure(); if (!c) return null; const g = c.createGain(); g.connect(this.master); return g; }
+  into(node, fn) { const was = this.dest; if (node) this.dest = node; try { fn(); } finally { this.dest = was; } }
   noise(o = {}) {
     const c = this.ensure(); if (!c) return;
     const t = c.currentTime + (o.at ?? 0), src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
@@ -26,7 +30,7 @@ export class Sound {
     if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + (o.dur ?? .2));
     const a = o.attack ?? .005, dur = o.dur ?? .2;
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.gain ?? .3, t + a); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
-    src.connect(f); f.connect(g); g.connect(this.master);
+    src.connect(f); f.connect(g); g.connect(this.dest);
     src.start(t, Math.random() * 1.5); src.stop(t + dur + .05);
   }
   tone(freq, o = {}) {
@@ -37,7 +41,7 @@ export class Sound {
     if (o.detune) osc.detune.value = o.detune;
     const a = o.attack ?? .004, dur = o.dur ?? .4;
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.gain ?? .2, t + a); g.gain.exponentialRampToValueAtTime(.0004, t + dur);
-    osc.connect(g); g.connect(this.master); osc.start(t); osc.stop(t + dur + .05);
+    osc.connect(g); g.connect(this.dest); osc.start(t); osc.stop(t + dur + .05);
   }
   bell(freq, o = {}) {   // a bright struck bell: a few inharmonic partials
     for (const [m, gm] of [[1, 1], [2.76, .45], [5.4, .22], [8.9, .1]]) if (freq * m < 18000) this.tone(freq * m, { ...o, gain: (o.gain ?? .12) * gm, dur: (o.dur ?? 1.2) / Math.sqrt(m) });
@@ -53,8 +57,8 @@ export class Sound {
     if (Math.random() < speed * 2) this.noise({ f: 700 + Math.random() * 600, q: 3, dur: .05, gain: .06 });
   }
   rip() { this.noise({ f: 2500, to: 5000, q: .8, dur: .28, gain: .35 }); this.noise({ at: .03, f: 900, to: 300, q: 1, dur: .3, gain: .2 }); this.whoosh(.6); }
-  whoosh(g = 1) { this.noise({ type: 'lowpass', f: 300, to: 2200, q: .7, dur: .32, gain: .22 * g, attack: .08 }); }
-  swish(g = 1) { this.noise({ f: 1800, to: 700, q: 1.2, dur: .16, gain: .16 * g, attack: .02 }); }
+  whoosh(g = 1, at = 0) { this.noise({ at, type: 'lowpass', f: 300, to: 2200, q: .7, dur: .32, gain: .22 * g, attack: .08 }); }
+  swish(g = 1, at = 0) { this.noise({ at, f: 1800, to: 700, q: 1.2, dur: .16, gain: .16 * g, attack: .02 }); }
   slide() { this.noise({ type: 'lowpass', f: 900, to: 2400, q: .6, dur: .45, gain: .14, attack: .15 }); }
   flip() { this.noise({ f: 2400, to: 900, q: 1, dur: .2, gain: .18, attack: .03 }); this.tone(900, { at: .05, dur: .06, gain: .05, type: 'triangle' }); }
   pop() { this.tone(520, { to: 980, glide: .06, dur: .14, gain: .12, type: 'triangle' }); }
@@ -73,18 +77,33 @@ export class Sound {
     else { this.tone(50, { to: 35, dur: 1, gain: .4 }); for (let i = 0; i < 18; i++) this.bell(523 * Math.pow(2, i / 6), { at: i * .045, gain: .05, dur: 1.4 }); [262, 330, 392, 523].forEach(f => this.tone(f, { at: .8, dur: 2.2, gain: .06, type: 'triangle', attack: .3 })); }
   }
   // ---- fanfare, scaled to how much a card is worth (tier 0 = pennies … 5 = over $1,000) ----
-  boom(g = 1) { this.tone(90, { to: 32, glide: .5, dur: .9, gain: .5 * g }); this.noise({ type: 'lowpass', f: 300, to: 80, dur: .5, gain: .25 * g }); }
+  boom(g = 1, at = 0) { this.tone(90, { at, to: 32, glide: .5, dur: .9, gain: .5 * g }); this.noise({ at, type: 'lowpass', f: 300, to: 80, dur: .5, gain: .25 * g }); }
   crash(g = 1, at = 0) {
     this.noise({ at, type: 'highpass', f: 4500, q: .5, dur: 2.2, gain: .22 * g, attack: .003 });
     this.noise({ at, f: 7000, to: 3500, q: .6, dur: 1.4, gain: .12 * g });
   }
-  swell(dur = 1, g = 1) { this.noise({ type: 'highpass', f: 2000, to: 7000, q: .4, dur, gain: .12 * g, attack: dur * .9 }); }
-  rumble(dur = 1.5, g = 1) { this.noise({ type: 'lowpass', f: 90, to: 160, q: .8, dur, gain: .35 * g, attack: dur * .6, rate: .5 }); this.tone(55, { dur, gain: .12 * g, attack: dur * .6 }); }
-  drumroll(dur = 1.2) {
+  swell(dur = 1, g = 1, at = 0) { this.noise({ at, type: 'highpass', f: 2000, to: 7000, q: .4, dur, gain: .12 * g, attack: dur * .9 }); }
+  rumble(dur = 1.5, g = 1, at = 0) { this.noise({ at, type: 'lowpass', f: 90, to: 160, q: .8, dur, gain: .35 * g, attack: dur * .6, rate: .5 }); this.tone(55, { at, dur, gain: .12 * g, attack: dur * .6 }); }
+  drumroll(dur = 1.2, at = 0) {
     let t = 0, gap = .09;
-    while (t < dur) { this.noise({ at: t, f: 1800, q: .9, dur: .06, gain: .06 + .12 * (t / dur) }); t += gap; gap = Math.max(.028, gap * .93); }
-    this.swell(dur, 1.2);
+    while (t < dur) { this.noise({ at: at + t, f: 1800, q: .9, dur: .06, gain: .06 + .12 * (t / dur) }); t += gap; gap = Math.max(.028, gap * .93); }
+    this.swell(dur, 1.2, at);
   }
+  // ---- a little band, for the intro's score (at: seconds from now) ----
+  kick(at = 0, g = 1) { this.tone(150, { at, to: 42, glide: .11, dur: .32, gain: .5 * g }); this.noise({ at, type: 'lowpass', f: 1200, dur: .025, gain: .1 * g }); }
+  snare(at = 0, g = 1) { this.noise({ at, f: 1900, q: .7, dur: .18, gain: .26 * g }); this.tone(190, { at, to: 150, glide: .08, dur: .1, gain: .14 * g, type: 'triangle' }); }
+  hat(at = 0, g = 1) { this.noise({ at, type: 'highpass', f: 7500, q: .6, dur: .045, gain: .09 * g }); }
+  heartbeat(at = 0, g = 1) { this.tone(72, { at, to: 40, glide: .1, dur: .26, gain: .55 * g }); this.tone(66, { at: at + .19, to: 38, glide: .1, dur: .3, gain: .42 * g }); }
+  bass(freq, at = 0, dur = .2, g = 1) {   // a plucked, filtered saw with a sine under it
+    const c = this.ensure(); if (!c) return;
+    const t = c.currentTime + at, o = c.createOscillator(), f = c.createBiquadFilter(), v = c.createGain();
+    o.type = 'sawtooth'; o.frequency.value = freq;
+    f.type = 'lowpass'; f.Q.value = 5; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(260, t + dur * .9);
+    v.gain.setValueAtTime(0, t); v.gain.linearRampToValueAtTime(.16 * g, t + .008); v.gain.setValueAtTime(.16 * g, t + dur * .55); v.gain.exponentialRampToValueAtTime(.0005, t + dur);
+    o.connect(f); f.connect(v); v.connect(this.dest); o.start(t); o.stop(t + dur + .05);
+    this.tone(freq, { at, dur, gain: .14 * g });
+  }
+  shing(at = 0, g = 1) { this.noise({ at, type: 'highpass', f: 2500, to: 9000, q: .7, dur: .32, gain: .13 * g, attack: .01 }); this.bell(2637, { at, gain: .045 * g, dur: .7 }); }
   brass(freqs, o = {}) {
     const c = this.ensure(); if (!c) return;
     const t = c.currentTime + (o.at ?? 0), dur = o.dur ?? .6, peak = o.gain ?? .06;
@@ -92,7 +111,7 @@ export class Sound {
     f.type = 'lowpass'; f.Q.value = 1.1;
     f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(3200, t + .07); f.frequency.exponentialRampToValueAtTime(1400, t + dur);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + .035); g.gain.setValueAtTime(peak, t + dur * .75); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
-    f.connect(g); g.connect(this.master);
+    f.connect(g); g.connect(this.dest);
     for (const fr of freqs) for (const d of [-8, 6]) { const osc = c.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = fr; osc.detune.value = d; osc.connect(f); osc.start(t); osc.stop(t + dur + .05); }
   }
   applause(dur = 3, g = 1) {
