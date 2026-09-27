@@ -262,6 +262,9 @@ function onEvent(e) {
 }
 
 /* ---------- pointing and tapping ---------- */
+// No zooming the page on phones (a pinch on the farm zooms the farm). iOS Safari ignores user-scalable=no in the
+// viewport tag, so its own pinch gestures are cancelled here too.
+for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, e => e.preventDefault(), { passive: false });
 const canvas = $('c');
 let down = null;
 canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, button: e.button }; canvas.classList.add('grabbing'); follow = false; });

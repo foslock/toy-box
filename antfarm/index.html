@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Ant Farm</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,6 +11,9 @@
   :root { --ink: #f6eee2; --ink-2: #cdbfae; --ink-3: #9a8b7a; --panel: rgba(27, 20, 15, .86); --edge: #6d5b49; --edge-2: #3b2f25;
     --gold: #ffd24a; --good: #8fe07a; --bad: #ff7a64; --green: #5fae4f; }
   html, body { height: 100%; margin: 0; }
+  /* The page itself never zooms (pinching the farm zooms the farm instead): only panning, so the menu and tray still
+     scroll. Safari ignores user-scalable=no, so main.js also cancels its pinch gestures. */
+  html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { color: var(--ink); font: 400 15px/1.35 'Pixelify Sans', ui-monospace, monospace; overflow: hidden; -webkit-font-smoothing: antialiased;
     -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
     background: radial-gradient(120% 90% at 50% 18%, #4a3a2c 0%, #2a2019 45%, #140f0b 100%) #140f0b; }
@@ -107,20 +110,22 @@
   .tabs .note { align-self: center; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cards { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
   .cards::-webkit-scrollbar { display: none; }
-  .cardb { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 86px; height: 74px; padding: 6px 6px 5px; box-sizing: border-box;
+  /* icon at the top, price at the bottom, and the name between them, wrapping onto a second line when the card is narrow;
+     every card in the row is as tall as the tallest, so icons and prices line up */
+  .cardb { position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; row-gap: 3px; min-width: min-content; min-height: 74px; padding: 7px 7px 5px; box-sizing: border-box;
     border: 2px solid var(--edge-2); background: #231a14; cursor: pointer; flex: 1 0 86px; }
   .cardb:hover { border-color: var(--edge); background: #2e2219; }
   .cardb[aria-pressed="true"] { border-color: var(--gold); background: #3a2b12; }
   .cardb:disabled { cursor: default; }
   .cardb.poor .cost { color: var(--bad); }
   .cardb.locked { opacity: .5; }
-  .cardb .nm { font: 400 10.5px/1 Silkscreen, monospace; letter-spacing: .02em; white-space: nowrap; }
-  .cardb .cost { font-size: 13px; color: var(--gold); white-space: nowrap; }
+  .cardb .nm { max-width: 100%; font: 400 10.5px/1.25 Silkscreen, monospace; letter-spacing: .02em; text-align: center; overflow-wrap: break-word; }
+  .cardb .cost { max-width: 100%; font-size: 13px; line-height: 1.15; color: var(--gold); text-align: center; }
   .cardb .cost.free { color: var(--good); }
   .cardb .pips { position: absolute; top: 5px; right: 6px; display: flex; gap: 2px; }
   .cardb .pips i { width: 5px; height: 5px; background: #4a3a2c; }
   .cardb .pips i.on { background: var(--gold); }
-  .cardb .ico { margin: auto 0 2px; }
+  .cardb .ico { margin-top: 3px; }
   .cardb .count { position: absolute; top: 4px; left: 6px; font-size: 11.5px; color: var(--ink-3); }
 
   .panel { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(380px, 100%); box-sizing: border-box; display: flex; flex-direction: column;
@@ -144,7 +149,7 @@
   .switch[aria-checked="true"] { border-color: #6a9a3a; } .switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--good); }
   .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .field { display: flex; gap: 6px; margin-top: 8px; }
-  .field input { flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 2px solid var(--edge); background: #120d09; color: var(--ink); font: 400 15px 'Pixelify Sans', monospace; }
+  .field input { flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 2px solid var(--edge); background: #120d09; color: var(--ink); font: 400 16px 'Pixelify Sans', monospace; }
   .help dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 8px 0; font-size: 14px; }
   .help dt { color: var(--ink); } .help dd { margin: 0; color: var(--ink-2); }
 
@@ -159,7 +164,7 @@
     .hud { gap: 5px; } .chip { padding: 0 8px 0 6px; gap: 5px; height: 36px; } .chip small { display: none; } .chip b { font-size: 14px; }
     .speed button { height: 36px; min-width: 30px; padding: 0 5px; font-size: 10.5px; } .hud .btn { height: 36px; width: 36px; }
     .tag { font-size: 8.5px; padding: 1px 4px 2px; }
-    .cardb { min-width: 72px; flex-basis: 72px; height: 66px; } .cardb .nm { font-size: 9.5px; }
+    .cardb { flex-basis: 72px; min-height: 66px; padding-inline: 5px; } .cardb .nm { font-size: 9.5px; }
     #info { width: calc(100% - 24px); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 110px); }
     .hint { font-size: 14px; }
     .tabs .note { display: none; }
