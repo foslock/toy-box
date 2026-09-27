@@ -146,6 +146,7 @@
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .setting p { margin: 0; color: var(--ink); }
   .setting small { display: block; color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .setting .btn { flex: none; height: 36px; padding: 0 16px; font-size: 14.5px; }
   .switch { position: relative; width: 50px; height: 30px; flex: none; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .18); cursor: pointer; transition: background-color .2s; }
   .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; }
   .switch[aria-checked="true"] { background: #3fbf7f; } .switch[aria-checked="true"]::after { transform: translateX(20px); }
@@ -361,7 +362,7 @@
   </div>
   <div class="i-cta" id="iCta" hidden>
     <p id="iTagline">Rip packs. Pull rares. Collect them all.</p>
-    <button class="btn gold" id="iGo" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5V20h14v-7.5M12 8.5V20M12 8.5c-1.6-3.6-5.7-3.9-5.7-1.6 0 1.4 2.4 1.6 5.7 1.6ZM12 8.5c1.6-3.6 5.7-3.9 5.7-1.6 0 1.4-2.4 1.6-5.7 1.6Z"/></svg>Open your free pack</button>
+    <button class="btn gold" id="iGo" type="button"><svg id="iGift" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5V20h14v-7.5M12 8.5V20M12 8.5c-1.6-3.6-5.7-3.9-5.7-1.6 0 1.4 2.4 1.6 5.7 1.6ZM12 8.5c1.6-3.6 5.7-3.9 5.7-1.6 0 1.4-2.4 1.6-5.7 1.6Z"/></svg><span id="iGoLabel">Open your free pack</span></button>
     <button class="i-link" id="iNoTour" type="button">I know how to play</button>
   </div>
   <button class="i-skip" id="iSkip" type="button">Skip intro<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
@@ -375,6 +376,7 @@
     <div class="setting"><p>Auto-sell duplicates<small>After you see a card you already own (same card, same finish), it's sold for you.</small></p><button class="switch" id="autoSell" type="button" role="switch" aria-checked="false" aria-label="Auto-sell duplicates"></button></div>
     <div class="setting"><p>Sound<small>Foil, cards, sparkles and the till.</small></p><button class="switch" id="soundSwitch" type="button" role="switch" aria-checked="true" aria-label="Sound"></button></div>
     <div class="setting" id="tiltSetting" hidden><p>Tilt with your phone<small>Tilt the phone to turn a pack or a card you're looking at closely, and catch the light on its foil.</small></p><button class="switch" id="tiltSwitch" type="button" role="switch" aria-checked="true" aria-label="Tilt with your phone"></button></div>
+    <div class="setting"><p>Intro<small>Watch the opening sequence again.</small></p><button class="btn ghost glass" id="replayIntro" type="button">Replay</button></div>
     <h3>Your stats</h3>
     <dl class="stats" id="stats"></dl>
     <h3>Save</h3>

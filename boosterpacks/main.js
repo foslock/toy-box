@@ -219,6 +219,8 @@ $('hint').addEventListener('click', e => { if (e.target.closest('.coach-skip')) 
 // where to point: a spot on a pack or card (in its own units), or the middle of a button
 const screenOf = (obj, x = 0, y = 0, z = 0) => { obj.updateWorldMatrix(true, false); return toScreen(V(x, y, z).applyMatrix4(obj.matrixWorld)); };
 const middleOf = el => { const r = el?.getBoundingClientRect(); return r?.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; };
+// The walkthrough's last step, once the first pack is done (and there isn't another pack in the way): the binder.
+function binderStep() { if (coach?.did('keep') && !current) guide('binder', '', 0, { kind: 'tap', at: () => middleOf($('binderBtn')) }); }
 let toastTimer = 0;
 function toast(msg, ms = 2600) { const t = $('toast'); t.innerHTML = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); live(t.textContent); }
 function setActions(list = []) {
@@ -342,19 +344,33 @@ function newIntro() {
     flashBackdrop, makeGlow, makeRim, makeRays, makeRing, cam, shake: v => { shake = Math.max(shake, v); }, tickers, toScreen, live, TOUCH, REDUCED, set: SETS[0],
     setHandler: h => { handler = h; updateCursor(); } });
 }
-// o.tapped: started from a tap, so it can go straight in. Afterwards the first pack comes with the walkthrough if they
-// asked for it.
+// o.tapped: started from a tap, so it can go straight in. o.replay: watched again from the menu. Afterwards the first
+// pack comes with the walkthrough if they asked for it (the first time, turning it down ends the walkthrough; a replay
+// leaves it as it was).
 async function runIntro(o = {}) {
   mode = 'intro'; handler = null; setActions([]); hint(''); $('sets').hidden = true;
   intro ??= newIntro();
-  const choice = await intro.play(o);
+  const choice = await intro.play({ ...o, back: o.replay && !(S.opened === 0 && store.packsInHand() > 0) });
   intro = null;
   S.seenIntro = true;
-  if (choice === 'tour' && S.opened === 0) startCoach(); else S.tutorialDone = true;
+  if (choice === 'tour' && S.opened === 0) { S.tutorialDone = false; if (!coach) startCoach(); }
+  else if (!o.replay) S.tutorialDone = true;
   store.save();
   mode = 'boot';
   return choice;
 }
+// The menu's Replay: back to the shop, then the intro from the top (the tap on the button lets its music play).
+$('replayIntro').addEventListener('click', async () => {
+  sound.ensure();
+  if (busy()) { toast('Finish opening first.'); return; }
+  closeMenu();
+  if (mode === 'binder') await closeBinder();
+  if (mode !== 'shop') return;
+  dropCurrent();   // (the floating pack comes back afterwards, the same one)
+  showGhost(false);
+  await runIntro({ tapped: true, replay: true });
+  home(); binderStep();
+});
 
 /* ---------- cards in the scene ---------- */
 // A card sits in a holder (for our moves) inside whatever group it belongs to.
@@ -774,8 +790,7 @@ async function finishOpening(cards, stack, set, from = 0) {
   const toBinder = await summary(cards, stack, set);
   stack.removeFromParent();
   home();
-  if (toBinder) openBinder();
-  else if (coach && !current) guide('binder', '', 0, { kind: 'tap', at: () => middleOf($('binderBtn')) });
+  if (toBinder) openBinder(); else binderStep();
 }
 // After a reload in the middle of a pack: the cards not yet seen come back up in a stack, and it carries on from the next
 // one (or from the summary, with any cards marked to sell still marked).
@@ -1704,8 +1719,7 @@ async function start() {
   else if (S.opening?.kind === 'box') resumeBox();
   else {
     home();
-    if (S.place.binder) openBinder(S.place.binder);
-    else if (coach?.did('keep') && !current) guide('binder', '', 0, { kind: 'tap', at: () => middleOf($('binderBtn')) });
+    if (S.place.binder) openBinder(S.place.binder); else binderStep();
   }
 }
 // ?demo: a still for the preview image — a fanned hand of good pulls in front of an open pack.

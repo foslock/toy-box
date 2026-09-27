@@ -98,9 +98,11 @@ export class Intro {
     })();
   }
 
-  // Plays it. o.tapped: it was started by a tap already, so there's no "tap to start". Resolves with what the player
-  // chose at the end: 'tour' (open the free pack with the walkthrough), 'play' (without it) or 'skip'.
+  // Plays it. o.tapped: it was started by a tap already, so there's no "tap to start". o.back: the player has no free
+  // pack waiting (it's being watched again), so the title just leads back to the game. Resolves with what the player
+  // chose at the end: 'tour' (open the free pack with the walkthrough), 'play' (without it, or back to the game) or 'skip'.
   async play(o = {}) {
+    this.back = !!o.back;
     this.mount();
     const choice = await new Promise(res => {
       this.choose = v => { if (!this.chosen) { this.chosen = v; res(v); } };
@@ -558,6 +560,9 @@ export class Intro {
     this.$title.hidden = false;
     this.$cta.style.visibility = 'hidden'; this.$cta.hidden = false;
     const go = document.getElementById('iGo'), none = document.getElementById('iNoTour');
+    document.getElementById('iGoLabel').textContent = this.back ? 'Back to the game' : 'Open your free pack';
+    document.getElementById('iGift').style.display = this.back ? 'none' : '';
+    none.hidden = this.back;
     const F = this.fanLayout(), hand = [this.show[0], this.jack, this.show[1], this.show[2]].filter(Boolean);
     hand.forEach((s, i) => {
       const k = i - (hand.length - 1) / 2, h = s.c3.holder;
@@ -573,7 +578,7 @@ export class Intro {
     this.$cta.style.visibility = ''; this.$cta.hidden = false; this.$cta.style.animation = 'none'; void this.$cta.offsetWidth; this.$cta.style.animation = '';
     this.$skip.hidden = true;
     go.focus({ preventScroll: true });
-    go.onclick = () => { this.sound.click(); this.choose('tour'); };
+    go.onclick = () => { this.sound.click(); this.choose(this.back ? 'play' : 'tour'); };
     none.onclick = () => { this.sound.click(); this.choose('play'); };
     this.setHandler({ key: e => { if (e.key === 'Escape') { this.choose('play'); return true; } } });
   }
