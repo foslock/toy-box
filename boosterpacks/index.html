@@ -6,7 +6,7 @@
 <title>Odds &amp; Ends</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Reggae+One&family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #fbf7ff; --ink-2: rgba(251, 247, 255, .74); --ink-3: rgba(251, 247, 255, .5); --glass: rgba(26, 19, 44, .56); --line: rgba(255, 255, 255, .14);
     --gold: #ffd76a; --gold-2: #f2b53a; --good: #5ee6a0; --bad: #ff7a8a; }
@@ -226,12 +226,13 @@
   @keyframes iRise { to { transform: translateY(-1.2em) scale(1.08); opacity: 0; } }
   @keyframes iOut { to { transform: scale(1.3); opacity: 0; } }
   @keyframes iJit { 50% { transform: translate(-50%, -50%) rotate(var(--r, -8deg)) translate(3px, -2px); } }
-  .i-cap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 900px); margin: 0; text-align: center; font: italic 900 clamp(28px, 7vw, 60px)/1.08 Nunito, system-ui, sans-serif; }
-  .i-cap span { display: inline-block; animation: iCap .38s cubic-bezier(.2, 1.4, .4, 1) both;
-    text-shadow: 2px 2px 0 #170d26, -2px 2px 0 #170d26, 2px -2px 0 #170d26, -2px -2px 0 #170d26, 0 3px 0 #170d26, 0 -3px 0 #170d26, 3px 0 0 #170d26, -3px 0 0 #170d26, 0 8px 22px rgba(0, 0, 0, .6); }
-  .i-cap em { font-style: inherit; color: var(--gold); }
-  .i-cap.out span { animation: iOut .2s ease-in forwards; }
-  @keyframes iCap { from { transform: scale(1.4) skewX(-14deg); opacity: 0; } }
+  /* the opening lines: sharp brush-cut capitals, each word slamming in a beat after the one before */
+  .i-cap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) skewX(-7deg); width: min(92vw, 940px); margin: 0; text-align: center;
+    font: 400 clamp(34px, min(10vw, 11vh), 86px)/1.14 "Reggae One", "Dela Gothic One", system-ui, sans-serif; text-wrap: balance; }
+  .i-cap .ol { --sh: #e8455a; margin: 0 .04em; animation: iWord .36s cubic-bezier(.2, 1.6, .4, 1) both; animation-delay: calc(var(--i) * 80ms); }
+  .i-cap .big { font-size: 1.45em; }
+  .i-cap.out .ol { animation: iOut .2s ease-in forwards; }
+  @keyframes iWord { from { transform: scale(2.6) rotate(var(--r, 0deg)); opacity: 0; } 55% { opacity: 1; } to { transform: rotate(var(--r, 0deg)); } }
   .i-plate { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: .28em; font-size: clamp(30px, 8.6vw, 74px); line-height: 1; transform: skewX(-9deg); animation: iSlide .34s cubic-bezier(.2, 1.2, .35, 1) both; }
   .i-plate.mid { align-items: center; text-align: center; }
   .i-plate .nm { --c: #fff; }

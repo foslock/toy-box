@@ -94,7 +94,8 @@ export class Intro {
         if (this.gone) return;
         this.entries.push(this.faces.get(c, HI, true));
       }
-      await Promise.race([document.fonts.load('400 80px "Dela Gothic One"', 'ODDS&ENHLFUTRIJCKP!?ゴドンビリッキラオッズ＆エンズ'), new Promise(r => setTimeout(r, 3000))]).catch(() => {});
+      await Promise.race([Promise.all([document.fonts.load('400 80px "Dela Gothic One"', 'ODDS&ENHLFUTRIJCKP!?ゴドンビリッキラオッズ＆エンズ'),
+        document.fonts.load('400 80px "Reggae One"', 'NINECARDSORPLGBU.')]), new Promise(r => setTimeout(r, 3000))]).catch(() => {});
     })();
   }
 
@@ -248,15 +249,22 @@ export class Intro {
     return el;
   }
   unword(el) { if (!el?.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); }
-  caption(html) {
+  // A line of narration, word by word; a *word* in stars is the big gold one.
+  caption(text) {
     this.$cap?.classList.add('out');
     const old = this.$cap; setTimeout(() => old?.remove(), 220);
     this.$cap = null;
-    if (!html) return;
+    if (!text) return;
     const el = this.$cap = document.createElement('p');
-    el.className = 'i-cap'; el.innerHTML = `<span>${html}</span>`;
+    el.className = 'i-cap';
+    text.split(' ').forEach((w, i) => {
+      const big = /^\*.+\*$/.test(w), t = (big ? w.slice(1, -1) : w).toUpperCase(), s = document.createElement('span');
+      s.className = 'ol' + (big ? ' gold big' : ''); s.dataset.t = t; s.textContent = t;
+      s.style.setProperty('--i', i); s.style.setProperty('--r', rand(-3, 3).toFixed(1) + 'deg');
+      el.append(s, ' ');
+    });
     this.$stage.append(el);
-    this.live(el.textContent);
+    this.live(text.replace(/\*/g, ''));
   }
   // A card's name plate: its set on a colored tag, its name, and its finish (and a price counting up, for the jackpot).
   plate(item, v, tag, color, where) {
@@ -367,7 +375,7 @@ export class Intro {
     this.el.classList.add('bars');
     this.tint('#000000', '#000000');
     this.linesTo({ opacity: .05, inner: .75, mode: 0, color: '#ffffff', flick: 12 }); this.focus(0, 0);
-    const lines = [[0, 'Nine cards.'], [2, 'One rare.'], [4, 'Could be a paper clip…'], [6, '…could be a <em>LEGEND.</em>']];
+    const lines = [[0, 'Nine cards.'], [2, 'One rare.'], [4, 'Could be a paper clip...'], [6, '...could be a *LEGEND.*']];
     for (const [b, text] of lines) {
       await this.at(b);
       this.kick.lines = b === 6 ? .5 : .32; this.kick.zoom = b === 6 ? 2.2 : 1.3;
@@ -564,11 +572,14 @@ export class Intro {
     document.getElementById('iGift').style.display = this.back ? 'none' : '';
     none.hidden = this.back;
     const F = this.fanLayout(), hand = [this.show[0], this.jack, this.show[1], this.show[2]].filter(Boolean);
+    // Each card at a depth of its own: the jackpot in front and every card further from it a step further back (a card
+    // to its right a half step nearer than one as far to its left), each step more than two neighbours' sways can close.
+    const front = Math.max(0, hand.indexOf(this.jack)), step = 1.1 * F.s;
     hand.forEach((s, i) => {
-      const k = i - (hand.length - 1) / 2, h = s.c3.holder;
-      if (!h.visible) { h.visible = true; h.position.set(k * 6, -this.VIEW_H, 2); h.rotation.set(0, 0, 0); }
-      this.moveTo(h, { p: [k * CARD_W * .5 * F.s, F.y - Math.abs(k) * .5 * F.s, -Math.abs(k) * .3], r: [0, 0, -k * .13], s: F.s }, .55, this.ease.back);
-      s.fan = { k, T0: i };
+      const k = i - (hand.length - 1) / 2, h = s.c3.holder, z = -(Math.abs(i - front) * 2 - (i > front ? 1 : 0)) * step;
+      if (!h.visible) { h.visible = true; h.position.set(k * 6, -this.VIEW_H, z); h.rotation.set(0, 0, 0); }
+      this.moveTo(h, { p: [k * CARD_W * .5 * F.s, F.y - Math.abs(k) * .5 * F.s, z], r: [0, 0, -k * .13], s: F.s }, .55, this.ease.back);
+      s.fan = { k, T0: i, z };
     });
     this.spin.push((dt, T) => { for (const s of hand) if (!s.leaving) { s.c3.mesh.rotation.y = Math.sin(T * .9 + s.fan.T0) * .12; s.c3.mesh.rotation.x = Math.sin(T * .7 + s.fan.T0 * 2) * .04; } });
     this.linesTo({ opacity: .3, inner: 1.2, rainbow: false, color: '#ffd76a', flick: 5 }); this.focus(0, F.y);
@@ -600,7 +611,7 @@ export class Intro {
     }
     this.$skip.hidden = true;
     this.linesTo({ opacity: 0 });
-    for (const s of this.fanHand ?? []) { s.leaving = true; this.moveTo(s.c3.holder, { p: [s.c3.holder.position.x, -this.VIEW_H * 1.2, -2], r: [.4, 0, -s.fan.k * .3] }, .45, this.ease.in); }
+    for (const s of this.fanHand ?? []) { s.leaving = true; this.moveTo(s.c3.holder, { p: [s.c3.holder.position.x, -this.VIEW_H * 1.2, s.fan.z - 2], r: [.4, 0, -s.fan.k * .3] }, .45, this.ease.in); }
     this.el.classList.add('out');
     await this.sleep(choice === 'skip' ? .3 : .45);
     this.dispose();
