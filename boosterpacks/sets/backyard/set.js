@@ -95,7 +95,7 @@ const set = {
   models: {},
 };
 // Models load file by file, so one broken file only costs its own items their pictures (they get a stand-in).
-const MODEL_FILES = ['toys', 'patio', 'sports', 'garden', 'birds', 'mammals', 'beetles', 'wings'];
+const MODEL_FILES = ['toys', 'patio', 'sports', 'garden', 'birds', 'mammals', 'beetles', 'wings', 'legends'];
 set.ready = Promise.all(MODEL_FILES.map(f => import(`./models/${f}.js`)
   .then(m => Object.assign(set.models, m.default))
   .catch(e => console.error(`Models in ${f}.js didn't load:`, e))));
