@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ant Farm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #f6eee2; --ink-2: #cdbfae; --ink-3: #9a8b7a; --panel: rgba(27, 20, 15, .86); --edge: #6d5b49; --edge-2: #3b2f25;
+    --gold: #ffd24a; --good: #8fe07a; --bad: #ff7a64; --green: #5fae4f; }
+  html, body { height: 100%; margin: 0; }
+  body { color: var(--ink); font: 400 15px/1.35 'Pixelify Sans', ui-monospace, monospace; overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    background: radial-gradient(120% 90% at 50% 18%, #4a3a2c 0%, #2a2019 45%, #140f0b 100%) #140f0b; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .18;
+    background-image: linear-gradient(rgba(255, 255, 255, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .06) 1px, transparent 1px); background-size: 24px 24px; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: grab; }
+  #c.grabbing { cursor: grabbing; } #c.aim { cursor: crosshair; } #c.point { cursor: pointer; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .px { image-rendering: pixelated; }
+  canvas.ico { image-rendering: pixelated; display: block; flex: none; }
+  /* panels: dark, square, a light rim with a darker lip, like an old game */
+  .panelish { background: var(--panel); border: 2px solid var(--edge); box-shadow: inset 0 0 0 1px var(--edge-2), 0 8px 24px -10px rgba(0, 0, 0, .8); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 12px; border: 2px solid var(--edge); background: #2e241c; cursor: pointer;
+    font: 400 12px/1 Silkscreen, monospace; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+  .btn:hover { background: #3c2f24; border-color: #9c8468; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.gold { background: #6b4c10; border-color: var(--gold); color: #fff3c4; }
+  .btn.gold:hover { background: #7e5a14; }
+  .btn.warn { border-color: #b8563f; background: #4a1f16; }
+  .btn.icon { width: 40px; padding: 0; }
+
+  .name { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 60px; margin: 0; pointer-events: none; z-index: 3; }
+  .name h1 { margin: 0; font: 400 22px/28px Silkscreen, monospace; letter-spacing: .05em; color: #fff; text-shadow: 0 2px 0 #000; }
+  .name p { margin: 0; font-size: 13.5px; color: var(--ink-2); text-shadow: 0 1px 0 #000; }
+
+  .hud { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: flex; align-items: stretch; gap: 8px; z-index: 5; }
+  .chip { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 9px; box-sizing: border-box; cursor: default; }
+  .chip b { font: 400 17px/1 Silkscreen, monospace; min-width: 2ch; }
+  .chip small { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+  .chip small.up { color: var(--good); } .chip small.down { color: var(--bad); }
+  .chip.flash { animation: flash .5s; }
+  @keyframes flash { 40% { border-color: var(--gold); } }
+  .speed { display: flex; }
+  .speed button { height: 40px; min-width: 38px; padding: 0 8px; border: 2px solid var(--edge); border-left-width: 0; background: var(--panel); cursor: pointer; font: 400 12px/1 Silkscreen, monospace; }
+  .speed button:first-child { border-left-width: 2px; }
+  .speed button[aria-pressed="true"] { background: #6b4c10; color: #fff3c4; }
+  .hud .btn { height: 40px; }
+
+  .toasts { position: fixed; left: 50%; top: max(66px, calc(env(safe-area-inset-top) + 58px)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 6; pointer-events: none; width: min(460px, calc(100% - 24px)); }
+  .toast { padding: 7px 12px; font-size: 14.5px; text-align: center; animation: toastIn .3s ease-out; transition: opacity .4s, transform .4s; }
+  .toast.bad { border-color: #b8563f; color: #ffd7cc; }
+  .toast.good { border-color: #7a9a3a; }
+  .toast.out { opacity: 0; transform: translateY(-6px); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } }
+
+  .labels { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  .tag { position: absolute; transform: translate(-50%, -100%); padding: 2px 6px 3px; font: 400 10px/1.2 Silkscreen, monospace; letter-spacing: .02em; white-space: nowrap;
+    color: #fff; background: rgba(20, 14, 10, .72); border: 1px solid rgba(255, 255, 255, .25); }
+  .tag.food { border-color: rgba(255, 210, 74, .6); }
+  .tag.room { color: var(--ink-2); }
+  .tag.hint-target { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255, 210, 74, .35); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(255, 210, 74, .15); } }
+  .tip { position: fixed; z-index: 7; padding: 4px 8px; font-size: 13px; pointer-events: none; white-space: nowrap; transform: translate(14px, 14px); }
+
+  #info { position: fixed; z-index: 5; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 124px); width: 270px; padding: 10px 12px 12px; box-sizing: border-box; }
+  #info .head { display: flex; gap: 10px; align-items: center; }
+  #info .pic { width: 48px; height: 32px; display: grid; place-items: center; background: #1a130e; border: 2px solid var(--edge-2); flex: none; }
+  #info h2 { margin: 0; font: 400 13px/1.25 Silkscreen, monospace; color: #fff; }
+  #info .role { margin: 1px 0 0; font-size: 13px; color: var(--ink-2); }
+  #info .now { margin: 9px 0 4px; font-size: 14.5px; }
+  #info .more { margin: 0; font-size: 13px; color: var(--ink-3); }
+  #info .bar { height: 8px; margin: 8px 0 2px; border: 2px solid var(--edge-2); background: #120d09; }
+  #info .bar i { display: block; height: 100%; background: repeating-linear-gradient(90deg, #8fe07a 0 6px, #5a9a4a 6px 8px); }
+  #info .bar.low i { background: repeating-linear-gradient(90deg, #ffb04a 0 6px, #c07a2a 6px 8px); }
+  #info .bar.empty i { background: repeating-linear-gradient(90deg, #ff7a64 0 6px, #b8463a 6px 8px); }
+  #info .row { display: flex; gap: 6px; margin-top: 10px; }
+  #info .x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink-3); font: 400 13px/1 Silkscreen, monospace; }
+  #info .x:hover { color: #fff; }
+
+  .bottom { position: fixed; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;
+    width: min(980px, calc(100% - 20px)); z-index: 4; pointer-events: none; }
+  .bottom > * { pointer-events: auto; }
+  .hint { margin: 0; max-width: min(620px, 100%); box-sizing: border-box; padding: 8px 14px; font-size: 15px; text-align: center; transition: opacity .3s; }
+  .hint.off { opacity: 0; pointer-events: none; }
+  .hint.coach { border-color: var(--gold); box-shadow: inset 0 0 0 1px #6b4c10, 0 0 0 3px rgba(255, 210, 74, .15), 0 8px 24px -10px #000; color: #fff; }
+  .coach-tag { display: inline-block; margin-right: 7px; padding: 3px 5px 2px; background: var(--gold); color: #2c1a00; font: 400 9.5px/1 Silkscreen, monospace; vertical-align: 2px; }
+  .coach-skip { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--ink-3); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .coach-skip:hover { color: #fff; }
+  .coach-hand { position: fixed; z-index: 45; left: 0; top: 0; width: 56px; height: 56px; pointer-events: none; opacity: 0; transform-origin: 22px 3px; will-change: transform, opacity; }
+  .coach-hand svg { display: block; width: 100%; height: 100%; }
+  .coach-tap { position: fixed; z-index: 44; width: 56px; height: 56px; margin: -28px 0 0 -28px; box-sizing: border-box; border: 3px solid #fff; pointer-events: none; opacity: 0; }
+  .coach-tap.go { animation: coachTap .6s ease-out; }
+  @keyframes coachTap { from { transform: scale(.3); opacity: .95; } to { transform: scale(1.5); opacity: 0; } }
+
+  .tray { width: 100%; box-sizing: border-box; padding: 6px 8px 8px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+  .tabs button { height: 26px; padding: 0 10px; border: 2px solid var(--edge-2); background: none; cursor: pointer; font: 400 11px/1 Silkscreen, monospace; color: var(--ink-3); }
+  .tabs button[aria-selected="true"] { color: #fff; border-color: var(--edge); background: #3a2d22; }
+  .tabs .spacer { flex: 1; }
+  .tabs .note { align-self: center; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cards { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .cards::-webkit-scrollbar { display: none; }
+  .cardb { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 86px; height: 74px; padding: 6px 6px 5px; box-sizing: border-box;
+    border: 2px solid var(--edge-2); background: #231a14; cursor: pointer; flex: 1 0 86px; }
+  .cardb:hover { border-color: var(--edge); background: #2e2219; }
+  .cardb[aria-pressed="true"] { border-color: var(--gold); background: #3a2b12; }
+  .cardb:disabled { cursor: default; }
+  .cardb.poor .cost { color: var(--bad); }
+  .cardb.locked { opacity: .5; }
+  .cardb .nm { font: 400 10.5px/1 Silkscreen, monospace; letter-spacing: .02em; white-space: nowrap; }
+  .cardb .cost { font-size: 13px; color: var(--gold); white-space: nowrap; }
+  .cardb .cost.free { color: var(--good); }
+  .cardb .pips { position: absolute; top: 5px; right: 6px; display: flex; gap: 2px; }
+  .cardb .pips i { width: 5px; height: 5px; background: #4a3a2c; }
+  .cardb .pips i.on { background: var(--gold); }
+  .cardb .ico { margin: auto 0 2px; }
+  .cardb .count { position: absolute; top: 4px; left: 6px; font-size: 11.5px; color: var(--ink-3); }
+
+  .panel { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(380px, 100%); box-sizing: border-box; display: flex; flex-direction: column;
+    background: rgba(24, 18, 13, .95); border-left: 2px solid var(--edge); transform: translateX(105%); visibility: hidden; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s .28s;
+    -webkit-user-select: text; user-select: text; }
+  .panel.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+  .panel header { display: flex; align-items: center; justify-content: space-between; padding: max(12px, env(safe-area-inset-top)) 12px 6px 18px; }
+  .panel h2 { margin: 0; font: 400 16px/1 Silkscreen, monospace; }
+  .panel .scroll { flex: 1; overflow-y: auto; padding: 0 18px max(24px, env(safe-area-inset-bottom)); }
+  .panel h3 { margin: 20px 0 8px; font: 400 11px/1 Silkscreen, monospace; letter-spacing: .06em; color: var(--ink-3); }
+  .panel p { margin: 6px 0; color: var(--ink-2); font-size: 14px; }
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: 14px; }
+  .stats dt { color: var(--ink-2); } .stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .castes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .castes div { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border: 2px solid var(--edge-2); font-size: 13px; }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--edge-2); }
+  .setting p { margin: 0; color: var(--ink); }
+  .setting small { display: block; color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+  .switch { position: relative; width: 44px; height: 24px; flex: none; border: 2px solid var(--edge); background: #1a130e; cursor: pointer; padding: 0; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: var(--ink-3); transition: transform .15s; }
+  .switch[aria-checked="true"] { border-color: #6a9a3a; } .switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--good); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .field { display: flex; gap: 6px; margin-top: 8px; }
+  .field input { flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 2px solid var(--edge); background: #120d09; color: var(--ink); font: 400 15px 'Pixelify Sans', monospace; }
+  .help dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 8px 0; font-size: 14px; }
+  .help dt { color: var(--ink); } .help dd { margin: 0; color: var(--ink-2); }
+
+  .confirm { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(8, 5, 3, .6); }
+  .confirm .box { width: min(360px, 100%); padding: 18px 18px 14px; box-sizing: border-box; }
+  .confirm h2 { margin: 0 0 8px; font: 400 15px/1.3 Silkscreen, monospace; }
+  .confirm p { margin: 0 0 14px; color: var(--ink-2); }
+  .confirm .row { justify-content: flex-end; }
+
+  @media (max-width: 720px) {
+    .name h1 { font-size: 17px; line-height: 22px; } .name p { font-size: 12px; }
+    .hud { gap: 5px; } .chip { padding: 0 8px 0 6px; gap: 5px; height: 36px; } .chip small { display: none; } .chip b { font-size: 14px; }
+    .speed button { height: 36px; min-width: 30px; padding: 0 5px; font-size: 10.5px; } .hud .btn { height: 36px; width: 36px; }
+    .tag { font-size: 8.5px; padding: 1px 4px 2px; }
+    .cardb { min-width: 72px; flex-basis: 72px; height: 66px; } .cardb .nm { font-size: 9.5px; }
+    #info { width: calc(100% - 24px); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 110px); }
+    .hint { font-size: 14px; }
+    .tabs .note { display: none; }
+  }
+  /* phones: the bar gets a row of its own under the title */
+  @media (max-width: 560px) {
+    .hud { top: calc(max(12px, env(safe-area-inset-top)) + 44px); left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); justify-content: flex-end; }
+    .hud .chip:first-child { margin-right: auto; }
+    .toasts { top: calc(max(12px, env(safe-area-inset-top)) + 92px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .panel, .toast, .hint { transition: none; } .toast { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="An ant farm between two panes of glass. Drag to turn it around, scroll or pinch to zoom, and tap to put in an ant or pick one to follow."></canvas>
+<header class="name"><h1>Ant Farm</h1><p id="sub"></p></header>
+<div class="hud">
+  <div class="chip panelish" id="foodChip" title="Food in the pantry. Your ants eat it, and it's what you spend."><span id="foodIco"></span><b id="food">0</b><small id="trend"></small></div>
+  <div class="chip panelish" id="antChip" title="Ants in the farm"><span id="antIco"></span><b id="ants">0</b><small id="hungry"></small></div>
+  <div class="speed" role="group" aria-label="Speed">
+    <button type="button" data-speed="0" aria-label="Pause">||</button><button type="button" data-speed="1" aria-label="Normal speed">1x</button><button type="button" data-speed="3" aria-label="Three times as fast">3x</button><button type="button" data-speed="8" aria-label="Eight times as fast">8x</button>
+  </div>
+  <button type="button" class="btn icon" id="homeBtn" aria-label="Face the farm" title="Face the farm (H)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges" fill="currentColor"><path d="M2 2h5v2H4v3H2zM9 2h5v5h-2V4H9zM2 9h2v3h3v2H2zM12 9h2v5H9v-2h3z"/></svg></button>
+  <button type="button" class="btn icon" id="menuBtn" aria-label="Menu" aria-controls="panel" aria-expanded="false"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges" fill="currentColor"><path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/></svg></button>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="labels" id="labels"></div>
+<div class="tip panelish" id="tip" hidden></div>
+
+<div class="panelish" id="info" hidden>
+  <button type="button" class="x" id="infoX" aria-label="Close">x</button>
+  <div class="head"><div class="pic" id="infoPic"></div><div><h2 id="infoName"></h2><p class="role" id="infoRole"></p></div></div>
+  <p class="now" id="infoNow"></p>
+  <div class="bar" id="infoBar"><i id="infoFill"></i></div>
+  <p class="more" id="infoMore"></p>
+  <div class="row" id="infoRow"></div>
+</div>
+
+<div class="bottom">
+  <p class="hint panelish off" id="hint" role="status"></p>
+  <nav class="tray panelish" id="tray" aria-label="Shop">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="ants" aria-selected="true">Ants</button>
+      <button type="button" role="tab" data-tab="upgrades" aria-selected="false">Upgrades</button>
+      <button type="button" role="tab" data-tab="extras" aria-selected="false">Extras</button>
+      <span class="spacer"></span><span class="note" id="trayNote"></span>
+    </div>
+    <div class="cards" id="cards"></div>
+  </nav>
+</div>
+
+<aside class="panel" id="panel" aria-label="Menu">
+  <header><h2>Colony</h2><button type="button" class="btn icon" id="closePanel" aria-label="Close">x</button></header>
+  <div class="scroll">
+    <div class="castes" id="castes"></div>
+    <h3>Food</h3>
+    <dl class="stats" id="foodStats"></dl>
+    <p id="supplyNote"></p>
+    <div class="setting" id="queenSetting" hidden><p>Let the queen lay<small>She only lays when there's food to spare and room at the table. Turn her off to save up.</small></p><button type="button" class="switch" id="laySwitch" role="switch" aria-checked="true" aria-label="Let the queen lay"></button></div>
+    <h3>So far</h3>
+    <dl class="stats" id="lifeStats"></dl>
+    <h3>Settings</h3>
+    <div class="setting"><p>Labels<small>Names over rooms and food.</small></p><button type="button" class="switch" id="labelSwitch" role="switch" aria-checked="true" aria-label="Labels"></button></div>
+    <div class="setting"><p>Tutorial<small>Walk through the first few steps again.</small></p><button type="button" class="btn" id="replayTut">Replay</button></div>
+    <h3>This farm</h3>
+    <p id="farmNote"></p>
+    <div class="row"><button type="button" class="btn warn" id="resetBtn">Start it over</button></div>
+    <h3>A different farm</h3>
+    <p>Every farm number digs up different dirt: other layers, rocks, lost things and food.</p>
+    <div class="field"><input id="seedIn" inputmode="numeric" placeholder="Farm number" aria-label="Farm number" maxlength="12"><button type="button" class="btn" id="randSeed">Random</button></div>
+    <div class="row"><button type="button" class="btn gold" id="newFarm">New farm</button></div>
+    <h3>How it works</h3>
+    <div class="help">
+      <p>Put ants in by tapping the dirt (they dig themselves a pocket) or the top of it. Ants find food, dig to it and carry it home to the pantry. What's in the pantry is what you spend, and what your ants eat.</p>
+      <dl>
+        <dt>Workers</dt><dd>Fetch food; help dig when there's nothing to fetch.</dd>
+        <dt>Diggers</dt><dd>Dig tunnels and rooms three times as fast.</dd>
+        <dt>Scouts</dt><dd>Wander far and sniff out buried food.</dd>
+        <dt>Queen</dt><dd>Lays eggs that hatch into workers, when there's food to spare.</dd>
+        <dt>Nurses</dt><dd>Raise the queen's brood twice as fast.</dd>
+        <dt>Officers</dt><dd>Ants near her work faster, and she takes your orders to dig.</dd>
+      </dl>
+      <p>Food pockets run out. The sugar drip and aphids never do, but each only makes so much, so the farm can feed only so many ants. Too many, and the hungriest starve. Buy more aphids to feed more.</p>
+      <p>Drag to turn the farm, scroll or pinch to zoom, right-drag or two fingers to slide it. Keys: <b>Space</b> pause, <b>1</b>-<b>3</b> speed, <b>H</b> face the farm, <b>Esc</b> put down what you're holding.</p>
+      <p>Your farm is kept in this browser and rests while the page is closed.</p>
+    </div>
+  </div>
+</aside>
+
+<div class="confirm" id="confirm" hidden>
+  <div class="box panelish" role="alertdialog" aria-labelledby="confirmTitle">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <div class="row"><button type="button" class="btn" id="confirmNo">Cancel</button><button type="button" class="btn warn" id="confirmYes">Yes</button></div>
+  </div>
+</div>
+
+<div class="coach-hand" id="coachHand" aria-hidden="true"><svg viewBox="0 0 64 64" shape-rendering="crispEdges"><g fill="#1d1230"><rect x="15" y="1" width="16" height="34"/><rect x="12" y="22" width="38" height="31"/><rect x="3" y="30" width="14" height="14"/><rect x="17" y="47" width="31" height="15"/></g><g fill="#fff"><rect x="18" y="4" width="10" height="30"/><rect x="15" y="25" width="32" height="25"/><rect x="6" y="33" width="10" height="8"/></g><rect x="19" y="50" width="27" height="10" fill="#ffd24a"/><rect x="30" y="27" width="2" height="7" fill="#c9bfae"/><rect x="38" y="27" width="2" height="7" fill="#c9bfae"/></svg></div>
+<div class="coach-tap" id="coachTap" aria-hidden="true"></div>
+
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

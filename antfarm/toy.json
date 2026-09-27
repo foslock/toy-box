@@ -1,0 +1,9 @@
+{
+  "title": "Ant Farm",
+  "blurb": "A pixel-art ant farm between two panes of glass: put in an ant and it digs its way to food, then spend what your colony gathers on more ants, a queen and upgrades. Drag to turn it and watch the tunnels from the side.",
+  "added": "2026-09-26",
+  "tags": ["three.js", "pixel art", "simulation", "game"],
+  "tape": "green",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 4500, "query": "?demo" }
+}
