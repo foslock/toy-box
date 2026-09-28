@@ -1,0 +1,8 @@
+{
+  "title": "Kingdom",
+  "blurb": "Choose your way up through a fog-covered kingdom, one fork at a time, from a crossroads to the throne. When you fall, your child takes up the road.",
+  "added": "2026-09-27",
+  "tags": ["canvas", "pixel art", "roguelite", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
+}
