@@ -333,7 +333,12 @@
   .coach-tap.go { animation: coachTap .6s ease-out; }
   @keyframes coachTap { from { transform: scale(.3); opacity: .95; } to { transform: scale(1.5); opacity: 0; } }
 
-  .zoom { position: fixed; z-index: 4; right: max(12px, env(safe-area-inset-right)); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 48px); display: flex; flex-direction: column; gap: 4px; }
+  /* bottom right: the zoom buttons over the menu button, all one size; where the story panel reaches the corner (a
+     narrow screen), they sit just above the panel instead, and move with it */
+  :root { --corner: max(12px, env(safe-area-inset-bottom)); }
+  @media (max-width: 864px) { :root { --corner: max(12px, env(safe-area-inset-bottom), var(--panel-h, 0px)); } }
+  #menuBtn { position: fixed; z-index: 6; right: max(12px, env(safe-area-inset-right)); bottom: var(--corner); width: 36px; min-height: 36px; transition: bottom .3s cubic-bezier(.2, .8, .2, 1); }
+  .zoom { position: fixed; z-index: 4; right: max(12px, env(safe-area-inset-right)); bottom: calc(var(--corner) + 40px); display: flex; flex-direction: column; gap: 4px; transition: bottom .3s cubic-bezier(.2, .8, .2, 1); }
   .zoom .btn { width: 36px; min-height: 36px; padding: 0; font-size: 16px; }
 
   /* the intro: letterbox bars, a black veil, a caption at a time, and the title */
@@ -358,11 +363,18 @@
   .opening .title-slam p { margin: 16px 0 0; font-size: 19px; color: var(--light); text-shadow: 0 2px 0 #000; animation: fade .9s .6s both; }
   .opening .skip { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, calc(5.5vh - 18px)); pointer-events: auto; min-height: 36px; font-size: 11px; opacity: .8; }
   .opening .skip:hover { opacity: 1; }
+  /* its end: the title fades and the bars draw back, over --end; then the game's own things come up, over --wake */
+  .opening .title-slam { transition: opacity var(--end, 2.4s) ease; }
+  .opening .title-slam.out { opacity: 0; }
+  .opening.ending .bar { transition: transform var(--end, 2.4s) ease-in-out; }
+  .opening.ending .skip { opacity: 0; pointer-events: none; transition: opacity .4s; }
+  body.waking :is(.name, .hud, .labels, .zoom, #menuBtn, #title) { animation: fade var(--wake, 2.4s) ease both; }
+  body.waking #panel { transition: transform var(--wake, 2.4s) ease-in-out, opacity var(--wake, 2.4s) ease; }   /* (as the map makes room for it) */
   .btn.ghost { background: none; border-color: rgba(243, 233, 210, .45); color: var(--light); box-shadow: none; }
   .btn.ghost:hover { background: rgba(243, 233, 210, .1); }
 
   /* the walkthrough of a first choice: everything dimmed but the part being talked about, and a note beside it */
-  .guide { position: fixed; inset: 0; z-index: 27; pointer-events: none; }
+  .guide { position: fixed; inset: 0; z-index: 27; pointer-events: none; animation: fade .5s ease both; }
   .guide-hole { position: absolute; border: 2px solid var(--gold-hi); border-radius: 6px; box-shadow: 0 0 0 9999px rgba(8, 5, 12, .58), 0 0 0 6px rgba(242, 194, 76, .22);
     transition: left .35s cubic-bezier(.2, .8, .2, 1), top .35s cubic-bezier(.2, .8, .2, 1), width .35s cubic-bezier(.2, .8, .2, 1), height .35s cubic-bezier(.2, .8, .2, 1); }
   .guide-hole.go { animation: holePulse 1.6s ease-in-out infinite; }
@@ -408,7 +420,7 @@
     .side canvas.fig { height: 64px; }
     .zoom { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { #panel, .menu, .toast { transition: none; } .crown-words, .banner-words { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { #panel, .menu, .toast { transition: none; } .crown-words, .banner-words { animation: none; } body.waking #panel { transition: opacity var(--wake, 2.4s) ease; } }
 </style>
 </head>
 <body>
@@ -474,7 +486,7 @@
   <button type="button" class="btn dark" id="importSave">Load a save</button>
   <button type="button" class="btn dark" id="newHouse">Start a new house</button>
 </aside>
-<button type="button" class="btn icon dark" id="menuBtn" aria-label="Menu" aria-controls="menu" aria-expanded="false" style="position:fixed;z-index:6;right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom))" hidden><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges" fill="currentColor"><path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/></svg></button>
+<button type="button" class="btn icon dark" id="menuBtn" aria-label="Menu" aria-controls="menu" aria-expanded="false" hidden><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges" fill="currentColor"><path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/></svg></button>
 
 <div class="coach leather" id="coach" hidden></div>
 <div class="coach-hand" id="coachHand" aria-hidden="true"><svg viewBox="0 0 64 64" shape-rendering="crispEdges"><g fill="#1d1230"><rect x="15" y="1" width="16" height="34"/><rect x="12" y="22" width="38" height="31"/><rect x="3" y="30" width="14" height="14"/><rect x="17" y="47" width="31" height="15"/></g><g fill="#fff"><rect x="18" y="4" width="10" height="30"/><rect x="15" y="25" width="32" height="25"/><rect x="6" y="33" width="10" height="8"/></g><rect x="19" y="50" width="27" height="10" fill="#f2c24c"/><rect x="30" y="27" width="2" height="7" fill="#c9bfae"/><rect x="38" y="27" width="2" height="7" fill="#c9bfae"/></svg></div>

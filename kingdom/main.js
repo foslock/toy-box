@@ -148,10 +148,11 @@ function measure() {
   // offsetHeight, not the box on screen: the panel may still be sliding in
   const bottom = panel.classList.contains('away') ? 0 : panel.offsetHeight + parseFloat(getComputedStyle(panel).bottom) + 8;
   const hud = $('hud').hidden ? 60 : $('hud').getBoundingClientRect().bottom + 6;
-  view.inset = { top: hud, bottom };
+  view.easeInset({ top: hud, bottom }, waking);   // (as the game comes up out of the intro, slowly, with the panel)
   document.documentElement.style.setProperty('--panel-h', bottom + 'px');
 }
 addEventListener('resize', () => { view.resize(); measure(); });
+new ResizeObserver(() => measure()).observe(panel);   // (its words can reflow after it's shown: when the fonts arrive)
 
 function kicker(why = []) {
   const R = REALMS[life.realm.type];
@@ -775,7 +776,7 @@ function setOut(o = {}) {
   if (o.tutorial) { life.cur = { id: TUTORIAL_EVENT, hidden: null, omens: null }; life.used.push(TUTORIAL_EVENT); guideAt = 0; }   // (keeps the ordinary tips out of its way)
   save();
   renderEvent();
-  if (o.tutorial) guideStart();
+  if (o.tutorial && o.guide !== false) guideStart();
 }
 // Back to wherever the life had got to: the screens after its last choice, if they were still up; the shop it was in;
 // or the choice in front of it. After a refresh (boot), also its ending, if it had one, and a walkthrough that hadn't
@@ -902,7 +903,7 @@ function titleScreen() {
   // the camera looks at the castle, far off at the top of the fog, or, for a house that has worn the crown, over the
   // whole kingdom
   view.reset();
-  view.inset = { top: 0, bottom: 0 };
+  measure();   // (the room the map has with no panels up, to frame it in)
   const last = house.thrones?.[house.thrones.length - 1];
   if (last) { view.setGraves(); view.setShape(last); view.lift(1); view.drift = view.frameKingdom(last); view.cam = { ...view.camT }; }
   else { view.setZoom(0); view.focus(D - 4, 0, true); }
@@ -918,12 +919,13 @@ function start() {
 // A new player's first look at the game: a storybook opening over the map. The whole kingdom lies bare, its palace
 // along the top edge, while a few lines tell whose kingdom it is and why its crown is going begging. The camera drifts
 // down over it all as the fog rolls back in behind, until only the crossroads is left, and the first heir walks onto
-// it. Then the title, and their first choice with the walkthrough. It waits for a first tap (a page can't make a sound
-// before one): the title's Begin the story. Skip leaves at any point, and so does Escape. ?intro offers it anyway,
-// ?nointro never.
+// it. Then the title, held while its chord rings, and as that fades the game comes up slowly round the heir, to their
+// first choice and the walkthrough. Replayed on the road, it ends where the heir is now: the crossroads is lost in the
+// fog, and the fog parts on the road so far. It waits for a first tap (a page can't make a sound before one): the
+// title's Begin the story. Skip leaves at any point, and so does Escape. ?intro offers it anyway, ?nointro never.
 let hadSave = false;
 const introDue = () => !DEMO && !Q.has('nointro') && (Q.has('intro') || !hadSave && !ui.introSeen);
-let introOn = false;
+let introOn = false, waking = 0;   // (seconds the game takes to come up at the end of it, while it does)
 async function playIntro(o = {}) {
   if (introOn) return;
   introOn = true; mode = 'intro';
@@ -933,25 +935,33 @@ async function playIntro(o = {}) {
   $('introSkip').onclick = skip;
   const onKey = e => { if (e.key === 'Escape') skip(); };
   addEventListener('keydown', onKey);
-  const wait = ms => skipped ? Promise.resolve() : new Promise(r => { const t = setTimeout(r, REDUCED ? Math.min(ms, 1200) : ms); wake = () => { clearTimeout(t); r(); }; });
+  // (with motion reduced, the long drifts are cut short, but not a still moment)
+  const wait = (ms, still) => skipped ? Promise.resolve() : new Promise(r => { const t = setTimeout(r, REDUCED && !still ? Math.min(ms, 1200) : ms); wake = () => { clearTimeout(t); r(); }; });
   const say = async (html, ms, cls = '') => {
     if (skipped) return;
     cap.className = 'caption' + (cls ? ' ' + cls : ''); cap.innerHTML = html;
     void cap.offsetWidth; cap.classList.add('on');
     await wait(ms); cap.classList.remove('on'); await wait(420);
   };
-  // runs fn(0..1) over ms, on its own; ends at 1 at once if the intro is skipped
-  const tween = (ms, fn) => new Promise(r => { const t0 = performance.now(); const tick = () => { const k = skipped ? 1 : Math.min(1, (performance.now() - t0) / ms); fn(k); if (k < 1) requestAnimationFrame(tick); else r(); }; tick(); });
+  // runs fn(0..1) over ms, on its own; stops where it is if the intro is skipped (its end lays fog over everything)
+  const tween = (ms, fn) => new Promise(r => { const t0 = performance.now(); const tick = () => { if (skipped) return r(); const k = Math.min(1, (performance.now() - t0) / ms); fn(k); if (k < 1) requestAnimationFrame(tick); else r(); }; tick(); });
   const easeIO = k => k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  // takes the camera itself (not just where it's heading) to look at a tile, easing in and out, so it's there on time
+  const glideTo = ([row, col], ms) => {
+    const from = { ...view.cam }, s = spotOf(row, col), to = { x: s.x, y: s.y + 4 }, t0 = performance.now();
+    const tick = () => { const e = easeIO(Math.min(1, (performance.now() - t0) / ms)); view.cam = { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e }; view.camT = { ...view.cam }; if (e < 1) requestAnimationFrame(tick); };
+    tick();
+  };
 
   // the stage: everything else out of the way, the whole kingdom lit, and the dark in front of it
   $('title').hidden = true; document.querySelector('.name').hidden = true; $('hud').hidden = true; $('menuBtn').hidden = true; $('zoomBox').hidden = true;
   hidePanel(); closeCard(); $('tomeBox').hidden = true; $('coach').hidden = true; coach.stop(); guideEnd(true);
-  veil.classList.add('dark'); slam.hidden = true; cap.className = 'caption';
-  box.hidden = false; void box.offsetWidth; box.classList.add('on');
-  view.reset(); view.setGraves(); view.drift = false; view.inset = { top: 0, bottom: 0 }; view.setZoom(0);
-  view.setShape('all', { row: 0, col: 0 }); view.lift(1);
-  const top = spotOf(D - 1, 0), bottom = spotOf(0, 0);
+  veil.classList.add('dark'); slam.hidden = true; slam.classList.remove('out'); cap.className = 'caption';
+  box.classList.remove('ending'); box.hidden = false; void box.offsetWidth; box.classList.add('on');
+  view.reset(); view.setGraves(); view.drift = false; view.easeInset({ top: 0, bottom: 0 }); view.pan = { x: 0, y: 0 }; view.setZoom(0);
+  view.setShape('all', { row: 0, col: 0 }); view.lift(1); view.fogOver(0);
+  // (the drift ends just where the game will look at the crossroads)
+  const top = spotOf(D - 1, 0), bottom = { x: spotOf(0, 0).x, y: spotOf(0, 0).y + 4 };
   view.camT = { x: top.x, y: top.y }; view.cam = { ...view.camT };
   sound.ensure(); sound.music(false);
   const theme = sound.introTheme();
@@ -973,34 +983,61 @@ async function playIntro(o = {}) {
   await say('Most of them will never get there.', 2800);
   await glide; await fog;
   await say('Every road to the throne begins at a crossroads.', 3000);
-  // the heir walks onto it
+  // the heir walks onto it, and the fog thins round them. (The map is all fog now, just as it looks lost in the fog, so
+  // what the crossroads shows comes out of the fog without anything jumping. A heir already on the road starts here
+  // too, the road they've walked since still to come.)
   const L = o.first ? beginLife(house) : life;
+  let atCrossroads = false;
   if (!skipped && L) {
-    view.sync(L, false);
+    atCrossroads = true;
+    view.fogOver(1);
+    view.sync(o.first ? L : { path: [], log: [], heir: L.heir, armor: L.armor, weapon: L.weapon, traits: L.traits }, true);
     const w = spotOf(0, 0);
     view.hero.x = w.x; view.hero.y = w.y + 24; view.hero.pose = 'back';
     view.walkTo(0, 0, () => { if (view.hero) view.hero.pose = 'front'; }, 1.4);
+    view.fogOver(0, 1.6);
     sound.step();
     const gold = L.gold, weapon = ITEMS[L.weapon].name.toLowerCase();
     await say(`This is <b>${esc(heir.name)}</b> of House ${esc(house.names.house)}: ${heir.age} years old, with a ${esc(weapon)}, ${gold} gold, and nothing to lose.`, 4200);
   }
-  // the title
+  // the title, held while its chord swells and rings
   if (!skipped) {
     slam.hidden = false; theme.title(); view.confetti(30);
-    await wait(3800);
+    await wait(6500, true);
   }
-  // and out, to the first choice (the drone and its third fading slowly away under it, unless the intro was skipped)
-  theme.stop(skipped ? 1.2 : 6);
+  // Then it fades as the chord does, and the game comes up slowly: round a new heir, where they stand, or for one on
+  // the road, where they are now, the camera drifting up through the fog as the crossroads is lost in it, and the fog
+  // parting on the road so far. A skipped intro ends the same way, sooner.
+  const quick = skipped, after = ms => new Promise(r => setTimeout(r, ms));
   removeEventListener('keydown', onKey);
-  cap.classList.remove('on'); slam.hidden = true;
-  box.classList.remove('on'); veil.classList.remove('dark');
-  setTimeout(() => { if (!introOn) box.hidden = true; }, 900);
-  introOn = false;
+  theme.stop(quick ? 1.2 : 6);
+  box.style.setProperty('--end', quick ? '.6s' : '2.4s');
+  box.classList.add('ending'); box.classList.remove('on');
+  cap.classList.remove('on'); slam.classList.add('out'); veil.classList.remove('dark');
   ui.introSeen = true;
+  const going = life && !life.fate ? life : null;
+  // (whether the map shows what the game will already: a new heir, or one who hasn't taken a step, at the crossroads)
+  const there = atCrossroads && !view.hero?.walk && (o.first || !!going && !going.path.length);
+  if (!there) {
+    // where the game will look: at the heir, or where the title screen does for a house that hasn't worn the crown
+    const aim = o.first ? [0, 0] : going ? [going.row, going.col] : !house.thrones?.length ? [D - 4, 0] : null;
+    if (aim && !REDUCED) glideTo(aim, quick ? 400 : 1300);
+    view.fogOver(1, quick ? .4 : 1.5);
+  }
+  await after(there ? (quick ? 0 : 1000) : quick ? 450 : 1550);
+  const rise = quick ? 900 : 2400;
+  document.body.style.setProperty('--wake', rise + 'ms');
+  document.body.classList.add('waking'); waking = rise / 1000;
   view.lift(0); view.setShape(null);
-  start();
-  if (o.first) setOut({ tutorial: true, life: L });
-  else { view.reset(); if (life && !life.fate) { view.sync(life, true); view.focus(life.row, life.col, true); resumeMode(); } else titleScreen(); }
+  if (o.first) { start(); setOut({ tutorial: true, life: L, guide: false }); }
+  else { view.reset(); start(); if (going) resumeMode(); else titleScreen(); }
+  if (!there) view.fogOver(0, quick ? .8 : 2);
+  await after(rise + 150);
+  document.body.classList.remove('waking'); waking = 0;
+  box.hidden = true; box.classList.remove('ending'); slam.hidden = true; slam.classList.remove('out');
+  introOn = false;
+  // the walkthrough, once everything is up (unless the first choice has been made meanwhile)
+  if (o.first && guideAt === 0 && mode === 'event' && life?.cur?.id === TUTORIAL_EVENT) guideStart();
 }
 
 /* ---------- the walkthrough of a first choice ---------- */

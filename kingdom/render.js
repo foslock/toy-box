@@ -17,6 +17,10 @@ const wxOf = (gx, gy) => (gx - gy) * 24, wyOf = (gx, gy) => (gx + gy) * 12;
 export const worldOf = (row, col) => { const { gx, gy } = gridOf(row, col); return { x: wxOf(gx, gy), y: wyOf(gx, gy) }; };
 
 const HIDDEN = 0, SEEN = 1, SHOWN = 2;
+// How thick the fog lies on a tile d steps from anything known: thick beside it, thinning into the night. Where nothing
+// is known at all, it lies evenly, as thick as UNKNOWN steps off.
+const UNKNOWN = 2.6;
+const fogThickness = d => d >= 99 ? 0 : clamp(1.15 - d * .26, 0, 1);
 
 export class View {
   constructor(canvas) {
@@ -24,8 +28,8 @@ export class View {
     this.buf = document.createElement('canvas'); this.b = this.buf.getContext('2d');
     this.P = 3; this.zoomStep = 0; this.dpr = 1;
     this.cam = { x: 0, y: 0 }; this.camT = { x: 0, y: 0 }; this.pan = { x: 0, y: 0 };
-    this.inset = { top: 0, bottom: 0 };
-    this.cells = new Map();          // key → { vis, theme, trail, alt, grave, fade, from }
+    this.inset = { top: 0, bottom: 0 }; this.insetGo = null;
+    this.cells = new Map();         // key → { vis, theme, trail, alt, grave, fade, from }
     this.opts = null;                // the ways ahead: { L: {row, col, theme, hidden, t}, R: … }
     this.hover = null;
     this.hero = null;                // { row, col, x, y, look, dir, walk: {from, to, t, dur, done} }
@@ -38,6 +42,8 @@ export class View {
     this.world = null; this.house = null;
     this.lifted = 0;                 // 0..1 while the fog lifts off the whole kingdom
     this.shape = null;               // the kingdom as it shows when it does: every tile between the crossroads and the throne
+    this.shroud = 0;                 // 0..1: the whole map lost in the fog, whatever it shows underneath (see fogOver)
+    this.shroudGo = null;
     this.mode = 'map';
     this.shakeT = 0;
     this.resize();
@@ -73,12 +79,21 @@ export class View {
   // there's no room above it, a pixel below it, even at the bottom.
   aboveMarker(row, col) { return this.screenOfCell(row, col, 47); }
   belowMarker(row, col) { return this.screenOfCell(row, col, 32); }
+  // How far down the buffer the camera's point sits: in the middle of the part of the screen the panels leave free.
+  eyeY(inset = this.inset) {
+    const top = inset.top * this.dpr / this.P, bottom = inset.bottom * this.dpr / this.P;
+    return Math.floor(top + (this.bh - top - bottom) * .55);
+  }
+  // The panels have moved: the map glides over to the room they leave it, easing in and out over dur seconds, or goes
+  // straight there.
+  easeInset(inset, dur = 0) {
+    const to = this.insetGo?.to || this.inset;
+    if (to.top === inset.top && to.bottom === inset.bottom) return;
+    if (dur > 0) this.insetGo = { from: { ...this.inset }, to: inset, t: 0, dur }; else { this.inset = inset; this.insetGo = null; }
+  }
   origin() {
-    // the camera's point sits in the middle of the part of the screen that isn't covered by the panels
-    const top = this.inset.top * this.dpr / this.P, bottom = this.inset.bottom * this.dpr / this.P;
     const cx = Math.round(this.cam.x + this.pan.x), cy = Math.round(this.cam.y + this.pan.y);
-    const sy = top + (this.bh - top - bottom) * .55;
-    let ox = cx - Math.floor(this.bw / 2), oy = cy - Math.floor(sy);
+    let ox = cx - Math.floor(this.bw / 2), oy = cy - this.eyeY();
     if (this.shakeT > 0) { ox += Math.round((Math.random() - .5) * 3 * this.shakeT); oy += Math.round((Math.random() - .5) * 2 * this.shakeT); }
     return { ox, oy };
   }
@@ -324,14 +339,12 @@ export class View {
     for (const c of this.cells.values()) if (c.fade < 1) c.fade = Math.min(1, c.fade + dt * 1.6);
     if (this.opts) for (const o of Object.values(this.opts)) o.t = Math.min(1, o.t + dt * 1.8);
     if (this.foe) { this.foe.t = Math.min(1, this.foe.t + dt * 3); if (this.foe.gone) this.foe.gone = Math.min(1, this.foe.gone + dt * 1.5); }
+    if (this.shroudGo) { const s = this.shroudGo; s.t = Math.min(1, s.t + dt / s.dur); this.shroud = lerp(s.from, s.to, smooth(s.t)); if (s.t >= 1) this.shroudGo = null; }
+    if (this.insetGo) { const g = this.insetGo, e = smooth(g.t = Math.min(1, g.t + dt / g.dur)); this.inset = { top: lerp(g.from.top, g.to.top, e), bottom: lerp(g.from.bottom, g.to.bottom, e) }; if (g.t >= 1) this.insetGo = null; }
 
     // background: a dusk sky over a sea of cloud
-    b.globalAlpha = 1;
-    const sky = b.createLinearGradient(0, 0, 0, this.bh);
-    sky.addColorStop(0, '#1d2340'); sky.addColorStop(.55, '#3a3a5e'); sky.addColorStop(1, '#5a5474');
-    b.fillStyle = sky; b.fillRect(0, 0, this.bw, this.bh);
     const { ox, oy } = this.origin();
-    this.drawClouds(ox, oy, t);
+    this.drawSky(b, ox, oy, t);
 
     // tiles, back to front
     if (!this.world) { this.blit(); return; }
@@ -367,16 +380,44 @@ export class View {
       b.fillRect(Math.round(p.x - ox), Math.round(p.y - oy), s, s);
     }
     b.globalAlpha = 1;
+    if (this.shroud > 0) this.drawShroud(ox, oy, t);
     if (this.flashT > 0) { b.fillStyle = `rgba(200,40,40,${this.flashT})`; b.fillRect(0, 0, this.bw, this.bh); }
     this.blit();
+  }
+  // Lose the whole map in the fog (to 1) or bring it back out (to 0), over dur seconds. Whatever changes underneath
+  // while it's lost, nobody sees change.
+  fogOver(to, dur = 0) { if (dur > 0) this.shroudGo = { from: this.shroud, to, dur, t: 0 }; else { this.shroud = to; this.shroudGo = null; } }
+  // The map all lost in the fog, laid over the frame as thickly as the shroud is: the sky, and over every tile, known or
+  // not, fog as thin as it lies where nothing is known yet (so a map that is all fog looks just the same under it).
+  drawShroud(ox, oy, t) {
+    const s = this.shroudBuf ||= document.createElement('canvas');
+    if (s.width !== this.bw || s.height !== this.bh) { s.width = this.bw; s.height = this.bh; }
+    const g = s.getContext('2d');
+    this.drawSky(g, ox, oy, t);
+    g.globalAlpha = fogThickness(UNKNOWN);
+    const s0 = Math.max(D, Math.floor((oy - 40) / 12) - 2), s1 = Math.min(2 * D, Math.ceil((oy + this.bh + HEAD) / 12) + 2);
+    for (let sum = s0; sum <= s1; sum++) for (let gx = Math.max(0, sum - D); gx <= Math.min(D, sum); gx++) {
+      const gy = sum - gx, x0 = wxOf(gx, gy) - 24 - ox, y0 = wyOf(gx, gy) - HEAD - oy;
+      if (x0 > this.bw || x0 + 48 < 0 || y0 > this.bh || y0 + SPRITE.h < 0) continue;
+      const { row, col } = rowColOf(gx, gy);
+      g.drawImage(this.fogFor(row, col), x0, y0);
+    }
+    g.globalAlpha = 1;
+    this.b.globalAlpha = this.shroud; this.b.drawImage(s, 0, 0); this.b.globalAlpha = 1;
   }
   blit() {
     const g = this.g;
     g.imageSmoothingEnabled = false;
     g.drawImage(this.buf, 0, 0, this.bw * this.P, this.bh * this.P);
   }
-  drawClouds(ox, oy, t) {
-    const b = this.b;
+  drawSky(b, ox, oy, t) {
+    b.globalAlpha = 1;
+    const sky = b.createLinearGradient(0, 0, 0, this.bh);
+    sky.addColorStop(0, '#1d2340'); sky.addColorStop(.55, '#3a3a5e'); sky.addColorStop(1, '#5a5474');
+    b.fillStyle = sky; b.fillRect(0, 0, this.bw, this.bh);
+    this.drawClouds(b, ox, oy, t);
+  }
+  drawClouds(b, ox, oy, t) {
     b.globalAlpha = .22;
     for (let i = 0; i < 14; i++) {
       const cx = ((i * 197 + t * (4 + (i % 3) * 2)) % 1400) - 300 + ox * .0 - ox * .3 % 1400, cy = (i * 131) % 900 - 200 - oy * .3;
@@ -413,8 +454,7 @@ export class View {
       if (alpha <= 0) return;
       b.globalAlpha = alpha;
       if (v === HIDDEN) {
-        const d = this.dist ? this.dist[key] : 2.6;
-        const k = d >= 99 ? 0 : clamp(1.15 - d * .26, 0, 1);
+        const k = fogThickness(this.dist ? this.dist[key] : UNKNOWN);
         if (k <= 0) return;
         b.globalAlpha = alpha * k;
         b.drawImage(this.fogFor(row, col), x0, y0);

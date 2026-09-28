@@ -43,6 +43,7 @@ function mound(p, cx, cy, rx, ry, col) {
 
 // Each: draw(p, cx, cy, o) paints onto a sprite whose tile centre is (cx, cy); o: { biome, v }.
 // fx: little bits of life the renderer adds, at offsets from the tile centre.
+// ground: ground of its own to stand on, instead of the land's (see groundOf).
 export const STRUCTURES = {
   road: {
     draw(p, cx, cy) {
@@ -59,10 +60,11 @@ export const STRUCTURES = {
   tavern: {
     draw(p, cx, cy) {
       house(p, cx, cy - 2, 9, 7, 16, '#efe4c8', '#9a4a32', 'a', 8);
-      // timber frame
-      const [x, y] = foot(cx, cy - 2, 9, 7);
-      for (let i = 1; i < 9; i += 3) p.line(x + 2 * i, y + i - 16 + 1, x + 2 * i, y + i - 1, '#6a4428');
-      p.rect(cx + 12, cy - 13, 1, 6, DWOOD); p.rect(cx + 13, cy - 13, 5, 1, DWOOD); p.rect(cx + 14, cy - 12, 4, 4, '#e0b040'); p.put(cx + 15, cy - 11, '#a0602a');
+      // timber frame, on the long wall in front (it runs from the footprint's left corner)
+      const [x, y] = foot(cx, cy - 2, 9, 7), lx = x - 14, ly = y + 7;
+      for (let i = 1; i < 9; i += 3) p.line(lx + 2 * i, ly + i - 16 + 1, lx + 2 * i, ly + i - 1, '#6a4428');
+      // the sign, on its own post in front of the door
+      p.rect(cx + 14, cy - 12, 1, 15, DWOOD); p.rect(cx + 15, cy - 12, 5, 1, DWOOD); p.rect(cx + 16, cy - 11, 4, 4, '#e0b040'); p.put(cx + 17, cy - 10, '#a0602a');
       barrel(p, cx - 14, cy + 4);
     },
     fx: [{ k: 'smoke', x: -4, y: -32 }, { k: 'glow', x: -6, y: -8, c: '#ffc85a' }],
@@ -79,16 +81,17 @@ export const STRUCTURES = {
       const [x, y] = foot(cx - 2, cy - 2, 8, 7); box(p, x, y, 8, 7, 12, { top: W.lit, left: W.base, right: W.dim });
       const [rx, ry] = foot(cx - 2, cy - 2, 9, 8); roof(p, rx, ry, 9, 8, 12, 5, { lit: '#6a5a4a', base: '#4a3e34', gable: W.dim }, 'b');
       p.rect(cx - 12, cy - 30, 4, 18, '#5a5450'); p.rect(cx - 12, cy - 31, 4, 1, '#3a3430');
-      p.rect(cx - 3, cy - 5, 5, 4, '#ff7a2a'); p.rect(cx - 2, cy - 4, 3, 2, '#ffd26a');
+      // the forge's glow through a window in the middle of the side, under the chimney
+      p.rect(cx - 12, cy - 6, 5, 4, '#ff7a2a'); p.rect(cx - 11, cy - 5, 3, 2, '#ffd26a');
       p.rect(cx + 10, cy + 2, 6, 2, '#4a4a52'); p.rect(cx + 12, cy + 4, 2, 3, '#3a3a42'); p.rect(cx + 9, cy + 1, 3, 1, '#5a5a62');
     },
-    fx: [{ k: 'smoke', x: -10, y: -33, dark: true }, { k: 'glow', x: -1, y: -3, c: '#ff8a3a' }, { k: 'sparks', x: 13, y: 0 }],
+    fx: [{ k: 'smoke', x: -10, y: -33, dark: true }, { k: 'glow', x: -10, y: -4, c: '#ff8a3a' }, { k: 'sparks', x: 13, y: 0 }],
   },
   farm: {
     draw(p, cx, cy) {
       p.poly([[cx - 4, cy - 10], [cx + 20, cy + 2], [cx + 8, cy + 8], [cx - 16, cy - 4]], (x, y) => ((x - 2 * y) >> 2) % 2 ? '#d8b848' : '#c49a34');
       house(p, cx - 8, cy + 1, 6, 5, 9, '#b0402c', '#6a4a3a', 'b', 6);
-      p.rect(cx - 9, cy - 3, 3, 4, '#f0e0c0');
+      p.rect(cx - 3, cy - 3, 3, 4, '#f0e0c0');   // a window in the middle of the long side
     },
   },
   mill: {
@@ -106,7 +109,7 @@ export const STRUCTURES = {
       const [rx, ry] = foot(cx + 3, cy - 1, 10, 6); roof(p, rx, ry, 10, 6, 11, 7, { lit: '#7a6a5a', base: '#5a4a3e', gable: W.dim }, 'a');
       const t = tower(p, cx - 10, cy - 3, 4, 22, '#d0c8b8'); cone(p, cx - 10, t.top, 5, 10, '#5a4a3e');
       p.put(cx - 10, t.top - 12, '#f2c24c'); p.rect(cx - 11, t.top + 3, 2, 3, '#3a2a2a');
-      p.disc(cx + 16, cy - 4, 2, '#8ab0e8');
+      p.disc(cx + 12, cy - 3, 2, '#8ab0e8');   // a round window in the middle of the gable end
     },
   },
   abbey: {
@@ -122,9 +125,10 @@ export const STRUCTURES = {
     draw(p, cx, cy) {
       const W = ramp(STONE);
       const [x1, y1] = foot(cx - 12, cy - 4, 4, 4); box(p, x1, y1, 4, 4, 16, { top: W.lit, left: W.base, right: W.dim });
-      const [x2, y2] = foot(cx + 10, cy + 5, 4, 4); box(p, x2, y2, 4, 4, 16, { top: W.lit, left: W.base, right: W.dim });
+      // the bar reaches from the far post across to the near one, and goes in behind it
       for (let i = 0; i < 12; i++) p.put(cx - 8 + i * 2, cy - 8 + i, i % 4 < 2 ? '#e8e0d0' : '#c0302a');
       for (let i = 0; i < 12; i++) p.put(cx - 7 + i * 2, cy - 8 + i, i % 4 < 2 ? '#e8e0d0' : '#c0302a');
+      const [x2, y2] = foot(cx + 10, cy + 5, 4, 4); box(p, x2, y2, 4, 4, 16, { top: W.lit, left: W.base, right: W.dim });
     },
     fx: [{ k: 'flag', x: -12, y: -26, c: '#c0302a' }],
   },
@@ -178,7 +182,6 @@ export const STRUCTURES = {
       const W = ramp(STONE);
       p.poly([[cx - 16, cy + 6], [cx + 4, cy - 6], [cx + 16, cy - 2], [cx - 4, cy + 10]], W.lit);
       p.poly([[cx - 4, cy + 10], [cx + 16, cy - 2], [cx + 16, cy + 1], [cx - 4, cy + 13]], W.dim);
-      p.disc(cx + 6, cy + 5, 2.5, '#2a3a5a');
       for (let i = 0; i < 10; i++) p.put(cx - 15 + i * 2, cy + 5 - i, W.hi);
     },
   },
@@ -261,21 +264,31 @@ export const STRUCTURES = {
   mine: {
     draw(p, cx, cy) {
       mound(p, cx - 2, cy - 4, 20, 13, '#8a8074');
-      p.rect(cx - 8, cy - 12, 10, 11, '#1a1620'); p.rect(cx - 9, cy - 13, 12, 2, WOOD); p.rect(cx - 9, cy - 12, 2, 11, WOOD); p.rect(cx + 1, cy - 12, 2, 11, WOOD);
-      for (let i = 0; i < 6; i++) p.hline(cx + i * 2 - 2, cx + i * 2, cy + i, '#6a6660');
+      // the way in, at the foot of the rock: the dark, rails running out of it to the cart, and a timber frame
+      p.rect(cx - 6, cy - 2, 10, 11, '#1a1620');
+      for (let i = 0; i < 5; i++) p.hline(cx + i * 2 + 1, cx + i * 2 + 3, cy + 8 - i, '#6a6660');
+      p.rect(cx - 7, cy - 3, 12, 2, WOOD); p.rect(cx - 7, cy - 2, 2, 11, WOOD); p.rect(cx + 3, cy - 2, 2, 11, WOOD);
       p.rect(cx + 8, cy + 2, 6, 4, '#6a5a4a'); p.rect(cx + 9, cy + 1, 4, 2, '#4a4a52'); p.put(cx + 9, cy + 6, '#2a2228'); p.put(cx + 13, cy + 6, '#2a2228');
     },
-    fx: [{ k: 'glow', x: -3, y: -6, c: '#ffc85a' }],
+    fx: [{ k: 'glow', x: -1, y: 4, c: '#ffc85a' }],
   },
-  cave: { draw(p, cx, cy) { mound(p, cx, cy - 4, 22, 14, '#8a8478'); p.ellipse(cx + 2, cy - 4, 7, 7, '#1a1620'); p.rect(cx - 5, cy - 4, 14, 5, '#1a1620'); rock(p, cx - 14, cy + 6, .7); rock(p, cx + 14, cy + 6, .6); } },
+  cave: {
+    draw(p, cx, cy) {
+      mound(p, cx, cy - 4, 22, 14, '#8a8478');
+      // the mouth: round at the top, and open all the way down to the foot of the rock (the mound's own outline)
+      p.ellipse(cx, cy + 3, 7, 7, '#1a1620'); p.ellipse(cx, cy - 4, 22, 14, (x, y) => x >= cx - 7 && x < cx + 7 && y >= cy + 3 ? '#1a1620' : null);
+      rock(p, cx - 14, cy + 6, .7); rock(p, cx + 14, cy + 6, .6);
+    },
+  },
   lair: {
     draw(p, cx, cy) {
       mound(p, cx, cy - 4, 22, 14, '#5a4640');
-      p.ellipse(cx + 2, cy - 4, 8, 7, '#140e12'); p.rect(cx - 6, cy - 4, 16, 5, '#140e12');
-      for (let i = 0; i < 7; i++) p.put(cx - 4 + i * 2, cy + 1 - (i & 1), '#f2c24c');
+      // the mouth, open down to the foot of the rock as the cave's is, with the hoard just inside
+      p.ellipse(cx, cy + 3, 8, 7, '#140e12'); p.ellipse(cx, cy - 4, 22, 14, (x, y) => x >= cx - 8 && x < cx + 8 && y >= cy + 3 ? '#140e12' : null);
+      for (let i = 0; i < 7; i++) p.put(cx - 6 + i * 2, cy + 8 - (i & 1), '#f2c24c');
       p.rect(cx - 16, cy + 3, 4, 3, '#e8e0cc'); p.put(cx - 15, cy + 4, '#4a3e38'); p.hline(cx + 12, cx + 17, cy + 4, '#d8d0bc'); p.hline(cx + 12, cx + 17, cy + 6, '#d8d0bc');
     },
-    fx: [{ k: 'smoke', x: 2, y: -18, dark: true }, { k: 'eyes', x: 2, y: -5, c: '#ff5a2a' }, { k: 'glint', x: 0, y: 0 }],
+    fx: [{ k: 'smoke', x: 0, y: -18, dark: true }, { k: 'eyes', x: 0, y: 2, c: '#ff5a2a' }, { k: 'glint', x: -2, y: 7 }],
   },
   witch_hut: {
     draw(p, cx, cy) {
@@ -324,6 +337,7 @@ export const STRUCTURES = {
   },
   lake: { draw(p, cx, cy) { diamond(p, cx, cy, 22, (x, y) => hash2(x, y, 12) < .06 ? WATER.hi : WATER.top); diamond(p, cx, cy + 1, 14, WATER.lo); p.rect(cx + 1, cy - 8, 1, 7, '#e8e8f0'); p.rect(cx - 1, cy - 6, 5, 1, '#c8a040'); p.rect(cx, cy - 2, 2, 2, '#e0b48e'); }, fx: [{ k: 'sparkle', x: 1, y: -8 }, { k: 'ripple', x: 1, y: 0 }] },
   mountain: {
+    ground: 'scree',
     draw(p, cx, cy) {
       const R = ramp('#8a8478');
       p.poly([[cx - 3, cy - 42], [cx + 6, cy + 6], [cx - 22, cy + 5]], (x, y) => hash2(x, y, 4) < .1 ? R.base : R.lit);
@@ -334,6 +348,7 @@ export const STRUCTURES = {
     },
   },
   pass: {
+    ground: 'scree',
     draw(p, cx, cy) {
       const R = ramp('#8a8478');
       p.poly([[cx - 12, cy - 30], [cx - 4, cy + 2], [cx - 24, cy + 2]], R.lit); p.poly([[cx - 12, cy - 30], [cx - 2, cy - 4], [cx - 4, cy + 2]], R.dim);
@@ -359,7 +374,7 @@ export const STRUCTURES = {
   },
   hermitage: {
     draw(p, cx, cy) {
-      mound(p, cx + 6, cy - 3, 16, 10, '#8a8478');
+      mound(p, cx + 8, cy - 6, 12, 8, '#8a8478');   // the great stone, back behind the hut
       house(p, cx - 6, cy + 1, 5, 4, 7, '#a89478', '#6a5a3a', 'b', 5);
       p.vline(cx + 10, cy - 8, cy + 4, DWOOD); p.rect(cx + 9, cy - 10, 3, 3, '#f2c24c');
     },
@@ -418,7 +433,7 @@ export const STRUCTURES = {
       p.rect(cx + 10, cy + 3, 3, 3, '#6a5a4a'); p.line(cx + 12, cy - 4, cx + 16, cy + 4, DWOOD);
     },
   },
-  bonfire: { draw(p, cx, cy) { /* the ash ring first, then the sticks standing in it */ p.ellipse(cx, cy + 3, 9, 3, '#3a2a24'); for (let i = 0; i < 6; i++) p.line(cx - 7 + i * 3, cy + 4, cx - 1 + i, cy - 6, i % 2 ? WOOD : DWOOD); }, fx: [{ k: 'fire', x: 0, y: -2, big: true }, { k: 'smoke', x: 0, y: -24 }] },
+  bonfire: { draw(p, cx, cy) { /* the ash ring first, then the sticks standing in it */ p.ellipse(cx, cy, 9, 3, '#3a2a24'); for (let i = 0; i < 6; i++) p.line(cx - 8 + i * 3, cy + 1, cx - 3 + i, cy - 9, i % 2 ? WOOD : DWOOD); }, fx: [{ k: 'fire', x: 0, y: -5, big: true }, { k: 'smoke', x: 0, y: -27 }] },
   palace: {
     draw(p, cx, cy) {
       const W = ramp('#e8e0cc');
@@ -501,11 +516,14 @@ export function throneRoom(p, cx, cy, o = {}) {
   for (const [dx, dy] of [[-10, -8], [14, -6]]) { p.rect(cx + dx - 1, cy + dy - 4, 3, 4, gold.dim); p.rect(cx + dx - 2, cy + dy - 5, 5, 1, gold.base); }
 }
 
+// What a structure stands on: the ground of wherever it lands, except that the throne room is always in the city, and
+// one with ground of its own (the mountains, on scree) stands on that, unless it's in the snow.
+const groundOf = (theme, s, o) => theme === 'throne' ? 'city' : s.ground && o.biome !== 'snow' ? s.ground : o.biome || 'farm';
 // A structure on a block of ground, as one sprite. o: { biome, h, arms }.
 export function structureSprite(theme, o = {}) {
   const s = STRUCTURES[theme] || STRUCTURES.road;
   const p = new Px(SPRITE.w, SPRITE.h);
-  ground(p, theme === 'throne' ? 'city' : o.biome || 'farm', o.h || 0, 77, { path: o.path });
+  ground(p, groundOf(theme, s, o), o.h || 0, 77, { path: o.path });
   const [cx, cy] = centre(o.h || 0);
   s.draw(p, cx, cy, o);
   return p;
@@ -515,7 +533,7 @@ export function structureSprite(theme, o = {}) {
 export function structureLayers(theme, o = {}) {
   const s = STRUCTURES[theme] || STRUCTURES.road;
   const base = new Px(SPRITE.w, SPRITE.h), top = new Px(SPRITE.w, SPRITE.h);
-  ground(base, theme === 'throne' ? 'city' : o.biome || 'farm', o.h || 0, 77, { path: o.path });
+  ground(base, groundOf(theme, s, o), o.h || 0, 77, { path: o.path });
   const [cx, cy] = centre(o.h || 0);
   s.draw(top, cx, cy, o);
   return { base, top };

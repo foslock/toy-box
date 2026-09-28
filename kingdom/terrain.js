@@ -22,6 +22,7 @@ export const GROUND = {
   snow:  { top: '#e6ecf2', hi: '#ffffff', lo: '#c4d0de', lip: '#b3c2d4', side: '#7d8494', sideLo: '#5e6474' },
   crown: { top: '#7cc25a', hi: '#9ad873', lo: '#62a647', lip: '#528e3d', side: '#8a5c3a', sideLo: '#6a4430' },
   city:  { top: '#a39d90', hi: '#b8b2a4', lo: '#8a8478', lip: '#77716a', side: '#6e6860', sideLo: '#55504a' },
+  scree: { top: '#7e796f', hi: '#9c968b', lo: '#66625b', lip: '#6a655e', side: '#5c5752', sideLo: '#47433f' },   // not a region: what the mountains stand on
 };
 export const WATER = { top: '#3f86c6', hi: '#8cc6ef', lo: '#2f6aa8', deep: '#285a92' };
 
