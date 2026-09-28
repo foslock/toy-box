@@ -211,7 +211,7 @@ function optionDetail(dir) {
   if (cur.hidden === dir) return '<small>Lost in the mist</small>';
   const lock = life.locks()[dir];
   if (lock) bits.push(`<span>${esc(lock)}</span>`);
-  if (opt.cost) { const p = priceFor(opt.cost, s); bits.push(life.gold < p ? `<span class="cost poor">${p} gold, and you have ${life.gold}</span>` : `<span class="cost">${p} gold</span>`); }
+  if (opt.cost) { const p = priceFor(opt.cost, s); bits.push(`<span class="cost${life.gold < p ? ' poor' : ''}" data-icon="gold">Costs ${p} gold${life.gold < p ? `, and you have ${life.gold}` : ''}</span>`); }
   if (opt.fight) {
     const f = opt.fight, realm = REALMS[life.realm.type];
     bits.push(`<span class="fight" data-icon="power">${esc(life.fill(f.name))} · ${f.power + (realm.foePower || 0)}</span>`);
