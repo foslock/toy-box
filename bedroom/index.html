@@ -310,7 +310,7 @@ const C = {
   knit: '#a9776a',
   curtain: '#d6cebd',
   dresser: '#6d5040',
-  leaf: '#4f6f45', pot: '#a8623f',
+  leaf: '#46673d', pot: '#a8623f',
 };
 
 /* ---------- the night outside ----------
@@ -516,28 +516,57 @@ function paintWindowTrim() {
   paintPlant();
 }
 
-// A trailing plant in a clay pot at the end of the sill: its leaves throw shadows into the moonlight.
-const PLANT = { x: XL - 0.055, z: 2.93, y: WIN.y0, r: 0.062, h: 0.11 };
-const LEAVES = (() => {
-  const rng = mulberry32(33), out = [];
-  for (let i = 0; i < 26; i++) {
-    const hang = i < 11, a = rng() * TAU;
-    const along = hang ? 0.05 + rng() * 0.17 : 0.03 + rng() * 0.16;
-    const dz = Math.cos(a) * (hang ? 0.07 + rng() * 0.05 : 0.02 + along * 0.4), dy = hang ? -along + 0.1 : PLANT.h + along;
-    out.push({ z: PLANT.z + dz, y: PLANT.y + dy, s: 0.022 + rng() * 0.018, rot: hang ? (rng() - 0.5) * 1.2 + Math.PI / 2 : a, x: PLANT.x + Math.sin(a) * 0.05, k: 0.7 + rng() * 0.5 });
+// A pothos in a clay pot at the end of the sill: stems arching up out of it and two trailing over the front edge,
+// heart-shaped leaves along them. It stands against the window, so its leaves throw shadows into the moonlight.
+const PLANT = { x: XL - 0.03, z: 2.95, y: WIN.y0, r: 0.05, h: 0.095 };
+const VINES = (() => {
+  const rng = mulberry32(33), out = [], top = PLANT.y + PLANT.h - 0.008;
+  const bend = (a, b, c) => Array.from({ length: 13 }, (_, i) => { const t = i / 12, u = 1 - t; return [0, 1, 2].map(k => u * u * a[k] + 2 * u * t * b[k] + t * t * c[k]); });
+  // stems rising out of the pot and arching over, mostly along the sill, one or two leaning into the room
+  for (let i = 0; i < 6; i++) {
+    const sway = (i % 2 ? 1 : -1) * (0.04 + rng() * 0.08), lean = (rng() - 0.3) * 0.07, tall = 0.08 + rng() * 0.14;
+    const a = [PLANT.x + (rng() - 0.5) * 0.03, top, PLANT.z + (rng() - 0.5) * 0.04];
+    out.push({ pts: bend(a, [a[0] + lean * 0.5, top + tall * 1.2, a[2] + sway * 0.3], [a[0] + lean, top + tall * 0.8, a[2] + sway]), w: 0.0035, from: 0.3 });
+  }
+  // and two trailing over the front of the sill, down toward the radiator
+  for (const dz of [-0.03, 0.028]) {
+    const a = [PLANT.x + 0.035, top, PLANT.z + dz];
+    out.push({ pts: bend(a, [XL + 0.07, top + 0.04, PLANT.z + dz * 1.8], [XL + 0.085, WIN.y0 - 0.1 - rng() * 0.02, PLANT.z + dz * 2.6]), w: 0.003, from: 0.22, hang: true });
+  }
+  // leaves along each stem, on alternate sides, smaller toward the tip, pointing out and drooping a little
+  for (const v of out) {
+    const n = 5 + (rng() * 2 | 0);
+    v.leaves = Array.from({ length: n }, (_, j) => {
+      const t = lerp(v.from, 1, j / (n - 1)), k = Math.round(t * 12), p = v.pts[k], d = sub(p, v.pts[Math.max(0, k - 1)]), side = j % 2 ? 1 : -1;
+      const rot = Math.atan2(d[1], d[2]) + side * (1.05 + rng() * 0.35 + (v.hang ? 0.25 : 0.1));
+      return { p, s: (0.03 + rng() * 0.014) * (1 - 0.3 * t), rot, turn: (rng() - 0.5) * 1.5, k: 0.7 + rng() * 0.45 };
+    });
   }
   return out;
 })();
-function leafPath(g, s) { g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(s * 0.5, -s * 0.55, s * 1.05, -s * 0.3, s, 0); g.bezierCurveTo(s * 1.05, s * 0.3, s * 0.5, s * 0.55, 0, 0); g.closePath(); }
+// A heart-shaped leaf, from its stalk at the origin to its tip at (s, 0).
+function leafPath(g, s) {
+  g.beginPath(); g.moveTo(0.08 * s, 0);
+  g.bezierCurveTo(-0.08 * s, 0.32 * s, 0.4 * s, 0.56 * s, s, 0);
+  g.bezierCurveTo(0.4 * s, -0.56 * s, -0.08 * s, -0.32 * s, 0.08 * s, 0);
+  g.closePath();
+}
 function paintPlant() {
-  const id = plane([1, 0, 0], [PLANT.x + 0.03, 0, 0]);
-  cyl(PLANT.x, PLANT.z, PLANT.y, PLANT.y + PLANT.h, PLANT.r * 0.8, PLANT.r, plane(facing([PLANT.x, 0, PLANT.z]), [PLANT.x + 0.05, 0, PLANT.z]), () => grad3([PLANT.x, 0.9, PLANT.z - 0.07], [PLANT.x, 0.9, PLANT.z + 0.07], [[0, tone(C.pot, 1.1)], [1, tone(C.pot, 0.7)]]));
-  for (const L of LEAVES) {
-    onPlane([L.x, L.y, L.z], [0, 0, 1], [0, 1, 0], () => {
-      G.rotate(-L.rot); leafPath(G, L.s);
-      G.fillStyle = MODE === 'id' ? idCol(id) : MODE === 'ao' ? '#fff' : tone(C.leaf, L.k); G.fill();
-      if (ALB()) { G.strokeStyle = tone(C.leaf, 1.4, 0.5); G.lineWidth = 0.0015; G.beginPath(); G.moveTo(0, 0); G.lineTo(L.s * 0.9, 0); G.stroke(); }
-    });
+  const { x, z, y, r, h } = PLANT, id = plane([1, 0, 0], [x + 0.04, 0, 0]), potId = plane(facing([x, 0, z]), [x + 0.05, 0, z]);
+  const clay = () => grad3([x, 0.9, z - r], [x, 0.9, z + r], [[0, tone(C.pot, 1.12)], [1, tone(C.pot, 0.66)]]);
+  ao([[x - 0.07, y, z - 0.08], [x + 0.07, y, z - 0.08], [x + 0.07, y, z + 0.08], [x - 0.07, y, z + 0.08]], 0.45, 0.02);
+  cyl(x, z, y, y + h - 0.02, r * 0.8, r * 0.95, potId, clay);
+  cyl(x, z, y + h - 0.022, y + h, r * 1.08, r * 1.12, potId, clay);   // its rim
+  for (const v of VINES) {
+    line3(v.pts, v.w, MODE === 'id' ? idCol(id) : MODE === 'ao' ? '#fff' : '#55693a');
+    for (const L of v.leaves) {
+      // each leaf's face turns its own way: toward the room, or partly along the sill
+      onPlane(L.p, [-Math.sin(L.turn), 0, Math.cos(L.turn)], [0, 1, 0], () => {
+        G.rotate(-L.rot); leafPath(G, L.s);
+        G.fillStyle = MODE === 'id' ? idCol(id) : MODE === 'ao' ? '#fff' : tone(C.leaf, L.k); G.fill();
+        if (ALB()) { G.strokeStyle = tone(C.leaf, 1.5, 0.55); G.lineWidth = L.s * 0.05; G.beginPath(); G.moveTo(L.s * 0.08, 0); G.lineTo(L.s * 0.85, 0); G.stroke(); }
+      });
+    }
   }
 }
 
@@ -994,8 +1023,13 @@ function paintMask() {
   }
   g.fillStyle = '#000';
   g.fillRect((SASH.z0 + SASH.z1) / 2 - 0.035, SASH.ym - 0.004, 0.07, 0.016);
-  for (const L of LEAVES) { g.save(); g.translate(L.z, L.y); g.rotate(L.rot); leafPath(g, L.s); g.fill(); g.restore(); }
-  g.fillRect(PLANT.z - PLANT.r, PLANT.y, PLANT.r * 2, PLANT.h);
+  // the plant, flattened onto the glass: its stems, and each leaf as narrow as it looks from the window
+  g.strokeStyle = '#000'; g.lineCap = 'round';
+  for (const v of VINES) {
+    g.lineWidth = v.w; g.beginPath(); v.pts.forEach(([, y, z], i) => i ? g.lineTo(z, y) : g.moveTo(z, y)); g.stroke();
+    for (const L of v.leaves) { g.save(); g.translate(L.p[2], L.p[1]); g.transform(Math.cos(L.turn), 0, 0, 1, 0, 0); g.rotate(L.rot); leafPath(g, L.s); g.fill(); g.restore(); }
+  }
+  g.fillRect(PLANT.z - PLANT.r * 1.1, PLANT.y, PLANT.r * 2.2, PLANT.h);
   return c;
 }
 
@@ -1240,19 +1274,20 @@ function planeIds(c) {
     for (const r of [d[p], d[p] - 1, d[p] + 1]) if (r >= 0 && r < 256 && near(d[p + 1], codeG(r)) && near(d[p + 2], codeB(r))) { ids[i] = r; ok[i] = 1; break; }
   }
   // Edges between the room and the view outside go to the room: the view is shown as painted, unlit, and a
-  // half-and-half pixel of white window frame would shine.
-  for (let pass = 0, left = 1; left && pass < 40; pass++) {
-    left = 0;
+  // half-and-half pixel of white window frame would shine. An edge can be two pixels wide, so for the first two
+  // passes only the room's planes spread into it; after that any trusted neighbour will do.
+  for (let pass = 0, changed = true; (changed || pass < 2) && pass < 40; pass++) {
+    changed = false;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x; if (ok[i]) continue;
       let pick = -1;
       for (const j of [x > 0 ? i - 1 : -1, y > 0 ? i - w : -1, x < w - 1 ? i + 1 : -1, y < h - 1 ? i + w : -1]) {
         if (j < 0 || ok[j] !== 1) continue;
         if (ids[j] > SILHOUETTE) { pick = j; break; }
-        if (pick < 0) pick = j;
+        if (pick < 0 && pass >= 2) pick = j;
       }
-      if (pick < 0) { left++; continue; }
-      ids[i] = ids[pick]; ok[i] = 2;
+      if (pick < 0) continue;
+      ids[i] = ids[pick]; ok[i] = 2; changed = true;
     }
     for (let i = 0; i < w * h; i++) if (ok[i] === 2) ok[i] = 1;
   }
