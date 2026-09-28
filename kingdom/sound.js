@@ -135,7 +135,7 @@ export class Sound {
       // open fifth becomes a minor chord; it fades out with the drone
       title: (rise = 2.5) => {
         const n = c.currentTime, tg = c.createGain();
-        tg.gain.setValueAtTime(0, n); tg.gain.linearRampToValueAtTime(.5, n + rise);   // the pair together about as loud as one voice of the drone
+        tg.gain.setValueAtTime(0, n); tg.gain.linearRampToValueAtTime(1.1, n + rise);   // to the ear about as loud as the whole drone
         for (const d of [-3, 3]) { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = HZ(65); o.detune.value = d; o.connect(tg); o.start(n); oscs.push(o); }
         tg.connect(f);
       },
