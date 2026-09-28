@@ -116,16 +116,18 @@ const OCCLUDERS = [
 
 /* ---------- the moon ----------
    A real arc across a southern sky (latitude, declination, hour angle), slowed so that one night's arc fills the
-   twelve hours from six in the evening to six in the morning. The room keeps the visitor's own time, but it's
-   always night there: their clock is read as evening or the small hours (twenty to three in the afternoon is
-   twenty to three in the morning here), so the light lies across the rug after dark and climbs the back wall
-   toward dawn. */
+   hours from ten at night to four in the morning, when it's dark wherever you are. The room keeps the visitor's
+   own time, but it's always those hours there: at night the clock is theirs as it stands, and in the day it's
+   the same minute of a dark hour, six, twelve or eighteen hours on (twenty to three in the afternoon is twenty to
+   three in the morning here). So the light lies across the rug late in the evening and climbs the back wall
+   toward dawn, and every six hours the night begins again. */
 const Q = new URLSearchParams(location.search);
 const AT = /^(\d{1,2}):(\d{2})$/.exec(Q.get('at') || '');   // ?at=23:40 sets the clock, for checking
 const RATE = clamp(Number(Q.get('rate')) || 1, 0.1, 3600);   // ?rate=600 runs it faster
 const LAT = -35 * DEG, DECL = -8 * DEG;
 const WIN_FACES = 305 * DEG;                                // compass bearing the window looks out on
-const H0 = 40 * DEG, SPAN = 48 * DEG, NIGHT = 12 * 3600;   // hour angle at six in the evening; how far it turns by six in the morning
+const DUSK = 22, NIGHT = 6 * 3600;                          // the room's night: from ten o'clock, six hours long
+const H0 = 40 * DEG, SPAN = 48 * DEG;                       // the moon's hour angle at ten, and how far it turns by four
 const N_OUT = [Math.sin(WIN_FACES), Math.cos(WIN_FACES), 0];
 const RX = scl(N_OUT, -1), RZ = cross(N_OUT, [0, 0, 1]);   // room axes in east/north/up
 function moonDir(H) {                                       // unit vector toward the moon at hour angle H, room axes
@@ -1317,25 +1319,25 @@ const land = (o, L) => {                       // where a ray of moonlight from 
   }
   return best;
 };
-// The time here: the visitor's clock (or ?at), and how far into the night that is, counted from six in the evening.
+// The time here: the visitor's clock (or ?at), and how far into the room's night that is, counted from ten.
 const T0 = performance.now();
 const BASE = (() => { const d = new Date(); if (AT) d.setHours(+AT[1] % 24, +AT[2] % 60, 0, 0); return d.getTime(); })();
 const wallClock = () => AT || RATE !== 1 ? new Date(BASE + (performance.now() - T0) * RATE) : new Date();   // (the real clock keeps time through sleep)
-const nightOf = d => ((d.getHours() + 6) % 12) * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
+const nightOf = d => ((d.getHours() - DUSK) % 6 + 6) % 6 * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
 // Now and then a thin cloud goes over the moon and the light dims a little.
 const cloud = t => 1 - 0.2 * smoothstep(0.3, 0.8, Math.sin(t / 97 + 2.2) * 0.5 + noise1(t / 41) * 0.5) * smoothstep(90, 150, t);
 function moonAt(night, t) {
   const H = H0 + SPAN * night / NIGHT, m = moonDir(H), alt = Math.asin(clamp(m[1], -1, 1));
-  // At six the night starts over: the light fades a minute or so before, and comes back as the evening begins.
+  // When the night starts over, the light fades a minute or so before, and comes back as the new one begins.
   const edge = smoothstep(0, 90, night) * smoothstep(0, 90, NIGHT - night);
   const up = smoothstep(0, 6 * DEG, alt) * smoothstep(0, 0.05, -m[0]) * edge * cloud(t);
   return { m, alt, up, turned: H - H0 };
 }
 function draw(gpu = true) {
-  const t = (performance.now() - T0) / 1000, now = wallClock();
-  drawClock(now);
+  const t = (performance.now() - T0) / 1000, now = wallClock(), night = nightOf(now);
+  drawClock(now, (DUSK + Math.floor(night / 3600)) % 24);
   if (!ready) return;
-  const { m, alt, up, turned } = moonAt(nightOf(now), t), L = scl(m, -1);
+  const { m, alt, up, turned } = moonAt(night, t), L = scl(m, -1);
   drawMotes(t, L, up);
   if (!gpu) return;
   // Low down, the moon's light thins and warms.
@@ -1457,9 +1459,11 @@ function drawMotes(t, L, up) {
 
 /* ---------- the clock on the nightstand ----------
    Red seven-segment digits on a small canvas of their own over the clock's window, drawn flat on its face: the
-   visitor's time on a twelve-hour clock, the colon blinking the seconds away. */
+   room's time, twelve-hour with a PM light or twenty-four-hour as the visitor's own clocks are, the colon
+   blinking the seconds away. */
 const ck = document.getElementById('clock'), cg = ck.getContext('2d');
 const SEGS = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f];   // which of the segments a–g each digit lights
+const H24 = (() => { try { return /h2[34]/.test(new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle); } catch { return false; } })();
 let clockXf = null, clockShown = '';
 function placeClock(dpr) {
   // The middle of the clock's window, and where a step along its face, right or up, lands on the screen.
@@ -1474,10 +1478,10 @@ function placeClock(dpr) {
   ck.width = ck.height = Math.round(2 * half * k);
   clockXf = [u[0] * k, u[1] * k, v[0] * k, v[1] * k, half * k, half * k];   // metres on the face (y up) to canvas pixels
 }
-function drawClock(now) {
+function drawClock(now, hour) {
   if (!clockXf) return;
-  const hh = now.getHours() % 12 || 12, mm = now.getMinutes(), colon = STILL || now.getMilliseconds() < 500;
-  const shown = `${hh}:${mm}:${colon}`;
+  const hh = H24 ? hour : hour % 12 || 12, pm = !H24 && hour >= 12, mm = now.getMinutes(), colon = STILL || now.getMilliseconds() < 500;
+  const shown = `${hh}:${mm}:${pm}:${colon}`;
   if (shown === clockShown) return;
   clockShown = shown;
   cg.setTransform(1, 0, 0, 1, 0, 0); cg.clearRect(0, 0, ck.width, ck.height);
@@ -1500,13 +1504,17 @@ function drawClock(now) {
       [cx - w, -h + gap, cx - w, -gap], [cx - w, gap, cx - w, h - gap], [cx - w + gap, 0, cx + w - gap, 0]]
       .forEach((s, i) => { if ((has >> i & 1) && !!(on >> i & 1) === lit) bar(...s); });
   };
-  // The first place only ever shows a 1, so like a real clock's it only has the two segments of one.
-  const digits = [[-0.047, hh >= 10 ? 1 : -1, 0x06], [-0.022, hh % 10, 0x7f], [0.018, Math.floor(mm / 10), 0x7f], [0.043, mm % 10, 0x7f]];
+  // On a twelve-hour clock the first place only ever shows a 1, so like a real one it only has the two segments of
+  // one, and a PM light in the corner.
+  const digits = [[-0.047, hh >= 10 ? Math.floor(hh / 10) : -1, H24 ? 0x7f : 0x06], [-0.022, hh % 10, 0x7f], [0.018, Math.floor(mm / 10), 0x7f], [0.043, mm % 10, 0x7f]];
+  const pmLight = () => { cg.beginPath(); cg.arc(-0.0615 + 0.014 * SLANT, 0.014, 0.0019, 0, TAU); cg.fill(); };
   cg.fillStyle = 'rgba(255,50,36,0.06)';                           // the unlit segments, just there behind the glass
   for (const [cx, n, has] of digits) digit(cx, n, false, has);
+  if (!H24 && !pm) pmLight();
   cg.shadowColor = 'rgba(255,36,20,0.85)'; cg.shadowBlur = DH * px * 0.3;
   cg.fillStyle = 'rgba(255,66,46,0.92)';
   for (const [cx, n, has] of digits) digit(cx, n, true, has);
+  if (pm) pmLight();
   if (colon) for (const y of [-0.0075, 0.0075]) { cg.beginPath(); cg.arc(-0.002 + y * SLANT, y, 0.0022, 0, TAU); cg.fill(); }
   cg.shadowBlur = 0;
 }
