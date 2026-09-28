@@ -197,9 +197,10 @@ function renderEvent() {
   hydrateIcons(panel);
   for (const b of panel.querySelectorAll('.choice')) {
     b.onclick = () => choose(b.dataset.dir);
-    b.onpointerenter = () => { view.hover = b.dataset.dir; };
-    b.onpointerleave = () => { view.hover = null; };
-    b.onfocus = () => { view.hover = b.dataset.dir; };
+    b.onpointerenter = e => { if (e.pointerType === 'mouse') pointAt(b.dataset.dir); };
+    b.onpointerleave = e => { if (e.pointerType === 'mouse') pointAt(null); };
+    b.onfocus = () => { if (byKeyboard(b)) pointAt(b.dataset.dir); };
+    b.onblur = () => { if (view.hover === b.dataset.dir) pointAt(null); };
   }
   panel.querySelector('[data-act="foresee"]')?.addEventListener('click', foresee);
   panel.querySelector('[data-act="stride"]')?.addEventListener('click', stride);
@@ -222,6 +223,13 @@ function foresee() {
 
 /* ---------- choosing ---------- */
 let busy = false;
+// A way pointed at, by the mouse or the keyboard (a touch screen has no pointing: a tap chooses at once): its tile glows
+// and its label lights up on the map, and when it's its tile the mouse is on, its card lights up too.
+function pointAt(dir, card = false) {
+  view.hover = dir;
+  for (const b of panel.querySelectorAll('.choice')) b.classList.toggle('hot', card && b.dataset.dir === dir);
+}
+const byKeyboard = el => { try { return el.matches(':focus-visible'); } catch { return true; } };
 const priceOf = dir => { const opt = life.option(dir); return opt.cost ? priceFor(opt.cost, life.state()) : 0; };
 async function choose(dir, sure = false) {
   if (mode !== 'event' || busy) return;
@@ -238,7 +246,7 @@ async function choose(dir, sure = false) {
   save();
   // keep just the way taken lit while your heir walks there
   if (view.opts) { const keep = view.opts[dir]; keep.t = 1; keep.hidden = false; keep.theme = res.tile; view.opts = { [dir]: keep }; }
-  view.hover = null;
+  pointAt(null);
   sound.step();
   await new Promise(r => view.walk(dir, r));
   view.clearOptions();
@@ -1030,7 +1038,7 @@ cv.addEventListener('pointermove', e => {
   const c = view.cellAt(e.clientX, e.clientY);
   let over = null;
   if (c && mode === 'event' && view.opts) for (const o of Object.values(view.opts)) if (o.row === c.row && o.col === c.col && !life.locks()[o.dir]) over = o.dir;
-  view.hover = over ?? (panel.querySelector('.choice:hover')?.dataset.dir || null);
+  if (e.pointerType === 'mouse') pointAt(over ?? (panel.querySelector('.choice:hover')?.dataset.dir || null), !!over);
   cv.classList.toggle('point', !!over);
   const g = c && house?.graves.find(g => g.row === c.row && g.col === c.col && (view.cells.get(gridKey(c.row, c.col))?.vis || 0) >= 1);
   hoverGrave = g || null;
@@ -1049,6 +1057,7 @@ const up = e => {
   drag = null;
 };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !drag) pointAt(null); });
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!introOn) view.setZoom(view.zoomStep + (e.deltaY < 0 ? 1 : -1)); }, { passive: false });
 // The page never zooms, whatever the browser makes of the viewport tag: Safari's own pinch gestures are cancelled, and
 // so is any two-finger touch. (The map's pinch runs on pointer events, which this leaves alone.)

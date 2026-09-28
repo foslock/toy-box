@@ -117,7 +117,10 @@
   .choice.R small { justify-content: flex-end; }
   .choice small .fight { color: var(--red); } .choice small .cost.poor { color: var(--red); }
   .choice small [data-icon] { display: inline-flex; align-items: center; gap: 4px; }
-  .choice:hover:not(:disabled), .choice.hot { background: #fff1cf; border-color: var(--red); }
+  /* a way pointed at: under the mouse, or its tile under the mouse (.hot). Only with a mouse: a touch screen's browser
+     keeps whatever was last tapped "hovered", so after Onward the card that appears under the finger would light up */
+  .choice.hot { background: #fff1cf; border-color: var(--red); }
+  @media (hover: hover) and (pointer: fine) { .choice:hover:not(:disabled) { background: #fff1cf; border-color: var(--red); } }
   .choice:disabled { cursor: default; }
   .choice.locked { opacity: .5; background: repeating-linear-gradient(45deg, var(--parch-2) 0 8px, var(--parch-3) 8px 16px); }
   .choice.hidden b { color: var(--magic); }
@@ -165,7 +168,7 @@
   .ware canvas { grid-row: span 2; }
   .ware b { font-weight: 600; font-size: 14px; line-height: 1.2; }
   .ware small { font: 400 11px/1.2 Digits, Silkscreen, monospace; color: var(--ink-2); }
-  .ware:hover:not(:disabled) { background: #fff1cf; border-color: var(--red); }
+  @media (hover: hover) and (pointer: fine) { .ware:hover:not(:disabled) { background: #fff1cf; border-color: var(--red); } }
   .ware:disabled { opacity: .45; cursor: default; }
   .ware.sold { opacity: .35; text-decoration: line-through; }
 
