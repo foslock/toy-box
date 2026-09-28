@@ -85,24 +85,29 @@ const PILLOWS = [[0.6, 1.25], [1.3, 1.95]];
 const STAND = { x0: -0.16, x1: 0.34, z0: 3.46, z1: 3.88, h: 0.56 };
 const LAMP = { x: 0.02, z: 3.68, r0: 0.07, rb: 0.17, rt: 0.115, y1: 0.74, y2: 0.96 };
 const CHAIR = { x: -0.8, z0: 3.43, z1: 3.84, w: 0.44, seat: 0.46, back: 0.96 };
+const CHAIR_RUNGS = [0.62, 0.74, 0.86];
 const DRESSER = { x0: XL, x1: XL + 0.46, z0: 0.72, z1: 1.62, h: 0.86 };
 const RUG = { x0: -1.25, x1: 0.3, z0: 0.95, z1: 2.95 };
-const SLIPPERS = [[0.2, 2.22, -8], [0.33, 2.3, 4]];     // x, z of the heel, turn in degrees
+const SLIPPERS = [[0.36, 3.26, -52], [0.42, 3.1, -38]];   // x, z of the heel, turn in degrees (toes toward the window)
 const OCCLUDERS = [
   [[STAND.x0, 0.08, STAND.z0], [STAND.x1, STAND.h, STAND.z1]],
   [[LAMP.x - 0.07, STAND.h, LAMP.z - 0.07], [LAMP.x + 0.07, LAMP.y1, LAMP.z + 0.07]],
   [[LAMP.x - 0.15, LAMP.y1, LAMP.z - 0.15], [LAMP.x + 0.15, LAMP.y2, LAMP.z + 0.15]],
   [[0.13, STAND.h, 3.52], [0.3, STAND.h + 0.07, 3.76]],
   [[CHAIR.x - 0.22, CHAIR.seat - 0.03, CHAIR.z0], [CHAIR.x + 0.22, CHAIR.seat, CHAIR.z1]],
-  [[CHAIR.x - 0.21, CHAIR.seat, CHAIR.z1 - 0.06], [CHAIR.x + 0.21, CHAIR.back, CHAIR.z1]],
-  [[CHAIR.x - 0.21, 0, CHAIR.z0], [CHAIR.x - 0.175, CHAIR.seat, CHAIR.z0 + 0.035]],
-  [[CHAIR.x + 0.175, 0, CHAIR.z0], [CHAIR.x + 0.21, CHAIR.seat, CHAIR.z0 + 0.035]],
-  [[CHAIR.x - 0.21, 0, CHAIR.z1 - 0.035], [CHAIR.x - 0.175, CHAIR.seat, CHAIR.z1]],
-  [[CHAIR.x + 0.175, 0, CHAIR.z1 - 0.035], [CHAIR.x + 0.21, CHAIR.seat, CHAIR.z1]],
+  ...[-1, 1].flatMap(s => [[[CHAIR.x + s * 0.191 - 0.017, 0, CHAIR.z1 - 0.034], [CHAIR.x + s * 0.191 + 0.017, CHAIR.back, CHAIR.z1]],
+    [[CHAIR.x + s * 0.191 - 0.017, 0, CHAIR.z0], [CHAIR.x + s * 0.191 + 0.017, CHAIR.seat, CHAIR.z0 + 0.034]]]),
+  ...CHAIR_RUNGS.map(y => [[CHAIR.x - 0.2, y - 0.022, CHAIR.z1 - 0.026], [CHAIR.x + 0.2, y + 0.022, CHAIR.z1 - 0.01]]),
+  [[CHAIR.x - 0.24, 0.47, CHAIR.z1 - 0.08], [CHAIR.x + 0.05, 0.9, CHAIR.z1 - 0.02]],
   [[BED.x0, 0.12, BED.z0], [BED.x1, BED.top, BED.z1]],
   [[PILLOWS[0][0], BED.top - 0.03, 3.36], [PILLOWS[1][1], BED.top + 0.15, 3.82]],
   [[HEAD.x0, 0, HEAD.z0], [HEAD.x1, HEAD.h, ZB]],
-  [[0.12, 0, 2.18], [0.42, 0.07, 2.5]],                  // the slippers
+  // each slipper as two small blocks along its length, kept inside it and below its top
+  ...SLIPPERS.flatMap(([x, z, a]) => [0.3, 0.7].map(t => {
+    const cx = x + 0.27 * t * Math.sin(a * DEG), cz = z - 0.27 * t * Math.cos(a * DEG);
+    return [[cx - 0.034, 0, cz - 0.034], [cx + 0.034, 0.03, cz + 0.034]];
+  })),
+  [[XL + 0.03, 0.12, WIN.z0 + 0.1], [XL + 0.13, 0.66, WIN.z1 - 0.1]],   // the radiator
 ];
 
 /* ---------- the moon ----------
@@ -129,11 +134,12 @@ const NEAR = 0.04;
 function makeCam(W, H) {
   // The camera is kept level, so walls and the window stay upright as a painter would draw them; the frame is
   // shifted down instead of the view being tipped. It aims for a 64° wide view, but never more than 74° tall
-  // (phones) or less than 40° (very wide screens), and the narrower the view, the more it turns toward the light.
+  // (phones) or less than 44° (wide screens, so the head of the window and the first light on the floor both fit),
+  // and the narrower the view, the more it turns toward the light.
   const half = deg => Math.tan(deg * DEG / 2);
-  const F = Math.min(Math.max((W / 2) / half(64), (H / 2) / half(74)), (H / 2) / half(40));
+  const F = Math.min(Math.max((W / 2) / half(64), (H / 2) / half(74)), (H / 2) / half(44));
   const k = smoothstep(38, 64, 2 * Math.atan(W / 2 / F) / DEG);
-  const yaw = lerp(-14, -19, k) * DEG, look = lerp(-11, -9, k) * DEG;
+  const yaw = lerp(-14, -19, k) * DEG, look = lerp(-11, -10.5, k) * DEG;
   const f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [Math.cos(yaw), 0, -Math.sin(yaw)], u = [0, 1, 0];
   return { pos: EYE, f, r, u, F, cx: W / 2, cy: H / 2 + F * Math.tan(look), W, H };
 }
@@ -285,14 +291,14 @@ function cyl(x, z, y0, y1, r0, r1, id, style, detail) {
 /* ---------- colours by day ----------
    The shader lights these with moonlight, sky and bounce, then grades everything toward night. */
 const C = {
-  wall: '#a9b1b1', wallStripe: '#a6aeaf', sprig: '#94a09c',
+  wall: '#d3c9b6', wallStripe: '#cfc4b0', sprig: '#b3ab98',
   ceiling: '#dddbd4', trim: '#e6e3da',
   floor: '#b88c5f', seam: '#3b2a1c', grain: '#8a6440',
   walnut: '#5e3f2b', walnutLight: '#7d573c', oak: '#a37b52', oakLight: '#bf966a',
   linen: '#ebe8e0', linenShade: '#cfccc4', turn: '#b9c3cf',
-  throwKnit: '#b58d4c', pillow2: '#8f9f94',
+  throwKnit: '#c2a87a', pillow2: '#8f9f94',
   rugField: '#9b574d', rugBorder: '#3d4865', rugCream: '#d4c6a6', rugRust: '#ad7349', rugTeal: '#6f8a86',
-  lampBase: '#9fb4aa', shade: '#e4ddca',
+  lampBase: '#9fb4aa', shade: '#b4935a',
   knit: '#a9776a',
   curtain: '#d6cebd',
   dresser: '#6d5040',
@@ -335,11 +341,11 @@ function paintOutside() {
     }
   }
   // far hills, then the town's roofs and trees, then the dark garden below
-  skyline(th => (0.6 + 1.1 * (0.5 + 0.5 * fbm2(th * 9, 3.1))) * DEG, SILHOUETTE, '#34406a');
+  skyline(th => (0.6 + 1.1 * (0.5 + 0.5 * fbm2(th * 9, 3.1))) * DEG, SILHOUETTE, '#1d2548');
   skyline((th, f) => {
     const roof = Math.max(0, 1 - Math.abs(f - 0.3) / 0.12) * 2.2 + Math.max(0, 1 - Math.abs(f - 0.72) / 0.09) * 1.6;
     return (-0.8 + 1.4 * (0.5 + 0.5 * fbm2(th * 30, 7.7)) + roof) * DEG;
-  }, SILHOUETTE, '#212a4e');
+  }, SILHOUETTE, '#11162e');
   if (ALB()) for (const [f, el] of [[0.45, -1.4], [0.47, -1.3], [0.56, -0.9]]) {
     const p = spDir(dir(lerp(th0, th1, f), el * DEG)); if (!p) continue;
     const r = Math.max(1, cam.F * 0.0011);   // a far window, still lit
@@ -347,7 +353,30 @@ function paintOutside() {
     g.addColorStop(0, 'rgba(255,205,130,1)'); g.addColorStop(0.2, 'rgba(255,180,100,0.45)'); g.addColorStop(1, 'rgba(255,160,80,0)');
     G.fillStyle = g; G.fillRect(p[0] - r * 5, p[1] - r * 5, r * 10, r * 10);
   }
-  skyline(th => (-3.5 + 5 * Math.max(0, fbm2(th * 14, 1.3) + 0.2)) * DEG, SILHOUETTE, '#141a38');
+  // a tree across the way, dark against the sky: its trunk and a few limbs, then the leaves
+  const tree = mulberry32(17), tc = MODE === 'id' ? idCol(SILHOUETTE) : '#0a0e22';
+  const at = (f, el) => spDir(dir(lerp(th0, th1, f), el * DEG));
+  G.strokeStyle = tc; G.lineCap = 'round';
+  const TF = 0.585;                                                  // where it stands across the view
+  for (const [pts, w] of [[[[0.005, -3], [0, 1.5], [-0.007, 4.2]], 0.004], [[[0, 1.5], [0.013, 3.6], [0.025, 5.5]], 0.0022], [[[-0.004, 3.2], [-0.017, 5.4], [-0.025, 6.6]], 0.002]]) {
+    const q = pts.map(([f, el]) => at(TF + f, el)); if (q.some(v => !v)) continue;
+    G.lineWidth = Math.max(1, cam.F * w); G.beginPath(); q.forEach((v, i) => i ? G.lineTo(v[0], v[1]) : G.moveTo(v[0], v[1])); G.stroke();
+  }
+  // the crown: a few rounded masses of foliage, each a cloud of small leafy dabs, lacy where the sky gets in
+  for (const [lf, le, rf, re] of [[0, 5, 0.028, 2.1], [0.02, 3.3, 0.02, 1.4], [-0.021, 3.9, 0.019, 1.5], [0.006, 6.9, 0.021, 1.4], [0.029, 6, 0.017, 1.3]]) {
+    for (let i = 0; i < 110; i++) {
+      const a = tree() * TAU, rr = Math.pow(tree(), 0.6);
+      const f = TF + lf + Math.cos(a) * rr * rf, el = le + Math.sin(a) * rr * re;
+      if (rr > 0.55 && fbm2(f * 150, el * 1.5, 2) < -0.05) continue;
+      const p = at(f, el), q = at(f, el + 0.1 + tree() * 0.22);
+      if (!p || !q) continue;
+      const rp = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      G.fillStyle = tc; G.beginPath(); G.arc(p[0], p[1], rp, 0, TAU); G.fill();
+      // leaves at the edge toward the moon catch a little of its light
+      if (ALB() && rr > 0.75 && Math.sin(a) > 0 && Math.cos(a) < 0.3) { G.fillStyle = 'rgba(64,78,118,0.45)'; G.beginPath(); G.arc(p[0] - rp * 0.3, p[1] - rp * 0.3, rp * 0.6, 0, TAU); G.fill(); }
+    }
+  }
+  skyline(th => (-3.5 + 5 * Math.max(0, fbm2(th * 14, 1.3) + 0.2)) * DEG, SILHOUETTE, '#090c1e');
   if (ALB()) {
     // a faint sheen on the old glass
     const a = sp([XG, WIN.y1, WIN.z0]), b = sp([XG, WIN.y0, WIN.z1]);
@@ -374,7 +403,7 @@ function paper(o, U, V, w, h, seed) {
     }
   }
   // the painter's hand: broad, faint variations
-  for (let i = 0; i < w * h * 9; i++) dab(at(rng() * w, rng() * h), 0.12 + rng() * 0.3, rng() < 0.5 ? '#bcc3c2' : '#949d9e', 0.08 + rng() * 0.08);
+  for (let i = 0; i < w * h * 9; i++) dab(at(rng() * w, rng() * h), 0.12 + rng() * 0.3, rng() < 0.5 ? '#e2d9c8' : '#b8ad99', 0.08 + rng() * 0.08);
 }
 function paintShell() {
   // Ceiling, back wall, right wall, left wall (with the window cut out), floor.
@@ -605,37 +634,41 @@ function paintPictures() {
 
 /* ---------- the chair and the jumper over it ---------- */
 function paintChair() {
-  const { x, z0, z1, w, seat, back } = CHAIR, h = w / 2, t = 0.035, W = { def: C.oak, t: C.oakLight };
-  ao([[x - h - 0.05, 0, z0 - 0.05], [x + h + 0.05, 0, z0 - 0.05], [x + h + 0.05, 0, z1], [x - h - 0.05, 0, z1]], 0.45, 0.08);
-  ao([[x - h, 0, ZB], [x + h, 0, ZB], [x + h, back, ZB], [x - h, back, ZB]], 0.3, 0.06);
-  // back legs rise into the back posts; slats between them
-  box([x - h + 0.01, 0, z1 - t], [x - h + 0.01 + t, back, z1], W);
-  box([x + h - 0.01 - t, 0, z1 - t], [x + h - 0.01, back, z1], W);
-  box([x - h + 0.04, back - 0.1, z1 - t + 0.005], [x + h - 0.04, back - 0.02, z1 - 0.005], W);
-  for (const s of [-0.1, 0, 0.1]) box([x + s - 0.012, seat, z1 - t + 0.01], [x + s + 0.012, back - 0.1, z1 - 0.01], W);
-  box([x - h + 0.02, 0.14, z0 + 0.02], [x + h - 0.02, 0.165, z0 + 0.04], W);
-  box([x - h, seat - 0.03, z0], [x + h, seat, z1 + 0.005], { def: C.oak, t: C.oakLight, f: tone(C.oak, 0.9) });
-  box([x - h + 0.01, 0, z0], [x - h + 0.01 + t, seat - 0.03, z0 + t], W);
-  box([x + h - 0.01 - t, 0, z0], [x + h - 0.01, seat - 0.03, z0 + t], W);
+  // A ladder-back chair against the wall: two tall posts, three curved rungs, a seat, stretchers between the legs.
+  const { x, z0, z1, w, seat, back } = CHAIR, h = w / 2, t = 0.034, W = { def: C.oak, t: C.oakLight, l: tone(C.oak, 1.08) };
+  ao([[x - h - 0.06, 0, z0 - 0.06], [x + h + 0.06, 0, z0 - 0.06], [x + h + 0.06, 0, z1], [x - h - 0.06, 0, z1]], 0.45, 0.08);
+  ao([[x - h, 0, ZB], [x + h, 0, ZB], [x + h, back, ZB], [x - h, back, ZB]], 0.28, 0.06);
+  for (const sx of [-1, 1]) {
+    const px = x + sx * (h - 0.012 - t / 2);
+    box([px - t / 2, 0, z1 - t], [px + t / 2, back, z1], W);
+    box([px - t / 2 - 0.005, back, z1 - t - 0.005], [px + t / 2 + 0.005, back + 0.025, z1 + 0.005], { def: C.oakLight });   // a turned cap
+  }
+  for (const y of CHAIR_RUNGS) box([x - h + 0.02, y - 0.022, z1 - t + 0.008], [x + h - 0.02, y + 0.022, z1 - 0.01], W);
+  box([x - h + 0.02, 0.15, z0 + 0.012], [x + h - 0.02, 0.172, z0 + 0.028], W);
+  for (const sx of [-1, 1]) box([x + sx * (h - 0.03) - 0.009, 0.21, z0 + 0.02], [x + sx * (h - 0.03) + 0.009, 0.228, z1 - 0.02], W);
+  box([x - h, seat - 0.03, z0], [x + h, seat, z1 + 0.005], { def: C.oak, t: C.oakLight, f: tone(C.oak, 0.88) }, {}, {
+    t: () => { for (let i = 1; i < 12; i++) { const u = lerp(x - h, x + h, i / 12); line3([[u, seat + 0.001, z0 + 0.01], [u, seat + 0.001, z1 - 0.01]], 0.0025, tone(C.oak, 0.8, 0.45), 'butt'); } },
+  });
+  for (const sx of [-1, 1]) { const px = x + sx * (h - 0.012 - t / 2); box([px - t / 2, 0, z0], [px + t / 2, seat - 0.03, z0 + t], W); }
   paintJumper();
 }
 function paintJumper() {
-  // A knitted cardigan hung over the chair's top rail, folded over it, one sleeve hanging lower.
-  const { x, z1, back } = CHAIR, ry = back - 0.06, rz = z1 - 0.018, r = 0.032, L = 0.4;
-  const id = plane([0, 0, -1], [0, 0, rz - r - 0.01]);
-  const rib = Q => 0.9 + 0.1 * Math.abs(Math.sin(Q.u * 46 * Math.PI));
+  // A knitted cardigan hung over one corner of the top rung, one sleeve hanging lower down the post.
+  const { x, z1, w } = CHAIR, ry = CHAIR_RUNGS[2] + 0.022, rz = z1 - 0.02, r = 0.024, L = 0.4, cx = x - w / 2 + 0.13;
+  const id = plane([0, 0, -1], [0, 0, rz - r - 0.012]);
+  const rib = Q => 0.9 + 0.1 * Math.abs(Math.sin(Q.u * 26 * Math.PI));
   mesh((u, v) => {
-    // v runs from the front hem (0) up over the rail (1)
-    const hem = 1 + 0.08 * Math.sin(u * 9 + 1) + 0.05 * Math.sin(u * 23);
-    const px = x + (u - 0.5) * 0.47 * (1 + 0.1 * (1 - v));
-    if (v > 0.8) { const ph = (1 - v) / 0.2 * Math.PI / 2; return [px, ry + r * Math.cos(ph), rz - r * Math.sin(ph)]; }
-    const d = (0.8 - v) / 0.8 * L * hem;
-    return [px, ry - d, rz - r - 0.03 * Math.sin(u * 17 + 0.5) * (d / L) - 0.015 * Math.sin(u * 41) * (d / L) - 0.012 * (d / L)];
-  }, 30, 22, Q => cloth(C.knit, Q, 0.7).map(c => c * rib(Q) * (Q.v < 0.08 ? 0.85 : 1)), () => id);
-  // the sleeve: a soft tube hanging from the right-hand side
-  const a0 = [x + 0.2, ry + 0.01, rz - r - 0.02], a1 = [x + 0.235, ry - 0.52, rz - r - 0.07];
+    // v runs from the front hem (0) up over the rung (1)
+    const hem = 1 + 0.1 * Math.sin(u * 7 + 1) + 0.05 * Math.sin(u * 19);
+    const px = cx + (u - 0.5) * 0.27 * (1 + 0.18 * (1 - v));
+    if (v > 0.84) { const ph = (1 - v) / 0.16 * Math.PI / 2; return [px, ry + r * Math.cos(ph), rz - r * Math.sin(ph)]; }
+    const d = (0.84 - v) / 0.84 * L * hem;
+    return [px, ry - d, rz - r - 0.028 * Math.sin(u * 13 + 0.5) * (d / L) - 0.012 * Math.sin(u * 31) * (d / L) - 0.014 * (d / L)];
+  }, 22, 22, Q => cloth(C.knit, Q, 0.7).map(c => c * rib(Q) * (Q.v < 0.07 ? 0.84 : 1)), () => id);
+  // the sleeve, a soft tube hanging down beside the post
+  const a0 = [x - w / 2 + 0.035, ry - 0.02, rz - r - 0.03], a1 = [x - w / 2 + 0.01, ry - 0.55, rz - r - 0.06];
   mesh((u, v) => {
-    const ang = Math.PI * (0.1 + 0.8 * u), c = add(scl(a0, 1 - v), scl(a1, v)), rr = 0.042 * (1 - 0.25 * v) * (1 + 0.1 * Math.sin(v * 20));
+    const ang = Math.PI * (0.1 + 0.8 * u), c = add(scl(a0, 1 - v), scl(a1, v)), rr = 0.036 * (1 - 0.2 * v) * (1 + 0.1 * Math.sin(v * 20));
     return add(c, [-Math.cos(ang) * rr, 0, -Math.sin(ang) * rr]);
   }, 10, 16, Q => cloth(C.knit, Q, 0.7).map(c => c * (0.9 + 0.1 * Math.abs(Math.sin(Q.v * 30)))), () => id);
 }
@@ -750,7 +783,7 @@ function paintBed() {
     x -= fold * 0.02 * hangA * (Math.sin(z * 17 + 0.6) * 0.7 + Math.sin(z * 41 + 2) * 0.3) + 0.01 * hangA;
     z -= fold * 0.02 * hangB * (Math.sin(x * 15 + 1.7) * 0.7 + Math.sin(x * 37) * 0.3) + 0.01 * hangB;
     let y = top + Math.min(da, db) + 0.35 * Math.max(da, db);
-    y += 0.012 * fbm2(x * 4, z * 4, 2) * (1 - Math.max(hangA, hangB));
+    y += 0.022 * fbm2(x * 3, z * 3, 3) * (1 - Math.max(hangA, hangB));   // soft lumps where the down has settled
     // layers lying on the duvet sit a little proud of it
     x -= lift * Math.sin(ta); z -= lift * Math.sin(tb); y += lift * Math.cos(ta) * Math.cos(tb);
     return [x, y, z];
@@ -790,15 +823,31 @@ function paintPillows() {
   pillow(1.25, 0.42, 3.3, 3.52, top, top + 0.33, 0.065, C.pillow2, 3);
 }
 function paintSlippers() {
+  // Felt slippers with fleece linings, kicked off by the bed: a domed toe, a low heel, the opening between.
   for (const [x, z, a] of SLIPPERS) {
-    const id = plane([0, 1, 0], [0, 0.055, 0]), r = a * DEG, ca = Math.cos(r), sa = Math.sin(r);
-    const P = (u, v, y) => [x + u * ca - v * sa, y, z + u * sa + v * ca];   // u across, v along (toe toward -v)
-    ao([P(-0.07, 0.03, 0), P(0.07, 0.03, 0), P(0.07, -0.29, 0), P(-0.07, -0.29, 0)], 0.5, 0.03);
-    shape(() => curve3([P(-0.045, 0, 0.02), P(0, 0.01, 0.03), P(0.045, 0, 0.02), P(0.05, -0.12, 0.05), P(0.04, -0.23, 0.045), P(0, -0.265, 0.035), P(-0.04, -0.23, 0.045), P(-0.05, -0.12, 0.05)]), id, '#7b6a8e', () => {
-      G.fillStyle = grad3(P(0, -0.2, 0.05), P(0, 0, 0.03), [[0, '#a898b8'], [1, '#5d4d6e']]); G.fillRect(0, 0, G.canvas.width, G.canvas.height);
-      const o = P(0, -0.06, 0.055); const s = sp(o);
-      if (s) { G.fillStyle = '#3a2f45'; G.beginPath(); G.ellipse(s[0], s[1], pxAt(0.03, o), pxAt(0.02, o), 0, 0, TAU); G.fill(); }
-    });
+    const r = a * DEG, ca = Math.cos(r), sa = Math.sin(r);
+    const P = (u, v, y) => [x + u * ca - v * sa, y, z + u * sa + v * ca];   // u across, v along (the toe is toward -v)
+    const L = 0.27, hw = t => (0.036 + 0.016 * Math.sin(Math.PI * Math.min(1, t * 1.25))) * (t > 0.9 ? Math.sqrt(Math.max(0, 1 - ((t - 0.9) / 0.1) ** 2)) : 1);
+    const id = plane([0, 1, 0], [0, 0.05, 0]), felt = '#8c8b93';
+    ao([P(-0.07, 0.04, 0), P(0.07, 0.04, 0), P(0.07, -0.3, 0), P(-0.07, -0.3, 0)], 0.55, 0.03);
+    // heel counter, round the back from one side to the other
+    mesh((u, v) => {
+      const ang = Math.PI * (u - 0.5) * 1.15, t = 0.45 * (1 - Math.cos(ang)), side = Math.sin(ang);
+      return P(side * hw(t) * 1.02, -t * L, 0.004 + v * 0.036);
+    }, 16, 3, Q => cloth(felt, Q, 0.5), () => id);
+    // the opening, lined with fleece
+    const o = P(0, -0.12, 0.036), so = sp(o);
+    if (so) {
+      const rx = pxAt(0.034, o), ry = pxAt(0.07, o) * Math.abs(dot(norm(sub(cam.pos, o)), [0, 1, 0])) + 1;
+      shape(() => { G.beginPath(); G.ellipse(so[0], so[1], rx * 1.2, ry * 1.25, 0, 0, TAU); return true; }, id, '#d6cdbb', () => {
+        G.fillStyle = '#3b3a44'; G.beginPath(); G.ellipse(so[0], so[1] + ry * 0.1, rx * 0.85, ry * 0.85, 0, 0, TAU); G.fill();
+      });
+    }
+    // the toe, a soft dome over the front of the sole
+    mesh((u, v) => {
+      const t = 0.42 + 0.58 * v, th = Math.PI * u, dome = 0.058 * Math.sqrt(Math.max(0, 1 - ((t - 0.42) / 0.58) ** 4));
+      return P(-Math.cos(th) * hw(t), -t * L, 0.004 + Math.sin(th) * dome);
+    }, 12, 10, Q => cloth(felt, Q, 0.55), () => id);
   }
 }
 
@@ -837,19 +886,60 @@ function paintDresser() {
   });
   box([x0, h - 0.03, z0 - 0.015], [x1 + 0.02, h, z1 + 0.015], { def: tone(C.dresser, 1.05), t: tone(C.dresser, 1.12) });
   for (const [lz] of [[z0 + 0.02], [z1 - 0.06]]) box([x1 - 0.06, 0, lz], [x1 - 0.02, 0.08, lz + 0.04], D);
-  // a jug of dried grasses on top
-  const jx = x0 + 0.24, jz = z1 - 0.3;
-  cyl(jx, jz, h, h + 0.2, 0.06, 0.045, plane(facing([jx, 0, jz]), [jx, 0, jz]), () => grad3([jx, 1, jz - 0.06], [jx, 1, jz + 0.06], [[0, '#8f9a8c'], [1, '#5c6459']]));
-  if (ALB()) {
-    const rng = mulberry32(55);
-    for (let i = 0; i < 22; i++) { const a = (rng() - 0.5) * 1.3, l = 0.25 + rng() * 0.3; line3([[jx, h + 0.18, jz], [jx + Math.sin(a) * l * 0.4, h + 0.18 + l * 0.6, jz + Math.sin(a) * l * 0.5], [jx + Math.sin(a) * l * 0.7, h + 0.18 + l, jz + Math.sin(a) * l]], 0.003, tone('#b8a47a', 0.7 + rng() * 0.5)); }
+  // a stoneware jug on top, with a few stems of eucalyptus leaning out of it
+  const jx = x0 + 0.24, jz = z1 - 0.3, jh = h + 0.19;
+  cyl(jx, jz, h, jh, 0.058, 0.042, plane(facing([jx, 0, jz]), [jx, 0, jz]), () => grad3([jx, 1, jz - 0.06], [jx, 1, jz + 0.06], [[0, '#5d6a7a'], [1, '#343c4a']]));
+  const rng = mulberry32(55), id = plane(facing([jx, 0, jz]), [jx + 0.03, 0, jz]);
+  for (let i = 0; i < 7; i++) {
+    const lean = (i - 3) * 0.16 + (rng() - 0.5) * 0.1, len = 0.3 + rng() * 0.2, pts = [];
+    for (let k = 0; k <= 8; k++) { const q = k / 8; pts.push([jx + 0.02 * Math.sin(q * 3 + i), jh - 0.03 + len * q * (1 - 0.25 * q * Math.abs(lean)), jz + Math.sin(lean) * len * q * (0.6 + 0.4 * q)]); }
+    if (ALB()) line3(pts, 0.0028, '#6f6a55');
+    for (let k = 2; k <= 8; k++) for (const sg of [-1, 1]) {
+      const p = pts[k], sz = 0.013 * (1.2 - k / 12);
+      onPlane(add(p, [0, 0, sg * 0.012]), [0, 0, 1], [0, 1, 0], () => {
+        G.fillStyle = MODE === 'id' ? idCol(id) : MODE === 'ao' ? '#fff' : tone('#7d8f82', 0.5 + rng() * 0.3);
+        G.beginPath(); G.ellipse(0, 0, sz, sz * 0.8, 0, 0, TAU); G.fill();
+      });
+    }
+  }
+}
+
+function paintRadiator() {
+  // An old cast-iron radiator under the window, painted like the woodwork, on two small feet.
+  const x0 = XL + 0.03, x1 = XL + 0.13, z0 = WIN.z0 + 0.1, z1 = WIN.z1 - 0.1, y0 = 0.12, y1 = 0.66, n = 13;
+  const T = { def: C.trim, r: tone(C.trim, 0.92), t: tone(C.trim, 1.02), f: tone(C.trim, 0.72), k: tone(C.trim, 0.72) };
+  ao([[x0 - 0.03, 0, z0 - 0.08], [x1 + 0.12, 0, z0 - 0.08], [x1 + 0.12, 0, z1 + 0.08], [x0 - 0.03, 0, z1 + 0.08]], 0.5, 0.06);
+  ao([[XL, y0 - 0.05, z0 - 0.06], [XL, y1 + 0.08, z0 - 0.06], [XL, y1 + 0.08, z1 + 0.06], [XL, y0 - 0.05, z1 + 0.06]], 0.4, 0.05);
+  const cw = (z1 - z0) / n;
+  for (let i = 0; i < n; i++) {
+    const za = z0 + i * cw + cw * 0.18, zb = z0 + (i + 1) * cw - cw * 0.18;
+    box([x0 + 0.01, y0 + 0.03, za], [x1 - 0.005, y1 - 0.03, zb], T, {}, {
+      // each column is round: a soft highlight down its front, shadow at its edges
+      r: () => { line3([[x1 - 0.004, y0 + 0.05, (za + zb) / 2 - 0.004], [x1 - 0.004, y1 - 0.05, (za + zb) / 2 - 0.004]], 0.012, 'rgba(255,255,255,0.35)', 'butt'); line3([[x1 - 0.004, y0 + 0.04, za + 0.003], [x1 - 0.004, y1 - 0.04, za + 0.003]], 0.008, 'rgba(60,60,70,0.4)', 'butt'); },
+      f: () => { line3([[lerp(x0, x1, 0.5), y0 + 0.04, za - 0.001], [lerp(x0, x1, 0.5), y1 - 0.04, za - 0.001]], 0.03, 'rgba(40,40,50,0.25)', 'butt'); },
+    });
+  }
+  box([x0 + 0.02, y0, z0], [x1 - 0.01, y0 + 0.05, z1], T);
+  box([x0 + 0.02, y1 - 0.05, z0], [x1 - 0.01, y1, z1], T);
+  for (const fz of [z0 + 0.05, z1 - 0.09]) box([x0 + 0.04, 0, fz], [x1 - 0.02, y0, fz + 0.04], { def: tone(C.trim, 0.8) });
+}
+
+function paintCornice() {
+  // A plain cornice where the walls meet the ceiling: two steps, catching the light from the window.
+  const T = { def: C.trim, b: tone(C.trim, 0.86) };
+  for (const [d, h] of [[0.035, 0.085], [0.06, 0.04]]) {
+    box([XL, HC - h, ZB - d], [XR, HC, ZB], T);
+    box([XL, HC - h, ZF], [XL + d, HC, ZB], T);
+    box([XR - d, HC - h, ZF], [XR, HC, ZB], T);
   }
 }
 
 function paintScene() {
   paintWindow();
   paintShell();
+  paintCornice();
   paintWindowTrim();
+  paintRadiator();
   paintPictures();
   paintRug();
   paintChair();
@@ -907,18 +997,20 @@ uniform vec4 uOp;                // window opening: z0, z1, y0, y1
 uniform vec2 uX;                 // glass plane x, room face of the wall x
 uniform vec3 uSkyL;              // radiance of the night sky through the window
 uniform vec3 uAmb;               // ambient light
-uniform vec4 uBP[4];             // bounce: position, power
-uniform vec4 uBN[4];             // bounce: normal
-uniform vec3 uBC[4];             // bounce: colour of what the light lands on
+uniform vec4 uBP[5];             // bounce: position, power (four where the light lands, one on the ceiling above)
+uniform vec4 uBN[5];             // bounce: normal
+uniform vec3 uBC[5];             // bounce: colour of what the light lands on
 uniform vec3 uOA[NO], uOB[NO];   // boxes that throw shadows
 uniform vec3 uBA, uBB;           // box around the beam
-uniform vec4 uGrade;             // exposure, saturation, night tint, beam
+uniform vec4 uGrade;             // exposure, colour kept in the light, colour kept in the dark, beam
 uniform vec4 uGlow[5];           // soft halos on screen: x, y (0..1), radius, strength
 uniform vec4 uRamp[8];           // the night palette by brightness: colour, position
 uniform float uT;
 uniform mat3 uEnu;               // room axes to east/north/up
 uniform vec3 uSky3;              // sin and cos of the latitude, and how far the sky has turned
 uniform float uPix;              // radians per pixel
+uniform float uCss;              // device pixels per CSS pixel
+uniform float uMoonUp;           // how much of the moon is up (0 after it sets)
 out vec4 o;
 
 vec3 toLin(vec3 c) { return pow(c, vec3(2.2)); }
@@ -984,6 +1076,21 @@ void main() {
     col = alb * uGrade.x;                        // the night outside, painted as seen
     tHit = (uX.x - uC.x) / rd.x;
     if (id == 0) {
+      // The sky: a pale, hazy glow along the horizon behind the hills, deepening to blue overhead, brighter
+      // toward the moon, which is up there out of sight.
+      float up = max(rd.y, 0.0);
+      vec3 sky = mix(vec3(0.09, 0.15, 0.34), vec3(0.035, 0.085, 0.26), smoothstep(0.0, 0.07, up));
+      sky = mix(sky, vec3(0.008, 0.022, 0.1), smoothstep(0.05, 0.3, up));
+      float cm = max(dot(rd, toMoon), 0.0);
+      sky += vec3(0.05, 0.08, 0.15) * (pow(cm, 3.0) * 0.8 + pow(cm, 12.0)) * uMoonUp;
+      sky += vec3(0.07, 0.045, 0.02) * (1.0 - smoothstep(0.0, 0.035, up));   // the town's faint glow on the horizon
+      // A few wisps of thin cloud drifting past, silvered on the side toward the moon.
+      vec2 cp = rd.xz / (up + 0.08) * vec2(0.32, 0.8) + vec2(uT * 0.0012, uT * 0.0004);
+      float cn = vnoise(cp * 1.3) * 0.6 + vnoise(cp * 3.1 + 3.1) * 0.28 + vnoise(cp * 7.3 + 7.7) * 0.12;
+      float cl = smoothstep(0.56, 0.82, cn) * smoothstep(0.01, 0.06, up) * 0.8;
+      float edge = smoothstep(0.56, 0.68, cn) * (1.0 - smoothstep(0.7, 0.9, cn));
+      vec3 cloud = mix(vec3(0.03, 0.045, 0.11), vec3(0.1, 0.13, 0.24), 0.3 + 0.7 * cm) + vec3(0.2, 0.21, 0.25) * edge * (0.25 + cm) * uMoonUp;
+      sky = mix(sky, cloud, cl);
       // Stars on the turning sky: find this direction's place on the celestial sphere, then the star in its cell.
       vec3 e = uEnu * rd;
       float sd = e.y * uSky3.y + e.z * uSky3.x, dec = asin(clamp(sd, -1.0, 1.0));
@@ -997,7 +1104,7 @@ void main() {
         float tw = 0.75 + 0.25 * sin(uT * (0.7 + 1.3 * h.y) + h.x * 40.0);
         st += (0.3 + 0.7 * pow(h.y, 3.0)) * tw * exp(-dot(d, d) / 1.8);
       }
-      col += vec3(0.85, 0.9, 1.0) * st * 0.9 * smoothstep(0.0, 0.1, rd.y + 0.02);
+      col = sky + vec3(0.85, 0.9, 1.0) * st * 0.6 * smoothstep(0.0, 0.1, rd.y + 0.02) * (1.0 - cl);
     }
   } else {
     vec4 pl = texelFetch(uPl, ivec2(id, 0), 0), at = texelFetch(uPl, ivec2(id, 1), 0);
@@ -1009,9 +1116,9 @@ void main() {
     if (lam > 0.0 && at.y > 0.0) { direct = through(P, toMoon, uMR.w, 1.0); if (direct > 0.001) direct *= shadows(P + n * 0.004, toMoon, uMR.w) * lam; }
     float sky = at.w >= 0.0 ? skyIrr(P, n) * at.w : skyIrr(P, -n) * -at.w;   // thin linen lets the window through from behind
     vec3 bounce = vec3(0.0);
-    for (int k = 0; k < 4; k++) {
+    for (int k = 0; k < 5; k++) {
       vec3 d = uBP[k].xyz - P; float r2 = dot(d, d); d *= inversesqrt(r2 + 1e-6);
-      bounce += uBC[k] * uBP[k].w * max(dot(n, d), 0.0) * max(dot(uBN[k].xyz, -d), 0.0) / (r2 + 0.25);
+      bounce += uBC[k] * uBP[k].w * max(dot(n, d), 0.0) * max(dot(uBN[k].xyz, -d), 0.0) / (r2 * (1.0 + 0.6 * sqrt(r2)) + 0.25);
     }
     // and the light is laid on unevenly, as a brush would
     float mott = 1.0 + 0.16 * (vnoise(uv * vec2(uRes.x / uRes.y, 1.0) * 5.0) - 0.5) + 0.08 * (vnoise(uv * vec2(uRes.x / uRes.y, 1.0) * 17.0) - 0.5);
@@ -1040,13 +1147,13 @@ void main() {
   vec2 bt = boxHit(uC, rd, uBA, uBB); bt.y = min(bt.y, tHit);
   if (bt.y > bt.x && uGrade.w > 0.0) {
     float j = hash(gl_FragCoord.xy), acc = 0.0;
-    for (int i = 0; i < 12; i++) acc += through(uC + rd * mix(bt.x, bt.y, (float(i) + j) / 12.0), toMoon, uMR.w * 6.0 + 0.004, 0.0);
+    for (int i = 0; i < 12; i++) { vec3 Q = uC + rd * mix(bt.x, bt.y, (float(i) + j) / 12.0); acc += through(Q, toMoon, uMR.w * 6.0 + 0.004, 0.0) * smoothstep(0.08, 0.6, Q.x - uX.y); }
     col += uMoon * acc * (bt.y - bt.x) / 12.0 * uGrade.w;
   }
   // Soft halos around the brightest things, the way light blooms in a painting.
   for (int k = 0; k < 5; k++) {
     vec2 d = (uv - uGlow[k].xy) * vec2(uRes.x / uRes.y, 1.0);
-    col += uMoon * vec3(0.55, 0.65, 0.9) * uGlow[k].w * exp(-dot(d, d) / (uGlow[k].z * uGlow[k].z));
+    col += uMoon * vec3(0.5, 0.56, 0.9) * uGlow[k].w * exp(-dot(d, d) / (uGlow[k].z * uGlow[k].z)) * (id <= 1 ? 0.25 : 1.0);
   }
   col = 1.0 - exp(-col * uGrade.x);
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
@@ -1055,9 +1162,14 @@ void main() {
     float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
     vec3 r = uRamp[0].rgb;
     for (int k = 1; k < 8; k++) r = mix(r, uRamp[k].rgb, smoothstep(uRamp[k - 1].w, uRamp[k].w, l));
-    col = r + (col - l) * mix(0.4, uGrade.y, smoothstep(0.15, 0.6, l));
+    col = r * mix(vec3(1.0), clamp(col / max(l, 1e-3), 0.3, 2.2), mix(uGrade.z, uGrade.y, smoothstep(0.1, 0.55, l)));
   }
-  col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;
+  // Grain of the canvas, fixed in place like the weave under paint, and strong enough to read in the dark.
+  vec2 gp = floor(gl_FragCoord.xy / uCss);
+  float gr = hash(gp) - 0.5 + 0.6 * (vnoise(gp * 0.45) - 0.5);
+  float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  col += gr * mix(0.042, 0.065, smoothstep(0.1, 0.6, lum)) * vec3(0.95, 0.97, 1.0);
+  col += (hash(gl_FragCoord.xy + 17.0) - 0.5) / 255.0;
   o = vec4(col, 1.0);
 }`;
 
@@ -1164,13 +1276,14 @@ function layout() {
   gl.uniform2f(U.uX, XG, XL);
   gl.uniformMatrix3fv(U.uEnu, false, [...RX, 0, 0, 1, ...RZ]);
   gl.uniform1f(U.uPix, 1 / (cam.F / H * cv.height));
+  gl.uniform1f(U.uCss, dpr);
   mc.width = Math.round(innerWidth * Math.min(dpr, 1.5)); mc.height = Math.round(innerHeight * Math.min(dpr, 1.5));
   ready = true;
 }
 
 /* ---------- each frame ---------- */
 // The night palette, from darkest to brightest: [colour, brightness it stands for].
-const RAMP = new Float32Array([['#07080f', 0], ['#0f1224', 0.06], ['#1a1f3b', 0.14], ['#2a3152', 0.24], ['#474d6f', 0.36], ['#767a98', 0.5], ['#b3b6ca', 0.68], ['#edeef4', 0.92]]
+const RAMP = new Float32Array([['#06080f', 0], ['#0f1326', 0.06], ['#1a203d', 0.14], ['#263154', 0.24], ['#3e4c70', 0.36], ['#697b9c', 0.5], ['#abb9ce', 0.68], ['#eef2f8', 0.92]]
   .flatMap(([c, p]) => [...hex(c).map(v => v / 255), p]));
 const land = (o, L) => {                       // where a ray of moonlight from o first meets the floor or a wall
   let best = null;
@@ -1199,28 +1312,39 @@ function draw(t, gpu = true) {
   // Low down, the moon's light thins and warms.
   const warm = 1 - smoothstep(4 * DEG, 20 * DEG, alt), k = 1.5 * up;
   gl.uniform3fv(U.uL, L);
-  gl.uniform3f(U.uMoon, k * lerp(0.74, 1.0, warm), k * lerp(0.84, 0.78, warm), k * lerp(1.0, 0.55, warm));
-  gl.uniform3f(U.uSkyL, 0.16, 0.22, 0.42);
-  gl.uniform3f(U.uAmb, 0.004, 0.005, 0.011);
-  gl.uniform4f(U.uGrade, 1.25, 0.5, 0.0, 0.013);
+  gl.uniform3f(U.uMoon, k * lerp(0.7, 1.0, warm), k * lerp(0.82, 0.78, warm), k * lerp(1.0, 0.55, warm));
+  gl.uniform3f(U.uSkyL, 0.25, 0.43, 0.68);
+  gl.uniform3f(U.uAmb, 0.0037, 0.0043, 0.0105);
+  gl.uniform4f(U.uGrade, 1.52, 0.62, 0.48, 0.02);
   gl.uniform4fv(U.uRamp, RAMP);
   // The light lands on the floor and walls and lights the room a little: four points where it falls.
-  const bp = new Float32Array(16), bn = new Float32Array(16), bc = new Float32Array(12), glow = new Float32Array(20);
+  const bp = new Float32Array(20), bn = new Float32Array(20), bc = new Float32Array(15), glow = new Float32Array(20);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   const grow = p => { for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); } };
   [[WIN.y0, WIN.z0], [WIN.y0, WIN.z1], [WIN.y1, WIN.z1], [WIN.y1, WIN.z0]].forEach(([y, z]) => { grow([XG, y, z]); const h = land([XL, y, z], L); if (h) grow(h.p); });
   gl.uniform3f(U.uBA, lo[0], Math.max(0, lo[1]), lo[2]); gl.uniform3f(U.uBB, hi[0], Math.min(HC, hi[1]), hi[2]);
+  let nb = 0;
   [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]].forEach(([fy, fz], i) => {
     const h = land([XL, lerp(WIN.y0, WIN.y1, fy), lerp(WIN.z0, WIN.z1, fz)], L); if (!h) return;
     const onRug = h.n[1] > 0.5 && h.p[0] > RUG.x0 && h.p[0] < RUG.x1 && h.p[2] > RUG.z0 && h.p[2] < RUG.z1;
     bc.set((h.n[1] > 0.5 ? (onRug ? [1.25, 0.72, 0.68] : [1.25, 0.95, 0.72]) : [0.95, 1.0, 1.05]), i * 3);
-    bp.set([...add(h.p, scl(h.n, 0.02)), 0.022 * Math.max(0, -dot(h.n, L))], i * 4); bn.set([...h.n, 0], i * 4);
-    const s = sp(h.p); if (s) glow.set([s[0] / cam.W, s[1] / cam.H, 0.13, 0.006], i * 4);
+    bp.set([...add(h.p, scl(h.n, 0.02)), 0.13 * Math.max(0, -dot(h.n, L))], i * 4); bn.set([...h.n, 0], i * 4);
+    for (let k = 0; k < 3; k++) { bp[16 + k] += h.p[k]; bc[12 + k] += bc[i * 3 + k]; }
+    bp[19] += bp[i * 4 + 3]; nb++;
+    const s = sp(h.p); if (s) glow.set([s[0] / cam.W, s[1] / cam.H, 0.13, 0.009], i * 4);
   });
+  // The ceiling catches that light in turn and sends it down again, softly, onto everything that faces up.
+  // (It spreads the light wide, so it's placed a little above the ceiling and kept away from the walls.)
+  if (nb) {
+    for (let k = 0; k < 3; k++) { bp[16 + k] /= nb; bc[12 + k] /= nb; }
+    bp[16] = clamp(bp[16], XL + 0.7, XR - 0.7); bp[17] = HC + 0.5; bp[18] = clamp(bp[18], ZF + 0.7, ZB - 0.7); bp[19] *= 0.875;
+  }
+  bn.set([0, -1, 0, 0], 16);
   gl.uniform4fv(U.uBP, bp); gl.uniform4fv(U.uBN, bn); gl.uniform3fv(U.uBC, bc);
-  const wc = sp([XG, (WIN.y0 + WIN.y1) / 2, (WIN.z0 + WIN.z1) / 2]); if (wc) glow.set([wc[0] / cam.W, wc[1] / cam.H, 0.2, 0.02], 16);
+  const wc = sp([XG, (WIN.y0 + WIN.y1) / 2, (WIN.z0 + WIN.z1) / 2]); if (wc) glow.set([wc[0] / cam.W, wc[1] / cam.H, 0.15, 0.022], 16);
   gl.uniform4fv(U.uGlow, glow);
   gl.uniform1f(U.uT, t);
+  gl.uniform1f(U.uMoonUp, up);
   gl.uniform3f(U.uSky3, Math.sin(LAT), Math.cos(LAT), tc * LAPSE * 15 * DEG / 3600);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
