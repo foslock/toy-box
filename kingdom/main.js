@@ -986,11 +986,11 @@ async function playIntro(o = {}) {
   }
   // the title
   if (!skipped) {
-    slam.hidden = false; sound.titleChord(); view.confetti(30);
-    await wait(3000);
+    slam.hidden = false; theme.title(); view.confetti(30);
+    await wait(3800);
   }
-  // and out, to the first choice
-  theme.stop(1.2);
+  // and out, to the first choice (the drone and its third fading slowly away under it, unless the intro was skipped)
+  theme.stop(skipped ? 1.2 : 6);
   removeEventListener('keydown', onKey);
   cap.classList.remove('on'); slam.hidden = true;
   box.classList.remove('on'); veil.classList.remove('dark');

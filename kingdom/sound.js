@@ -123,17 +123,25 @@ export class Sound {
   }
   // Under the intro: a low string drone that swells in, and a single bell. Returns a way to let it fade.
   introTheme() {
-    const c = this.ensure(); if (!c) return { stop() {} };
+    const c = this.ensure(); if (!c) return { title() {}, stop() {} };
     const t = c.currentTime, g = c.createGain(), f = c.createBiquadFilter();
     f.type = 'lowpass'; f.frequency.value = 900; f.Q.value = .7;
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.07, t + 4);
     const oscs = [HZ(38), HZ(45), HZ(50), HZ(57)].map((fr, i) => { const o = c.createOscillator(); o.type = i % 2 ? 'triangle' : 'sawtooth'; o.frequency.value = fr; o.detune.value = (i - 1.5) * 4; o.connect(f); o.start(t); return o; });
     f.connect(g); this.send(g, .6);
     this.bell(HZ(57), { gain: .16, dur: 4 });
-    return { stop: (after = 1.5) => { const n = c.currentTime; g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.linearRampToValueAtTime(0, n + after); for (const o of oscs) o.stop(n + after + .1); } };
+    return {
+      // when the title lands: the minor third an octave above the drone's D (an F), rising softly out of it, so the
+      // open fifth becomes a minor chord; it fades out with the drone
+      title: (rise = 2.5) => {
+        const n = c.currentTime, tg = c.createGain();
+        tg.gain.setValueAtTime(0, n); tg.gain.linearRampToValueAtTime(.5, n + rise);   // the pair together about as loud as one voice of the drone
+        for (const d of [-3, 3]) { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = HZ(65); o.detune.value = d; o.connect(tg); o.start(n); oscs.push(o); }
+        tg.connect(f);
+      },
+      stop: (after = 1.5) => { const n = c.currentTime; g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.linearRampToValueAtTime(0, n + after); for (const o of oscs) o.stop(n + after + .1); },
+    };
   }
-  // The title, when it lands: a brass chord and a drum.
-  titleChord() { for (const n of [55, 60, 64, 67, 72]) this.brass(HZ(n), 0, 1.4, .06); this.drum(0, .5); this.noise({ type: 'highpass', f: 3000, dur: 1.6, gain: .12, wet: .6 }); }
   // A quiet lute over a drone, in D dorian, wandering.
   music(on) {
     this.musicOn = on;
