@@ -11,7 +11,8 @@
   html, body { height: 100%; margin: 0; }
   body { background: #0a0c16; overflow: hidden; -webkit-user-select: none; user-select: none; }
   canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  #motes { pointer-events: none; mix-blend-mode: screen; }
+  #motes, #clock { pointer-events: none; mix-blend-mode: screen; }
+  #clock { inset: auto; }
   .grain { position: fixed; inset: 0; pointer-events: none; opacity: .5; mix-blend-mode: overlay; }
   .vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(130% 110% at 45% 48%, transparent 55%, rgba(4, 5, 14, .5) 100%); }
   .name { position: fixed; top: max(18px, env(safe-area-inset-top)); left: 60px; margin: 0; pointer-events: none;
@@ -20,8 +21,9 @@
 </style>
 </head>
 <body>
-<canvas id="c" role="img" aria-label="A dark bedroom at night, painted. Moonlight falls through a window of small panes and lies across the floorboards in a pale square of light, slowly creeping across the room and up the wall as the moon moves."></canvas>
+<canvas id="c" role="img" aria-label="A dark bedroom at night, painted. Moonlight falls through a window of small panes in a pale square of light, across the floor in the evening and high on the back wall toward dawn, and dust drifts in the beam. A small alarm clock on the nightstand shows the time in red."></canvas>
 <canvas id="motes" aria-hidden="true"></canvas>
+<canvas id="clock" aria-hidden="true"></canvas>
 <div class="grain" id="grain"></div>
 <div class="vignette"></div>
 <p class="name">Small Hours</p>
@@ -84,6 +86,7 @@ const HEAD = { x0: 0.46, x1: 2.05, z0: 3.83, h: 1.1 };
 const PILLOWS = [[0.6, 1.25], [1.3, 1.95]];
 const STAND = { x0: -0.16, x1: 0.34, z0: 3.46, z1: 3.88, h: 0.56 };
 const LAMP = { x: 0.02, z: 3.68, r0: 0.07, rb: 0.17, rt: 0.115, y1: 0.74, y2: 0.96 };
+const CLOCK = { x0: 0.12, x1: 0.28, z0: 3.47, z1: 3.54, h: 0.075 };   // a small alarm clock at the front of the nightstand
 const CHAIR = { x: -0.8, z0: 3.43, z1: 3.84, w: 0.44, seat: 0.46, back: 0.96 };
 const CHAIR_RUNGS = [0.62, 0.74, 0.86];
 const DRESSER = { x0: XL, x1: XL + 0.46, z0: 0.72, z1: 1.62, h: 0.86 };
@@ -93,7 +96,8 @@ const OCCLUDERS = [
   [[STAND.x0, 0.08, STAND.z0], [STAND.x1, STAND.h, STAND.z1]],
   [[LAMP.x - 0.07, STAND.h, LAMP.z - 0.07], [LAMP.x + 0.07, LAMP.y1, LAMP.z + 0.07]],
   [[LAMP.x - 0.15, LAMP.y1, LAMP.z - 0.15], [LAMP.x + 0.15, LAMP.y2, LAMP.z + 0.15]],
-  [[0.13, STAND.h, 3.52], [0.3, STAND.h + 0.07, 3.76]],
+  [[0.13, STAND.h, 3.58], [0.31, STAND.h + 0.068, 3.82]],
+  [[CLOCK.x0, STAND.h, CLOCK.z0], [CLOCK.x1, STAND.h + CLOCK.h, CLOCK.z1]],
   [[CHAIR.x - 0.22, CHAIR.seat - 0.03, CHAIR.z0], [CHAIR.x + 0.22, CHAIR.seat, CHAIR.z1]],
   ...[-1, 1].flatMap(s => [[[CHAIR.x + s * 0.191 - 0.017, 0, CHAIR.z1 - 0.034], [CHAIR.x + s * 0.191 + 0.017, CHAIR.back, CHAIR.z1]],
     [[CHAIR.x + s * 0.191 - 0.017, 0, CHAIR.z0], [CHAIR.x + s * 0.191 + 0.017, CHAIR.seat, CHAIR.z0 + 0.034]]]),
@@ -111,19 +115,21 @@ const OCCLUDERS = [
 ];
 
 /* ---------- the moon ----------
-   A real arc across a southern sky (latitude, declination, hour angle), run faster than life: the pool of
-   light drifts about a pane's width every couple of minutes, reaches the back wall and climbs it before moonset. */
+   A real arc across a southern sky (latitude, declination, hour angle), slowed so that one night's arc fills the
+   twelve hours from six in the evening to six in the morning. The room keeps the visitor's own time, but it's
+   always night there: their clock is read as evening or the small hours (twenty to three in the afternoon is
+   twenty to three in the morning here), so the light lies across the rug after dark and climbs the back wall
+   toward dawn. */
 const Q = new URLSearchParams(location.search);
-const START = clamp(Number(Q.get('t')) || 0, 0, 36000);   // ?t=600 starts ten minutes in
-const RATE = clamp(Number(Q.get('rate')) || 1, 0.1, 600);   // ?rate=20 fast-forwards, for checking the pacing
+const AT = /^(\d{1,2}):(\d{2})$/.exec(Q.get('at') || '');   // ?at=23:40 sets the clock, for checking
+const RATE = clamp(Number(Q.get('rate')) || 1, 0.1, 3600);   // ?rate=600 runs it faster
 const LAT = -35 * DEG, DECL = -8 * DEG;
 const WIN_FACES = 305 * DEG;                                // compass bearing the window looks out on
-const LAPSE = 8;                                            // moon time per real second
-const H0 = 40 * DEG;                                        // hour angle when the page opens
+const H0 = 40 * DEG, SPAN = 48 * DEG, NIGHT = 12 * 3600;   // hour angle at six in the evening; how far it turns by six in the morning
 const N_OUT = [Math.sin(WIN_FACES), Math.cos(WIN_FACES), 0];
 const RX = scl(N_OUT, -1), RZ = cross(N_OUT, [0, 0, 1]);   // room axes in east/north/up
-function moonDir(t) {                                       // unit vector toward the moon, room axes
-  const H = H0 + t * LAPSE * 15 * DEG / 3600, cd = Math.cos(DECL), sd = Math.sin(DECL), cp = Math.cos(LAT), sp = Math.sin(LAT);
+function moonDir(H) {                                       // unit vector toward the moon at hour angle H, room axes
+  const cd = Math.cos(DECL), sd = Math.sin(DECL), cp = Math.cos(LAT), sp = Math.sin(LAT);
   const enu = [-cd * Math.sin(H), sd * cp - cd * Math.cos(H) * sp, sd * sp + cd * Math.cos(H) * cp];
   return [dot(enu, RX), enu[2], dot(enu, RZ)];
 }
@@ -690,11 +696,28 @@ function paintNightstand() {
     },
   });
   box([x0 - 0.015, h - 0.03, z0 - 0.005], [x1 + 0.015, h, z1], { def: C.walnut, t: C.walnutLight, f: tone(C.walnut, 1.1) });
-  // books, a glass
-  box([0.13, h, 3.52], [0.31, h + 0.035, 3.76], { def: '#6d3b36', t: '#d9d2bf' });
-  box([0.14, h + 0.035, 3.54], [0.3, h + 0.068, 3.75], { def: '#2f4a5a', t: '#d9d2bf', f: '#e6dfcc' });
-  cyl(0.24, 3.6, h + 0.068, h + 0.17, 0.032, 0.036, plane(facing([0.24, 0, 3.6]), [0.24, 0, 3.6]), () => grad3([0.2, 0.7, 3.6], [0.28, 0.7, 3.6], [[0, 'rgba(210,225,235,0.9)'], [0.5, 'rgba(150,170,185,0.6)'], [1, 'rgba(225,235,245,0.95)']]));
+  // books, a glass of water, the clock
+  box([0.13, h, 3.58], [0.31, h + 0.035, 3.82], { def: '#6d3b36', t: '#d9d2bf' });
+  box([0.14, h + 0.035, 3.6], [0.3, h + 0.068, 3.81], { def: '#2f4a5a', t: '#d9d2bf', f: '#e6dfcc' });
+  // (a glass shows mostly what's behind it: only its edges catch the light)
+  cyl(-0.1, 3.53, h, h + 0.11, 0.032, 0.036, plane(facing([-0.1, 0, 3.53]), [-0.1, 0, 3.53]), () => grad3([-0.136, 0.6, 3.53], [-0.064, 0.6, 3.53], [[0, 'rgba(225,235,242,0.8)'], [0.18, 'rgba(160,178,192,0.22)'], [0.75, 'rgba(160,178,192,0.18)'], [1, 'rgba(232,240,246,0.7)']]), () => {
+    line3([[-0.135, h + 0.075, 3.53], [-0.065, h + 0.075, 3.53]], 0.0025, 'rgba(225,235,242,0.45)');   // the water's surface
+  });
+  paintClock();
   paintLamp();
+}
+function paintClock() {
+  // Dark plastic, a smoked window in front for the digits (lit on their own canvas), a snooze bar along the top.
+  const { x0, x1, z0, z1 } = CLOCK, y0 = STAND.h, y1 = y0 + CLOCK.h;
+  ao([[x0 - 0.02, y0, z0 - 0.02], [x1 + 0.02, y0, z0 - 0.02], [x1 + 0.02, y0, z1 + 0.02], [x0 - 0.02, y0, z1 + 0.02]], 0.5, 0.015);
+  box([x0, y0, z0], [x1, y1, z1], { def: '#2a282e', t: '#3a383f', f: '#26242a' }, {}, {
+    f: () => {
+      const w = [[x0 + 0.011, y0 + 0.013, z0 - 0.0005], [x1 - 0.011, y0 + 0.013, z0 - 0.0005], [x1 - 0.011, y1 - 0.013, z0 - 0.0005], [x0 + 0.011, y1 - 0.013, z0 - 0.0005]];
+      G.fillStyle = '#140a0b'; poly3(w) && G.fill();
+      line3([...w, w[0]], 0.0015, 'rgba(120,110,120,0.5)');
+    },
+  });
+  box([x0 + 0.03, y1, z0 + 0.012], [x1 - 0.03, y1 + 0.008, z1 - 0.012], { def: '#34323a', t: '#4a4852' });
 }
 function paintLamp() {
   const { x, z, r0, rb, rt, y1, y2 } = LAMP, h = STAND.h;
@@ -1244,6 +1267,7 @@ function layout() {
   const ps = Math.min(1, Math.sqrt(4.2e6 / (cv.width * cv.height)));
   const W = Math.round(cv.width * ps), H = Math.round(cv.height * ps);
   cam = makeCam(W, H);
+  placeClock(Math.min(devicePixelRatio || 1, 3));
   resetPlanes();
   if (!gl) {
     // No WebGL: the room by night, still, without the moving light.
@@ -1293,20 +1317,25 @@ const land = (o, L) => {                       // where a ray of moonlight from 
   }
   return best;
 };
-// One night at the window lasts about half an hour: the light crosses the room, the moon sets, the room stays dark
-// a while, then the moonlight comes gently back and it all begins again.
-const CYCLE = 1740, RETURN = 60;
+// The time here: the visitor's clock (or ?at), and how far into the night that is, counted from six in the evening.
+const T0 = performance.now();
+const BASE = (() => { const d = new Date(); if (AT) d.setHours(+AT[1] % 24, +AT[2] % 60, 0, 0); return d.getTime(); })();
+const wallClock = () => AT || RATE !== 1 ? new Date(BASE + (performance.now() - T0) * RATE) : new Date();   // (the real clock keeps time through sleep)
+const nightOf = d => ((d.getHours() + 6) % 12) * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
 // Now and then a thin cloud goes over the moon and the light dims a little.
 const cloud = t => 1 - 0.2 * smoothstep(0.3, 0.8, Math.sin(t / 97 + 2.2) * 0.5 + noise1(t / 41) * 0.5) * smoothstep(90, 150, t);
-function moonAt(t) {
-  const n = Math.floor(t / CYCLE), tc = t - n * CYCLE;
-  const m = moonDir(tc), alt = Math.asin(clamp(m[1], -1, 1));
-  const up = smoothstep(0, 6 * DEG, alt) * smoothstep(0, 0.05, -m[0]) * (n > 0 ? smoothstep(0, RETURN, tc) : 1) * cloud(t);
-  return { m, alt, up, tc };
+function moonAt(night, t) {
+  const H = H0 + SPAN * night / NIGHT, m = moonDir(H), alt = Math.asin(clamp(m[1], -1, 1));
+  // At six the night starts over: the light fades a minute or so before, and comes back as the evening begins.
+  const edge = smoothstep(0, 90, night) * smoothstep(0, 90, NIGHT - night);
+  const up = smoothstep(0, 6 * DEG, alt) * smoothstep(0, 0.05, -m[0]) * edge * cloud(t);
+  return { m, alt, up, turned: H - H0 };
 }
-function draw(t, gpu = true) {
+function draw(gpu = true) {
+  const t = (performance.now() - T0) / 1000, now = wallClock();
+  drawClock(now);
   if (!ready) return;
-  const { m, alt, up, tc } = moonAt(t), L = scl(m, -1);
+  const { m, alt, up, turned } = moonAt(nightOf(now), t), L = scl(m, -1);
   drawMotes(t, L, up);
   if (!gpu) return;
   // Low down, the moon's light thins and warms.
@@ -1345,15 +1374,40 @@ function draw(t, gpu = true) {
   gl.uniform4fv(U.uGlow, glow);
   gl.uniform1f(U.uT, t);
   gl.uniform1f(U.uMoonUp, up);
-  gl.uniform3f(U.uSky3, Math.sin(LAT), Math.cos(LAT), tc * LAPSE * 15 * DEG / 3600);
+  gl.uniform3f(U.uSky3, Math.sin(LAT), Math.cos(LAT), turned);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
 /* ---------- dust in the moonbeam ----------
-   A few specks drifting in the air, seen only while they're inside the light. */
+   Specks of dust adrift in the shaft of light, rising slowly on the warmth from the radiator and wandering as they
+   go. They show only while they're in the light: most just glow faintly, but every so often a flake turns its face
+   to the moon and glints. */
 const mc = document.getElementById('motes'), mg = mc.getContext('2d');
 const STILL = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const MOTES = Array.from({ length: 150 }, (_, i) => { const r = mulberry32(900 + i); return { p: [lerp(XL + 0.05, 1.3, r()), lerp(0.1, 2.2, r()), lerp(1.9, ZB - 0.05, r())], ph: r() * TAU, f: 0.3 + r() * 0.9, s: 0.5 + r(), k: r() * 100 }; });
+const MOTES = Array.from({ length: 170 }, (_, i) => {
+  const r = mulberry32(900 + i);
+  return {
+    a: r(), b: r(), c: r(),                     // across the glass, up it, and how far along the light
+    rise: 0.0015 + r() * 0.005, ph: r() * TAU, w: [0.05 + r() * 0.1, 0.04 + r() * 0.08, 0.05 + r() * 0.1],
+    size: 0.7 + r() * 0.6, glow: 0.3 + r() * 0.3, tw: 0.3 + r() * 0.9, flake: r() < 0.16, spin: 1.2 + r() * 2, seed: r() * 100,
+  };
+});
+const sprite = (n, paint) => { const c = document.createElement('canvas'); c.width = c.height = n; paint(c.getContext('2d'), n / 2); return c; };
+const SPECK = sprite(32, (g, h) => {
+  const gr = g.createRadialGradient(h, h, 0, h, h, h);
+  gr.addColorStop(0, 'rgba(236,241,255,1)'); gr.addColorStop(0.25, 'rgba(226,233,255,0.55)'); gr.addColorStop(1, 'rgba(216,226,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 2 * h, 2 * h);
+});
+const GLINT = sprite(64, (g, h) => {                // a glint: a bright point with four fine rays
+  for (const [dx, dy] of [[1, 0], [0, 1]]) {
+    const gr = g.createLinearGradient(h - dx * h, h - dy * h, h + dx * h, h + dy * h);
+    gr.addColorStop(0, 'rgba(232,238,255,0)'); gr.addColorStop(0.5, 'rgba(242,246,255,0.9)'); gr.addColorStop(1, 'rgba(232,238,255,0)');
+    g.fillStyle = gr; g.fillRect(dx ? 0 : h - 1, dy ? 0 : h - 1, dx ? 2 * h : 2, dy ? 2 * h : 2);
+  }
+  const c = g.createRadialGradient(h, h, 0, h, h, h * 0.3);
+  c.addColorStop(0, 'rgba(246,249,255,1)'); c.addColorStop(1, 'rgba(236,241,255,0)');
+  g.fillStyle = c; g.fillRect(0, 0, 2 * h, 2 * h);
+});
 function lightAt(p, toMoon) {                 // does the moon see p through a pane? (0..1, soft at the edges)
   const s = (XG - p[0]) / toMoon[0]; if (s <= 0) return 0;
   const z = p[2] + toMoon[2] * s, y = p[1] + toMoon[1] * s, e = 0.004 + s * 0.005;
@@ -1361,24 +1415,100 @@ function lightAt(p, toMoon) {                 // does the moon see p through a p
   for (const [pz, py, pw, ph] of PANES) best = Math.max(best, smoothstep(-e, e, Math.min(z - pz, pz + pw - z, y - py, py + ph - y)));
   return best;
 }
+function blocked(p, d, far) {                 // does any of the furniture stand between p and far along d?
+  for (const [A, B] of OCCLUDERS) {
+    let t0 = 0, t1 = far;
+    for (let k = 0; k < 3 && t0 <= t1; k++) {
+      if (Math.abs(d[k]) < 1e-9) { if (p[k] < A[k] || p[k] > B[k]) t1 = -1; continue; }
+      const ta = (A[k] - p[k]) / d[k], tb = (B[k] - p[k]) / d[k];
+      t0 = Math.max(t0, Math.min(ta, tb)); t1 = Math.min(t1, Math.max(ta, tb));
+    }
+    if (t0 <= t1) return true;
+  }
+  return false;
+}
 function drawMotes(t, L, up) {
   mg.clearRect(0, 0, mc.width, mc.height);
   if (STILL || up < 0.02) return;
   const toMoon = scl(L, -1), ks = mc.width / cam.W;
   for (const d of MOTES) {
-    // slow wandering on the room's faint air currents, wrapped into the box around the beam
-    const q = d.p, w = t * 0.02 + d.k;
-    const x = XL + 0.05 + ((q[0] + 0.05 * Math.sin(w * 1.3) + t * 0.003 - XL - 0.05) % 3.25 + 3.25) % 3.25;
-    const y = 0.1 + ((q[1] + 0.06 * Math.sin(w * 0.9 + 1) + t * 0.004 - 0.1) % 2.1 + 2.1) % 2.1;
-    const z = 1.9 + ((q[2] + 0.05 * Math.cos(w * 1.1) - 1.9) % 1.95 + 1.95) % 1.95;
-    const lit = lightAt([x, y, z], toMoon); if (lit <= 0.01) continue;
-    const s = sp([x, y, z]); if (!s) continue;
-    const a = lit * up * (0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(t * d.f + d.ph), 3)) * 0.55;
-    const r = Math.max(0.7, 0.0035 * cam.F / depthOf([x, y, z])) * d.s * ks;
-    const g = mg.createRadialGradient(s[0] * ks, s[1] * ks, 0, s[0] * ks, s[1] * ks, r * 2);
-    g.addColorStop(0, `rgba(230,236,255,${a.toFixed(3)})`); g.addColorStop(1, 'rgba(230,236,255,0)');
-    mg.fillStyle = g; mg.fillRect(s[0] * ks - r * 2, s[1] * ks - r * 2, r * 4, r * 4);
+    // where it is: a place on the glass, carried in along the light, then its own slow wandering
+    const b = (d.b + d.rise * t) % 1, a = d.a + 0.02 * Math.sin(t * d.w[0] + d.ph);
+    const W = [XG, lerp(SASH.lo[0], SASH.hi[1], b), lerp(SASH.z0, SASH.z1, a)], hit = land(W, L);
+    if (!hit) continue;
+    const c = clamp(d.c + 0.04 * Math.sin(t * d.w[1] + 2 * d.ph), 0.02, 0.98);
+    const p = add(add(W, scl(L, lerp(0.25, hit.s - 0.04, c))), [0.02 * Math.sin(t * d.w[2] + d.seed), 0, 0.02 * Math.cos(t * d.w[0] * 1.3 + d.seed)]);
+    const lit = lightAt(p, toMoon) * smoothstep(0, 0.06, b) * smoothstep(1, 0.94, b);
+    if (lit < 0.02) continue;
+    const s = sp(p), eye = sub(cam.pos, p), de = Math.hypot(eye[0], eye[1], eye[2]);
+    if (!s || blocked(p, scl(eye, 1 / de), de) || blocked(p, toMoon, (XL - p[0]) / toMoon[0])) continue;
+    // a faint slow shimmer, and for the flakes, now and then a glint
+    const shimmer = 0.6 + 0.4 * Math.pow(0.5 + 0.5 * Math.sin(t * d.tw + d.ph), 2);
+    const glint = d.flake ? Math.pow(Math.max(0, Math.sin(t * d.spin + d.seed)), 60) * smoothstep(0.1, 0.5, noise1(t * 0.15 + d.seed)) : 0;
+    // (never much under a pixel across, or a speck would thin out to nothing)
+    const k = lit * up, r = clamp(0.003 * cam.F / depthOf(p), 0.75, 2.4) * d.size * ks, x = s[0] * ks, y = s[1] * ks;
+    const rr = r * (1.6 + 1.2 * glint);
+    mg.globalAlpha = Math.min(1, k * (d.glow * shimmer + glint));
+    mg.drawImage(SPECK, x - rr, y - rr, 2 * rr, 2 * rr);
+    if (glint > 0.3) { const g = r * 7; mg.globalAlpha = k * (glint - 0.3) * 0.6; mg.drawImage(GLINT, x - g, y - g, 2 * g, 2 * g); }
   }
+  mg.globalAlpha = 1;
+}
+
+/* ---------- the clock on the nightstand ----------
+   Red seven-segment digits on a small canvas of their own over the clock's window, drawn flat on its face: the
+   visitor's time on a twelve-hour clock, the colon blinking the seconds away. */
+const ck = document.getElementById('clock'), cg = ck.getContext('2d');
+const SEGS = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f];   // which of the segments a–g each digit lights
+let clockXf = null, clockShown = '';
+function placeClock(dpr) {
+  // The middle of the clock's window, and where a step along its face, right or up, lands on the screen.
+  const o = [(CLOCK.x0 + CLOCK.x1) / 2, STAND.h + CLOCK.h / 2, CLOCK.z0 - 0.001];
+  const s = sp(o), a = sp(add(o, [0.01, 0, 0])), b = sp(add(o, [0, 0.01, 0]));
+  clockXf = null; clockShown = '';
+  if (!s || !a || !b) { ck.style.display = 'none'; return; }
+  const css = innerWidth / cam.W, k = dpr;                        // CSS pixels per painted pixel, device pixels per CSS pixel
+  const u = [(a[0] - s[0]) * 100 * css, (a[1] - s[1]) * 100 * css], v = [(b[0] - s[0]) * 100 * css, (b[1] - s[1]) * 100 * css];
+  const half = Math.ceil(Math.hypot(u[0], u[1]) * 0.11) + 2;     // enough for the digits and their glow
+  Object.assign(ck.style, { display: '', left: `${s[0] * css - half}px`, top: `${s[1] * css - half}px`, width: `${2 * half}px`, height: `${2 * half}px` });
+  ck.width = ck.height = Math.round(2 * half * k);
+  clockXf = [u[0] * k, u[1] * k, v[0] * k, v[1] * k, half * k, half * k];   // metres on the face (y up) to canvas pixels
+}
+function drawClock(now) {
+  if (!clockXf) return;
+  const hh = now.getHours() % 12 || 12, mm = now.getMinutes(), colon = STILL || now.getMilliseconds() < 500;
+  const shown = `${hh}:${mm}:${colon}`;
+  if (shown === clockShown) return;
+  clockShown = shown;
+  cg.setTransform(1, 0, 0, 1, 0, 0); cg.clearRect(0, 0, ck.width, ck.height);
+  cg.setTransform(...clockXf);
+  // Everything from here is in metres on the clock's face, from the middle of its window.
+  const DW = 0.019, DH = 0.034, T = 0.0042, gap = 0.0006, SLANT = 0.12;
+  const px = Math.hypot(clockXf[2], clockXf[3]);                  // canvas pixels per metre, upward
+  const halo = cg.createRadialGradient(0, 0, 0, 0, 0, 0.1);
+  halo.addColorStop(0, 'rgba(255,40,24,0.13)'); halo.addColorStop(0.45, 'rgba(255,30,16,0.04)'); halo.addColorStop(1, 'rgba(255,30,16,0)');
+  cg.fillStyle = halo; cg.fillRect(-0.1, -0.1, 0.2, 0.2);
+  cg.fillStyle = 'rgba(255,40,30,0.07)'; cg.fillRect(-0.068, -0.0235, 0.136, 0.047);   // the smoked window, lit from within
+  const bar = (ax, ay, bx, by) => {                                // a segment, pointed at both ends, leaning like the rest
+    const l = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / l, uy = (by - ay) / l, nx = -uy * T / 2, ny = ux * T / 2, e = T / 2;
+    const pts = [[ax, ay], [ax + ux * e + nx, ay + uy * e + ny], [bx - ux * e + nx, by - uy * e + ny], [bx, by], [bx - ux * e - nx, by - uy * e - ny], [ax + ux * e - nx, ay + uy * e - ny]];
+    cg.beginPath(); pts.forEach(([x, y], i) => i ? cg.lineTo(x + y * SLANT, y) : cg.moveTo(x + y * SLANT, y)); cg.closePath(); cg.fill();
+  };
+  const digit = (cx, n, lit, has) => {
+    const w = DW / 2, h = DH / 2, on = n < 0 ? 0 : SEGS[n];
+    [[cx - w + gap, h, cx + w - gap, h], [cx + w, h - gap, cx + w, gap], [cx + w, -gap, cx + w, -h + gap], [cx + w - gap, -h, cx - w + gap, -h],
+      [cx - w, -h + gap, cx - w, -gap], [cx - w, gap, cx - w, h - gap], [cx - w + gap, 0, cx + w - gap, 0]]
+      .forEach((s, i) => { if ((has >> i & 1) && !!(on >> i & 1) === lit) bar(...s); });
+  };
+  // The first place only ever shows a 1, so like a real clock's it only has the two segments of one.
+  const digits = [[-0.047, hh >= 10 ? 1 : -1, 0x06], [-0.022, hh % 10, 0x7f], [0.018, Math.floor(mm / 10), 0x7f], [0.043, mm % 10, 0x7f]];
+  cg.fillStyle = 'rgba(255,50,36,0.06)';                           // the unlit segments, just there behind the glass
+  for (const [cx, n, has] of digits) digit(cx, n, false, has);
+  cg.shadowColor = 'rgba(255,36,20,0.85)'; cg.shadowBlur = DH * px * 0.3;
+  cg.fillStyle = 'rgba(255,66,46,0.92)';
+  for (const [cx, n, has] of digits) digit(cx, n, true, has);
+  if (colon) for (const y of [-0.0075, 0.0075]) { cg.beginPath(); cg.arc(-0.002 + y * SLANT, y, 0.0022, 0, TAU); cg.fill(); }
+  cg.shadowBlur = 0;
 }
 
 // Oil-on-canvas grain, laid over everything by CSS.
@@ -1405,7 +1535,6 @@ function drawMotes(t, L, up) {
 })();
 
 if (gl) initGL();
-const T0 = performance.now(), clock = () => START + (performance.now() - T0) / 1000 * RATE;
 let last = -1e9, lastGpu = -1e9, resizeTimer = 0;
 function frame(now) {
   requestAnimationFrame(frame);
@@ -1413,11 +1542,11 @@ function frame(now) {
   last = now;
   // The dust drifts at 30 frames a second; the light moves so slowly that ten repaints a second are plenty.
   const gpu = now - lastGpu > 95; if (gpu) lastGpu = now;
-  draw(clock(), gpu);
+  draw(gpu);
 }
-addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { layout(); draw(clock()); }, 150); });
-layout(); draw(clock());
-if (gl) requestAnimationFrame(frame);
+addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { layout(); draw(); }, 150); });
+layout(); draw();
+requestAnimationFrame(frame);
 window.toyboxReady?.();
 })();
 </script>

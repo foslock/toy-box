@@ -1,9 +1,9 @@
 {
   "title": "Small Hours",
-  "blurb": "A painted bedroom in the small hours, lit only by the moon. The window's square of panes lies across the rug and, over half an hour, creeps across the floor and up the wall as the unseen moon goes down.",
+  "blurb": "A painted bedroom lit only by the moon. It keeps your time, but it's always night here: the clock on the nightstand shows it in red, and the window's square of panes lies where the moon puts it, across the rug in the evening and high on the wall toward dawn, with dust glinting in the beam.",
   "added": "2026-09-28",
   "tags": ["canvas", "shaders", "ambient", "painting"],
   "tape": "blue",
   "loader": true,
-  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?t=1250" }
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?at=4:00" }
 }
