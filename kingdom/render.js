@@ -178,7 +178,7 @@ export class View {
   placeHero(row, col, life) {
     const w = worldOf(row, col);
     this.hero = { row, col, x: w.x, y: w.y + 12, dir: this.hero?.dir || 'R', pose: 'front', walk: null,
-      look: { look: life.heir.look, colour: this.house?.names?.arms ? armsColour(this.house.names.arms) : '#2f55a8', armor: life.armor, weapon: life.weapon, toad: life.traits.includes('toad'), crowned: life.fate?.kind === 'crowned' } };
+      look: { look: life.heir.look, colour: this.house?.names?.arms ? armsColour(this.house.names.arms) : '#2f55a8', armor: life.armor, weapon: life.weapon, toad: life.traits.includes('toad'), crowned: false } };   // the crowning puts the crown on
   }
   updateLook(life) { if (this.hero) Object.assign(this.hero.look, { armor: life.armor, weapon: life.weapon, toad: life.traits.includes('toad') }); }
   // The two ways ahead, rising out of the fog.
@@ -272,7 +272,7 @@ export class View {
       const e = smooth(Math.min(1, w.t));
       h.x = lerp(w.from.x, w.to.x, e); h.y = lerp(w.from.y, w.to.y, e);
       h.hop = Math.abs(Math.sin(Math.min(1, w.t) * Math.PI * 2)) * 2;
-      if (w.t >= 1) { h.row = w.target.row; h.col = w.target.col; h.walk = null; h.hop = 0; h.pose = 'front'; w.done?.(); }
+      if (w.t >= 1) { h.row = w.target.row; h.col = w.target.col; h.walk = null; h.hop = 0; h.pose = w.pose || 'front'; w.done?.(); }
     }
     for (const c of this.cells.values()) if (c.fade < 1) c.fade = Math.min(1, c.fade + dt * 1.6);
     if (this.opts) for (const o of Object.values(this.opts)) o.t = Math.min(1, o.t + dt * 1.8);

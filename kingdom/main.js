@@ -36,10 +36,12 @@ const FATE_WORD = { killed: 'Slain', starved: 'Starved', broke: 'Ruined', reaper
 // and its ending is still playing (the house only takes it into the Tome at the end of that); and, while the screens
 // that follow a choice are still up (a fight, what happened, a herald), that choice's result, so they come back.
 let house, life, pending = null, ui = { tut: {}, sound: true, music: true };
+let frozen = false;   // once a save from another browser has been written in, nothing of this house may go over it
+const saveData = () => ({ v: 1, house, life: life ? life.toJSON() : null, pending, ui });
 function load() { try { const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } }
 function save() {
-  if (DEMO) return;
-  try { localStorage.setItem(KEY, JSON.stringify({ v: 1, house, life: life ? life.toJSON() : null, pending, ui })); } catch { /* storage full or blocked: it just won't keep */ }
+  if (DEMO || frozen) return;
+  try { localStorage.setItem(KEY, JSON.stringify(saveData())); } catch { /* storage full or blocked: it just won't keep */ }
 }
 
 /* ---------- the map ---------- */
@@ -68,20 +70,20 @@ function stat(id, value, extra = '', cls = '') {
   el.setAttribute('aria-label', `${n}: ${value}${extra}`);
   return el;
 }
-function renderHUD(anim = true) {
+function renderHUD(anim = true, L = life) {
   const hud = $('hud');
-  if (!life || life.fate && life.fate.kind !== 'crowned') { hud.hidden = true; return; }
+  if (!L || L.fate && L.fate.kind !== 'crowned') { hud.hidden = true; return; }
   hud.hidden = false;
   const st = $('stats'); st.textContent = '';
-  const now = { hp: life.hp, food: life.food, gold: life.gold, power: life.power, renown: life.renown, sight: life.sight, claim: life.claim };
-  st.append(stat('hp', `${life.hp}`, `/${life.maxHp}`, life.hp <= 2 ? 'low' : ''));
-  st.append(stat('food', life.food, '', life.food <= 1 && life.phase === 'journey' ? 'low' : ''));
-  st.append(stat('gold', life.gold));
-  st.append(stat('power', life.power));
-  st.append(stat('renown', life.renown));
-  if (life.phase === 'succession') st.append(stat('claim', life.claim, '', 'claim' + (life.claim <= 1 ? ' low' : '')));
-  const sight = stat('sight', life.sight);
-  sight.classList.toggle('off', !canForesee());
+  const now = { hp: L.hp, food: L.food, gold: L.gold, power: L.power, renown: L.renown, sight: L.sight, claim: L.claim };
+  st.append(stat('hp', `${L.hp}`, `/${L.maxHp}`, L.hp <= 2 ? 'low' : ''));
+  st.append(stat('food', L.food, '', L.food <= 1 && L.phase === 'journey' ? 'low' : ''));
+  st.append(stat('gold', L.gold));
+  st.append(stat('power', L.power));
+  st.append(stat('renown', L.renown));
+  if (L.phase === 'succession') st.append(stat('claim', L.claim, '', 'claim' + (L.claim <= 1 ? ' low' : '')));
+  const sight = stat('sight', L.sight);
+  sight.classList.toggle('off', L !== life || !canForesee());
   st.append(sight);
   if (anim) for (const [k, v] of Object.entries(now)) {
     const was = shown[k];
@@ -99,11 +101,11 @@ function renderHUD(anim = true) {
     if (newBits.has(id)) b.classList.add('new');
     bag.append(b);
   };
-  add(life.weapon, 'gear', ITEMS[life.weapon].name, 'Weapon', `+${ITEMS[life.weapon].power} power.`);
-  if (life.armor !== 'rags') add(life.armor, 'gear', ITEMS[life.armor].name, 'Armour', `+${ITEMS[life.armor].power} power.`);
-  for (const r of life.relics) add(r.id, 'relic', RELICS[r.id].name, `Relic · ${RELICS[r.id].tier}`, RELICS[r.id].blurb + (r.id === 'dragon_egg' && life.egg > 0 ? ` (${life.egg} steps to go.)` : ''), r.used);
-  for (const t of life.traits) add(t, TRAITS[t].kind, TRAITS[t].name, TRAITS[t].kind === 'curse' ? 'Curse' : TRAITS[t].kind === 'mixed' ? 'Blessing and curse' : 'Blessing', TRAITS[t].blurb + (t === 'reaper' && life.reaper ? ` (${life.reaper} steps left.)` : ''));
-  for (const a of life.allies) add(a, 'ally', ALLIES[a].name, 'Ally', ALLIES[a].blurb);
+  add(L.weapon, 'gear', ITEMS[L.weapon].name, 'Weapon', `+${ITEMS[L.weapon].power} power.`);
+  if (L.armor !== 'rags') add(L.armor, 'gear', ITEMS[L.armor].name, 'Armour', `+${ITEMS[L.armor].power} power.`);
+  for (const r of L.relics) add(r.id, 'relic', RELICS[r.id].name, `Relic · ${RELICS[r.id].tier}`, RELICS[r.id].blurb + (r.id === 'dragon_egg' && L.egg > 0 ? ` (${L.egg} steps to go.)` : ''), r.used);
+  for (const t of L.traits) add(t, TRAITS[t].kind, TRAITS[t].name, TRAITS[t].kind === 'curse' ? 'Curse' : TRAITS[t].kind === 'mixed' ? 'Blessing and curse' : 'Blessing', TRAITS[t].blurb + (t === 'reaper' && L.reaper ? ` (${L.reaper} steps left.)` : ''));
+  for (const a of L.allies) add(a, 'ally', ALLIES[a].name, 'Ally', ALLIES[a].blurb);
   newBits.clear();
   requestAnimationFrame(measure);
 }
@@ -158,10 +160,10 @@ function optionDetail(dir) {
   if (cur.hidden === dir) return '<small>Lost in the mist</small>';
   const lock = life.locks()[dir];
   if (lock) bits.push(`<span>${esc(lock)}</span>`);
-  if (opt.cost) { const p = priceFor(opt.cost, s); bits.push(`<span class="cost${life.gold < p ? ' poor' : ''}">${p} gold</span>`); }
+  if (opt.cost) { const p = priceFor(opt.cost, s); bits.push(life.gold < p ? `<span class="cost poor">${p} gold, and you have ${life.gold}</span>` : `<span class="cost">${p} gold</span>`); }
   if (opt.fight) {
     const f = opt.fight, realm = REALMS[life.realm.type];
-    bits.push(`<span class="fight">⚔ ${esc(life.fill(f.name))} · ${f.power + (realm.foePower || 0)}</span>`);
+    bits.push(`<span class="fight" data-icon="power">${esc(life.fill(f.name))} · ${f.power + (realm.foePower || 0)}</span>`);
   }
   if (opt.shop) bits.push(`<span>${esc(SHOP_NAME[opt.shop])}</span>`);
   if (opt.odds) {
@@ -192,6 +194,7 @@ function renderEvent() {
   if (life.phase === 'journey' && life.relics.some(r => r.id === 'boots' && !r.used)) tools.push(`<button type="button" class="btn" data-act="stride">Seven-League Boots</button>`);
   setPanel(`${kicker()}<h2>${esc(life.fill(ev.title))}</h2><p class="text">${esc(life.fill(ev.text))}</p>
     <div class="choices">${side('L')}${side('R')}</div><div class="tools">${tools.join('')}</div>`);
+  hydrateIcons(panel);
   for (const b of panel.querySelectorAll('.choice')) {
     b.onclick = () => choose(b.dataset.dir);
     b.onpointerenter = () => { view.hover = b.dataset.dir; };
@@ -219,9 +222,11 @@ function foresee() {
 
 /* ---------- choosing ---------- */
 let busy = false;
-async function choose(dir) {
+const priceOf = dir => { const opt = life.option(dir); return opt.cost ? priceFor(opt.cost, life.state()) : 0; };
+async function choose(dir, sure = false) {
   if (mode !== 'event' || busy) return;
   if (life.locks()[dir]) { toast(life.locks()[dir]); return; }
+  if (!sure && priceOf(dir) > life.gold) return shortOfGold(dir);
   busy = true; mode = 'busy';
   sound.pick();
   if (guideAt >= 0) { $('guide').hidden = true; coach.stop(); }
@@ -238,13 +243,23 @@ async function choose(dir) {
   await new Promise(r => view.walk(dir, r));
   view.clearOptions();
   view.sync(life);
-  view.updateLook(life);
+  // a fight's result is already in the life: until it's fought, the heir carries what they went into it with
+  view.updateLook(res.fight && life.snap ? JSON.parse(life.snap) : life);
   view.focus(life.row, life.col);
   if (life.phase === 'procession' || res.crowned) crowdAround(life.row, life.col);
   if (res.crowned) { view.burst(life.row, life.col, 'gold'); view.burst(life.row, life.col, 'gold'); sound.relic(); }
   busy = false;
   if (res.fight) return battle(res);
   outcome(res);
+}
+// A way that costs more than you have: without the coin it goes some other way (each has its own), so ask first.
+function shortOfGold(dir) {
+  const b = sideCard(`<h2>Not Enough Gold</h2>
+    <p><b>${esc(life.fill(life.option(dir).label))}</b> costs ${priceOf(dir)} gold, and you have ${life.gold}.</p>
+    <p class="sub">You can still go that way, but without the coin, things will go differently.</p>
+    <div class="row"><button type="button" class="btn" data-act="close">Go back</button><button type="button" class="btn go" data-act="go">Go anyway</button></div>`);
+  b.querySelector('[data-act="close"]').onclick = () => { closeCard(); mode = 'event'; };
+  b.querySelector('[data-act="go"]').onclick = () => { closeCard(); mode = 'event'; choose(dir, true); };
 }
 function stride() {
   if (mode !== 'event') return;
@@ -372,12 +387,13 @@ function battle(res) {
   const odds = F.rolls.length || auto ? winChance(F.you + F.bonus - F.power) : 0;
   const oddsWord = odds >= .85 ? 'The odds are good.' : odds >= .6 ? 'The odds favour you.' : odds >= .4 ? 'It could go either way.' : odds >= .2 ? 'The odds are against you.' : 'The odds are grim.';
   setPanel(`${kickerDone()}<h2>${esc(res.title)}</h2>${res.intro ? `<p class="outcome"><span class="intro">${esc(res.intro)}</span></p>` : ''}
-    <div class="bout"><div class="side" id="youSide"><span class="who">You</span><span class="nm">${esc(life.heir.name)}</span><span class="pow">⚔ ${F.you}${F.bonus ? ` +${F.bonus}` : ''}</span></div>
+    <div class="bout"><div class="side" id="youSide"><span class="who">You</span><span class="nm">${esc(life.heir.name)}</span><span class="pow">${F.you}${F.bonus ? ` +${F.bonus}` : ''}</span></div>
       <div class="vs">vs</div>
-      <div class="side" id="foeSide"><span class="who">${esc(FOES[F.foe]?.name || 'Foe')}</span><span class="nm">${esc(cap(F.name))}</span><span class="pow">⚔ ${F.power}</span></div></div>
+      <div class="side" id="foeSide"><span class="who">${esc(FOES[F.foe]?.name || 'Foe')}</span><span class="nm">${esc(cap(F.name))}</span><span class="pow">${F.power}</span></div></div>
     <div class="bout" id="diceRow"><div class="side"><div class="dice" id="youDice">${dieHTML(1)}${dieHTML(1)}<span class="total"></span></div></div><div></div><div class="side"><div class="dice" id="foeDice">${dieHTML(1, true)}${dieHTML(1, true)}<span class="total"></span></div></div></div>
     <p class="odds">${auto === 'beast' ? 'The beast knows your voice.' : auto === 'gorgon' ? 'The Gorgon’s Eye stirs in your hand.' : oddsWord} Two dice each, added to power; ties go to you.</p>
     <div class="row"><button type="button" class="btn go" data-act="fight">${auto === 'beast' ? 'Speak to it' : auto === 'gorgon' ? 'Raise the Eye' : 'Fight!'}</button></div>`);
+  for (const s of panel.querySelectorAll('.pow')) s.prepend(icon('power', 1.5));
   $('youSide').prepend(figCanvas(heroArt({ ...view.hero.look }, 'front'), 84));
   $('foeSide').prepend(figCanvas(foeArt(F.foe).flip(), 84));
   if (auto) $('diceRow').remove();
@@ -415,6 +431,7 @@ async function fightRoll(res) {
   panel.querySelector('.odds').replaceWith(verdict);
   await sleep(700);
   view.foeLeaves();
+  view.updateLook(life);
   outcome(res);
 }
 
@@ -531,12 +548,12 @@ async function coronation() {
   view.setCrowd([]);
   view.ceremony = { row: throne.row, col: throne.col, cheer: false, raise: false, crown: null, rays: 0 };
   view.focus(throne.row, throne.col);
-  for (let z = view.zoomStep; z <= 3; z++) { view.setZoom(z); await sleep(110); }
-  // up the carpet, from the doors at the bottom corner of the tile to the foot of the throne
+  // the heir waits at the doors, at the bottom corner of the tile, facing the throne and bare-headed
   const spot = spotOf(throne.row, throne.col);
-  view.hero.x = spot.x; view.hero.y = spot.y + 23; view.hero.dir = 'R';
-  await new Promise(r => { view.hero.walk = { from: { x: spot.x, y: spot.y + 23, h: 0 }, to: { x: spot.x, y: spot.y + 12, h: 0 }, t: 0, dur: 1.4, done: r, target: throne }; });
-  view.hero.pose = 'back';
+  Object.assign(view.hero, { x: spot.x, y: spot.y + 23, dir: 'R', pose: 'back', look: { ...view.hero.look, crowned: false } });
+  for (let z = view.zoomStep; z <= 3; z++) { view.setZoom(z); await sleep(110); }
+  // then up the carpet to the foot of the throne, and stays facing it
+  await new Promise(r => { view.hero.walk = { from: { x: spot.x, y: spot.y + 23, h: 0 }, to: { x: spot.x, y: spot.y + 12, h: 0 }, t: 0, dur: 1.4, done: r, target: throne, pose: 'back' }; });
   view.ceremony.raise = true;
   sound.fanfare();
   await sleep(1500);
@@ -648,7 +665,10 @@ function setOut(o = {}) {
 // finished.
 function resumeMode(boot = false) {
   if (!life) return heirCard();
-  renderHUD(false);
+  // a fight not yet fought shows the stats and the arms you had going into it: its result is already in the life
+  const unfought = pending?.res.fight && !pending.fought && life.snap ? resumeLife(house, JSON.parse(life.snap)) : null;
+  renderHUD(false, unfought || life);
+  if (unfought) view.updateLook(unfought);
   const rewalk = boot && !ui.tut.choose && (pending ? pending.res.eventId : life.cur?.id) === TUTORIAL_EVENT;
   if (rewalk) guideAt = 0;   // keeps the ordinary tips out of its way; outcome() takes it on to its last word
   if (pending) {
@@ -1069,6 +1089,99 @@ function toast(text) {
   const t = document.createElement('div'); t.className = 'toast leather'; t.textContent = text; $('toasts').append(t);
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 400); }, 2600);
 }
+
+/* ---------- taking a house to another browser ---------- */
+// The whole save as a code that can be copied into a message or a note (gzipped, where the browser can, then written
+// out in base64), or as a text file holding the same code. Loading one, in the other browser, replaces its house.
+const b64 = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
+const squeeze = (data, how) => new Response(new Blob([data]).stream().pipeThrough(how)).arrayBuffer();
+async function saveCode() {
+  const json = JSON.stringify(saveData());
+  return window.CompressionStream ? 'KINGDOM1:' + b64(new Uint8Array(await squeeze(json, new CompressionStream('gzip')))) : 'KINGDOM0:' + b64(new TextEncoder().encode(json));
+}
+// A code (or a file of one, or a save as it's kept), read and checked over: a house that loads, and the life it has on
+// the road, if it has one.
+async function readSave(text) {
+  const t = text.trim(), m = /^KINGDOM([01]):([\s\S]+)$/.exec(t);
+  if (!m && !t.startsWith('{')) throw new Error('That isn’t a Kingdom save code: those start with KINGDOM.');
+  if (m?.[1] === '1' && !window.DecompressionStream) throw new Error('This browser is too old to open a save code.');
+  let s;
+  try {
+    if (!m) s = JSON.parse(t);
+    else {
+      const bytes = Uint8Array.from(atob(m[2].replace(/\s+/g, '')), c => c.charCodeAt(0));
+      s = JSON.parse(new TextDecoder().decode(m[1] === '1' ? await squeeze(bytes, new DecompressionStream('gzip')) : bytes));
+    }
+  } catch { throw new Error('That save code is cut short or garbled. Copy the whole of it, from KINGDOM to the very end.'); }
+  const h = s?.house;
+  if (!h || !Array.isArray(h.lineage) || !Number.isFinite(h.seed) || typeof h.names?.house !== 'string' || typeof h.heir?.name !== 'string') throw new Error('That isn’t a Kingdom save.');
+  try { worldOf(structuredClone(h)); if (s.life) resumeLife(structuredClone(h), structuredClone(s.life)); }
+  catch { throw new Error('That save is damaged, and won’t load.'); }
+  return s;
+}
+// A card opened from the menu or the title, and what closing it goes back to.
+function sideCard(html) {
+  const was = mode;
+  mode = 'card';
+  const b = card(html);
+  b.querySelector('[data-act="close"]').onclick = () => { closeCard(); if (was === 'title') mode = 'title'; else resumeMode(); };
+  return b;
+}
+function exportCard() {
+  menu(false);
+  const b = sideCard(`<h2>Your Save</h2>
+    <p>To carry on in another browser, or on another device, copy this code or save it as a file. Then open Kingdom there and choose <b>Load a save</b>.</p>
+    <textarea class="code" readonly spellcheck="false" aria-label="Save code">Writing it out…</textarea>
+    <p class="sub note" hidden></p>
+    <div class="row"><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn" data-act="file" disabled>Save as a file</button><button type="button" class="btn go" data-act="copy" disabled>Copy the code</button></div>`);
+  const box = b.querySelector('textarea'), note = b.querySelector('.note');
+  const say = text => { note.textContent = text; note.hidden = false; };
+  saveCode().then(code => {
+    box.value = code;
+    for (const btn of b.querySelectorAll('[disabled]')) btn.disabled = false;
+    b.querySelector('[data-act="copy"]').onclick = async () => {
+      let ok = true;
+      try { await navigator.clipboard.writeText(code); } catch { box.focus(); box.setSelectionRange(0, code.length); ok = document.execCommand('copy'); }
+      say(ok ? 'Copied. Paste it into Load a save in the other browser.' : 'Select all of the code and copy it.');
+    };
+    b.querySelector('[data-act="file"]').onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([code], { type: 'text/plain' }));
+      a.download = `Kingdom - House ${house.names.house} - generation ${house.gen}.txt`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      say('Saved. In the other browser, choose Load a save, then Choose a file.');
+    };
+  });
+}
+function importCard() {
+  menu(false);
+  const keep = house.lineage.length || life;
+  const b = sideCard(`<h2>Load a Save</h2>
+    <p>Paste a save code from another browser, or choose a save file.${keep ? ` It takes the place of this browser’s House ${esc(house.names.house)}.` : ''}</p>
+    <textarea class="code" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Save code" placeholder="KINGDOM1:…"></textarea>
+    <p class="err" role="alert" hidden></p>
+    <div class="row"><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn" data-act="file">Choose a file</button><button type="button" class="btn go" data-act="load">Load</button></div>
+    <input type="file" accept=".txt,.json,text/plain,application/json" hidden>`);
+  const box = b.querySelector('textarea'), err = b.querySelector('.err'), pick = b.querySelector('input[type="file"]');
+  const take = async text => {
+    err.hidden = true;
+    let s;
+    try { s = await readSave(text); } catch (e) { err.textContent = e.message; err.hidden = false; return; }
+    if (keep && !confirm(`Load House ${s.house.names.house} of ${s.house.names.kingdom}, at generation ${s.house.gen}? This browser’s House ${house.names.house} will be lost.`)) return;
+    s.ui = { ...ui, ...s.ui, sound: ui.sound, music: ui.music };   // sound and music stay as they're set here
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { err.textContent = 'This browser won’t keep it: its storage is full, or turned off.'; err.hidden = false; return; }
+    frozen = true;
+    location.reload();
+  };
+  b.querySelector('[data-act="load"]').onclick = () => take(box.value);
+  b.querySelector('[data-act="file"]').onclick = () => pick.click();
+  pick.onchange = async () => { const f = pick.files[0]; if (f) take(await f.text()); pick.value = ''; };
+  if (!TOUCH) box.focus();
+}
+$('exportSave').onclick = exportCard;
+$('importSave').onclick = importCard;
+$('titleLoad').onclick = importCard;
 
 /* ---------- the walkthrough ---------- */
 function coachSay(html, target) {
