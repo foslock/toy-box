@@ -418,7 +418,7 @@ export const STRUCTURES = {
       p.rect(cx + 10, cy + 3, 3, 3, '#6a5a4a'); p.line(cx + 12, cy - 4, cx + 16, cy + 4, DWOOD);
     },
   },
-  bonfire: { draw(p, cx, cy) { for (let i = 0; i < 6; i++) p.line(cx - 7 + i * 3, cy + 4, cx - 1 + i, cy - 6, i % 2 ? WOOD : DWOOD); p.ellipse(cx, cy + 3, 9, 3, '#3a2a24'); }, fx: [{ k: 'fire', x: 0, y: -2, big: true }, { k: 'smoke', x: 0, y: -24 }] },
+  bonfire: { draw(p, cx, cy) { /* the ash ring first, then the sticks standing in it */ p.ellipse(cx, cy + 3, 9, 3, '#3a2a24'); for (let i = 0; i < 6; i++) p.line(cx - 7 + i * 3, cy + 4, cx - 1 + i, cy - 6, i % 2 ? WOOD : DWOOD); }, fx: [{ k: 'fire', x: 0, y: -2, big: true }, { k: 'smoke', x: 0, y: -24 }] },
   palace: {
     draw(p, cx, cy) {
       const W = ramp('#e8e0cc');
@@ -509,5 +509,15 @@ export function structureSprite(theme, o = {}) {
   const [cx, cy] = centre(o.h || 0);
   s.draw(p, cx, cy, o);
   return p;
+}
+// The same picture in two layers, for a way ahead: its ground, and what stands on it. The way's highlight goes between
+// them, so it lies on the ground, and whatever rises from the tile stands in front of it.
+export function structureLayers(theme, o = {}) {
+  const s = STRUCTURES[theme] || STRUCTURES.road;
+  const base = new Px(SPRITE.w, SPRITE.h), top = new Px(SPRITE.w, SPRITE.h);
+  ground(base, theme === 'throne' ? 'city' : o.biome || 'farm', o.h || 0, 77, { path: o.path });
+  const [cx, cy] = centre(o.h || 0);
+  s.draw(top, cx, cy, o);
+  return { base, top };
 }
 export const fxOf = theme => STRUCTURES[theme]?.fx || [];

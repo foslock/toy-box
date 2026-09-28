@@ -4,7 +4,7 @@
 // It also stages the big moments: a foe stepping out onto a tile, the crowds of the procession, the crowning in the
 // throne room wherever the road ended, and the fog lifting as the kingdom takes its shape round that throne.
 import { landSprite, fogSprite, SPRITE, HEAD, EL } from './terrain.js';
-import { structureSprite, fxOf } from './structures.js';
+import { structureSprite, structureLayers, fxOf } from './structures.js';
 import { hero, foe as foeArt, peasant, bishop, crownSprite } from './figures.js';
 import { D, N, gridOf, rowColOf, inside, keyOf, kingdomOf } from './world.js';
 import { hash2, clamp, smooth } from './util.js';
@@ -33,6 +33,7 @@ export class View {
     this.parts = [];
     this.crowd = [];
     this.cache = new Map();
+    this.risen = new WeakMap();      // picture → the box of what rises above its ground (see rising)
     this.t = 0;
     this.world = null; this.house = null;
     this.lifted = 0;                 // 0..1 while the fog lifts off the whole kingdom
@@ -233,6 +234,43 @@ export class View {
       c: ['#e03a3a', '#f2c24c', '#ffffff', '#2f55a8', '#f07aa0', '#8fe07a'][i % 6], wob: Math.random() * 6, screen: false });
   }
 
+  // The picture a tile is drawn as: what stands there, if anything, else the land, greyed if only glimpsed.
+  imageOf(row, col, c, key, v, opt) {
+    const grey = v === SEEN;
+    const theme = opt && !opt.hidden ? opt.theme : c.theme || (this.thrones?.has(key) ? 'throne' : null);
+    return theme ? this.structFor(row, col, theme, grey && !opt, c.trail) : this.landFor(row, col, grey, c.trail);
+  }
+  // What rises above a picture's ground (a tower, a roof, a tree): which of its pixels above the ground are solid, and
+  // the box round them; or null if nothing rises more than a little. Worked out once for each picture.
+  rising(img) {
+    let r = this.risen.get(img);
+    if (r !== undefined) return r;
+    r = null;
+    try {
+      const w = img.width, h = Math.min(img.height, HEAD), d = img.getContext('2d').getImageData(0, 0, w, h).data;
+      let x0 = w, x1 = -1, y0 = h;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 40) { if (y < y0) y0 = y; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+      if (x1 >= 0 && y0 < HEAD - 10) r = { x0, x1, y0, w, h, d };
+    } catch { /* a picture we can't read just never fades */ }
+    this.risen.set(img, r);
+    return r;
+  }
+  // Whether a tile's picture, drawn at (x0, y0), stands in front of the heir or a way ahead (nearer: a lower row) and
+  // hides a real part of it: a fifth or more of its box.
+  hides(row, img, x0, y0) {
+    const r = this.keep?.length && this.rising(img);
+    if (!r) return false;
+    for (const k of this.keep) {
+      if (k.row <= row) continue;
+      const L = Math.max(k.L, x0 + r.x0), R = Math.min(k.R, x0 + r.x1 + 1), T = Math.max(k.T, y0 + r.y0), B = Math.min(k.B, y0 + r.h);
+      if (L >= R || T >= B) continue;
+      let n = 0;
+      for (let y = T; y < B; y++) for (let x = L; x < R; x++) if (r.d[((y - y0) * r.w + (x - x0)) * 4 + 3] > 40) n++;
+      if (n >= (k.R - k.L) * (k.B - k.T) * .2) return true;
+    }
+    return false;
+  }
+
   /* ---------- sprites ---------- */
   sprite(key, make) { let s = this.cache.get(key); if (!s) { s = make(); this.cache.set(key, s); } return s; }
   landFor(row, col, grey, trail) {
@@ -249,6 +287,15 @@ export class View {
       return (grey ? p.fogged() : p).canvas();
     });
   }
+  structLayersFor(row, col, theme, trail) {
+    const c = this.world.at(row, col);
+    const tk = trail ? `${trail.in}${trail.out}` : '';
+    const arms = this.house?.names?.arms;
+    return this.sprite(`L${theme},${c.biome},${c.h},${tk}`, () => {
+      const { base, top } = structureLayers(theme, { biome: c.biome, h: c.h, path: trail, arms: arms && { field: tinct(arms.field), tincture: tinct(arms.tincture) } });
+      return { base: base.canvas(), top: top.canvas() };
+    });
+  }
   fogFor(row, col) { const k = Math.floor(hash2(row, col, 3) * 4); return this.sprite('f' + k, () => fogSprite(k).canvas()); }
   heroSprite(look, pose, frame, flip) {
     const key = `h${JSON.stringify(look)}${pose}${frame}${flip}`;
@@ -257,7 +304,7 @@ export class View {
 
   /* ---------- a frame ---------- */
   frame(dt) {
-    this.t += dt;
+    this.t += dt; this.dt = dt;
     const b = this.b, t = this.t;
     if (this.shakeT > 0) this.shakeT = Math.max(0, this.shakeT - dt * 1.6);
     if (this.flashT > 0) this.flashT -= dt;
@@ -289,6 +336,12 @@ export class View {
     // tiles, back to front
     if (!this.world) { this.blit(); return; }
     const gxy0 = Math.floor((oy - 40) / 12) - 2, gxy1 = Math.ceil((oy + this.bh + HEAD) / 12) + 2;
+    // what nothing may hide, as boxes on the screen: the heir (and where they're walking to), and each way ahead's arrow
+    // and the top of its picture
+    this.keep = [];
+    const keep = (row, col, hw, up, down) => { const w = worldOf(row, col), x = w.x - ox, y = w.y - oy; this.keep.push({ row, L: x - hw, R: x + hw, T: y - up, B: y + down }); };
+    if (h) { keep(h.row, h.col, 8, 12, 12); if (h.walk) keep(h.walk.target.row, h.walk.target.col, 8, 12, 12); }
+    if (this.opts) for (const o of Object.values(this.opts)) keep(o.row, o.col, 12, 36, 8);
     const heroSum = h ? Math.round((gridOf(h.row, h.col).gx + gridOf(h.row, h.col).gy)) : -1;
     const walkSum = h?.walk ? Math.min(gridOf(h.walk.target.row, h.walk.target.col).gx + gridOf(h.walk.target.row, h.walk.target.col).gy, heroSum) : heroSum;
     for (let s = Math.max(D, gxy0); s <= Math.min(2 * D, gxy1); s++) {
@@ -349,6 +402,13 @@ export class View {
     const opt = this.opts && Object.values(this.opts).find(o => o.row === row && o.col === col);
     let vis = c.vis;
     if (opt && !opt.hidden) vis = SHOWN;
+    // anything tall here that stands in front of the heir or a way ahead steps back (fades), so you can see past it
+    let see = 1;
+    if (vis !== HIDDEN && !(opt && !opt.hidden) && this.cells.has(key)) {
+      const want = this.hides(row, this.imageOf(row, col, c, key, vis, opt), x0, y0) ? 1 : 0;
+      c.see = (c.see || 0) + (want - (c.see || 0)) * Math.min(1, (this.dt || .016) * 6);
+      see = 1 - .7 * c.see;
+    }
     const draw = (v, alpha, dy = 0) => {
       if (alpha <= 0) return;
       b.globalAlpha = alpha;
@@ -360,10 +420,9 @@ export class View {
         b.drawImage(this.fogFor(row, col), x0, y0);
       } else {
         const grey = v === SEEN;
-        const theme = opt && !opt.hidden ? opt.theme : c.theme || (this.thrones?.has(key) ? 'throne' : null);
-        const img = theme ? this.structFor(row, col, theme, grey && !opt, c.trail) : this.landFor(row, col, grey, c.trail);
-        b.drawImage(img, x0, y0 + dy);
-        if (grey && !opt) { b.globalAlpha = alpha * .28; b.drawImage(this.fogFor(row, col), x0, y0); }
+        b.globalAlpha = alpha * see;
+        b.drawImage(this.imageOf(row, col, c, key, v, opt), x0, y0 + dy);
+        if (grey && !opt) { b.globalAlpha = alpha * see * .28; b.drawImage(this.fogFor(row, col), x0, y0); }
       }
       b.globalAlpha = 1;
     };
@@ -377,19 +436,26 @@ export class View {
       // a way ahead: rises out of the fog, and glows when you point at it
       const e = ease(opt.t), rise = Math.round((1 - e) * 14 + (e >= 1 ? (Math.sin(t * 2.4 + (opt.dir === 'L' ? 0 : 1.6)) > .3 ? 1 : 0) : 0));
       draw(c.vis, 1 - e);
-      draw(SHOWN, e, rise);
+      // drawn in two layers with its highlight between them: the glow lies on the ground, and whatever rises from the
+      // tile stands in front of the border's back edges (nothing on the tile can come in front of its front edges)
+      const Ly = this.structLayersFor(row, col, opt.theme, c.trail);
+      const put = img => { b.globalAlpha = e; b.drawImage(img, x0, y0 + rise); b.globalAlpha = 1; };
+      const hot = !opt.locked && this.hover === opt.dir;
+      const edge = opt.locked ? .5 * e : (hot ? 1 : .7 + .3 * Math.sin(t * 3)) * e, colr = opt.locked ? '#8a8494' : hot ? '#fff2b0' : '#f2c24c';
+      put(Ly.base);
+      if (!opt.locked) this.wash(x0, y0 + rise, row, col, (hot ? .22 : .1 + .06 * Math.sin(t * 3)) * e);
+      this.outline(x0, y0 + rise, row, col, edge, colr, 'back');
+      put(Ly.top);
+      this.outline(x0, y0 + rise, row, col, edge, colr, 'front');
       if (e > .5) this.drawFx(row, col, { ...c, theme: opt.theme }, x0, y0 + rise, t, e);
-      if (opt.locked) { this.outline(x0, y0 + rise, row, col, .5 * e, '#8a8494'); this.marker(x0, y0 + rise, row, col, 0, e * .8, false, true); return; }
-      const hot = this.hover === opt.dir;
-      this.wash(x0, y0 + rise, row, col, (hot ? .22 : .1 + .06 * Math.sin(t * 3)) * e);
-      this.outline(x0, y0 + rise, row, col, (hot ? 1 : .7 + .3 * Math.sin(t * 3)) * e, hot ? '#fff2b0' : '#f2c24c');
-      this.marker(x0, y0 + rise, row, col, t + (opt.dir === 'L' ? 0 : .7), e, hot);
+      if (opt.locked) this.marker(x0, y0 + rise, row, col, 0, e * .8, false, true);
+      else this.marker(x0, y0 + rise, row, col, t + (opt.dir === 'L' ? 0 : .7), e, hot);
       return;
     }
     if (opt && opt.hidden) { draw(HIDDEN, 1); this.outline(x0, y0, row, col, .3 + .2 * Math.sin(t * 3), '#b8a0ff'); return; }
     if (c.fade < 1) { draw(c.from, 1 - c.fade); draw(vis, c.fade); }
     else draw(vis, 1);
-    if (vis === SHOWN) this.drawFx(row, col, this.fxCell(c, key), x0, y0, t, 1);
+    if (vis === SHOWN) this.drawFx(row, col, this.fxCell(c, key), x0, y0, t, see);
     const grave = this.graves?.get(key);
     if (grave && vis >= SEEN) this.drawGrave(x0, y0, row, col, vis === SEEN);
   }
@@ -424,19 +490,21 @@ export class View {
     b.globalAlpha = 1;
   }
   // A glowing edge round a tile's top: a way you could go.
-  outline(x0, y0, row, col, a, colr) {
+  // part: 'back' (the two edges up to the top corner), 'front' (the two down to the bottom corner), or both
+  outline(x0, y0, row, col, a, colr, part = 'all') {
     const b = this.b, c = this.world.at(row, col), y = y0 + HEAD - (c?.h || 0) * EL;
+    const back = part !== 'front', front = part !== 'back';
     b.globalAlpha = clamp(a, 0, 1); b.fillStyle = colr;
     for (let i = 0; i < 24; i += 1) {
       const dy = Math.floor(i / 2);
-      b.fillRect(x0 + 23 - i, y + dy, 1, 1); b.fillRect(x0 + 24 + i, y + dy, 1, 1);
-      b.fillRect(x0 + 23 - i, y + 23 - dy, 1, 1); b.fillRect(x0 + 24 + i, y + 23 - dy, 1, 1);
+      if (back) { b.fillRect(x0 + 23 - i, y + dy, 1, 1); b.fillRect(x0 + 24 + i, y + dy, 1, 1); }
+      if (front) { b.fillRect(x0 + 23 - i, y + 23 - dy, 1, 1); b.fillRect(x0 + 24 + i, y + 23 - dy, 1, 1); }
     }
     b.globalAlpha = clamp(a, 0, 1) * .35;
     for (let i = 0; i < 23; i += 1) {
       const dy = Math.floor(i / 2);
-      b.fillRect(x0 + 22 - i, y + dy + 1, 1, 1); b.fillRect(x0 + 25 + i, y + dy + 1, 1, 1);
-      b.fillRect(x0 + 22 - i, y + 22 - dy, 1, 1); b.fillRect(x0 + 25 + i, y + 22 - dy, 1, 1);
+      if (back) { b.fillRect(x0 + 22 - i, y + dy + 1, 1, 1); b.fillRect(x0 + 25 + i, y + dy + 1, 1, 1); }
+      if (front) { b.fillRect(x0 + 22 - i, y + 22 - dy, 1, 1); b.fillRect(x0 + 25 + i, y + 22 - dy, 1, 1); }
     }
     b.globalAlpha = 1;
   }

@@ -26,8 +26,11 @@ export function kingdomOf(throne) {
   return { gx: t.gx, gy: t.gy, has: (gx, gy) => gx >= t.gx && gy >= t.gy, hasCell: (row, col) => { const g = gridOf(row, col); return inside(row, col) && g.gx >= t.gx && g.gy >= t.gy; } };
 }
 
-// Where each region sits: seeds placed through the middle of the country, each claiming the tiles nearest to it.
-const SEEDS = [[3, -2, 'low'], [3, 2, 'low'], [6, -5, 'mid'], [6, 0, 'mid'], [6, 5, 'mid'], [9, -7, 'high'], [9, -2, 'high'], [9, 3, 'high'], [9, 8, 'high'], [11, -10, 'high'], [11, 10, 'high']];
+// Where each region sits: seeds placed through the middle of the country, each claiming the tiles nearest to it (laid
+// out for a 12-step road, and stretched to the road's length).
+const K = JOURNEY / 12;
+const SEEDS = [[3, -2, 'low'], [3, 2, 'low'], [6, -5, 'mid'], [6, 0, 'mid'], [6, 5, 'mid'], [9, -7, 'high'], [9, -2, 'high'], [9, 3, 'high'], [9, 8, 'high'], [11, -10, 'high'], [11, 10, 'high']]
+  .map(([row, col, band]) => [row * K, col * K, band]);
 const POOLS = { low: ['farm', 'wood', 'lake', 'fen', 'farm'], mid: ['wood', 'fen', 'hills', 'moor', 'lake', 'farm'], high: ['hills', 'moor', 'waste', 'snow', 'wood', 'fen', 'snow', 'waste'] };
 
 export function makeWorld(seed) {

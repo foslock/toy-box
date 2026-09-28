@@ -1,4 +1,4 @@
-// Kingdom: the bid for the crown. Five choices after the twelfth step, different for each state of the realm, each
+// Kingdom: the bid for the crown. Five choices after the sixteenth step, different for each state of the realm, each
 // stage drawn from a few variants. Your standing is your claim to the throne: it starts from your renown, your name
 // and what you carry, rises and falls with each choice, and if it ever falls to nothing the crown is lost. The fifth
 // choice decides it.

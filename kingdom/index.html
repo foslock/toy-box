@@ -76,6 +76,10 @@
   .bag button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 2px solid var(--edge); background: var(--leather); cursor: pointer; position: relative; }
   .bag button.blessing { border-color: var(--gold); } .bag button.curse { border-color: #9a6ad8; background: rgba(50, 26, 70, .9); } .bag button.mixed { border-color: #c87a3a; }
   .bag button.ally { border-color: #5a8a5a; } .bag button.used { opacity: .4; }
+  /* marks on the house: a double frame, in the colour of their kind */
+  .bag button.mark { border: 3px double; }
+  .bag button.mark.feud { border-color: #d8483a; background: rgba(72, 20, 22, .92); } .bag button.mark.curse { border-color: #9a6ad8; background: rgba(50, 26, 70, .92); }
+  .bag button.mark.boon { border-color: var(--gold-hi); } .bag button.mark.oath { border-color: #e06a5a; } .bag button.mark.quest { border-color: #c8a060; }
   .bag button.new { animation: shine 1.4s 2; }
   .bag button .n { position: absolute; right: -3px; bottom: -4px; font: 400 9px/1 Digits, Silkscreen, monospace; background: #120d10; padding: 1px 2px; color: var(--light-2); }
   @keyframes shine { 50% { box-shadow: 0 0 0 3px rgba(242, 194, 76, .6); } }
@@ -83,6 +87,7 @@
   .tip b { display: block; font: 400 12px/1.2 Digits, Silkscreen, monospace; margin-bottom: 3px; color: var(--gold-hi); }
   .tip i { display: block; font-style: normal; font-size: 12px; color: var(--light-3); margin-bottom: 3px; }
   .tip small { display: block; margin-top: 6px; font-size: 12px; color: var(--light-3); }
+  .tip p { margin: 5px 0 0; }
   .tip.act { pointer-events: auto; } .tip .btn { display: flex; box-sizing: border-box; width: 100%; margin: 9px 0 1px; }
 
   /* labels over the ways ahead */
@@ -100,6 +105,17 @@
   #panel { position: fixed; z-index: 10; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(760px, calc(100% - 20px)); box-sizing: border-box;
     padding: 16px 22px 18px; max-height: 58vh; overflow-y: auto; scrollbar-width: thin; transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .3s; }
   #panel.away { transform: translate(-50%, 120%); opacity: 0; pointer-events: none; }
+  /* an event that an earlier choice brought about: whose, at a glance, and a tap for which */
+  .kicker .echo { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 1px 6px 1px 3px; border: 1px solid var(--ink-3); background: #f7eed4;
+    color: var(--ink-2); font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+  .kicker .echo .ico { width: 13px !important; height: 13px !important; }
+  @media (hover: hover) and (pointer: fine) { .kicker .echo:hover { border-color: var(--red); color: var(--red); } }
+  /* what a house carries, on the heir card and in the Tome */
+  .marks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; }
+  .marks li { padding: 6px 9px 7px; border: 2px solid var(--ink); background: var(--parch-2); }
+  .marks li.feud { border-color: #8a2a2a; } .marks li.curse { border-color: #5a3a8a; } .marks li.boon { border-color: #b8862a; } .marks li.oath { border-color: #a83a2a; } .marks li.quest { border-color: #8a6a3a; }
+  .marks li span { display: inline-flex; align-items: center; gap: 6px; }
+  .marks small { display: block; margin-top: 3px; color: var(--ink-2); font-size: 14px; line-height: 1.35; }
   .kicker { margin: 0 0 2px; font: 400 11px/1.3 Digits, Silkscreen, monospace; letter-spacing: .06em; color: var(--ink-3); text-transform: uppercase; display: flex; gap: 10px; flex-wrap: wrap; }
   .kicker .realm { color: var(--red); }
   #panel h2 { margin: 0 0 6px; font: 400 36px/1 'Jacquard 12', serif; color: var(--ink); }
@@ -150,6 +166,30 @@
   .side .pow { display: inline-flex; align-items: center; gap: 5px; font: 400 16px/1 Digits, Silkscreen, monospace; }
   .side canvas.fig { image-rendering: pixelated; height: 84px; width: auto; }
   .vs { font: 400 30px/1 'Jacquard 12', serif; color: var(--red); }
+  /* a fight's sums: each side's power and what adds to it, two dice and the total, lit up a term at a time once the
+     dice fall; then the higher total grows and the lower fades */
+  .sums { display: grid; gap: 8px; margin: 0 0 12px; }
+  .sum { display: grid; gap: 4px; padding: 5px 8px 7px; border: 2px solid transparent; background: rgba(90, 60, 30, .07); transition: background .3s, border-color .3s, opacity .3s; }
+  .sum .whose { font: 400 10px/1.2 Digits, Silkscreen, monospace; color: var(--ink-3); text-transform: uppercase; }
+  .sum .terms { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; }
+  .sum .term { display: inline-flex; align-items: center; gap: 3px; padding: 1px 3px; border: 1px solid transparent; font: 400 17px/1 Digits, Silkscreen, monospace; transition: background .2s; }
+  .sum .term .ico { width: 16px !important; height: 16px !important; }
+  .sum .term.lit { background: #fff1c4; border-color: var(--gold); animation: termIn .28s ease-out; }
+  .sum .die-t { padding: 0; } .sum .die-t.lit { background: none; border-color: transparent; }
+  .sum .die-t.lit .die { box-shadow: 0 0 0 2px var(--gold), 0 2px 0 rgba(0, 0, 0, .3); }
+  .sum .op { font: 400 16px/1 Digits, Silkscreen, monospace; font-style: normal; color: var(--ink-3); }
+  .sum .total { min-width: 2ch; padding: 2px 6px; font: 400 22px/1 Digits, Silkscreen, monospace; text-align: center; color: var(--ink); background: #fff8e8; border: 2px solid var(--ink); transition: transform .35s cubic-bezier(.2, 1.6, .4, 1), color .3s, background .3s; }
+  .sum .total.bump { animation: bump .18s; }
+  .sum .named { font-size: 12px; color: var(--ink-2); }
+  .sum .die { width: 26px; height: 26px; padding: 3px; } .sum .die i { width: 4px; height: 4px; }
+  .sum.win { background: rgba(242, 194, 76, .28); border-color: var(--gold); }
+  .sum.win .total { transform: scale(1.45); background: var(--gold-hi); color: #3a2208; box-shadow: 0 0 0 3px rgba(242, 194, 76, .45); }
+  .sum.lose { opacity: .55; } .sum.lose .total { text-decoration: line-through; }
+  @keyframes termIn { from { transform: translateY(-5px) scale(1.25); } }
+  .side.victor canvas.fig { animation: victor .7s cubic-bezier(.2, 1.4, .4, 1) both; filter: drop-shadow(0 0 5px rgba(242, 194, 76, .95)); }
+  .side.fallen canvas.fig { transition: filter .5s, transform .5s; filter: grayscale(1) opacity(.55); transform: rotate(-9deg) translateY(6px); }
+  .side.victor .nm { color: #7a4a08; }
+  @keyframes victor { 0% { transform: none; } 40% { transform: translateY(-12px) scale(1.15); } 100% { transform: translateY(-4px) scale(1.08); } }
   .dice { display: flex; gap: 6px; align-items: center; min-height: 34px; }
   .die { width: 30px; height: 30px; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 4px; box-sizing: border-box; background: #fff8e8; border: 2px solid var(--ink); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
   .die.foe { background: #3a2a2a; border-color: #1a1010; } .die.foe i { background: #f3e9d2; }
@@ -158,8 +198,11 @@
   .die.roll { animation: roll .12s infinite; }
   @keyframes roll { 50% { transform: rotate(12deg) translateY(-2px); } }
   .total { font: 400 20px/1 Digits, Silkscreen, monospace; min-width: 2.5ch; text-align: center; }
-  .verdict { text-align: center; margin: 0 0 10px; font: 400 34px/1 'Jacquard 12', serif; }
-  .verdict.won { color: var(--good); } .verdict.lost { color: var(--bad); }
+  .verdict { text-align: center; margin: 2px 0 12px; animation: verdictIn .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .verdict b { display: block; font: 400 38px/1 'Jacquard 12', serif; }
+  .verdict small { display: block; margin-top: 4px; font: 400 14px/1.3 Digits, Silkscreen, monospace; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+  .verdict.won b { color: var(--good); } .verdict.lost b { color: var(--bad); }
+  @keyframes verdictIn { from { opacity: 0; transform: scale(1.6); } }
   .odds { font-size: 13px; color: var(--ink-3); text-align: center; margin: -4px 0 10px; }
 
   /* a shop */
@@ -269,6 +312,7 @@
   .menu p, .menu li { color: var(--light-2); font-size: 14.5px; line-height: 1.45; }
   .menu ul { padding-left: 18px; margin: 6px 0; }
   .menu .btn { width: 100%; margin-bottom: 8px; }
+  .menu header .btn.icon { width: 40px; height: 40px; flex: none; margin: 0; }   /* the close button: a square, top right */
   .setting { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--edge-2); }
   .setting p { margin: 0; color: var(--light); }
   .switch { position: relative; width: 44px; height: 24px; flex: none; border: 2px solid var(--edge); background: #1a130e; cursor: pointer; padding: 0; }
@@ -299,11 +343,15 @@
   .opening.on .bar { transform: none; }
   .opening .veil { position: absolute; inset: 0; background: #07050a; opacity: 0; transition: opacity 1.6s ease; }
   .opening .veil.dark { opacity: 1; transition-duration: .3s; }
-  .opening .caption { position: absolute; left: 50%; bottom: calc(11vh + 26px); width: min(660px, calc(100% - 40px)); margin: 0; transform: translate(-50%, 8px); text-align: center;
-    font: 400 21px/1.45 Digits, 'Pixelify Sans', sans-serif; color: #f6ecd6; text-shadow: 0 2px 0 #000, 0 0 18px rgba(0, 0, 0, .85); opacity: 0; transition: opacity .5s ease, transform .5s ease; }
+  /* the intro's words: large enough to read across a room, on a soft pool of dark that follows them, so the map behind
+     never fights them */
+  .opening .caption { position: absolute; left: 50%; bottom: calc(11vh + 20px); width: min(900px, calc(100% - 32px)); margin: 0; padding: 22px 48px; box-sizing: border-box;
+    transform: translate(-50%, 8px); text-align: center; font: 400 clamp(21px, 1.4vw + 10px, 34px)/1.42 Digits, 'Pixelify Sans', sans-serif; color: #fbf3e0;
+    background: radial-gradient(ellipse closest-side at 50% 50%, rgba(7, 5, 10, .82), rgba(7, 5, 10, .6) 55%, rgba(7, 5, 10, 0));
+    text-shadow: 0 2px 0 #000, 0 0 3px #000, 0 0 14px rgba(0, 0, 0, .95), 0 0 30px rgba(0, 0, 0, .75); opacity: 0; transition: opacity .5s ease, transform .5s ease; }
   .opening .caption.on { opacity: 1; transform: translate(-50%, 0); }
   .opening .caption b { color: #ffe39a; font-weight: 600; }
-  .opening .caption.big { bottom: 44vh; font: 400 min(9vw, 54px)/1.1 'Jacquard 12', serif; }
+  .opening .caption.big { bottom: 44vh; font: 400 clamp(38px, 4.2vw + 12px, 76px)/1.1 'Jacquard 12', serif; }
   .opening .caption.big b { color: #fff4dc; }
   .opening .title-slam { position: absolute; left: 0; right: 0; top: 30vh; text-align: center; }
   .opening .title-slam h1 { margin: 0; font: 400 min(22vw, 132px)/.8 'Jacquard 12', serif; color: #fff1d6; text-shadow: 0 4px 0 #000, 0 0 40px rgba(0, 0, 0, .8); animation: crownIn 1s cubic-bezier(.2, 1.4, .3, 1) both; }
@@ -328,7 +376,7 @@
   .guide-bubble .btn { min-height: 34px; }
 
   @media (max-width: 720px) {
-    .opening .caption { font-size: 17px; bottom: calc(11vh + 16px); }
+    .opening .caption { font-size: 18px; bottom: calc(11vh + 10px); padding: 16px 18px; }
     .guide-bubble p.say { font-size: 15px; }
     .name h1 { font-size: 28px; line-height: 28px; }
     .name p { font-size: 12px; }
@@ -418,7 +466,7 @@
     <li><b>Renown</b>: fame. It counts when you reach for the crown.</li>
     <li><b>Foresight</b>: spend one to see how each way bodes.</li>
   </ul>
-  <p>Relics last this life. Blessings and curses last it too, unless lifted. After twelve steps you're in line for the throne, and five more choices decide whether you win the crown. Win it, and four more carry you through the royal city in procession. They decide what kind of ruler you'll be, and wherever the last one leads, that tile becomes your throne room.</p>
+  <p>Relics last this life. Blessings and curses last it too, unless lifted. After sixteen steps you're in line for the throne, and five more choices decide whether you win the crown. Win it, and four more carry you through the royal city in procession. They decide what kind of ruler you'll be, and wherever the last one leads, that tile becomes your throne room.</p>
   <p>When a life ends, your child takes up the road. What you leave buys Bloodline powers that every generation after keeps. Everything is kept in this browser, and This house, below, can take it to another.</p>
   <h3>This house</h3>
   <p id="houseNote"></p>

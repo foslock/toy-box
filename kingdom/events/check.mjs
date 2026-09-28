@@ -6,7 +6,7 @@
 import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import { TILES, FOES, RELICS, TRAITS, ALLIES, ITEMS, BIOMES, REALMS, VIRTUES } from '../rules.js';
+import { TILES, FOES, RELICS, TRAITS, ALLIES, ITEMS, BIOMES, REALMS, VIRTUES, MARKS } from '../rules.js';
 import { optionWorth, TYPICAL } from '../worth.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -14,14 +14,14 @@ const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const QUIET = process.argv.includes('--quiet');
 const files = args.length ? args.map(a => resolve(a)) : readdirSync(here).filter(f => f.endsWith('.js') && f !== 'index.js').map(f => join(here, f));
 
-const OUT_KEYS = new Set(['w', 'text', 'gold', 'pay', 'food', 'hp', 'maxhp', 'renown', 'claim', 'sight', 'item', 'relic', 'trait', 'lift', 'ally', 'flag', 'unflag', 'fight', 'die', 'crown', 'path', 'virtue', 'treasury', 'heir', 'after']);
+const OUT_KEYS = new Set(['w', 'text', 'gold', 'pay', 'food', 'hp', 'maxhp', 'renown', 'claim', 'sight', 'item', 'relic', 'trait', 'lift', 'ally', 'flag', 'unflag', 'fight', 'die', 'crown', 'path', 'virtue', 'treasury', 'heir', 'after', 'mark', 'unmark']);
 const OPT_KEYS = new Set(['label', 'tile', 'cost', 'poor', 'fight', 'shop', 'out', 'odds', 'win', 'lose', 'path', 'needs']);
-const EVENT_KEYS = new Set(['id', 'tier', 'realm', 'biome', 'needs', 'unless', 'hasTrait', 'w', 'title', 'text', 'left', 'right', 'stage', 'path', 'final']);
+const EVENT_KEYS = new Set(['id', 'tier', 'realm', 'biome', 'needs', 'unless', 'hasTrait', 'needsMark', 'unlessMark', 'w', 'title', 'text', 'left', 'right', 'stage', 'path', 'final']);
 const SHOPS = new Set(['market', 'smith', 'temple', 'witch', 'fence']);
 const LIMIT = { title: 34, text: 280, label: 32, out: 220 };
 
 let problems = 0, total = 0;
-const seen = new Map(), flagsSet = new Map(), flagsNeeded = new Map();
+const seen = new Map(), flagsSet = new Map(), flagsNeeded = new Map(), marksMade = new Map(), marksNeeded = new Map();
 const tierCount = { 1: 0, 2: 0, 3: 0 };
 const say = s => console.log(s);
 
@@ -38,6 +38,8 @@ function checkOutcome(o, where, err) {
   if (o.lift && o.lift !== true && !TRAITS[o.lift]) err(`${where}: lift should be true or a trait id`);
   if (o.ally && !ALLIES[o.ally]) err(`${where}: unknown ally "${o.ally}"`);
   if (o.flag) { if (!flagsSet.has(o.flag)) flagsSet.set(o.flag, where); }
+  for (const k of ['mark', 'unmark']) if (o[k] != null && !MARKS[o[k]]) err(`${where}: unknown ${k} "${o[k]}"`);
+  if (o.mark && !marksMade.has(o.mark)) marksMade.set(o.mark, where);
   if (o.fight) checkFight(o.fight, where + '.fight', err);
   for (const v of [].concat(o.virtue ?? [])) if (!VIRTUES[v]) err(`${where}: unknown virtue "${v}"`);
   if (o.treasury != null && !Number.isInteger(o.treasury)) err(`${where}: treasury should be a whole number`);
@@ -99,6 +101,8 @@ for (const file of files) {
     for (const b of [].concat(ev.biome ?? [])) if (!BIOMES.includes(b)) err(`unknown biome "${b}"`);
     if (ev.needs) flagsNeeded.set(ev.needs, id);
     if (ev.hasTrait && !TRAITS[ev.hasTrait]) err(`unknown trait "${ev.hasTrait}" in hasTrait`);
+    for (const k of ['needsMark', 'unlessMark']) if (ev[k] != null && !MARKS[ev[k]]) err(`unknown mark "${ev[k]}" in ${k}`);
+    if (ev.needsMark) marksNeeded.set(ev.needsMark, id);
     if (typeof ev.title !== 'string' || !ev.title) err('no title'); else if (ev.title.length > LIMIT.title) err(`title is ${ev.title.length} chars (max ${LIMIT.title})`);
     if (typeof ev.text !== 'string' || !ev.text) err('no text'); else if (ev.text.length > LIMIT.text) err(`text is ${ev.text.length} chars (max ${LIMIT.text})`);
     checkOption(ev.left, 'left', err, succession); checkOption(ev.right, 'right', err, succession);
@@ -120,5 +124,7 @@ for (const file of files) {
   }
 }
 for (const [flag, id] of flagsNeeded) if (!flagsSet.has(flag)) { problems++; say(`  ✗ ${id} needs flag "${flag}", which nothing sets`); }
+// (a mark can also come from a file not being checked, so only a full run can say one is never made)
+if (!args.length) for (const [m, id] of marksNeeded) if (!marksMade.has(m)) { problems++; say(`  ✗ ${id} needs mark "${m}", which nothing makes`); }
 say(`\n${total} events, ${problems} problem${problems === 1 ? '' : 's'}. By tier: ${Object.entries(tierCount).map(([t, n]) => `${t}: ${Math.round(n)}`).join(', ')}`);
 process.exitCode = problems ? 1 : 0;

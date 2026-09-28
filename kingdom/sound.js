@@ -89,6 +89,8 @@ export class Sound {
   food() { for (let i = 0; i < 3; i++) this.noise({ at: i * .11, f: 1400 + Math.random() * 800, q: 3, dur: .06, gain: .12 }); }
   dice(dur = 1) { for (let t = 0; t < dur; t += .05 + Math.random() * .05) this.noise({ at: t, f: 2500 + Math.random() * 2500, q: 6, dur: .03, gain: .12 * (1 - t / dur * .5) }); this.noise({ at: dur, f: 1800, q: 4, dur: .06, gain: .2 }); }
   clash() { this.noise({ f: 4200, q: 3, dur: .35, gain: .4, wet: .4 }); this.tone(1870, { dur: .6, gain: .07, wet: .5 }); this.tone(2630, { dur: .5, gain: .05, wet: .5 }); this.noise({ type: 'lowpass', f: 500, dur: .15, gain: .3 }); }
+  // a sum adding up in a fight: a blip a step higher for every term (lower for the foe's)
+  tally(i = 0, foe = false) { this.tone(HZ((foe ? 55 : 67) + [0, 2, 4, 5, 7, 9, 11, 12][Math.min(7, i)]), { dur: .07, gain: .06, type: 'square', lp: 2200 }); }
   win() { [[60, 0], [64, .12], [67, .24], [72, .36]].forEach(([n, a]) => this.brass(HZ(n), a, n === 72 ? .6 : .14, .07)); }
   lose() { [[57, 0], [55, .22], [52, .44]].forEach(([n, a]) => this.tone(HZ(n), { at: a, dur: .5, gain: .1, type: 'triangle', lp: 1200, wet: .4 })); }
   relic() { [76, 79, 83, 88, 91].forEach((n, i) => this.bell(HZ(n), { at: i * .08, gain: .05, dur: 1.4 })); }

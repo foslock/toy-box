@@ -2,10 +2,14 @@
 // seeded dice, so the page (main.js) and the headless balance runs (balance.mjs) play exactly the same game. The page
 // asks it for the event in front of you, tells it which way you went, and animates what comes back.
 //
-// A life has three parts: the journey (12 choices), the bid for the crown (5, from the summons), and, if the crown is
+// A life has three parts: the journey (16 choices), the bid for the crown (5, from the summons), and, if the crown is
 // won, the procession through the royal city (4), where nothing can kill you any more and the choices decide what kind
 // of ruler you are. The tile the procession's last choice leads to becomes the throne room.
-import { JOURNEY, CROWN_ROW, ROWS, tierOf, START, ITEMS, RELICS, RELIC_TIERS, isCurse, FOES, REALMS, REAPER_STEPS, MAX_SIGHT, itemPrice, LOOT, legacyGold, legacyFood, legacyHp, legacyRenown, legacyClaim } from './rules.js';
+//
+// A life also carries what its house carries (marks: feuds, curses, boons, oaths, unfinished business), and can leave
+// new ones for the lives after it, and remembers where everything that shapes its road came from (causes), so the page
+// can tell you which earlier choice, yours or an ancestor's, brought a choice about.
+import { JOURNEY, CROWN_ROW, ROWS, tierOf, START, ITEMS, RELICS, RELIC_TIERS, isCurse, FOES, REALMS, REAPER_STEPS, MAX_SIGHT, itemPrice, LOOT, legacyGold, legacyFood, legacyHp, legacyRenown, legacyClaim, MARKS, SEEN_WEIGHT, TRAITS } from './rules.js';
 import { JOURNEY_EVENTS, SUCCESSION_EVENTS, PROCESSION_EVENTS, EVENT_BY_ID } from './events/index.js';
 import { rng } from './util.js';
 import { optionWorth, outcomeWorth, winChance, priceFor, oddsFor } from './worth.js';
@@ -15,7 +19,8 @@ const roll = r => r.int(1, 6);
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const SAVED = ['seed', 'gen', 'heir', 'realm', 'names', 'legacy', 'row', 'col', 'step', 'phase', 'hp', 'maxHp', 'food', 'gold', 'weapon', 'armor',
   'renown', 'claim', 'claimBonus', 'sight', 'relics', 'traits', 'allies', 'flags', 'used', 'path', 'pair', 'reaper', 'egg', 'ward', 'sp', 'log',
-  'fate', 'stats', 'cur', 'shop', 'snap', 'startClaim', 'earned', 'virtues', 'treasury', 'gifts', 'afterRealm'];
+  'fate', 'stats', 'cur', 'shop', 'snap', 'startClaim', 'earned', 'virtues', 'treasury', 'gifts', 'afterRealm',
+  'marks', 'inherited', 'marksMade', 'marksEnded', 'flagFrom', 'spFrom', 'seen'];
 
 export class Life {
   // o: { seed, gen, heir, realm: { type, ruler, rival, warlords }, names: { kingdom, capital, house }, legacy: { id: level },
@@ -25,8 +30,9 @@ export class Life {
     if (saved) {
       for (const k of SAVED) if (k in saved) this[k] = saved[k];
       this.rand = rng(1); this.rand.state(saved.rs);
-      // lives saved before the procession existed
+      // lives saved before the procession existed, or before houses had marks
       this.earned ??= false; this.virtues ??= {}; this.treasury ??= 0; this.gifts ??= { allies: [], renown: 0, gold: 0 }; this.afterRealm ??= {};
+      this.marks ??= []; this.inherited ??= []; this.marksMade ??= []; this.marksEnded ??= []; this.flagFrom ??= {}; this.spFrom ??= null; this.seen ??= {};
       return;
     }
     this.rand = rng(o.seed || 1);
@@ -42,12 +48,20 @@ export class Life {
     this.relics = []; this.traits = []; this.allies = []; this.flags = []; this.used = []; this.path = []; this.log = [];
     this.pair = null; this.reaper = null; this.egg = null; this.ward = L('ward') > 0; this.sp = null;
     this.fate = null; this.cur = null; this.shop = null; this.snap = null;
+    // what the house carries (each with who made it and how), what this life adds to it or ends, where this life's
+    // flags and path came from, and which events the house met in its last few lives (id → how many lives ago)
+    this.inherited = (o.marks || []).filter(m => MARKS[m.id]).map(m => ({ ...m }));
+    this.marks = this.inherited.map(m => m.id);
+    this.marksMade = []; this.marksEnded = []; this.flagFrom = {}; this.spFrom = null;
+    this.seen = { ...(o.seen || {}) };
     this.stats = { fights: 0, won: 0, relics: 0, goldFound: 0, dragon: false, cursed: 0 };
     this.earned = false; this.virtues = {}; this.treasury = 0; this.gifts = { allies: [], renown: 0, gold: 0 }; this.afterRealm = {};
     // what a crowned parent left: allies, renown, gold
     const g = o.gifts;
     if (g) { for (const a of g.allies || []) if (!this.allies.includes(a)) this.allies.push(a); this.renown += g.renown || 0; this.gold += g.gold || 0; }
     if (this.heir?.royal) this.addTrait('royal_blood', []);
+    // born to what the house carries
+    for (const m of this.inherited) this.bornTo(MARKS[m.id].start);
     if (L('hoard')) { const id = this.rand.pick(RELIC_TIERS.common); this.relics.push({ id, used: false }); this.gainRelic(id, []); }
   }
 
@@ -60,18 +74,21 @@ export class Life {
   get warded() { return this.trait('saints_ward') || this.has('aegis'); }
   get cursed() { return this.traits.some(isCurse); }
   get dead() { return !!this.fate; }
-  get power() {
-    let p = START.power + ITEMS[this.weapon].power + ITEMS[this.armor].power;
-    if (this.has('wolf_tooth')) p += 1;
-    if (this.has('dawnblade')) p += 3;
-    if (this.has('kingsblade')) p += 4;
-    if (this.owns('dragon_egg') && this.egg === 0) p += 4;
-    if (this.trait('dragonblood')) p += 2;
-    if (this.trait('knighted')) p += 1;
-    if (this.trait('wolfblood')) p += 3;
-    if (this.trait('toad')) p -= 3;
-    return Math.max(0, p);
+  // What adds to (or takes from) your power besides your arms: relics, blessings and curses, each named (a fight shows
+  // them in its sums).
+  powerMods() {
+    const out = [], m = (on, n, v, ic) => { if (on) out.push({ n, v, ic }); };
+    m(this.has('wolf_tooth'), RELICS.wolf_tooth.name, 1, 'wolf_tooth');
+    m(this.has('dawnblade'), RELICS.dawnblade.name, 3, 'dawnblade');
+    m(this.has('kingsblade'), RELICS.kingsblade.name, 4, 'kingsblade');
+    m(this.owns('dragon_egg') && this.egg === 0, 'Your dragonling', 4, 'dragon_egg');
+    m(this.trait('dragonblood'), TRAITS.dragonblood.name, 2, 'dragonblood');
+    m(this.trait('knighted'), TRAITS.knighted.name, 1, 'knighted');
+    m(this.trait('wolfblood'), TRAITS.wolfblood.name, 3, 'wolfblood');
+    m(this.trait('toad'), TRAITS.toad.name, -3, 'toad');
+    return out;
   }
+  get power() { return Math.max(0, START.power + ITEMS[this.weapon].power + ITEMS[this.armor].power + this.powerMods().reduce((s, x) => s + x.v, 0)); }
   // The shape worth.js and the odds want.
   state() {
     return { hp: this.hp, maxHp: this.maxHp, food: this.food, gold: this.gold, power: this.power, weapon: ITEMS[this.weapon].power,
@@ -107,21 +124,48 @@ export class Life {
       const tier = tierOf(this.row + 1), realm = this.realm.type;
       const bl = this.biomeAt(this.row + 1, this.col - 1), br = this.biomeAt(this.row + 1, this.col + 1);
       const ok = e => !this.used.includes(e.id) && (!e.realm || e.realm === realm) && (!e.needs || this.flags.includes(e.needs)) && (!e.unless || !this.flags.includes(e.unless) && !this.used.includes(e.unless))
-        && (!e.hasTrait || this.trait(e.hasTrait));
+        && (!e.hasTrait || this.trait(e.hasTrait)) && this.marked(e);
       pool = JOURNEY_EVENTS.filter(e => ok(e) && [].concat(e.tier).includes(tier));
       if (!pool.length) pool = JOURNEY_EVENTS.filter(ok);
-      pool = pool.map(e => [e, (e.w ?? 1) * ((e.biome || []).some(b => b === bl || b === br) ? 2.2 : 1) * (e.needs ? 1.5 : 1) * (e.realm ? 1.4 : 1)]);
+      pool = pool.map(e => [e, (e.w ?? 1) * ((e.biome || []).some(b => b === bl || b === br) ? 2.2 : 1) * (e.needs ? 1.5 : 1) * (e.needsMark ? 2 : 1) * (e.realm ? 1.4 : 1) * this.fresh(e)]);
     } else {
       const stage = this.stage(), realm = this.realm.type;
       const list = this.phase === 'procession' ? PROCESSION_EVENTS : SUCCESSION_EVENTS;
       pool = list.filter(e => e.stage === stage && (!e.realm || e.realm === realm) && !this.used.includes(e.id) && (!e.path || e.path === this.sp)
-        && (!e.needs || this.flags.includes(e.needs)) && (!e.unless || !this.flags.includes(e.unless))).map(e => [e, e.w ?? 1]);
+        && (!e.needs || this.flags.includes(e.needs)) && (!e.unless || !this.flags.includes(e.unless)) && this.marked(e)).map(e => [e, (e.w ?? 1) * (e.needsMark ? 2 : 1) * this.fresh(e)]);
     }
     if (!pool.length) throw new Error(`no event for row ${this.row + 1} (${this.phase}, ${this.realm.type}, ${this.sp})`);
     const e = r.weighted(pool);
     this.used.push(e.id);
     this.cur = { id: e.id, hidden: this.trait('veil') ? (r.chance(.5) ? 'L' : 'R') : null, omens: null };
     return this.cur;
+  }
+
+  // Whether the house carries what an event calls for (or doesn't carry what it mustn't).
+  marked(e) { return (!e.needsMark || this.marks.includes(e.needsMark)) && (!e.unlessMark || !this.marks.includes(e.unlessMark)); }
+  // An event the house met in one of its last few lives is much less likely to come up again.
+  fresh(e) { return SEEN_WEIGHT[this.seen[e.id]] ?? 1; }
+
+  // What on the road so far brought the event in front of you about: an earlier choice in this life (a flag it set, the
+  // path it took, the blessing or curse it left), or a choice in an earlier life that left the house a mark. Each is
+  // { kind, title, label, row } for this life, and also { gen, by, sex, epithet } for an ancestor's.
+  causes(ev = this.event) {
+    if (!ev) return [];
+    const out = [];
+    const fromMark = (id, extra) => {
+      const made = this.marksMade.find(m => m.id === id), old = this.inherited.find(m => m.id === id);
+      if (made) out.push({ ...made, ...extra, kind: extra.kind });
+      else if (old) out.push({ ...old, ...extra, kind: extra.kind, ancestor: old.gen !== this.gen });
+    };
+    if (ev.needs && this.flagFrom[ev.needs]) out.push({ ...this.flagFrom[ev.needs], kind: 'flag' });
+    if (ev.path && this.spFrom) out.push({ ...this.spFrom, kind: 'path' });
+    if (ev.needsMark) fromMark(ev.needsMark, { kind: 'mark', mark: ev.needsMark });
+    if (ev.hasTrait) {
+      const got = [...this.log].reverse().find(l => l.fx.some(f => f.k === 'trait' && f.id === ev.hasTrait));
+      if (got) out.push({ kind: 'trait', trait: ev.hasTrait, row: got.row, title: got.title, label: got.label });
+      else { const m = this.inherited.find(m => MARKS[m.id].start?.trait === ev.hasTrait); if (m) fromMark(m.id, { kind: 'trait', trait: ev.hasTrait, mark: m.id }); }
+    }
+    return out;
   }
 
   // A curse that won't let you go one way. { L: reason or null, R: reason or null }
@@ -167,7 +211,7 @@ export class Life {
       else { this.gold -= price; fx.push({ k: 'cost', v: -price }); }
     }
     if (paid) {
-      if (opt.path) this.sp = opt.path;
+      if (opt.path) { this.sp = opt.path; this.spFrom = this.origin(res); }
       if (opt.fight) this.fight(opt.fight, res);
       else if (opt.odds) {
         const p = oddsFor(opt.odds, this.state());
@@ -242,7 +286,8 @@ export class Life {
     const foeP = f.power + (realm.foePower || 0);
     const bonus = (this.has('horseshoe') ? 1 : 0) + (kind === 'undead' && this.has('salt') ? 4 : 0);
     const you = this.power + (kind === 'undead' && this.has('salt') ? 4 : 0);
-    const F = res.fight = { foe: f.foe, name: this.fill(f.name), power: foeP, you, bonus: this.has('horseshoe') ? 1 : 0, rolls: [], won: false, auto: null, elite: !!f.elite };
+    const F = res.fight = { foe: f.foe, name: this.fill(f.name), power: foeP, you, bonus: this.has('horseshoe') ? 1 : 0, rolls: [], won: false, auto: null, elite: !!f.elite,
+      parts: this.fightParts(kind, f.power, realm) };
     this.stats.fights++;
     if (kind === 'beast' && this.trait('beast_tongue')) {
       F.won = true; F.auto = 'beast';
@@ -279,6 +324,21 @@ export class Life {
       if (this.hp <= 0) this.cause = { kind: 'killed', cause: `slain by ${F.name}` };
       this.apply(f.lose, res);
     }
+  }
+
+  // What each side's total is made of, for the page to show the sum: power (your arms, then what relics, blessings and
+  // curses add or take away), and anything that only counts in a fight (a lucky horseshoe, salt against the dead, the
+  // hardness of a realm at war). Each is { n: name, v: value, ic: icon }, and `fight` ones come after the dice. Your
+  // arms are whatever's left of your power, so the parts always add up to what the dice are added to.
+  fightParts(kind, foeBase, realm) {
+    const mods = this.powerMods(), w = ITEMS[this.weapon], a = ITEMS[this.armor];
+    const arms = { n: 'Power', v: this.power - mods.reduce((s, x) => s + x.v, 0), ic: 'power', of: [['your own', START.power], [w.name, w.power], [a.name, a.power]].filter(([, v]) => v) };
+    const you = [arms, ...mods];
+    if (this.has('horseshoe')) you.push({ n: RELICS.horseshoe.name, v: 1, ic: 'horseshoe', fight: true });
+    if (kind === 'undead' && this.has('salt')) you.push({ n: RELICS.salt.name, v: 4, ic: 'salt', fight: true });
+    const foe = [{ n: 'Power', v: foeBase, ic: 'power' }];
+    if (realm.foePower) foe.push({ n: realm.name, v: realm.foePower, ic: 'skull', fight: true });
+    return { you, foe };
   }
 
   // Spoils: a beast is dinner; people and monsters carry coin, and now and then a weapon or armour worth taking.
@@ -338,9 +398,11 @@ export class Life {
       if (this.trait('oathbreaker')) fx.push({ k: 'ally', id: o.ally, refused: true });
       else if (!this.allies.includes(o.ally)) { this.allies.push(o.ally); fx.push({ k: 'ally', id: o.ally }); }
     }
-    if (o.flag && !this.flags.includes(o.flag)) this.flags.push(o.flag);
+    if (o.flag && !this.flags.includes(o.flag)) { this.flags.push(o.flag); this.flagFrom[o.flag] = this.origin(res); }
     if (o.unflag) this.flags = this.flags.filter(f => f !== o.unflag);
-    if (o.path) this.sp = o.path;
+    if (o.path) { this.sp = o.path; this.spFrom = this.origin(res); }
+    if (o.mark) this.addMark(o.mark, res);
+    if (o.unmark) this.endMark(o.unmark, res);
     for (const v of [].concat(o.virtue ?? [])) { this.virtues[v] = (this.virtues[v] || 0) + 1; fx.push({ k: 'virtue', id: v }); }
     if (o.treasury) { this.treasury += o.treasury; fx.push({ k: 'treasury', v: o.treasury }); }
     if (o.heir) {
@@ -356,6 +418,40 @@ export class Life {
     if (this.phase === 'procession' && this.hp < 1) { this.hp = 1; this.cause = null; }
   }
   gainRenown(n, fx) { if (this.trait('beloved')) n++; this.renown += n; fx.push({ k: 'renown', v: n }); }
+  // The choice being made, as the cause of whatever it sets going.
+  origin(res) { return { row: this.row, title: res.title, label: res.label }; }
+  // A mark this life leaves on the house (the house takes it at the end of the life), or ends. Ending a curse also frees
+  // this heir from what it laid on them; ending a boon takes back what it gave that's still to take.
+  addMark(id, res) {
+    if (!MARKS[id] || this.marks.includes(id)) return;
+    this.marks.push(id); this.marksMade.push({ id, ...this.origin(res) });
+    res.fx.push({ k: 'mark', id });
+  }
+  endMark(id, res) {
+    if (!this.marks.includes(id)) return;
+    this.marks = this.marks.filter(m => m !== id);
+    if (this.marksMade.some(m => m.id === id)) this.marksMade = this.marksMade.filter(m => m.id !== id);
+    else if (this.inherited.some(m => m.id === id)) {
+      this.marksEnded.push({ id, ...this.origin(res) });
+      const st = MARKS[id].start || {};
+      if (st.trait && this.traits.includes(st.trait)) { if (isCurse(st.trait)) this.lift(st.trait, res.fx); else this.traits = this.traits.filter(t => t !== st.trait); }
+      if (st.maxhp) { this.maxHp = Math.max(1, this.maxHp - st.maxhp); this.hp = Math.min(this.hp - Math.min(0, st.maxhp), this.maxHp); res.fx.push({ k: 'maxhp', v: -st.maxhp }); }
+    }
+    res.fx.push({ k: 'unmark', id });
+  }
+  // What a mark on the house gives (or costs) each heir born under it.
+  bornTo(st) {
+    if (!st) return;
+    const fx = [];
+    if (st.trait) this.addTrait(st.trait, fx);
+    if (st.relic) this.giveRelic(st.relic, fx);
+    if (st.ally && !this.allies.includes(st.ally)) this.allies.push(st.ally);
+    if (st.food) this.food = Math.max(0, this.food + st.food);
+    if (st.gold) this.gold = Math.max(0, this.gold + st.gold);
+    if (st.sight) this.sight = Math.min(MAX_SIGHT, this.sight + st.sight);
+    if (st.renown) this.renown = Math.max(0, this.renown + st.renown);
+    if (st.maxhp) { this.maxHp = Math.max(1, this.maxHp + st.maxhp); this.hp = Math.min(this.hp + Math.max(0, st.maxhp), this.maxHp); }
+  }
   gainItem(id, fx) {
     const it = ITEMS[id], cur = ITEMS[this[it.slot]];
     if (it.power > cur.power) { this[it.slot] = id; fx.push({ k: 'item', id, from: cur.id }); }
@@ -481,7 +577,7 @@ export class Life {
   }
   record(res, ev) {
     this.log.push({ row: this.row, dir: res.dir, id: ev.id, title: res.title, label: res.label, tile: res.tile, alt: res.alt, text: res.text, intro: res.intro,
-      fx: res.fx.filter(f => ['relic', 'trait', 'ally', 'item', 'lift', 'ward', 'virtue', 'heir'].includes(f.k) || Math.abs(f.v || 0) >= 1).map(f => ({ ...f })),
+      fx: res.fx.filter(f => ['relic', 'trait', 'ally', 'item', 'lift', 'ward', 'virtue', 'heir', 'mark', 'unmark'].includes(f.k) || Math.abs(f.v || 0) >= 1).map(f => ({ ...f })),
       fight: res.fight ? { name: res.fight.name, won: res.fight.won } : null });
   }
 

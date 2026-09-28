@@ -1,9 +1,11 @@
 // The house: the kingdom it lives in, its name and coat of arms, the gold its lives have left behind, the bloodline
 // powers bought with that gold, the graves of those who fell on the road and the throne rooms of those who were
-// crowned, what a crowned parent left the next heir, and the chronicle of every life (the Tome).
+// crowned, what a crowned parent left the next heir, the marks its lives have left on it (feuds, curses, boons, oaths
+// and unfinished business, each with who made it and how), the events its last few lives met (so the next heir meets
+// others), and the chronicle of every life (the Tome).
 // Each life starts here (beginLife) and hands back here when it ends (endLife): the heir inherits the purse, the
 // realm moves on a generation, and the next heir sets out from the crossroads.
-import { LEGACY_BY_ID, DEEDS_PER_STEP, ROYAL_TREASURY, PURSE_SHARE, AFTER_REIGN } from './rules.js';
+import { LEGACY_BY_ID, DEEDS_PER_STEP, ROYAL_TREASURY, PURSE_SHARE, AFTER_REIGN, MARKS, SEEN_WEIGHT, JOURNEY } from './rules.js';
 import { rng, randomSeed } from './util.js';
 import { makeKingdom, makeHeir, makeRuler, pickRival, pickWarlords, epithetFor } from './names.js';
 import { makeWorld } from './world.js';
@@ -17,7 +19,8 @@ const houseRand = (house, salt) => rng((house.seed ^ Math.imul(house.gen + 1, 26
 export function newHouse(seed = randomSeed()) {
   const r = rng(seed);
   const names = makeKingdom(r);
-  const house = { v: 1, seed, names, vault: 0, legacy: {}, gen: 1, lineage: [], crowns: 0, graves: [], thrones: [], gifts: null, heir: makeHeir(r, null), realm: null };
+  const house = { v: 1, seed, names, vault: 0, legacy: {}, gen: 1, lineage: [], crowns: 0, graves: [], thrones: [], gifts: null, heir: makeHeir(r, null), realm: null,
+    marks: [], seen: {}, road: JOURNEY };
   house.realm = drawRealm(r, house, null);
   return house;
 }
@@ -42,10 +45,41 @@ function drawRealm(r, house, prev) {
 }
 
 export function beginLife(house) {
+  const seen = {};
+  for (const [id, g] of Object.entries(house.seen || {})) { const ago = house.gen - g; if (SEEN_WEIGHT[ago]) seen[id] = ago; }
   return new Life({ seed: (house.seed * 31 + house.gen * 7919) >>> 0, gen: house.gen, heir: house.heir, realm: house.realm, names: house.names,
-    legacy: { ...house.legacy }, gifts: house.gifts, biomeAt: biomes(house) });
+    legacy: { ...house.legacy }, gifts: house.gifts, biomeAt: biomes(house), marks: house.marks || [], seen });
 }
 export function resumeLife(house, saved) { house.thrones ??= []; return new Life({ biomeAt: biomes(house) }, saved); }
+
+// Saves from before the road grew from 12 steps to 16. Every row past the old twelfth moves up four, so graves, throne
+// rooms and a life still on the road keep their places against the crown and the city; the four rows the old roads
+// never walked show on them as a zigzag. (Also gives older houses what newer ones start with.)
+const OLD_JOURNEY = 12, GROWN = JOURNEY - OLD_JOURNEY, FILL = 'LR'.repeat(GROWN / 2);
+export function upgradeSave(s) {
+  const h = s?.house;
+  if (!h || typeof h !== 'object') return s;
+  h.marks ??= []; h.seen ??= {};
+  if ((h.road ?? OLD_JOURNEY) === JOURNEY) return s;
+  const lift = row => row > OLD_JOURNEY ? row + GROWN : row;
+  for (const e of h.lineage || []) {
+    if (typeof e.path === 'string' && e.path.length > OLD_JOURNEY) e.path = e.path.slice(0, OLD_JOURNEY) + FILL + e.path.slice(OLD_JOURNEY);
+    if (e.fate) e.fate.row = lift(e.fate.row);
+    for (const l of e.log || []) l.row = lift(l.row);
+  }
+  for (const g of [...(h.graves || []), ...(h.thrones || [])]) g.row = lift(g.row);
+  const L = s.life;
+  if (L && L.row > OLD_JOURNEY) {
+    L.row += GROWN;
+    L.path = [...L.path.slice(0, OLD_JOURNEY), ...FILL, ...L.path.slice(OLD_JOURNEY)];
+    for (const l of L.log || []) l.row = lift(l.row);
+    if (L.fate) L.fate.row = lift(L.fate.row);
+    L.snap = null;                                  // the Hourglass can't turn back across the change
+    if (s.pending?.res) s.pending.res.row = lift(s.pending.res.row);
+  }
+  h.road = JOURNEY;
+  return s;
+}
 
 // What the heir inherits: half the purse (nothing, if creditors emptied it), something for every step of the road,
 // and, if the crown was won, the royal treasury, fuller or thinner for what was done on the way to the throne.
@@ -76,6 +110,19 @@ export function endLife(house, life) {
     log: life.log.map(l => ({ row: l.row, title: l.title, label: l.label, text: l.text, intro: l.intro, fight: l.fight,
       fx: l.fx.filter(x => ['relic', 'trait', 'ally', 'item', 'lift', 'virtue'].includes(x.k)).map(x => ({ k: x.k, id: x.id, sold: x.sold ? 1 : 0 })) })),
   };
+  // the marks: what this life ended goes, what it made comes (with who made it and how), and what it carried that only
+  // lasts so many lives counts one down, and fades at nothing
+  const marks = { made: life.marksMade.map(m => m.id), ended: life.marksEnded.map(m => m.id), faded: [] };
+  const was = new Set((life.inherited || []).map(m => m.id));
+  house.marks = (house.marks || []).filter(m => !marks.ended.includes(m.id));
+  for (const m of house.marks) if (was.has(m.id) && m.left != null && --m.left <= 0) marks.faded.push(m.id);
+  house.marks = house.marks.filter(m => !marks.faded.includes(m.id));
+  for (const m of life.marksMade) if (!house.marks.some(x => x.id === m.id))
+    house.marks.push({ ...m, gen: house.gen, by: life.heir.name, sex: life.heir.sex, epithet, left: MARKS[m.id].lasts ?? null });
+  entry.marks = marks;
+  // the events this life met, so the next few heirs meet others
+  house.seen = Object.fromEntries(Object.entries(house.seen || {}).filter(([, g]) => house.gen - g < 3));
+  for (const id of life.used) house.seen[id] = house.gen;
   house.lineage.push(entry);
   house.vault += inheritance;
   if (crowned) { house.crowns++; (house.thrones = house.thrones || []).push({ row: f.row, col: f.col, name: `${entry.name} ${epithet}`, gen: house.gen }); }

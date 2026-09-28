@@ -89,12 +89,19 @@ function toad(p, frame) {
 /* ---------- foes ---------- */
 // A figure made of parts, for the humans and the humanoid monsters. s: size (1 is a person).
 function humanoid(o) {
-  const s = o.size || 1, W = Math.ceil(30 * s), H = Math.ceil(34 * s);
+  const s = o.size || 1, W = Math.ceil(30 * s), H = Math.ceil((34 + (o.head || 0)) * s);   // head: room above for antlers and the like
   const p = new Px(W, H);
   const cx = Math.floor(W / 2), feet = H - 2;
   const u = v => Math.round(v * s);
   const skin = o.skin || '#e0b48e', body = o.body || '#6a5a4a', legs = o.legs || shade(body, -.3), trim = o.trim || shade(body, -.35);
   const B = ramp(body);
+  // wings behind everything (a harpy's)
+  if (o.wings) {
+    const Wg = ramp(o.wings), wy = feet - u(20);
+    p.poly([[cx - u(3), wy + u(2)], [cx - u(14), wy - u(9)], [cx - u(12), wy + u(4)], [cx - u(14), wy + u(7)], [cx - u(6), wy + u(11)]], Wg.dim);
+    p.poly([[cx + u(3), wy + u(2)], [cx + u(14), wy - u(9)], [cx + u(12), wy + u(4)], [cx + u(14), wy + u(7)], [cx + u(6), wy + u(11)]], Wg.base);
+    for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) p.line(cx + sd * u(5), wy + u(3 + i * 2), cx + sd * u(12 - i), wy - u(5) + u(i * 4), Wg.lit);
+  }
   // legs
   p.rect(cx - u(4), feet - u(9), u(3), u(9), legs); p.rect(cx + u(1), feet - u(9), u(3), u(9), shade(legs, -.15));
   p.rect(cx - u(5), feet - u(2), u(4), u(2), o.boots || '#2a2018'); p.rect(cx + u(1), feet - u(2), u(4), u(2), o.boots || '#2a2018');
@@ -119,6 +126,20 @@ function humanoid(o) {
   if (o.ears) { p.rect(cx - u(5), hy + u(1), u(2), u(2), skin); p.rect(cx + u(4), hy + u(1), u(2), u(2), skin); }
   if (o.tusks) { p.rect(cx - u(1), hy + u(5), u(1), u(1), '#fff8e8'); p.rect(cx + u(2), hy + u(5), u(1), u(1), '#fff8e8'); }
   if (o.beard) p.rect(cx - u(3), hy + u(5), u(7), u(3), o.beard);
+  if (o.snout) { p.rect(cx + u(3), hy + u(3), u(4), u(4), shade(skin, -.12)); p.rect(cx + u(5), hy + u(4), u(1) || 1, u(1) || 1, INK); p.rect(cx + u(3), hy + u(6), u(4), u(1) || 1, '#d8b848'); }
+  if (o.antlers) for (const sd of [-1, 1]) {
+    const bx = cx + (sd < 0 ? -u(2) : u(3)), a = o.antlers;
+    p.line(bx, hy, bx + sd * u(4), hy - u(8), a); p.line(bx + sd * u(2), hy - u(4), bx + sd * u(7), hy - u(5), a);
+    p.line(bx + sd * u(3), hy - u(6), bx + sd * u(2), hy - u(11), a); p.line(bx + sd * u(4), hy - u(8), bx + sd * u(8), hy - u(10), a);
+  }
+  if (o.skull) {
+    // a lich's bare skull under the crown, eyes burning in the sockets
+    const bone = '#e8e0cc', dark = '#2a2230';
+    p.rect(cx - u(3), hy, u(7), u(7), bone); p.rect(cx - u(2), hy + u(2), u(2), u(2), dark); p.rect(cx + u(1), hy + u(2), u(2), u(2), dark);
+    p.rect(cx - u(2), hy + u(2), u(1) || 1, u(1) || 1, o.eye || dark); p.rect(cx + u(2), hy + u(2), u(1) || 1, u(1) || 1, o.eye || dark);
+    for (let i = -2; i <= 2; i += 2) p.rect(cx + u(i), hy + u(6), u(1) || 1, u(1) || 1, dark);
+  }
+  if (o.runes) for (const [x, y, w, h] of [[-1, 3, 2, 1], [-3, 5, 1, 2], [2, 5, 1, 2], [-1, 7, 2, 1]]) p.rect(cx + u(x), ty + u(y), u(w) || 1, u(h) || 1, o.runes);
   if (o.hat) { p.rect(cx - u(5), hy - u(1), u(11), u(2), o.hat); p.poly([[cx - u(3), hy - u(1)], [cx + u(3), hy - u(1)], [cx + u(1), hy - u(9)]], o.hat); }
   if (o.mask) p.rect(cx - u(3), hy + u(4), u(7), u(3), o.mask);
   if (o.wolfHead) {
@@ -152,8 +173,8 @@ function humanoid(o) {
   return p.outline(INK);
 }
 function quadruped(o) {
-  const s = o.size || 1, W = Math.ceil(40 * s), H = Math.ceil(28 * s), p = new Px(W, H), u = v => Math.round(v * s);
-  const R = ramp(o.col), feet = H - 2, bx = u(6), by = feet - u(16);
+  const s = o.size || 1, W = Math.ceil(40 * s), H = Math.ceil((28 + (o.lift || 0) + (o.head || 0)) * s), p = new Px(W, H), u = v => Math.round(v * s);
+  const R = ramp(o.col), feet = H - 2, bx = u(6), by = feet - u(16 + (o.lift || 0));
   const legH = u(o.legs ?? 7);
   for (const [dx, sh] of [[u(3), -.15], [u(7), 0], [u(20), -.15], [u(24), 0]]) p.rect(bx + dx, feet - legH, u(3), legH, shade(o.col, sh - .1));
   p.ellipse(bx + u(14), by + u(5), u(14), u(7), (x, y, nx, ny) => ny < -.4 ? R.lit : ny < .4 ? R.base : R.dim);
@@ -166,6 +187,13 @@ function quadruped(o) {
   if (o.tusks) { p.rect(hx + u(7), hy + u(2), u(1), u(3), '#fff8e8'); }
   if (o.tail) p.line(bx, by + u(3), bx - u(5), by - u(2), R.dim);
   if (o.mane) p.rect(bx + u(18), by - u(3), u(9), u(4), o.mane);
+  if (o.drip) for (const [x, y] of [[19, 2], [22, 3], [25, 1], [21, 5]]) p.rect(bx + u(x), by + u(y), u(1) || 1, u(2), '#8ad8e8');
+  if (o.stinger) {
+    // a scorpion's tail, segment by segment up over the back, and its sting
+    const T = ramp(o.stinger);
+    for (const [x, y, r] of [[-1, 2, 2.2], [-3, -3, 2.1], [-2, -8, 2], [1, -12, 1.9], [5, -13, 1.8], [8, -11, 1.6]]) p.disc(bx + u(x), by + u(y), u(r), T.base);
+    p.poly([[bx + u(9), by - u(12)], [bx + u(13), by - u(9)], [bx + u(9), by - u(9)]], '#e8e0cc');
+  }
   return p.outline(INK);
 }
 function spider() {
@@ -176,10 +204,23 @@ function spider() {
   p.put(14, 13, '#c8a040'); p.put(17, 12, '#c8a040');
   return p.outline(INK);
 }
-function serpent() {
-  const p = new Px(40, 30), R = ramp('#4a8a4a');
+function serpent(o = {}) {
+  const p = new Px(40, 30), R = ramp(o.col || '#4a8a4a');
   for (let i = 0; i < 30; i++) { const x = 4 + i, y = 22 - Math.sin(i / 4) * 5 - (i > 22 ? (i - 22) * 1.6 : 0); p.disc(x, y, 3 - i / 20, i % 4 < 2 ? R.base : R.lit); }
-  p.ellipse(35, 6, 4, 3, R.lit); p.put(36, 5, '#ffd24a'); p.line(38, 7, 40, 8, '#e0302a');
+  if (o.crest) p.poly([[31, 5], [32, 0], [34, 3], [36, 0], [37, 3], [39, 1], [38, 5]], o.crest);
+  p.ellipse(35, 6, 4, 3, R.lit); p.put(36, 5, o.eye || '#ffd24a'); if (o.crest) p.put(35, 5, o.eye); p.line(38, 7, 40, 8, '#e0302a');
+  return p.outline(INK);
+}
+// Three heads on three necks, rising from one low body.
+function hydra(o) {
+  const p = new Px(54, 46), R = ramp(o.col);
+  p.line(8, 38, 1, 43, R.dim); p.line(9, 39, 3, 44, R.dim);
+  for (const x of [13, 19, 26, 32]) p.rect(x, 39, 3, 5, R.dim);
+  p.ellipse(22, 35, 14, 7, (x, y, nx, ny) => ny < -.3 ? R.lit : ny < .4 ? R.base : R.dim);
+  for (const [sx, sy, hx, hy] of [[15, 31, 12, 11], [22, 29, 26, 5], [29, 31, 40, 14]]) {
+    for (let t = 0; t <= 1; t += .04) p.disc(sx + (hx - sx) * t + Math.sin(t * Math.PI) * 4, sy + (hy - sy) * t, 2.6 - t * .8, t * 25 % 2 < 1 ? R.base : R.lit);
+    p.ellipse(hx + 2, hy, 4, 3, R.lit); p.rect(hx + 4, hy, 5, 2, R.base); p.put(hx + 2, hy - 1, '#ffd24a'); p.line(hx + 9, hy + 1, hx + 11, hy + 2, '#e0302a');
+  }
   return p.outline(INK);
 }
 function winged(o) {
@@ -190,8 +231,11 @@ function winged(o) {
   p.ellipse(cx, cy, u(12), u(7), (x, y, nx, ny) => ny < -.3 ? R.lit : ny < .4 ? R.base : R.dim);
   p.line(cx - u(10), cy + u(2), cx - u(22), cy + u(10), R.dim); p.line(cx - u(22), cy + u(10), cx - u(20), cy + u(14), R.dim);
   p.rect(cx - u(6), cy + u(5), u(3), u(8), R.dim); p.rect(cx + u(4), cy + u(5), u(3), u(8), R.dim);
-  p.ellipse(cx + u(14), cy - u(8), u(5), u(4), R.lit); p.rect(cx + u(10), cy - u(6), u(5), u(6), R.base);
-  p.rect(cx + u(17), cy - u(8), u(5), u(3), R.base); p.put(cx + u(15), cy - u(10), o.eye || '#ffd24a');
+  const Hd = o.head ? ramp(o.head) : R;
+  p.ellipse(cx + u(14), cy - u(8), u(5), u(4), Hd.lit); p.rect(cx + u(10), cy - u(6), u(5), u(6), Hd.base);
+  if (o.beak) p.poly([[cx + u(17), cy - u(10)], [cx + u(23), cy - u(8)], [cx + u(22), cy - u(5)], [cx + u(18), cy - u(6)]], o.beak);
+  else p.rect(cx + u(17), cy - u(8), u(5), u(3), R.base);
+  p.put(cx + u(15), cy - u(10), o.eye || '#ffd24a');
   if (o.horns) { p.line(cx + u(12), cy - u(11), cx + u(9), cy - u(16), '#e8e0cc'); p.line(cx + u(15), cy - u(12), cx + u(14), cy - u(17), '#e8e0cc'); }
   return p.outline(INK);
 }
@@ -199,7 +243,9 @@ function ghost(o) {
   const p = new Px(28, 34), R = ramp(o.col || '#c8e0f0');
   p.ellipse(14, 12, 8, 9, R.lit);
   p.poly([[6, 12], [22, 12], [24, 30], [20, 27], [16, 31], [12, 27], [8, 31], [4, 28]], (x, y) => (x + y) % 5 === 0 ? R.dim : R.base);
-  p.rect(10, 10, 2, 3, o.eye || '#1a2a3a'); p.rect(16, 10, 2, 3, o.eye || '#1a2a3a'); p.rect(12, 16, 4, 2, '#1a2a3a');
+  if (o.hair) { p.rect(5, 4, 18, 4, o.hair); p.rect(4, 7, 3, 20, o.hair); p.rect(21, 7, 3, 20, o.hair); }
+  p.rect(10, 10, 2, 3, o.eye || '#1a2a3a'); p.rect(16, 10, 2, 3, o.eye || '#1a2a3a');
+  if (o.wail) p.rect(11, 15, 6, 6, '#1a2a3a'); else p.rect(12, 16, 4, 2, '#1a2a3a');
   if (o.wraith) { p.rect(6, 4, 16, 6, '#2a2a3a'); p.rect(5, 8, 3, 18, '#2a2a3a'); p.rect(20, 8, 3, 18, '#2a2a3a'); }
   return p.outline(INK);
 }
@@ -230,6 +276,20 @@ const FOE_ART = {
   dragon: () => winged({ col: '#b8302a', wing: '#7a1a1a', size: 1.4, horns: true }),
   ghost: () => ghost({}),
   wraith: () => ghost({ col: '#8a9ab8', wraith: true, eye: '#8affff' }),
+  griffin: () => winged({ col: '#c8a05a', wing: '#8a6a3a', head: '#f0e8d4', beak: '#e8b030', eye: '#1c1622', size: 1.1 }),
+  basilisk: () => serpent({ col: '#6a8a3a', crest: '#d8402a', eye: '#ffe04a' }),
+  kelpie: () => quadruped({ col: '#3a5a58', mane: '#4a8a5a', legs: 11, lift: 4, head: 2, eye: '#8affe0', snout: '#2e4a48', drip: true, ears: true }),
+  harpy: () => humanoid({ skin: '#d8b8a0', body: '#6a5a48', legs: '#8a7a50', wings: '#5a4a3a', hair: '#2a2a2a', eye: '#ffd24a', boots: '#c8a030', head: 4 }),
+  manticore: () => quadruped({ col: '#a8583a', mane: '#6a2a1a', size: 1.25, legs: 7, stinger: '#3a2a2a', eye: '#ffd24a', head: 12 }),
+  hydra: () => hydra({ col: '#3a7a5a' }),
+  minotaur: () => humanoid({ skin: '#6a4a30', body: '#5a3a24', legs: '#4a2a1a', horns: true, snout: true, size: 1.6, weapon: 'axe', eye: '#e0302a' }),
+  golem: () => humanoid({ skin: '#8a8a80', body: '#7a7a70', legs: '#6a6a60', trim: '#5a5a52', size: 1.7, runes: '#8affd8', eye: '#8affd8', boots: '#5a5a52' }),
+  wendigo: () => humanoid({ skin: '#d8d0c0', body: '#8a8074', legs: '#6a6258', antlers: '#e8e0cc', size: 1.4, eye: '#8affff', boots: '#4a4238', head: 12 }),
+  lich: () => humanoid({ skin: '#e8e0cc', body: '#2a1a3a', robe: true, skull: true, crown: true, weapon: 'staff', orb: '#8affd8', eye: '#8affd8', head: 4 }),
+  vampire: () => humanoid({ skin: '#ece4ec', body: '#2a1a24', cloak: '#8a1a2a', hair: '#141014', tusks: true, eye: '#e0302a', weapon: 'sword' }),
+  banshee: () => ghost({ col: '#c8d8d0', hair: '#eef2f4', eye: '#1a2a2a', wail: true }),
+  ghoul: () => humanoid({ skin: '#8a9a7a', body: '#4a4a3a', legs: '#3a3a2a', eye: '#e8e8a0', size: .95, tusks: true, boots: '#2a2a20' }),
+  fey_knight: () => humanoid({ body: '#3a7a5a', helm: '#c8dcd0', plume: '#e8a0e8', weapon: 'sword', shield: '#2a5a3a', shieldMark: '#e8d890', eye: '#8affd8', trim: '#c8b060', size: 1.1, head: 4 }),
 };
 export function foe(id) { return (FOE_ART[id] || FOE_ART.bandit)(); }
 

@@ -3,9 +3,9 @@
 // title, a new player's intro and first-choice walkthrough, each new heir's card, a fate, the summons and the
 // crowning, the Tome and the Bloodline. Saves to this browser after every step.
 import { View, armsColour, tinct, worldOf as spotOf } from './render.js';
-import { newHouse, beginLife, resumeLife, endLife, worldOf, legacyLevel, legacyCost, buyLegacy, inheritanceOf } from './dynasty.js';
+import { newHouse, beginLife, resumeLife, endLife, worldOf, legacyLevel, legacyCost, buyLegacy, inheritanceOf, upgradeSave } from './dynasty.js';
 import { TUTORIAL_EVENT } from './events/index.js';
-import { RELICS, TRAITS, ALLIES, ITEMS, FOES, LEGACY, REALMS, JOURNEY, CROWN_ROW, PROCESSION, VIRTUES, isCurse, DEEDS_PER_STEP, ROYAL_TREASURY } from './rules.js';
+import { RELICS, TRAITS, ALLIES, ITEMS, FOES, LEGACY, REALMS, JOURNEY, CROWN_ROW, PROCESSION, VIRTUES, isCurse, DEEDS_PER_STEP, ROYAL_TREASURY, MARKS, MARK_KINDS } from './rules.js';
 import { icon } from './icons.js';
 import { hero as heroArt, foe as foeArt } from './figures.js';
 import { Sound } from './sound.js';
@@ -106,6 +106,10 @@ function renderHUD(anim = true, L = life) {
   for (const r of L.relics) add(r.id, 'relic', RELICS[r.id].name, `Relic · ${RELICS[r.id].tier}`, RELICS[r.id].blurb + (r.id === 'dragon_egg' && L.egg > 0 ? ` (${L.egg} steps to go.)` : ''), r.used);
   for (const t of L.traits) add(t, TRAITS[t].kind, TRAITS[t].name, TRAITS[t].kind === 'curse' ? 'Curse' : TRAITS[t].kind === 'mixed' ? 'Blessing and curse' : 'Blessing', TRAITS[t].blurb + (t === 'reaper' && L.reaper ? ` (${L.reaper} steps left.)` : ''));
   for (const a of L.allies) add(a, 'ally', ALLIES[a].name, 'Ally', ALLIES[a].blurb);
+  for (const id of L.marks || []) {
+    const m = MARKS[id], rec = L.inherited?.find(x => x.id === id) || L.marksMade?.find(x => x.id === id);
+    add('mark_' + m.kind, 'mark ' + m.kind, m.name, `${MARK_KINDS[m.kind].name} · on your house`, `${m.blurb} ${rec ? markOrigin(rec) : ''}${markLasts(id, rec)}`);
+  }
   newBits.clear();
   requestAnimationFrame(measure);
 }
@@ -149,11 +153,57 @@ function measure() {
 }
 addEventListener('resize', () => { view.resize(); measure(); });
 
-function kicker() {
+function kicker(why = []) {
   const R = REALMS[life.realm.type];
   const where = REGION[world.at(life.row, life.col)?.biome] || '';
   const step = life.phase === 'journey' ? `Step ${life.row + 1} of ${JOURNEY}` : life.phase === 'succession' ? `The crown · ${life.row - JOURNEY + 1} of 5` : `The procession · ${life.row - CROWN_ROW + 1} of ${PROCESSION}`;
-  return `<p class="kicker"><span>${step}</span><span class="realm">${esc(R.name)}</span><span>${esc(where)}</span></p>`;
+  return `<p class="kicker"><span>${step}</span><span class="realm">${esc(R.name)}</span><span>${esc(where)}</span>${echoBadge(why)}</p>`;
+}
+
+/* ---------- marks on the house, and the echoes of earlier choices ---------- */
+// Who someone in the Tome is to the heir on the road now: "your mother", "your great-grandfather"…
+function kinOf(gen, sex) {
+  const d = (life?.gen ?? house.gen) - gen, k = sex === 'f' ? ['mother', 'grandmother'] : ['father', 'grandfather'];
+  return d === 1 ? `your ${k[0]}` : d === 2 ? `your ${k[1]}` : d === 3 ? `your great-${k[1]}` : d > 3 ? 'your ancestor' : 'you';
+}
+const stepOf = row => row <= JOURNEY ? `step ${row}` : row <= CROWN_ROW ? 'the bid for the crown' : 'the procession';
+const quoted = s => `“${String(s || '').replace(/^["“]|["”]$/g, '')}”`;
+// Who left a mark, and how. Marks made on this road say so; an ancestor's name who they were, and what they chose.
+function markOrigin(m) {
+  if (m.gen == null || m.gen === life?.gen) return `You chose ${quoted(m.label)} at ${m.title}, ${stepOf(m.row)}.`;
+  return `${m.by}${m.epithet ? ' ' + m.epithet : ''}, ${kinOf(m.gen, m.sex)} (generation ${roman(m.gen)}), chose ${quoted(m.label)} at ${m.title}.`;
+}
+// How much longer a mark lasts, for the heir carrying it (a mark made on this road lasts for the heirs after it).
+function markLasts(id, rec) {
+  const lasts = MARKS[id].lasts;
+  if (!lasts) return '';
+  const after = rec?.gen != null && rec.gen !== life?.gen && rec.left != null ? rec.left - 1 : lasts;
+  return after > 0 ? ` It passes to ${after === 1 ? 'one more heir' : `${after} more heirs`}, then fades.` : ' It fades with you.';
+}
+// One line for each earlier choice that brought the event about.
+function causeText(c) {
+  const mk = MARKS[c.mark];
+  if (c.kind === 'flag') return `Your choice at ${stepOf(c.row)}: ${quoted(c.label)}, at ${c.title}.`;
+  if (c.kind === 'path') return `How you chose to reach for the crown: ${quoted(c.label)}, at ${c.title}.`;
+  if (c.kind === 'mark') return `${mk.name}, which your house carries. ${markOrigin(c)}`;
+  if (c.kind === 'trait') return c.mark ? `${TRAITS[c.trait].name}, which you were born to: ${mk.name}. ${markOrigin(c)}`
+    : `${TRAITS[c.trait].name}, from your choice at ${stepOf(c.row)}: ${quoted(c.label)}, at ${c.title}.`;
+  return '';
+}
+// The badge on an event that an earlier choice brought about: whose choice, at a glance. A tap says which.
+function echoBadge(why) {
+  if (!why.length) return '';
+  const old = why.find(c => c.gen != null && c.gen !== life.gen);
+  const label = why.length > 1 ? 'Because of earlier choices' : old ? `Because of ${old.by}` : why[0].kind === 'path' ? 'Because of your path' : `Because of ${stepOf(why[0].row)}`;
+  return `<button type="button" class="echo" data-act="why" data-icon="${old ? 'mark_' + MARKS[old.mark].kind : 'steps'}">${esc(label)}</button>`;
+}
+function showWhy(el, why) {
+  const t = $('tip');
+  t.innerHTML = `<b>${why.length > 1 ? 'This comes of earlier choices' : 'This comes of an earlier choice'}</b>${why.map(c => `<p>${esc(causeText(c))}</p>`).join('')}`;
+  t.classList.remove('act'); t.hidden = false; tipFor = el; tipPinned = true;
+  const r = el.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight;
+  t.style.left = clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + 'px';
+  t.style.top = (r.top - h - 8 > 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
 }
 function optionDetail(dir) {
   const opt = life.option(dir), cur = life.cur, s = life.state(), bits = [];
@@ -192,9 +242,11 @@ function renderEvent() {
   const tools = [];
   if (life.sight > 0 && !cur.omens) tools.push(`<button type="button" class="btn" data-act="foresee">Foresee (${life.sight} left)</button>`);
   if (life.phase === 'journey' && life.relics.some(r => r.id === 'boots' && !r.used)) tools.push(`<button type="button" class="btn" data-act="stride">Seven-League Boots</button>`);
-  setPanel(`${kicker()}<h2>${esc(life.fill(ev.title))}</h2><p class="text">${esc(life.fill(ev.text))}</p>
+  const why = life.causes();
+  setPanel(`${kicker(why)}<h2>${esc(life.fill(ev.title))}</h2><p class="text">${esc(life.fill(ev.text))}</p>
     <div class="choices">${side('L')}${side('R')}</div><div class="tools">${tools.join('')}</div>`);
   hydrateIcons(panel);
+  panel.querySelector('[data-act="why"]')?.addEventListener('click', e => { const t = $('tip'); if (tipFor === e.currentTarget && !t.hidden) t.hidden = true; else showWhy(e.currentTarget, why); });
   for (const b of panel.querySelectorAll('.choice')) {
     b.onclick = () => choose(b.dataset.dir);
     b.onpointerenter = e => { if (e.pointerType === 'mouse') pointAt(b.dataset.dir); };
@@ -314,6 +366,8 @@ function fxChips(raw) {
       case 'treasury': out.push([`${n} gold in the treasury`, f.v > 0 ? 'up' : 'down', 'gold']); break;
       case 'heir': out.push([f.ally ? `For your heir: ${ALLIES[f.ally].name}` : f.renown ? `For your heir: +${f.renown} renown` : `For your heir: +${f.gold} gold`, 'gold', f.ally || (f.renown ? 'renown' : 'gold')]); break;
       case 'reaper': out.push(['The Reaper comes', 'down', 'reaper']); break;
+      case 'mark': { const m = MARKS[f.id]; out.push([`For your house: ${m.name}`, m.kind === 'feud' || m.kind === 'curse' ? 'magic' : 'gold', 'mark_' + m.kind]); break; }
+      case 'unmark': { const m = MARKS[f.id]; out.push([`Ended: ${m.name}`, m.kind === 'feud' || m.kind === 'curse' ? 'up' : 'down', 'mark_' + m.kind]); break; }
     }
   }
   return out.map(([t, c, ic]) => `<span class="${c}" data-icon="${ic}">${esc(t)}</span>`).join('');
@@ -330,6 +384,8 @@ function playFx(res) {
     if (f.k === 'relic' && !f.dup) { relic = true; newBits.add(f.id); }
     if (f.k === 'trait') { if (isCurse(f.id)) curse = true; else bless = true; newBits.add(f.id); }
     if (f.k === 'ally' && !f.refused) { newBits.add(f.id); bless = true; }
+    if (f.k === 'mark') { const k = MARKS[f.id].kind; newBits.add('mark_' + k); if (k === 'feud' || k === 'curse') curse = true; else bless = true; }
+    if (f.k === 'unmark') bless = true;
     if (f.k === 'item' && !f.sold) { newBits.add(f.id); relic = true; }
   }
   if (hurt) { sound.hurt(); view.shake(.4); }
@@ -394,23 +450,48 @@ function battle(res) {
   const auto = F.auto;
   const odds = F.rolls.length || auto ? winChance(F.you + F.bonus - F.power) : 0;
   const oddsWord = odds >= .85 ? 'The odds are good.' : odds >= .6 ? 'The odds favour you.' : odds >= .4 ? 'It could go either way.' : odds >= .2 ? 'The odds are against you.' : 'The odds are grim.';
+  // (a fight saved before its sums were kept shows them whole)
+  const P = F.parts || { you: [{ n: 'Power', v: F.you + F.bonus, ic: 'power' }], foe: [{ n: 'Power', v: F.power, ic: 'power' }] };
   setPanel(`${kickerDone()}<h2>${esc(res.title)}</h2>${res.intro ? `<p class="outcome"><span class="intro">${esc(res.intro)}</span></p>` : ''}
-    <div class="bout"><div class="side" id="youSide"><span class="who">You</span><span class="nm">${esc(life.heir.name)}</span><span class="pow">${F.you}${F.bonus ? ` +${F.bonus}` : ''}</span></div>
+    <div class="bout"><div class="side" id="youSide"><span class="who">You</span><span class="nm">${esc(life.heir.name)}</span></div>
       <div class="vs">vs</div>
-      <div class="side" id="foeSide"><span class="who">${esc(FOES[F.foe]?.name || 'Foe')}</span><span class="nm">${esc(cap(F.name))}</span><span class="pow">${F.power}</span></div></div>
-    <div class="bout" id="diceRow"><div class="side"><div class="dice" id="youDice">${dieHTML(1)}${dieHTML(1)}<span class="total"></span></div></div><div></div><div class="side"><div class="dice" id="foeDice">${dieHTML(1, true)}${dieHTML(1, true)}<span class="total"></span></div></div></div>
+      <div class="side" id="foeSide"><span class="who">${esc(FOES[F.foe]?.name || 'Foe')}</span><span class="nm">${esc(cap(F.name))}</span></div></div>
+    ${auto ? '' : `<div class="sums">${sumRow('you', 'You', P.you)}${sumRow('foe', FOES[F.foe]?.name || 'Foe', P.foe)}</div>`}
     <p class="odds">${auto === 'beast' ? 'The beast knows your voice.' : auto === 'gorgon' ? 'The Gorgon’s Eye stirs in your hand.' : oddsWord} Two dice each, added to power; ties go to you.</p>
     <div class="row"><button type="button" class="btn go" data-act="fight">${auto === 'beast' ? 'Speak to it' : auto === 'gorgon' ? 'Raise the Eye' : 'Fight!'}</button></div>`);
-  for (const s of panel.querySelectorAll('.pow')) s.prepend(icon('power', 1.5));
+  hydrateIcons(panel);
   $('youSide').prepend(figCanvas(heroArt({ ...view.hero.look }, 'front'), 84));
   $('foeSide').prepend(figCanvas(foeArt(F.foe).flip(), 84));
-  if (auto) $('diceRow').remove();
   panel.querySelector('[data-act="fight"]').onclick = () => fightRoll(res);
   panel.querySelector('[data-act="fight"]').focus({ preventScroll: true });
   sound.clash();
   coachFor('fight');
 }
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+// One side's sum, laid out before the dice fall: power and whatever adds to it or takes from it, two dice, anything that
+// only counts in a fight, and the total. Each term is an icon and a number; what isn't plain power is named beneath.
+function sumRow(side, whose, parts) {
+  const foe = side === 'foe', pre = parts.filter(p => !p.fight), post = parts.filter(p => p.fight);
+  const op = v => `<i class="op">${v < 0 ? '−' : '+'}</i>`;
+  const term = p => `<span class="term" data-v="${p.v}" data-icon="${p.ic}" title="${esc(p.n + (p.of ? `: ${p.of.map(([n, v]) => `${n} ${v}`).join(', ')}` : ''))}"><b>${Math.abs(p.v)}</b></span>`;
+  const die = i => `${op(1)}<span class="term die-t" data-die="${i}">${dieHTML(0, foe)}</span>`;
+  const named = parts.filter(p => p.n !== 'Power').map(p => `${p.n} ${p.v < 0 ? '−' : '+'}${Math.abs(p.v)}`);
+  return `<div class="sum ${side}" id="${side}Sum"><span class="whose">${esc(whose)}</span><span class="terms">${pre.map((p, i) => (i ? op(p.v) : '') + term(p)).join('')}${die(0)}${die(1)}${post.map(p => op(p.v) + term(p)).join('')}<i class="op">=</i><span class="total">?</span></span>${named.length ? `<small class="named">${esc(named.join(' · '))}</small>` : ''}</div>`;
+}
+// Each side adds up, a term at a time, the total counting with it.
+async function tally(el, foe) {
+  const out = el.querySelector('.total');
+  let run = 0, i = 0;
+  for (const t of el.querySelectorAll('.term')) {
+    run += +(t.dataset.pips ?? t.dataset.v);
+    t.classList.add('lit'); out.textContent = run;
+    out.classList.remove('bump'); void out.offsetWidth; out.classList.add('bump');
+    sound.tally(i++, foe);
+    await sleep(190);
+  }
+  out.classList.add('done');
+  return run;
+}
 async function fightRoll(res) {
   if (mode !== 'battle') return;
   mode = 'busy';
@@ -419,25 +500,45 @@ async function fightRoll(res) {
   const F = res.fight;
   panel.querySelector('.row').innerHTML = '';
   if (F.auto) { await sleep(300); sound[F.auto === 'gorgon' ? 'curse' : 'heal'](); }
+  const sums = [$('youSum'), $('foeSum')].filter(Boolean);
   for (let i = 0; i < F.rolls.length; i++) {
-    const r = F.rolls[i];
-    for (const d of panel.querySelectorAll('.die')) d.classList.add('roll');
+    const r = F.rolls[i], again = i < F.rolls.length - 1;
+    if (i) {
+      toast('The Rabbit’s Foot twitches. Roll again!'); sound.relic(); await sleep(900);
+      for (const el of sums) { el.classList.remove('win', 'lose'); el.querySelector('.total').textContent = '?'; el.querySelector('.total').classList.remove('done'); for (const t of el.querySelectorAll('.term')) t.classList.remove('lit'); }
+    }
+    // the dice tumble…
+    const dice = [...panel.querySelectorAll('.sum .die-t')];
     sound.dice(.8);
-    const spin = setInterval(() => { for (const box of [$('youDice'), $('foeDice')]) box.querySelectorAll('.die').forEach(d => { d.outerHTML = dieHTML(1 + Math.floor(Math.random() * 6), box.id === 'foeDice'); }); for (const d of panel.querySelectorAll('.die')) d.classList.add('roll'); }, 90);
+    const spin = setInterval(() => { for (const t of dice) { t.innerHTML = dieHTML(1 + Math.floor(Math.random() * 6), !!t.closest('.foe')); t.firstChild.classList.add('roll'); } }, 90);
     await sleep(850);
     clearInterval(spin);
-    $('youDice').innerHTML = dieHTML(r.you[0]) + dieHTML(r.you[1]) + `<span class="total">${r.youTotal}</span>`;
-    $('foeDice').innerHTML = dieHTML(r.foe[0], true) + dieHTML(r.foe[1], true) + `<span class="total">${r.foeTotal}</span>`;
-    await sleep(500);
-    if (i < F.rolls.length - 1) { toast('The Rabbit’s Foot twitches. Roll again!'); sound.relic(); await sleep(900); }
+    // …and fall where they fall
+    for (const [el, faces, foe] of [[$('youSum'), r.you, false], [$('foeSum'), r.foe, true]]) el.querySelectorAll('.die-t').forEach((t, k) => { t.innerHTML = dieHTML(faces[k], foe); t.dataset.pips = faces[k]; });
+    await sleep(380);
+    // then each side adds up, and the higher total wins (a tie goes to you)
+    await tally($('youSum'), false);
+    await sleep(200);
+    await tally($('foeSum'), true);
+    await sleep(320);
+    const won = r.youTotal >= r.foeTotal;
+    $('youSum').classList.add(won ? 'win' : 'lose'); $('foeSum').classList.add(won ? 'lose' : 'win');
+    sound[won ? 'coin' : 'hurt']();
+    await sleep(again ? 900 : 350);
   }
+  // the winner, plainly
   view.clash(F.won); sound.clash();
+  $('youSide').classList.add(F.won ? 'victor' : 'fallen'); $('foeSide').classList.add(F.won ? 'fallen' : 'victor');
   await sleep(250);
   if (F.won) { view.foeFalls(); sound.win(); } else { sound.lose(); view.shake(.8); }
-  const verdict = document.createElement('p');
-  verdict.className = 'verdict ' + (F.won ? 'won' : 'lost'); verdict.textContent = F.won ? (F.auto === 'beast' ? 'It lets you pass' : 'Victory!') : 'Defeat';
+  const r = F.rolls[F.rolls.length - 1], verdict = document.createElement('div');
+  verdict.className = 'verdict ' + (F.won ? 'won' : 'lost');
+  const who = F.won ? (F.auto === 'beast' ? `${cap(F.name)} lets you pass` : `${life.heir.name} wins`) : `${cap(F.name)} wins`;
+  const how = F.auto === 'beast' ? 'The beast knows your voice' : F.auto === 'gorgon' ? 'The Gorgon’s Eye turns it to stone'
+    : `${F.won ? r.youTotal : r.foeTotal} to ${F.won ? r.foeTotal : r.youTotal}${r.youTotal === r.foeTotal ? ', and a tie goes to you' : ''}`;
+  verdict.innerHTML = `<b>${esc(who)}</b><small>${esc(how)}</small>`;
   panel.querySelector('.odds').replaceWith(verdict);
-  await sleep(700);
+  await sleep(1500);
   view.foeLeaves();
   view.updateLook(life);
   outcome(res);
@@ -646,11 +747,19 @@ function heirCard() {
     <h2>${esc(heir.name)}</h2><p class="sub">${esc(parent)}, aged ${heir.age}${heir.royal ? ', of royal blood' : ''}</p>
     <h3>${esc(REALMS[R.type].name)}</h3><p>${esc(realmWords)}</p>
     <div class="statline"><span data-icon="hp">${probe.maxHp}</span><span data-icon="food">${probe.food}</span><span data-icon="gold">${probe.gold}</span><span data-icon="power">${probe.power}</span>${probe.renown ? `<span data-icon="renown">${probe.renown}</span>` : ''}${probe.sight ? `<span data-icon="sight">${probe.sight}</span>` : ''}${probe.relics.map(r => `<span data-icon="${r.id}">${esc(RELICS[r.id].name)}</span>`).join('')}${probe.allies.map(a => `<span data-icon="${a}">${esc(ALLIES[a].name)}</span>`).join('')}</div>
+    ${houseMarks()}
     <div class="row">${house.lineage.length ? '<button type="button" class="btn" data-act="blood">The Bloodline</button>' : ''}<button type="button" class="btn go" data-act="go">Set out from the crossroads →</button></div>`);
   b.querySelector('.portrait').append(portrait(lookOf(heir, { weapon: probe.weapon })));
   hydrateIcons(b);
   b.querySelector('[data-act="blood"]')?.addEventListener('click', () => bloodline(true));
   b.querySelector('[data-act="go"]').onclick = setOut;
+}
+// What the house carries, for the heir card and the Tome: each mark, what it does, and who left it.
+function houseMarks(heading = 'What your house carries') {
+  const list = house.marks || [];
+  if (!list.length) return '';
+  return `<h3>${heading}</h3><ul class="marks">${list.map(m => { const M = MARKS[m.id]; return M ? `<li class="${M.kind}"><span data-icon="mark_${M.kind}"><b>${esc(M.name)}</b></span>
+    <small>${esc(M.blurb)} ${esc(markOrigin(m))}${esc(markLasts(m.id, m))}</small></li>` : ''; }).join('')}</ul>`;
 }
 function setOut(o = {}) {
   closeCard();
@@ -743,7 +852,7 @@ function showTome(sel) {
     <div class="tome-tabs"><button type="button" class="btn" data-tab="list">The line</button><button type="button" class="btn" data-tab="story">The chronicle</button></div>
     <div class="page list">
       <h2>House ${esc(house.names.house)}</h2><p class="sub">of ${esc(house.names.kingdom)} · ${L.length} generation${L.length === 1 ? '' : 's'}${house.crowns ? ` · ${house.crowns} crowned` : ''}</p>
-      <div class="armsbox"></div><ol class="lineage">${list}</ol>${heirLine}</div>
+      <div class="armsbox"></div><ol class="lineage">${list}</ol>${heirLine}${houseMarks('What the house carries')}</div>
     <div class="page story">${L.length ? chronicle(L[tomeSel]) : '<h2>The Tome</h2><p class="sub">Here the lives of your line will be written, one by one.</p>'}</div>`;
   t.querySelector('.armsbox').append(armsCanvas(house.names.arms, 3));
   for (const s of t.querySelectorAll('.pic')) { const e = L[+s.dataset.gen]; const c = heroArt(lookOf(e, { crowned: e.crowned, armor: e.armor, weapon: e.weapon }), 'front').canvas(); s.replaceWith(c); }
@@ -756,7 +865,7 @@ function chronicle(e) {
   const R = e.realm, royal = titleOf(e.sex, 'ruler');
   const realm = R.type === 'old' ? `in the last years of ${R.ruler}` : R.type === 'tyrant' ? `under ${R.ruler}` : 'while the throne stood empty and the lords made war';
   const lines = e.log.map(l => {
-    const fx = (l.fx || []).map(f => f.k === 'virtue' ? `showed ${VIRTUES[f.id]?.name.toLowerCase()}` : f.k === 'relic' ? `found ${RELICS[f.id]?.name}` : f.k === 'trait' ? (isCurse(f.id) ? `cursed with ${TRAITS[f.id]?.name}` : `blessed with ${TRAITS[f.id]?.name}`) : f.k === 'ally' ? `won the ${ALLIES[f.id]?.name.replace(/^The /, '')} as allies` : f.k === 'item' && !f.sold ? `took up a ${ITEMS[f.id]?.name}` : f.k === 'lift' ? `was freed of ${TRAITS[f.id]?.name}` : '').filter(Boolean);
+    const fx = (l.fx || []).map(f => f.k === 'virtue' ? `showed ${VIRTUES[f.id]?.name.toLowerCase()}` : f.k === 'relic' ? `found ${RELICS[f.id]?.name}` : f.k === 'trait' ? (isCurse(f.id) ? `cursed with ${TRAITS[f.id]?.name}` : `blessed with ${TRAITS[f.id]?.name}`) : f.k === 'ally' ? `won the ${ALLIES[f.id]?.name.replace(/^The /, '')} as allies` : f.k === 'item' && !f.sold ? `took up a ${ITEMS[f.id]?.name}` : f.k === 'lift' ? `was freed of ${TRAITS[f.id]?.name}` : f.k === 'mark' ? `left the house ${MARKS[f.id]?.name}` : f.k === 'unmark' ? `ended ${MARKS[f.id]?.name}` : '').filter(Boolean);
     const fight = l.fight ? (l.fight.won ? ` Beat ${l.fight.name}.` : ` Lost to ${l.fight.name}.`) : '';
     return `<li><b>${esc(l.title)}</b>: ${esc(l.label.replace(/^"|"$/g, ''))}.${esc(fight)}${fx.length ? `<span class="fxs">${esc(capFirst(fx.join('; ')))}</span>` : ''}</li>`;
   });
@@ -765,6 +874,7 @@ function chronicle(e) {
   return `<h2>${esc(e.name)} ${esc(e.epithet)}</h2><p class="sub">Generation ${roman(e.gen)}${e.royal ? ' · of royal blood' : ''}</p>
     <p>Set out from the crossroads aged ${e.age}, ${esc(realm)}.</p>
     <ol class="chron">${lines.join('')}${end}</ol>
+    ${e.marks?.faded?.length ? `<p class="sub">With them, ${esc(e.marks.faded.map(id => MARKS[id]?.name).join(' and '))} faded from the house.</p>` : ''}
     <h3>What they carried</h3><p>${esc(ITEMS[e.weapon]?.name || '')}${e.armor !== 'rags' ? `, ${esc(ITEMS[e.armor]?.name)}` : ''}${e.relics.length ? `; ${e.relics.map(r => esc(RELICS[r].name)).join(', ')}` : ''}.</p>
     <p>Left the family ${e.inheritance} gold.</p>`;
 }
@@ -1124,6 +1234,7 @@ async function readSave(text) {
   } catch { throw new Error('That save code is cut short or garbled. Copy the whole of it, from KINGDOM to the very end.'); }
   const h = s?.house;
   if (!h || !Array.isArray(h.lineage) || !Number.isFinite(h.seed) || typeof h.names?.house !== 'string' || typeof h.heir?.name !== 'string') throw new Error('That isn’t a Kingdom save.');
+  upgradeSave(s);
   try { worldOf(structuredClone(h)); if (s.life) resumeLife(structuredClone(h), structuredClone(s.life)); }
   catch { throw new Error('That save is damaged, and won’t load.'); }
   return s;
@@ -1206,6 +1317,8 @@ function coachFor(when, res) {
   $('coach').hidden = true;
   if (when === 'event' && !T.choose) { done('choose'); return coachSay('Two ways lie ahead. Choose one: tap its card, or the glowing tile it leads to.', '.choice.L'); }
   if (when === 'event' && life.sight > 0 && !life.cur.omens && !T.sight) { done('sight'); return coachSay('You have foresight. Spend it to see how each way bodes.', '[data-act="foresee"]'); }
+  if (when === 'event' && !T.why && panel.querySelector('.echo')) { done('why'); return coachSay('This comes of an earlier choice. Tap the badge to see whose, and which.', '.echo'); }
+  if (when === 'outcome' && res?.fx.some(f => f.k === 'mark') && !T.mark) { done('mark'); return coachSay('This will outlast you: every heir after you is born to it. Tap it in your bag to read it.', '#bag .mark'); }
   if (when === 'outcome' && !T.food && life.phase === 'journey') { done('food'); return coachSay('Every step eats a loaf. With none left, you starve a little each step.', '[data-stat="food"]'); }
   if (when === 'outcome' && res && res.fx.some(f => f.k === 'relic' && !f.dup) && !T.relic) { done('relic'); return coachSay('A relic! It lasts this life only. Tap it to read what it does.', '#bag .relic'); }
   if (when === 'fight' && !T.fight) { done('fight'); return coachSay('A fight: your power and two dice, against theirs. Ties go to you.', '[data-act="fight"]'); }
@@ -1214,7 +1327,7 @@ function coachFor(when, res) {
 
 /* ---------- starting up ---------- */
 function boot() {
-  const saved = DEMO ? null : load();
+  const saved = DEMO ? null : upgradeSave(load());
   hadSave = !!saved;
   if (saved?.ui) ui = { ...ui, ...saved.ui };
   if (saved?.house) { try { setHouse(saved.house); } catch (e) { console.warn('Could not load the house:', e); } }

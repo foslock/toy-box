@@ -3,14 +3,14 @@
 // can be in. Shared by a life (game.js), the page (main.js) and the headless balance runs (balance.mjs), so a number
 // changed here changes it everywhere.
 
-export const JOURNEY = 12;                  // choices before you're in line for the throne
+export const JOURNEY = 16;                  // choices before you're in line for the throne
 export const SUCCESSION = 5;                // choices in the fight for the crown
 export const PROCESSION = 4;                // choices on the way to the throne, once the crown is yours
 export const CROWN_ROW = JOURNEY + SUCCESSION;          // where the crown is won or lost
 export const ROWS = CROWN_ROW + PROCESSION;             // rows of choices above the crossroads: the last is the throne
-export const tierOf = row => row <= 4 ? 1 : row <= 8 ? 2 : 3;   // the row you're stepping onto → how hard the road is
+export const tierOf = row => row <= 5 ? 1 : row <= 11 ? 2 : 3;   // the row you're stepping onto → how hard the road is
 
-export const START = { hp: 5, food: 6, gold: 12, power: 3, weapon: 'staff', armor: 'rags' };
+export const START = { hp: 5, food: 8, gold: 12, power: 3, weapon: 'staff', armor: 'rags' };
 export const MAX_SIGHT = 9;
 
 /* ---------- arms and armour: power adds to your side of every fight ---------- */
@@ -170,12 +170,62 @@ export const FOES = {
   skeleton: { kind: 'undead', name: 'Skeleton' },
   ghost:    { kind: 'undead', name: 'Ghost' },
   wraith:   { kind: 'undead', name: 'Wraith' },
+  griffin:  { kind: 'beast', name: 'Griffin' },
+  basilisk: { kind: 'monster', name: 'Basilisk' },
+  kelpie:   { kind: 'monster', name: 'Kelpie' },
+  harpy:    { kind: 'monster', name: 'Harpy' },
+  manticore:{ kind: 'monster', name: 'Manticore' },
+  hydra:    { kind: 'monster', name: 'Hydra' },
+  minotaur: { kind: 'monster', name: 'Minotaur' },
+  golem:    { kind: 'monster', name: 'Golem' },
+  wendigo:  { kind: 'monster', name: 'Wendigo' },
+  lich:     { kind: 'undead', name: 'Lich' },
+  vampire:  { kind: 'undead', name: 'Vampire' },
+  banshee:  { kind: 'undead', name: 'Banshee' },
+  ghoul:    { kind: 'undead', name: 'Ghoul' },
+  fey_knight: { kind: 'fey', name: 'Fey Knight' },
 };
 // Two dice each, added to power; ties go to you.
 export const DICE = 2;
 // What a beaten foe leaves: beasts are dinner, people and monsters carry coin, and sometimes a weapon or armour better
 // than yours (never more than a little better, and never beyond what the stage of the road would have).
-export const LOOT = { beastFood: 2, goldPerPower: { human: 1.5, monster: 1.2, undead: 0, beast: 0 }, itemChance: .28 };
+export const LOOT = { beastFood: 2, goldPerPower: { human: 1.5, monster: 1.2, fey: 1, undead: 0, beast: 0 }, itemChance: .28 };   // the fey carry no iron
+
+/* ---------- marks on a house: what one life leaves the lives after it ---------- */
+// Made (mark) and ended (unmark) by what happens on the road, and carried by every heir after, who is shown them.
+// start: what every heir sets out with while the house bears the mark. lasts: how many more lives it lasts before it
+// fades; without it, a mark stays until something on some heir's road ends it. Events can call for a mark (needsMark)
+// or its absence (unlessMark): a feud sends its killers after your children, a curse its cure, a map its treasure.
+export const MARK_KINDS = {
+  feud:  { name: 'Feud', blurb: 'Someone wants your blood, and will come for your children, and theirs, until it’s settled.' },
+  curse: { name: 'Curse on the line', blurb: 'Every heir is born to it.' },
+  boon:  { name: 'Boon on the line', blurb: 'Every heir is born to it.' },
+  oath:  { name: 'Oath', blurb: 'A promise your house keeps, for better and for worse.' },
+  quest: { name: 'Unfinished business', blurb: 'Something waits for an heir of your house to find it.' },
+};
+export const MARKS = {
+  feud_varrow:   { kind: 'feud', name: 'The Varrow Feud', blurb: 'House Varrow swore blood for blood. Their knives wait on every road.' },
+  feud_wyrm:     { kind: 'feud', name: 'The Wyrm’s Grudge', blurb: 'The wyrm of Carrow Fell knows the smell of your blood, and hunts it.' },
+  feud_fey:      { kind: 'feud', name: 'The Slighted Prince', blurb: 'A prince of the Hidden Folk was shamed by your line, and his Hunt rides for your heirs.' },
+  feud_brothers: { kind: 'feud', name: 'The Grey Contract', blurb: 'The Grey Brothers hold a paid contract on your blood, and they always collect.' },
+  curse_hag:     { kind: 'curse', name: 'The Hag’s Blight', blurb: 'Every heir is born under the Black Cat’s Curse.', start: { trait: 'ill_luck' } },
+  curse_drowned: { kind: 'curse', name: 'The Drowned Promise', blurb: 'An ancestor promised the Lady of the Mere their children’s strength: every heir has 1 less health.', start: { maxhp: -1 } },
+  curse_lean:    { kind: 'curse', name: 'The Lean Years', blurb: 'A blight on your family’s fields: every heir sets out with 2 fewer loaves.', start: { food: -2 }, lasts: 3 },
+  curse_goblin:  { kind: 'curse', name: 'The Goblin’s Due', blurb: 'Your line cheated a goblin king: every heir’s purse is cursed, and gold found is halved.', start: { trait: 'leaden_purse' }, lasts: 2 },
+  boon_godmother:{ kind: 'boon', name: 'The Fey Godmother', blurb: 'A fairy godmother watches over your line: every heir starts with 2 foresight.', start: { sight: 2 }, lasts: 3 },
+  boon_saint:    { kind: 'boon', name: 'The Saint’s Favour', blurb: 'A saint’s hand is on your line: every heir is born under Saint’s Ward.', start: { trait: 'saints_ward' }, lasts: 2 },
+  boon_pack:     { kind: 'boon', name: 'Friends of the Pack', blurb: 'The wolves remember a kindness: every heir can speak with beasts.', start: { trait: 'beast_tongue' }, lasts: 3 },
+  boon_dragon:   { kind: 'boon', name: 'The Dragon’s Debt', blurb: 'A dragon owes your line a life: every heir carries a scale of its hide.', start: { relic: 'dragon_scale' }, lasts: 3 },
+  boon_granary:  { kind: 'boon', name: 'The Full Granary', blurb: 'Your line once fed a village through a famine, and now it feeds yours: every heir sets out with 3 more loaves.', start: { food: 3 }, lasts: 3 },
+  oath_rose:     { kind: 'oath', name: 'Sworn to the Rose', blurb: 'Your line is sworn to the Knights of the Rose: every heir has them as allies, and must answer when they call.', start: { ally: 'knights' } },
+  oath_hollow:   { kind: 'oath', name: 'The Hollow Pact', blurb: 'Your line bargained with the things under the hill: every heir sets out with 15 more gold, and owes them.', start: { gold: 15 } },
+  quest_hoard:   { kind: 'quest', name: 'The Buried Hoard', blurb: 'A map to an ancestor’s buried hoard, handed down. One day an heir will dig.' },
+  quest_blade:   { kind: 'quest', name: 'The Broken Blade', blurb: 'The shards of a hero’s sword, kept in a box. A smith who can mend it may yet be found.' },
+  quest_tomb:    { kind: 'quest', name: 'The Unquiet Tomb', blurb: 'An ancestor lies uneasy in an unmarked grave, and walks your roads until an heir lays them to rest.' },
+};
+// How much less likely an event is to come up again, the fewer lives ago the house last met it: so the next heir, and
+// the one after, meet a different road.
+export const SEEN_WEIGHT = { 1: .04, 2: .2, 3: .5 };
 
 /* ---------- the three states the kingdom can be in ---------- */
 export const REALMS = {

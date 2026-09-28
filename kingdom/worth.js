@@ -2,7 +2,7 @@
 // stand-in player (autoplay.js) uses it to choose, and the content checker (events/check.mjs) uses it to keep the two
 // sides of every choice close enough that neither is obviously right. Worth is roughly "gold's worth": a loaf is about
 // 5, a point of health about 12, dying is -150.
-import { ITEMS, RELICS, TRAITS, FOES, REALMS, DICE } from './rules.js';
+import { ITEMS, RELICS, TRAITS, FOES, REALMS, DICE, MARKS } from './rules.js';
 
 // Chance of winning a fight: your power + 2d6 against theirs + 2d6, ties to you. delta = your power − theirs.
 const DIFF = (() => {           // distribution of (your dice − their dice)
@@ -18,6 +18,8 @@ export function winChance(delta) {
   return p;
 }
 
+// A mark on the house weighs on (or helps) the heirs to come more than this life, but a life still minds what it leaves.
+const MARK_WORTH = { feud: -18, curse: -20, boon: 20, oath: 4, quest: 10 }, UNMARK_WORTH = { feud: 18, curse: 20, boon: -20, oath: -4, quest: 0 };
 const TRAIT_WORTH = { reaper: -45, toad: -30, wendigo: -30, twin_step: -22, glass_bones: -20, ill_luck: -20, veil: -18, oathbreaker: -18,
   leaden_purse: -15, weathervane: -10, wolfblood: 8, midas: -4, knighted: 30, royal_blood: 30, dragonblood: 30, stout_heart: 28 };
 
@@ -56,6 +58,8 @@ export function outcomeWorth(o, s) {
   if (o.crown) v += 200;
   if (o.treasury) v += o.treasury * .15;
   if (o.heir) v += (o.heir.ally ? 5 : 0) + (o.heir.renown || 0) * 2 + (o.heir.gold || 0) * .25;
+  if (o.mark) v += MARK_WORTH[MARKS[o.mark]?.kind] ?? 0;
+  if (o.unmark) v += UNMARK_WORTH[MARKS[o.unmark]?.kind] ?? 0;
   return v;
 }
 

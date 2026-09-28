@@ -17,6 +17,35 @@ const DRAW = {
   sight(p) { p.ellipse(8, 8, 6.5, 4, '#e8e4f4'); p.disc(8, 8, 2.8, '#6a5ab8'); p.disc(8, 8, 1.3, INK); p.put(7, 7, '#ffffff'); },
   claim(p) { p.rect(3, 8, 10, 5, G.base); p.poly([[3, 8], [3, 3], [6, 6]], G.base); p.poly([[13, 8], [13, 3], [10, 6]], G.base); p.poly([[6, 8], [8, 2], [10, 8]], G.lit); p.rect(3, 12, 10, 1, G.dim); p.put(8, 10, R.base); p.put(5, 10, '#4a8ae0'); p.put(11, 10, '#4a8ae0'); },
   skull(p) { p.disc(8, 7, 5, '#e8e0cc'); p.rect(5, 10, 6, 4, '#e8e0cc'); p.rect(5, 6, 2, 3, INK); p.rect(9, 6, 2, 3, INK); p.put(7, 11, INK); p.put(9, 11, INK); },
+  /* marks on the house, one for each kind, and an earlier step of your own road */
+  mark_feud(p) {
+    p.line(3, 2, 11, 10, S.lit); p.line(2, 3, 10, 11, S.dim); p.line(13, 2, 5, 10, S.lit); p.line(14, 3, 6, 11, S.dim);
+    p.line(9, 12, 12, 9, G.base); p.line(4, 9, 7, 12, G.base); p.line(11, 11, 13, 13, W.dim); p.line(5, 11, 3, 13, W.dim);
+    p.put(8, 12, R.base); p.disc(8, 14, 1.1, R.base);
+  },
+  mark_curse(p) {
+    const K = '#2a2230';
+    p.ellipse(7.5, 11, 4.5, 3.8, K); p.disc(8, 6, 3.3, K); p.poly([[4.8, 5], [5.2, 1.2], [7.6, 3.6]], K); p.poly([[11.2, 5], [10.8, 1.2], [8.4, 3.6]], K);
+    p.line(11, 13, 14, 10, K); p.put(14, 9, K); p.put(6, 6, '#ffd24a'); p.put(10, 6, '#ffd24a'); p.put(8, 8, '#b87aff');
+  },
+  mark_boon(p) {
+    p.poly([[8, 1], [9.6, 6.4], [15, 8], [9.6, 9.6], [8, 15], [6.4, 9.6], [1, 8], [6.4, 6.4]], G.base);
+    p.poly([[8, 4], [9, 7], [8, 8], [7, 7]], G.hi); p.disc(8, 8, 1.4, G.lit);
+  },
+  mark_oath(p) {
+    p.vline(8, 8, 15, '#3a7a3a'); p.poly([[8, 12], [12, 9.5], [10, 13]], '#4a9a4a'); p.poly([[8, 10.5], [4.5, 9], [6, 12]], '#3a7a3a');
+    p.disc(8, 5.5, 3.8, R.base); p.disc(8, 5, 2.2, R.lit); p.put(7, 4, R.hi); p.line(8, 5, 9, 6, R.dim);
+  },
+  mark_quest(p) {
+    p.rect(3, 4, 10, 9, '#ecdcb4'); p.rect(2, 3, 2, 11, '#c8b48a'); p.rect(12, 3, 2, 11, '#c8b48a');
+    for (const [x, y] of [[5, 6], [6, 7], [7, 7]]) p.put(x, y, '#8a7048');
+    p.line(8, 8, 11, 11, R.base); p.line(11, 8, 8, 11, R.base);
+  },
+  steps(p) {
+    const c = '#6a5040';
+    p.ellipse(5, 11.5, 2, 3, c); p.rect(4, 7, 2, 1, c); p.put(3, 8, c); p.put(6, 8, c);
+    p.ellipse(11, 5.5, 2, 3, c); p.rect(10, 1, 2, 1, c); p.put(9, 2, c); p.put(12, 2, c);
+  },
   /* relics */
   horseshoe(p) { for (let a = 0; a <= Math.PI; a += .08) { const x = 8 + Math.cos(a) * 5, y = 7 - Math.sin(a) * 5; p.rect(Math.round(x) - 1, Math.round(y), 2, 2, S.base); } p.rect(2, 7, 2, 6, S.base); p.rect(12, 7, 2, 6, S.base); px(p, [[3, 9], [12, 9], [6, 3], [10, 3]], INK); },
   wolf_tooth(p) { p.line(3, 3, 13, 3, W.base); p.poly([[6, 4], [10, 4], [8, 14]], '#f0e8d4'); p.vline(9, 5, 11, '#c8bca4'); },
