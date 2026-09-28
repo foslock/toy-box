@@ -68,6 +68,10 @@ export class View {
     const w = worldOf(row, col), c = this.world?.at(row, col);
     return this.toScreen(w.x, w.y + 12 - (c?.h || 0) * EL - lift);
   }
+  // Where a way's label hangs: a pixel above its chevron (see marker), even at the top of the chevron's bob; or, when
+  // there's no room above it, a pixel below it, even at the bottom.
+  aboveMarker(row, col) { return this.screenOfCell(row, col, 47); }
+  belowMarker(row, col) { return this.screenOfCell(row, col, 32); }
   origin() {
     // the camera's point sits in the middle of the part of the screen that isn't covered by the panels
     const top = this.inset.top * this.dpr / this.P, bottom = this.inset.bottom * this.dpr / this.P;

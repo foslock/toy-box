@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Kingdom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +14,9 @@
     --gold: #c8962a; --gold-hi: #f2c24c; --red: #a3301f; --good: #3f7a2c; --bad: #a3301f; --good-l: #8fe07a; --bad-l: #ff8a70; --magic: #6a4aa8;
   }
   html, body { height: 100%; margin: 0; }
-  html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* The page itself never zooms, in or out (pinching the map zooms the map), bounces or pulls to refresh: it only pans, so
+     the Tome and the menus still scroll. Browsers that zoom whatever the viewport tag says are stopped in main.js. */
+  html, body { touch-action: pan-x pan-y; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { color: var(--light); background: var(--night); font: 400 16px/1.4 'Pixelify Sans', ui-monospace, monospace; overflow: hidden; -webkit-font-smoothing: antialiased;
     -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: grab; }
@@ -65,7 +67,7 @@
   @keyframes float { from { opacity: 0; transform: translate(-50%, -6px); } 15% { opacity: 1; transform: translate(-50%, 0); } 75% { opacity: 1; } to { opacity: 0; transform: translate(-50%, 6px); } }
   button.chip { cursor: pointer; border-color: #8a6ad0; }
   button.chip:hover { background: rgba(60, 40, 80, .92); }
-  button.chip:disabled { cursor: default; opacity: .55; border-color: var(--edge); }
+  button.chip.off { opacity: .55; border-color: var(--edge); }   /* foresight, when there's nothing to spend it on: a tap still explains it */
   .chip.claim { border-color: var(--gold); }
   .bag { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: min(520px, calc(100vw - 180px)); }
   .bag button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 2px solid var(--edge); background: var(--leather); cursor: pointer; position: relative; }
@@ -77,12 +79,15 @@
   .tip { position: fixed; z-index: 60; max-width: 260px; padding: 8px 10px; font-size: 14px; line-height: 1.35; pointer-events: none; }
   .tip b { display: block; font: 400 12px/1.2 Silkscreen, monospace; margin-bottom: 3px; color: var(--gold-hi); }
   .tip i { display: block; font-style: normal; font-size: 12px; color: var(--light-3); margin-bottom: 3px; }
+  .tip small { display: block; margin-top: 6px; font-size: 12px; color: var(--light-3); }
+  .tip.act { pointer-events: auto; } .tip .btn { display: flex; box-sizing: border-box; width: 100%; margin: 9px 0 1px; }
 
   /* labels over the ways ahead */
   .labels { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
-  .tag { position: absolute; transform: translate(-50%, -100%); padding: 3px 7px 4px; font: 400 11px/1.15 Silkscreen, monospace; white-space: nowrap; color: #fff4dc;
+  .tag { position: absolute; transform: translate(-50%, -100%); box-sizing: border-box; padding: 3px 7px 4px; font: 400 11px/1.15 Silkscreen, monospace; white-space: nowrap; color: #fff4dc;
     background: rgba(26, 18, 22, .82); border: 1px solid rgba(242, 194, 76, .55); transition: opacity .25s; }
-  .tag.left { transform: translate(-100%, -100%); } .tag.right { transform: translate(0, -100%); }
+  .tag.left, .tag.right { width: max-content; white-space: normal; text-wrap: balance; }   /* wraps only when it must (see updateLabels) */
+  .tag.left { transform: translate(-100%, -100%); text-align: right; } .tag.right { transform: translate(0, -100%); }
   .tag.hot { border-color: var(--gold-hi); background: rgba(70, 44, 16, .92); }
   .tag.grave { color: var(--light-2); border-color: rgba(255, 255, 255, .25); font-size: 10px; }
   .tag.locked { opacity: .55; border-color: rgba(184, 122, 255, .6); text-decoration: line-through; }

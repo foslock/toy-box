@@ -32,11 +32,14 @@ const SHOP_NAME = { market: 'The Market', smith: 'The Smithy', temple: 'The Temp
 const FATE_WORD = { killed: 'Slain', starved: 'Starved', broke: 'Ruined', reaper: 'Taken', lost: 'Uncrowned', crowned: 'Crowned' };
 
 /* ---------- saving ---------- */
-let house, life, ui = { tut: {}, sound: true, music: true };
+// Saved the moment anything changes, so a refresh or a crash loses nothing: the house; the life, even once it's over
+// and its ending is still playing (the house only takes it into the Tome at the end of that); and, while the screens
+// that follow a choice are still up (a fight, what happened, a herald), that choice's result, so they come back.
+let house, life, pending = null, ui = { tut: {}, sound: true, music: true };
 function load() { try { const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } }
 function save() {
   if (DEMO) return;
-  try { localStorage.setItem(KEY, JSON.stringify({ v: 1, house, life: life && !life.fate ? life.toJSON() : null, ui })); } catch { /* storage full or blocked: it just won't keep */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ v: 1, house, life: life ? life.toJSON() : null, pending, ui })); } catch { /* storage full or blocked: it just won't keep */ }
 }
 
 /* ---------- the map ---------- */
@@ -57,7 +60,7 @@ let shown = {};
 function stat(id, value, extra = '', cls = '') {
   const el = document.createElement(id === 'sight' ? 'button' : 'div');
   el.className = 'chip leather' + (cls ? ' ' + cls : ''); el.dataset.stat = id;
-  if (id === 'sight') { el.type = 'button'; el.onclick = () => foresee(); }
+  if (id === 'sight') el.type = 'button';   // its tip has the button that spends one (see tipOn)
   el.append(icon(id === 'hp' ? 'hp' : id, 1.5));
   const b = document.createElement('b'); b.textContent = value; el.append(b);
   if (extra) { const s = document.createElement('small'); s.textContent = extra; el.append(s); }
@@ -78,7 +81,7 @@ function renderHUD(anim = true) {
   st.append(stat('renown', life.renown));
   if (life.phase === 'succession') st.append(stat('claim', life.claim, '', 'claim' + (life.claim <= 1 ? ' low' : '')));
   const sight = stat('sight', life.sight);
-  sight.disabled = !(life.sight > 0 && life.cur && !life.cur.omens && mode === 'event');
+  sight.classList.toggle('off', !canForesee());
   st.append(sight);
   if (anim) for (const [k, v] of Object.entries(now)) {
     const was = shown[k];
@@ -105,15 +108,30 @@ function renderHUD(anim = true) {
   requestAnimationFrame(measure);
 }
 const newBits = new Set();
-// Tooltips for the stats and the bag, on hover or a tap.
-let tipFor = null;
+// Tooltips for the stats and the bag: on hover, or pinned open by a tap or a click. Foresight's, pinned, has the button
+// that spends one, so tapping the eye to see what it is never spends it by itself.
+let tipFor = null, tipPinned = false;
 function tipOn(el, name, blurb, kind = '') {
-  const show = () => { const t = $('tip'); t.innerHTML = `<b>${esc(name)}</b>${kind ? `<i>${esc(kind)}</i>` : ''}${esc(blurb)}`; t.hidden = false; const r = el.getBoundingClientRect(); const w = t.offsetWidth; t.style.left = clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + 'px'; t.style.top = (r.bottom + 8) + 'px'; tipFor = el; };
-  el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') show(); });
-  el.addEventListener('pointerleave', () => { $('tip').hidden = true; });
-  el.addEventListener('click', () => { if (el.dataset.stat === 'sight' && !el.disabled) return; if (tipFor === el && !$('tip').hidden) { $('tip').hidden = true; } else show(); });
+  const show = pin => {
+    const t = $('tip'), sight = pin && el.dataset.stat === 'sight';
+    const more = !sight ? '' : canForesee() ? `<button type="button" class="btn go" data-act="spend-sight">Foresee (${life.sight} left)</button>`
+      : `<small>${life.sight < 1 ? 'You have none left.' : life.cur?.omens ? 'You have foreseen this choice already.' : 'Spend it when a choice is in front of you.'}</small>`;
+    t.innerHTML = `<b>${esc(name)}</b>${kind ? `<i>${esc(kind)}</i>` : ''}${esc(blurb)}${more}`;
+    t.classList.toggle('act', !!t.querySelector('button'));
+    t.querySelector('[data-act="spend-sight"]')?.addEventListener('click', foresee);
+    t.hidden = false; tipFor = el; tipPinned = pin;
+    const r = el.getBoundingClientRect(), w = t.offsetWidth;
+    t.style.left = clamp(r.left + r.width / 2 - w / 2, 8, innerWidth - w - 8) + 'px'; t.style.top = (r.bottom + 8) + 'px';
+  };
+  el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && (!tipPinned || $('tip').hidden)) show(false); });
+  el.addEventListener('pointerleave', () => { if (!tipPinned) $('tip').hidden = true; });
+  el.addEventListener('click', e => {
+    if (tipFor === el && tipPinned && !$('tip').hidden) { $('tip').hidden = true; return; }
+    show(true);
+    if (e.detail === 0) $('tip').querySelector('button')?.focus();   // from the keyboard: on to its button
+  });
 }
-addEventListener('pointerdown', e => { if (tipFor && !tipFor.contains(e.target)) $('tip').hidden = true; }, true);
+addEventListener('pointerdown', e => { if (tipFor && !tipFor.contains(e.target) && !$('tip').contains(e.target)) $('tip').hidden = true; }, true);
 
 /* ---------- the story panel ---------- */
 let mode = 'title';
@@ -160,7 +178,9 @@ function optionDetail(dir) {
 }
 function renderEvent() {
   mode = 'event';
+  const drawn = !life.cur;
   life.present();
+  if (drawn || pending) { pending = null; save(); }
   const ev = life.event, cur = life.cur, lock = life.locks();
   const side = dir => {
     const opt = dir === 'L' ? ev.left : ev.right, hidden = cur.hidden === dir;
@@ -187,7 +207,9 @@ function renderEvent() {
   renderHUD(false);
   coachFor('event');
 }
+const canForesee = () => !!life && life.sight > 0 && !!life.cur && !life.cur.omens && mode === 'event';
 function foresee() {
+  $('tip').hidden = true;
   if (mode !== 'event' || !life.foresee()) return;
   sound.relic();
   save();
@@ -206,8 +228,9 @@ async function choose(dir) {
   for (const b of panel.querySelectorAll('.choice')) { b.disabled = true; b.classList.add(b.dataset.dir === dir ? 'picked' : 'faded'); }
   panel.querySelector('.tools')?.remove();
   if (coach.g) coach.stop();
-  const before = snapshot();
   const res = life.choose(dir);
+  pending = { res };
+  save();
   // keep just the way taken lit while your heir walks there
   if (view.opts) { const keep = view.opts[dir]; keep.t = 1; keep.hidden = false; keep.theme = res.tile; view.opts = { [dir]: keep }; }
   view.hover = null;
@@ -220,9 +243,8 @@ async function choose(dir) {
   if (life.phase === 'procession' || res.crowned) crowdAround(life.row, life.col);
   if (res.crowned) { view.burst(life.row, life.col, 'gold'); view.burst(life.row, life.col, 'gold'); sound.relic(); }
   busy = false;
-  save();
-  if (res.fight) return battle(res, before);
-  outcome(res, before);
+  if (res.fight) return battle(res);
+  outcome(res);
 }
 function stride() {
   if (mode !== 'event') return;
@@ -230,11 +252,12 @@ function stride() {
   const s = view.hover || free;
   const res = life.stride(life.locks()[s] ? free : s);
   if (!res) return;
+  pending = { res };
+  save();
   mode = 'busy';
   sound.whoosh(0, .8);
-  view.walk(res.dir, () => { view.clearOptions(); view.sync(life); view.focus(life.row, life.col); save(); outcome(res, snapshot()); }, .35);
+  view.walk(res.dir, () => { view.clearOptions(); view.sync(life); view.focus(life.row, life.col); outcome(res); }, .35);
 }
-const snapshot = () => ({ hp: life.hp, food: life.food, gold: life.gold });
 
 // What happened, in words and little chips.
 function fxChips(raw) {
@@ -294,16 +317,16 @@ function playFx(res) {
   if (bless) setTimeout(() => sound.bless(), 250);
   if (curse) { setTimeout(() => sound.curse(), 200); view.burst(life.row, life.col, 'dark'); }
 }
-function outcome(res) {
+function outcome(res, again = false) {
   mode = 'outcome';
-  playFx(res);
+  if (!again) playFx(res);
   const intro = res.intro ? `<span class="intro">${esc(res.intro)}</span> ` : '';
   const title = res.poor ? `${esc(res.title)}` : esc(res.title);
   const next = res.death ? 'What became of them' : res.summons ? 'A herald comes' : res.crowned ? 'To the throne' : res.shop ? `Go into ${SHOP_NAME[res.shop].replace(/^The /, 'the ')}` : 'Onward';
   setPanel(`${kickerDone()}<h2>${title}</h2><p class="outcome">${intro}${esc(res.text)}</p><div class="fx">${fxChips([...res.fx, ...res.upkeep])}</div>
     <div class="row">${res.revived ? '<span class="hint">The Phoenix Feather burns to ash, and you rise.</span>' : ''}${life.canRewind() ? '<button type="button" class="btn" data-act="rewind">Turn back time</button>' : ''}<button type="button" class="btn go" data-act="next">${next} →</button></div>`);
   hydrateIcons(panel);
-  if (res.revived) { sound.relic(); view.burst(life.row, life.col, 'gold'); }
+  if (res.revived && !again) { sound.relic(); view.burst(life.row, life.col, 'gold'); }
   panel.querySelector('[data-act="next"]').onclick = () => { if (guideAt >= 0) guideEnd(); afterOutcome(res); };
   panel.querySelector('[data-act="rewind"]')?.addEventListener('click', rewind);
   renderHUD();
@@ -367,6 +390,7 @@ const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 async function fightRoll(res) {
   if (mode !== 'battle') return;
   mode = 'busy';
+  if (pending) { pending.fought = true; save(); }
   if (coach.g) coach.stop();
   const F = res.fight;
   panel.querySelector('.row').innerHTML = '';
@@ -397,6 +421,7 @@ async function fightRoll(res) {
 /* ---------- shops ---------- */
 function shop() {
   mode = 'shop';
+  if (pending) { pending = null; save(); }
   const S = life.shop;
   const ware = w => {
     const can = !w.sold && life.gold >= w.price;
@@ -450,7 +475,7 @@ function fate() {
   const inh = inheritanceOf(life);
   const entry = endLife(house, life);
   const heir = house.heir;
-  life = null;
+  life = null; pending = null;
   save();
   view.foeLeaves(); view.clearOptions(); view.hero = null; view.setGraves();
   view.burst(entry.fate.row, entry.fate.col, 'dark');
@@ -495,6 +520,7 @@ function crowdAround(row, col) {
 // and the crossroads.
 async function coronation() {
   mode = 'crown';
+  pending = null; save();   // a refresh from here on starts the ceremony again
   view.clearOptions(); view.foeLeaves();
   hidePanel();
   $('hud').hidden = true;
@@ -611,13 +637,29 @@ function setOut(o = {}) {
   view.focus(0, 0, true);
   shown = {};
   sound.pick();
-  save();
   $('sub').textContent = `${life.heir.name} of House ${house.names.house} · Generation ${roman(life.gen)}`;
-  if (o.tutorial) { life.cur = { id: TUTORIAL_EVENT, hidden: null, omens: null }; life.used.push(TUTORIAL_EVENT); }
+  if (o.tutorial) { life.cur = { id: TUTORIAL_EVENT, hidden: null, omens: null }; life.used.push(TUTORIAL_EVENT); guideAt = 0; }   // (keeps the ordinary tips out of its way)
+  save();
   renderEvent();
   if (o.tutorial) guideStart();
 }
-function resumeMode() { if (life && !life.fate) { if (life.shop) shop(); else renderEvent(); } else if (!life) heirCard(); }
+// Back to wherever the life had got to: the screens after its last choice, if they were still up; the shop it was in;
+// or the choice in front of it. After a refresh (boot), also its ending, if it had one, and a walkthrough that hadn't
+// finished.
+function resumeMode(boot = false) {
+  if (!life) return heirCard();
+  renderHUD(false);
+  const rewalk = boot && !ui.tut.choose && (pending ? pending.res.eventId : life.cur?.id) === TUTORIAL_EVENT;
+  if (rewalk) guideAt = 0;   // keeps the ordinary tips out of its way; outcome() takes it on to its last word
+  if (pending) {
+    try { return pending.res.fight && !pending.fought ? battle(pending.res) : outcome(pending.res, true); }
+    catch (e) { console.warn('Could not show the last choice again:', e); pending = null; }
+  }
+  if (life.fate) { if (boot) life.fate.kind === 'crowned' ? coronation() : fate(); return; }   // else it's playing already
+  if (life.shop) return shop();
+  renderEvent();
+  if (rewalk) guideStart();
+}
 
 /* ---------- the tome ---------- */
 function armsCanvas(arms, s = 3) {
@@ -709,12 +751,12 @@ function titleScreen() {
   const btns = [];
   const fresh = introDue() && !life && !house.lineage.length;
   if (fresh) btns.push('<button type="button" class="btn go" data-act="story">Begin the story</button>', '<button type="button" class="btn ghost" data-act="nostory">Skip the intro</button>');
-  else if (life && !life.fate) btns.push(`<button type="button" class="btn go" data-act="continue">Continue ${esc(life.heir.name)}’s road</button>`);
+  else if (life) btns.push(`<button type="button" class="btn go" data-act="continue">Continue ${esc(life.heir.name)}’s road</button>`);
   else btns.push(`<button type="button" class="btn go" data-act="begin">${house.lineage.length ? 'The next heir' : 'Begin'}</button>`);
   if (house.lineage.length) btns.push('<button type="button" class="btn" data-act="tome">The Tome</button>');
   $('titleButtons').innerHTML = btns.join('');
   $('titleHouse').textContent = house.lineage.length ? `House ${house.names.house} of ${house.names.kingdom} · ${house.lineage.length} generation${house.lineage.length === 1 ? '' : 's'}${house.crowns ? ` · ${house.crowns} crowned` : ''}` : `House ${house.names.house} of ${house.names.kingdom}`;
-  $('titleButtons').querySelector('[data-act="continue"]')?.addEventListener('click', () => { start(); $('sub').textContent = `${life.heir.name} of House ${house.names.house} · Generation ${roman(life.gen)}`; resumeMode(); });
+  $('titleButtons').querySelector('[data-act="continue"]')?.addEventListener('click', () => { start(); $('sub').textContent = `${life.heir.name} of House ${house.names.house} · Generation ${roman(life.gen)}`; resumeMode(true); });
   $('titleButtons').querySelector('[data-act="begin"]')?.addEventListener('click', () => { start(); heirCard(); });
   $('titleButtons').querySelector('[data-act="tome"]')?.addEventListener('click', () => showTome());
   $('titleButtons').querySelector('[data-act="story"]')?.addEventListener('click', () => playIntro({ first: true }));
@@ -909,12 +951,38 @@ function updateLabels() {
     let el = tags[k];
     if (!el) { el = tags[k] = document.createElement('div'); $('labels').append(el); }
     el.className = 'tag' + w.cls + (k === 'L' ? ' left' : k === 'R' ? ' right' : ''); if (el.textContent !== w.text) el.textContent = w.text;
-    const p = view.screenOfCell(w.row, w.col, 30), wd = el.offsetWidth;
-    let x = p.x + (k === 'L' ? 14 : k === 'R' ? -14 : 0);
+    if (k === 'g') {
+      const p = view.screenOfCell(w.row, w.col, 30), wd = el.offsetWidth;
+      el.style.left = Math.round(clamp(p.x, wd / 2 + 6, innerWidth - wd / 2 - 6)) + 'px'; el.style.top = Math.round(p.y) + 'px';
+      continue;
+    }
+    // a way's label sits just above its chevron, its inner end reaching just past it, and grows away from the other
+    // way's; if the screen's too narrow for it to fit that way, it wraps rather than run into the other label
+    const p = view.aboveMarker(w.row, w.col), reach = 7 * view.P / view.dpr;
+    let x = p.x + (k === 'L' ? reach : -reach);
+    fitTag(el, Math.round(Math.max(120, k === 'L' ? x - 6 : innerWidth - 6 - x)));
+    const wd = el.offsetWidth, ht = el.offsetHeight;
     // keep it on the screen: a label that grows left can't start before the edge, nor one that grows right end past it
-    if (k === 'L') x = clamp(x, wd + 6, innerWidth - 6); else if (k === 'R') x = clamp(x, 6, innerWidth - wd - 6); else x = clamp(x, wd / 2 + 6, innerWidth - wd / 2 - 6);
-    el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(p.y) + 'px';
+    x = k === 'L' ? clamp(x, wd + 6, innerWidth - 6) : clamp(x, 6, innerWidth - wd - 6);
+    // zoomed right in, with no room above its chevron, it hangs below it instead
+    let y = p.y - 3;
+    if (y - ht < view.inset.top + 4) y = view.belowMarker(w.row, w.col).y + 3 + ht;
+    el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px';
   }
+}
+
+// A label that has to wrap stays as wide as it was allowed to be, however short its lines come out: this fits it to its
+// longest line.
+function fitTag(el, max) {
+  const key = el.textContent + '|' + max;
+  if (el.dataset.fit === key) return;
+  el.dataset.fit = key;
+  el.style.width = ''; el.style.maxWidth = max + 'px';
+  const range = document.createRange(); range.selectNodeContents(el);
+  const lines = [...range.getClientRects()];
+  if (lines.length < 2) return;
+  const cs = getComputedStyle(el), edges = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((n, k) => n + parseFloat(cs[k]), 0);
+  el.style.width = Math.ceil(Math.max(...lines.map(r => r.width)) + edges + 1) + 'px';
 }
 
 /* ---------- touching the map ---------- */
@@ -962,7 +1030,10 @@ const up = e => {
 };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!introOn) view.setZoom(view.zoomStep + (e.deltaY < 0 ? 1 : -1)); }, { passive: false });
+// The page never zooms, whatever the browser makes of the viewport tag: Safari's own pinch gestures are cancelled, and
+// so is any two-finger touch. (The map's pinch runs on pointer events, which this leaves alone.)
 for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 $('zoomIn').onclick = () => view.setZoom(view.zoomStep + 1);
 $('zoomOut').onclick = () => view.setZoom(view.zoomStep - 1);
 
@@ -991,7 +1062,7 @@ $('replayTut').onclick = () => { ui.tut = {}; save(); menu(false); toast('The ti
 $('replayIntro').onclick = () => { menu(false); sound.ensure(); playIntro(); };
 $('newHouse').onclick = () => {
   if (!confirm('Start a new house? The Tome, the vault and every bloodline power of this one will be lost.')) return;
-  setHouse(newHouse()); life = null; save(); menu(false); closeCard(); $('tomeBox').hidden = true; titleScreen();
+  setHouse(newHouse()); life = null; pending = null; save(); menu(false); closeCard(); $('tomeBox').hidden = true; titleScreen();
 };
 
 function toast(text) {
@@ -1027,6 +1098,9 @@ function boot() {
   if (saved?.house) { try { setHouse(saved.house); } catch (e) { console.warn('Could not load the house:', e); } }
   if (!house) setHouse(newHouse());
   if (saved?.life && !DEMO) { try { life = resumeLife(house, saved.life); } catch (e) { console.warn('Could not load the life:', e); life = null; } }
+  // the screens after the last choice, if they were still up (and are about this life, where it now stands)
+  const p = saved?.pending;
+  if (life && p?.res && p.res.row === life.row && p.res.col === life.col) pending = p;
   sw.setAttribute('aria-checked', ui.sound); mw.setAttribute('aria-checked', ui.music);
   sound.enabled = ui.sound;
   if (DEMO) return demo();
@@ -1092,3 +1166,4 @@ boot();
 measure();
 requestAnimationFrame(loop);
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
+addEventListener('pagehide', save);
