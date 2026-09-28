@@ -30,6 +30,7 @@ export class View {
     this.cam = { x: 0, y: 0 }; this.camT = { x: 0, y: 0 }; this.pan = { x: 0, y: 0 };
     this.inset = { top: 0, bottom: 0 }; this.insetGo = null;
     this.cells = new Map();         // key → { vis, theme, trail, alt, grave, fade, from }
+    this.lifts = new Map();         // key → height, for the tiles this life's road has raised (see raise)
     this.opts = null;                // the ways ahead: { L: {row, col, theme, hidden, t}, R: … }
     this.hover = null;
     this.hero = null;                // { row, col, x, y, look, dir, walk: {from, to, t, dur, done} }
@@ -72,8 +73,8 @@ export class View {
     return { x: (wx - ox) * this.P / this.dpr, y: (wy - oy) * this.P / this.dpr };
   }
   screenOfCell(row, col, lift = 0) {
-    const w = worldOf(row, col), c = this.world?.at(row, col);
-    return this.toScreen(w.x, w.y + 12 - (c?.h || 0) * EL - lift);
+    const w = worldOf(row, col);
+    return this.toScreen(w.x, w.y + 12 - this.hAt(row, col) * EL - lift);
   }
   // Where a way's label hangs: a pixel above its chevron (see marker), even at the top of the chevron's bob; or, when
   // there's no room above it, a pixel below it, even at the bottom.
@@ -112,7 +113,7 @@ export class View {
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
       const gx = gx0 + dx, gy = gy0 + dy;
       if (gx < 0 || gy < 0 || gx >= N || gy >= N) continue;
-      const c = this.world?.cells[gy * N + gx], lift = (c?.h || 0) * EL;
+      const rc = rowColOf(gx, gy), lift = this.hAt(rc.row, rc.col) * EL;
       const cx = wxOf(gx, gy), cy = wyOf(gx, gy) + 12 - lift;
       const d = Math.abs(wx - cx) / 24 + Math.abs(wy - cy) / 12;
       if (d < bestD) { bestD = d; best = rowColOf(gx, gy); }
@@ -129,7 +130,18 @@ export class View {
     if (vis > c.vis) { c.from = c.vis; c.vis = vis; c.fade = instant ? 1 : 0; }
   }
   // Forget everything on the map (a new life starts from the crossroads with fresh eyes).
-  reset() { this.cells.clear(); this.opts = null; this.hero = null; this.foe = null; this.crowd = []; this.lifted = 0; this.shape = null; this.ceremony = null; this.dist = null; }
+  reset() { this.cells.clear(); this.lifts.clear(); this.opts = null; this.hero = null; this.foe = null; this.crowd = []; this.lifted = 0; this.shape = null; this.ceremony = null; this.dist = null; }
+  // How high a tile stands: as the land lies, unless this life's road has raised it.
+  hAt(row, col) { return this.lifts.get(keyOf(row, col)) ?? this.world?.at(row, col)?.h ?? 0; }
+  // The tile under the heir, and each way ahead, stands at least as high as the tiles in front of it (the two it's
+  // stepped up to from, and the one below them), so that nothing in front of it rises over it and hides it, or the
+  // heir; and once risen, stays so. (So the road never steps down: the tile it came from would be in front of it.)
+  raise(row, col) {
+    if (!inside(row, col)) return;
+    let h = this.world?.at(row, col)?.h || 0;
+    for (const [dr, dc] of [[-1, -1], [-1, 1], [-2, 0]]) if (inside(row + dr, col + dc)) h = Math.max(h, this.hAt(row + dr, col + dc));
+    this.lifts.set(keyOf(row, col), h);
+  }
   // Rebuild what's known of the map from a life: the road walked so far, the ways not taken, what can be seen round it.
   // The roads the last few generations walked stay faintly known, in grey, with their graves at the ends.
   sync(life, instant = false) {
@@ -146,10 +158,13 @@ export class View {
     }
     let row = 0, col = 0;
     const walked = [[0, 0, 'crossroads']];
+    // the road rises as it went (see raise): each tile it stood on, and both ways ahead of it, in the order they came
+    this.lifts.clear(); this.raise(0, 0);
     for (let i = 0; i < life.path.length; i++) {
       const dir = life.path[i], log = life.log[i];
       const alt = log?.alt;
       if (alt) { const ar = row + 1, ac = col + (dir === 'L' ? 1 : -1); const c = this.cell(ar, ac); c.theme = alt; c.alt = true; }
+      this.raise(row + 1, col - 1); this.raise(row + 1, col + 1);
       row++; col += dir === 'L' ? -1 : 1;
       walked.push([row, col, log?.tile || 'road']);
     }
@@ -205,7 +220,7 @@ export class View {
     const lock = life.locks();
     const mk = (dir, opt) => ({ dir, row: life.row + 1, col: life.col + (dir === 'L' ? -1 : 1), theme: opt.tile, hidden: cur.hidden === dir, locked: !!lock[dir], t: 0 });
     this.opts = { L: mk('L', ev.left), R: mk('R', ev.right) };
-    for (const o of Object.values(this.opts)) if (!o.hidden) this.burst(o.row, o.col, 'mist');
+    for (const o of Object.values(this.opts)) { this.raise(o.row, o.col); if (!o.hidden) this.burst(o.row, o.col, 'mist'); }
     this.fogDistances();
   }
   clearOptions() { this.opts = null; }
@@ -216,13 +231,13 @@ export class View {
     const to = { row: h.row + 1, col: h.col + (dir === 'L' ? -1 : 1) };
     const a = worldOf(h.row, h.col), b = worldOf(to.row, to.col);
     h.dir = dir; h.pose = 'back';
-    h.walk = { from: { x: a.x, y: a.y + 12, h: this.world?.at(h.row, h.col)?.h || 0 }, to: { x: b.x, y: b.y + 12, h: this.world?.at(to.row, to.col)?.h || 0 }, t: 0, dur, done, target: to };
+    h.walk = { from: { x: a.x, y: a.y + 12, h: this.hAt(h.row, h.col) }, to: { x: b.x, y: b.y + 12, h: this.hAt(to.row, to.col) }, t: 0, dur, done, target: to };
   }
   walkTo(row, col, done, dur = .3) {
     const h = this.hero; if (!h) return done?.();
     const a = { x: h.x, y: h.y }, b = worldOf(row, col);
     h.dir = col < h.col ? 'L' : 'R'; h.pose = row < h.row ? 'front' : 'back';
-    h.walk = { from: { x: a.x, y: a.y, h: this.world?.at(h.row, h.col)?.h || 0 }, to: { x: b.x, y: b.y + 12, h: this.world?.at(row, col)?.h || 0 }, t: 0, dur, done, target: { row, col } };
+    h.walk = { from: { x: a.x, y: a.y, h: this.hAt(h.row, h.col) }, to: { x: b.x, y: b.y + 12, h: this.hAt(row, col) }, t: 0, dur, done, target: { row, col } };
   }
   showFoe(id) { const h = this.hero; if (!h) return; this.foe = { id, row: h.row, col: h.col, t: 0, gone: 0, sprite: foeArt(id) }; }
   foeFalls() { if (this.foe) this.foe.gone = .001; }
@@ -237,7 +252,7 @@ export class View {
 
   /* ---------- particles ---------- */
   burst(row, col, kind) {
-    const w = worldOf(row, col), c = this.world?.at(row, col), y = w.y + 12 - (c?.h || 0) * EL;
+    const w = worldOf(row, col), y = w.y + 12 - this.hAt(row, col) * EL;
     if (kind === 'mist') for (let i = 0; i < 14; i++) this.parts.push({ x: w.x + (Math.random() - .5) * 40, y: y + (Math.random() - .5) * 16, vx: (Math.random() - .5) * 14, vy: -4 - Math.random() * 6, life: 1.1, t: 0, c: '#dfe4ee', size: 3, fade: true });
     if (kind === 'gold') for (let i = 0; i < 24; i++) this.parts.push({ x: w.x, y: y - 8, vx: (Math.random() - .5) * 70, vy: -30 - Math.random() * 50, life: 1.2, t: 0, c: ['#ffe28a', '#f2c24c', '#ffffff'][i % 3], g: 80 });
     if (kind === 'dark') for (let i = 0; i < 18; i++) this.parts.push({ x: w.x + (Math.random() - .5) * 16, y: y - 6, vx: (Math.random() - .5) * 20, vy: -10 - Math.random() * 20, life: 1.4, t: 0, c: i % 2 ? '#6a3a8a' : '#2a1a3a', size: 2, fade: true });
@@ -255,8 +270,9 @@ export class View {
     const theme = opt && !opt.hidden ? opt.theme : c.theme || (this.thrones?.has(key) ? 'throne' : null);
     return theme ? this.structFor(row, col, theme, grey && !opt, c.trail) : this.landFor(row, col, grey, c.trail);
   }
-  // What rises above a picture's ground (a tower, a roof, a tree): which of its pixels above the ground are solid, and
-  // the box round them; or null if nothing rises more than a little. Worked out once for each picture.
+  // What rises above a picture's ground (a tower, a roof, a tree, a cave's mound): which of its pixels above the ground
+  // are solid, and the box round them; or null if nothing rises more than a little (enough to reach over the tile
+  // behind it, where the heir's feet are, is more than a little). Worked out once for each picture.
   rising(img) {
     let r = this.risen.get(img);
     if (r !== undefined) return r;
@@ -265,7 +281,7 @@ export class View {
       const w = img.width, h = Math.min(img.height, HEAD), d = img.getContext('2d').getImageData(0, 0, w, h).data;
       let x0 = w, x1 = -1, y0 = h;
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 40) { if (y < y0) y0 = y; if (x < x0) x0 = x; if (x > x1) x1 = x; }
-      if (x1 >= 0 && y0 < HEAD - 10) r = { x0, x1, y0, w, h, d };
+      if (x1 >= 0 && y0 < HEAD - 4) r = { x0, x1, y0, w, h, d };
     } catch { /* a picture we can't read just never fades */ }
     this.risen.set(img, r);
     return r;
@@ -289,25 +305,25 @@ export class View {
   /* ---------- sprites ---------- */
   sprite(key, make) { let s = this.cache.get(key); if (!s) { s = make(); this.cache.set(key, s); } return s; }
   landFor(row, col, grey, trail) {
-    const c = this.world.at(row, col);
+    const c = this.world.at(row, col), h = this.hAt(row, col);
     const tk = trail ? `${trail.in}${trail.out}` : '';
-    return this.sprite(`l${c.gx},${c.gy},${grey ? 1 : 0},${tk}`, () => { const p = landSprite(c, 1, trail); return (grey ? p.fogged() : p).canvas(); });
+    return this.sprite(`l${c.gx},${c.gy},${h},${grey ? 1 : 0},${tk}`, () => { const p = landSprite(h === c.h ? c : { ...c, h }, 1, trail); return (grey ? p.fogged() : p).canvas(); });
   }
   structFor(row, col, theme, grey, trail) {
-    const c = this.world.at(row, col);
+    const c = this.world.at(row, col), h = this.hAt(row, col);
     const tk = trail ? `${trail.in}${trail.out}` : '';
     const arms = this.house?.names?.arms;
-    return this.sprite(`s${theme},${c.biome},${c.h},${grey ? 1 : 0},${tk}`, () => {
-      const p = structureSprite(theme, { biome: c.biome, h: c.h, path: trail, arms: arms && { field: tinct(arms.field), tincture: tinct(arms.tincture) } });
+    return this.sprite(`s${theme},${c.biome},${h},${grey ? 1 : 0},${tk}`, () => {
+      const p = structureSprite(theme, { biome: c.biome, h, path: trail, arms: arms && { field: tinct(arms.field), tincture: tinct(arms.tincture) } });
       return (grey ? p.fogged() : p).canvas();
     });
   }
   structLayersFor(row, col, theme, trail) {
-    const c = this.world.at(row, col);
+    const c = this.world.at(row, col), h = this.hAt(row, col);
     const tk = trail ? `${trail.in}${trail.out}` : '';
     const arms = this.house?.names?.arms;
-    return this.sprite(`L${theme},${c.biome},${c.h},${tk}`, () => {
-      const { base, top } = structureLayers(theme, { biome: c.biome, h: c.h, path: trail, arms: arms && { field: tinct(arms.field), tincture: tinct(arms.tincture) } });
+    return this.sprite(`L${theme},${c.biome},${h},${tk}`, () => {
+      const { base, top } = structureLayers(theme, { biome: c.biome, h, path: trail, arms: arms && { field: tinct(arms.field), tincture: tinct(arms.tincture) } });
       return { base: base.canvas(), top: top.canvas() };
     });
   }
@@ -352,7 +368,7 @@ export class View {
     // what nothing may hide, as boxes on the screen: the heir (and where they're walking to), and each way ahead's arrow
     // and the top of its picture
     this.keep = [];
-    const keep = (row, col, hw, up, down) => { const w = worldOf(row, col), x = w.x - ox, y = w.y - oy; this.keep.push({ row, L: x - hw, R: x + hw, T: y - up, B: y + down }); };
+    const keep = (row, col, hw, up, down) => { const w = worldOf(row, col), x = w.x - ox, y = w.y - oy - this.hAt(row, col) * EL; this.keep.push({ row, L: x - hw, R: x + hw, T: y - up, B: y + down }); };
     if (h) { keep(h.row, h.col, 8, 12, 12); if (h.walk) keep(h.walk.target.row, h.walk.target.col, 8, 12, 12); }
     if (this.opts) for (const o of Object.values(this.opts)) keep(o.row, o.col, 12, 36, 8);
     const heroSum = h ? Math.round((gridOf(h.row, h.col).gx + gridOf(h.row, h.col).gy)) : -1;
@@ -503,23 +519,23 @@ export class View {
   fxCell(c, key) { return !c.theme && this.thrones?.has(key) ? { ...c, theme: 'throne' } : c; }
   // A soft gold wash over a tile's top, and a bobbing chevron above it: a way you could go.
   wash(x0, y0, row, col, a) {
-    const b = this.b, c = this.world.at(row, col), y = y0 + HEAD - (c?.h || 0) * EL;
+    const b = this.b, y = y0 + HEAD - this.hAt(row, col) * EL;
     b.globalAlpha = clamp(a, 0, 1); b.fillStyle = '#ffe28a';
     for (let j = 0; j < 24; j++) { const hw = j < 12 ? 2 * j + 2 : 2 * (23 - j) + 2; b.fillRect(x0 + 24 - hw, y + j, hw * 2, 1); }
     b.globalAlpha = 1;
   }
   marker(x0, y0, row, col, t, a, hot, locked = false) {
-    const b = this.b, c = this.world.at(row, col), bob = locked ? 0 : Math.round(Math.sin(t * 3.2) * 1.5);
+    const b = this.b, lift = this.hAt(row, col) * EL, bob = locked ? 0 : Math.round(Math.sin(t * 3.2) * 1.5);
     if (locked) {
       // a grey cross: a way a curse won't let you take
-      const x = x0 + 24, y = y0 + HEAD - (c?.h || 0) * EL - 28;
+      const x = x0 + 24, y = y0 + HEAD - lift - 28;
       b.globalAlpha = clamp(a, 0, 1);
       for (let i = -3; i <= 3; i++) { b.fillStyle = '#1c1622'; b.fillRect(x + i - 1, y + i - 1, 3, 3); b.fillRect(x + i - 1, y - i - 1, 3, 3); }
       for (let i = -3; i <= 3; i++) { b.fillStyle = '#b87aff'; b.fillRect(x + i, y + i, 1, 1); b.fillRect(x + i, y - i, 1, 1); }
       b.globalAlpha = 1;
       return;
     }
-    const x = x0 + 24, y = y0 + HEAD - (c?.h || 0) * EL - 30 + bob - (hot ? 2 : 0);
+    const x = x0 + 24, y = y0 + HEAD - lift - 30 + bob - (hot ? 2 : 0);
     b.globalAlpha = clamp(a, 0, 1);
     const rows = [[-4, 9], [-3, 7], [-2, 5], [-1, 3], [0, 1]];
     b.fillStyle = '#1c1622';
@@ -532,7 +548,7 @@ export class View {
   // A glowing edge round a tile's top: a way you could go.
   // part: 'back' (the two edges up to the top corner), 'front' (the two down to the bottom corner), or both
   outline(x0, y0, row, col, a, colr, part = 'all') {
-    const b = this.b, c = this.world.at(row, col), y = y0 + HEAD - (c?.h || 0) * EL;
+    const b = this.b, y = y0 + HEAD - this.hAt(row, col) * EL;
     const back = part !== 'front', front = part !== 'back';
     b.globalAlpha = clamp(a, 0, 1); b.fillStyle = colr;
     for (let i = 0; i < 24; i += 1) {
@@ -549,7 +565,7 @@ export class View {
     b.globalAlpha = 1;
   }
   drawGrave(x0, y0, row, col, grey) {
-    const b = this.b, c = this.world.at(row, col), x = x0 + 34, y = y0 + HEAD + 14 - (c?.h || 0) * EL;
+    const b = this.b, x = x0 + 34, y = y0 + HEAD + 14 - this.hAt(row, col) * EL;
     b.fillStyle = grey ? '#8a8a92' : '#b8b4aa'; b.fillRect(x, y - 6, 4, 6); b.fillRect(x + 1, y - 7, 2, 1);
     b.fillStyle = grey ? '#6a6a72' : '#7a766e'; b.fillRect(x + 3, y - 6, 1, 6); b.fillRect(x + 1, y - 4, 2, 1); b.fillRect(x + 1.5 | 0, y - 5, 1, 3);
   }
@@ -557,7 +573,7 @@ export class View {
   drawFx(row, col, c, x0, y0, t, alpha) {
     if (!c.theme) return;
     const fx = fxOf(c.theme); if (!fx.length) return;
-    const b = this.b, cc = this.world.at(row, col), cx = x0 + 24, cy = y0 + HEAD + 12 - (cc?.h || 0) * EL;
+    const b = this.b, cx = x0 + 24, cy = y0 + HEAD + 12 - this.hAt(row, col) * EL;
     const seed = row * 31 + col * 7;
     b.globalAlpha = alpha;
     for (const f of fx) {
@@ -589,7 +605,7 @@ export class View {
   drawCeremony(ox, oy, t) {
     const C = this.ceremony, b = this.b;
     if (!C) return;
-    const w = worldOf(C.row, C.col), cx = w.x - ox, cy = w.y + 12 - oy;
+    const w = worldOf(C.row, C.col), lift = this.hAt(C.row, C.col) * EL, cx = w.x - ox, cy = w.y + 12 - oy - lift;
     for (const [dx, dy, k] of [[-17, -2, 3], [-13, 2, 11], [-9, 6, 17], [16, -2, 5], [12, 2, 23], [8, 6, 31]]) {
       const spr = this.sprite(`p${k}${Math.floor(t * 4 + k) % 2}`, () => peasant(k, Math.floor(t * 4 + k) % 2).canvas());
       b.drawImage(spr, cx + dx - 4, cy + dy - 14 + (C.cheer ? -(Math.floor(t * 6 + k) % 2) : 0));
@@ -597,13 +613,13 @@ export class View {
     const bs = this.sprite(`bishop${C.raise ? 1 : 0}`, () => bishop(C.raise ? 1 : 0).canvas());
     b.drawImage(bs, cx + 6, cy - 22);
     if (C.crown != null && C.crown < 1) {
-      const k = smooth(C.crown), hx = this.hero.x - ox, hy = this.hero.y - oy - 26;
+      const k = smooth(C.crown), hx = this.hero.x - ox, hy = this.hero.y - oy - 26 - lift;
       const x = lerp(cx + 12, hx, k), y = lerp(cy - 30, hy, k) - Math.sin(k * Math.PI) * 10;
       const cs = this.sprite('crownS', () => crownSprite().canvas());
       b.drawImage(cs, Math.round(x - 4), Math.round(y));
     }
     if (C.rays > 0) {
-      const hx = this.hero.x - ox, hy = this.hero.y - oy - 14;
+      const hx = this.hero.x - ox, hy = this.hero.y - oy - 14 - lift;
       b.globalAlpha = Math.min(1, C.rays) * .8;
       b.fillStyle = '#ffe28a';
       for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 + t * .4; for (let r = 8; r < 40; r += 2) { if ((r + i) % 4 < 2) b.fillRect(Math.round(hx + Math.cos(a) * r), Math.round(hy + Math.sin(a) * r * .7), 1, 1); } }
@@ -618,7 +634,7 @@ export class View {
     const pose = moving || h.pose === 'back' ? 'back' : 'front';
     const flip = h.dir === 'L';
     const img = this.heroSprite(h.look, pose, frame, flip);
-    const cc = this.world?.at(h.row, h.col), lift = moving ? lerp(h.walk.from.h, h.walk.to.h, smooth(Math.min(1, h.walk.t))) * EL : (cc?.h || 0) * EL;
+    const lift = moving ? lerp(h.walk.from.h, h.walk.to.h, smooth(Math.min(1, h.walk.t))) * EL : this.hAt(h.row, h.col) * EL;
     const bob = moving ? Math.round(h.hop || 0) : Math.round(Math.sin(t * 2.2) * .6 + .4) * 0;
     const x = Math.round(h.x - ox - 8), y = Math.round(h.y - oy - 22 - lift - bob + 4);
     if (ghost) { b.drawImage(img, x, y); return; }
@@ -630,7 +646,7 @@ export class View {
     const f = this.foe, h = this.hero, b = this.b;
     const spr = this.sprite(`foe${f.id}`, () => f.sprite.flip().canvas());
     const a = f.gone ? 1 - f.gone : ease(f.t);
-    const cc = this.world?.at(h.row, h.col), lift = (cc?.h || 0) * EL;
+    const lift = this.hAt(h.row, h.col) * EL;
     const x = Math.round(h.x - ox + 10 - spr.width / 2 + 8), y = Math.round(h.y - oy - spr.height + 4 - lift - (1 - ease(f.t)) * 6 + (f.gone ? f.gone * 6 : 0));
     b.globalAlpha = .35 * a; b.fillStyle = '#10101a'; b.fillRect(x + spr.width / 2 - 6, y + spr.height - 3, 12, 2); b.globalAlpha = a;
     b.drawImage(spr, x, y);
@@ -643,7 +659,7 @@ export class View {
     const b = this.b;
     for (const p of this.crowd) {
       const spr = this.sprite(`p${p.k}${Math.floor(t * 4 + p.k) % 2}`, () => peasant(p.k, Math.floor(t * 4 + p.k) % 2).canvas());
-      b.drawImage(spr, Math.round(p.x - ox - 4), Math.round(p.y - oy - 14));
+      b.drawImage(spr, Math.round(p.x - ox - 4), Math.round(p.y - oy - 14 - (p.h || 0) * EL));
     }
   }
   reveal(row, col, vis = SHOWN) { this.setVis(row, col, vis); }

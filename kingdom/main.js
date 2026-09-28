@@ -635,8 +635,8 @@ function earnedCard() {
 }
 // Crowds line the procession's way, and cheer.
 function crowdAround(row, col) {
-  const g = gridOf(row, col), list = view.crowd.slice(-40);
-  for (const side of [-1, 1]) for (let i = 0; i < 2; i++) list.push({ x: (g.gx - g.gy) * 24 + side * (13 + i * 7 + Math.random() * 4), y: (g.gx + g.gy) * 12 + 10 + i * 3 + Math.random() * 3, k: Math.floor(Math.random() * 60) });
+  const g = gridOf(row, col), h = view.hAt(row, col), list = view.crowd.slice(-40);
+  for (const side of [-1, 1]) for (let i = 0; i < 2; i++) list.push({ x: (g.gx - g.gy) * 24 + side * (13 + i * 7 + Math.random() * 4), y: (g.gx + g.gy) * 12 + 10 + i * 3 + Math.random() * 3, h, k: Math.floor(Math.random() * 60) });
   view.setCrowd(list);
   view.confetti(18);
   sound.cheer(1.4);
@@ -663,7 +663,8 @@ async function coronation() {
   Object.assign(view.hero, { x: spot.x, y: spot.y + 23, dir: 'R', pose: 'back', look: { ...view.hero.look, crowned: false } });
   for (let z = view.zoomStep; z <= 3; z++) { view.setZoom(z); await sleep(110); }
   // then up the carpet to the foot of the throne, and stays facing it
-  await new Promise(r => { view.hero.walk = { from: { x: spot.x, y: spot.y + 23, h: 0 }, to: { x: spot.x, y: spot.y + 12, h: 0 }, t: 0, dur: 1.4, done: r, target: throne, pose: 'back' }; });
+  const floor = view.hAt(throne.row, throne.col);
+  await new Promise(r => { view.hero.walk = { from: { x: spot.x, y: spot.y + 23, h: floor }, to: { x: spot.x, y: spot.y + 12, h: floor }, t: 0, dur: 1.4, done: r, target: throne, pose: 'back' }; });
   view.ceremony.raise = true;
   sound.fanfare();
   await sleep(1500);
