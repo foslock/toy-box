@@ -246,13 +246,14 @@ export class Game {
     const w = this.worm, vib = this.up.vib, base = this.topSpeed(), r = this.headR();
     w.lungeT -= dt; w.bonkT -= dt; w.hurtT += dt; w.chomp = Math.max(0, w.chomp - dt * 3);
     // where the player wants to go
-    let wx = 0, wy = 0, has = false;
+    let wx = 0, wy = 0, has = false, far = 0;
     const s = this.steer;
-    if (s) { const dx = s.x - w.x, dy = s.y - w.y, d = Math.hypot(dx, dy); if (d > 1.5) { wx = dx / d; wy = dy / d; has = true; w.want = clamp(d / 28, .28, 1); } }
+    if (s) { const dx = s.x - w.x, dy = s.y - w.y, d = Math.hypot(dx, dy); if (d > 1.5) { wx = dx / d; wy = dy / d; has = true; far = d; w.want = clamp(d / 28, .28, 1); } }
     const i0 = Math.floor(w.y) * W + Math.floor(w.x), m0 = this.cell(w.x, w.y);
     w.m = m0;
     const mode = SOLID[m0] ? 'dig' : m0 === WATER ? 'water' : m0 === LAVA ? 'lava' : 'air';
     w.mode = mode;
+    if (has && mode !== 'air') [wx, wy] = this.detour(wx, wy, far);
     w.grounded = false;
     if (mode === 'dig') {
       w.inAir = 0;
@@ -317,10 +318,12 @@ export class Game {
       // that runs along the rock, so it glides round boulders, and stops only when wedged
       const rc = this.collR();
       if (this.hardNear(nx, ny, rc) && !(this.hardNear(w.x, w.y, rc) && this.awayOK(nx, ny, rc))) {
-        // try turning the move a little at a time, whichever way the rock slopes first, and slow by how far it turned
+        // try turning the move a little at a time, and slow by how far it turned: first toward where it's being
+        // steered, if that's off to one side (else the side it's going round by, else the way the rock slopes)
         const n = this.awayFromHard(nx, ny, rc + 1.2);
         this.bonk(nx - n[0] * rc, ny - n[1] * rc, mode);
-        const first = (ux * n[1] - uy * n[0]) > 0 ? -1 : 1, step = sp * dt / steps, look = Math.max(step, .8);
+        const cr = has ? ux * wy - uy * wx : 0, step = sp * dt / steps, look = Math.max(step, .8);
+        const first = Math.abs(cr) > .08 ? Math.sign(cr) : w.side || ((ux * n[1] - uy * n[0]) > 0 ? -1 : 1);
         let ok = false;
         for (let k = 1; k <= 3 && !ok; k++) for (const sg of [first, -first]) {
           const an = Math.atan2(uy, ux) + sg * k * .44, cx = Math.cos(an), cy = Math.sin(an);
@@ -351,6 +354,26 @@ export class Game {
     // the vibration shakes loose anything granular nearby
     if ((this.tick % 12) === 0) this.wakeAt(w.x, w.y, 10 + 4 * vib);
     if (w.hurtT > WORM.regenDelay && this.hp < this.hpMax()) this.hp = Math.min(this.hpMax(), this.hp + this.hpMax() * WORM.regen * dt);
+  }
+  // Feeling ahead: rock it can't shake close in front (a pebble, a boulder, the corner of a wall), and the way it
+  // wants to go bends round it, by the smallest turn either side that gives a clear run (keeping to the side it
+  // picked while the rock's still there), rather than nosing in and sticking. Straight on if nothing's clear within
+  // 75°, so a wall still stops it, and when what it's steering at is in the rock itself.
+  detour(wx, wy, far) {
+    const w = this.worm, rc = this.collR(), sp = Math.hypot(w.vx, w.vy);
+    const L = Math.min(far, clamp(4 + rc + sp * .12, 6, 14));
+    const clear = (dx, dy) => { for (let t = 1; t <= L; t += .9) if (this.hardNear(w.x + dx * t, w.y + dy * t, rc)) return false; return true; };
+    if (clear(wx, wy)) { w.side = 0; return [wx, wy]; }
+    if (far < L + rc + 2 && this.hardNear(w.x + wx * far, w.y + wy * far, rc)) return [wx, wy];
+    const a0 = Math.atan2(wy, wx);
+    let side = w.side;
+    if (!side) side = Math.sin(Math.atan2(w.vy, w.vx) - a0) < 0 ? -1 : 1;      // the way it's already heading
+    for (let k = 1; k <= 5; k++) for (const sg of [side, -side]) {
+      const a = a0 + sg * k * .2618, dx = Math.cos(a), dy = Math.sin(a);
+      if (clear(dx, dy)) { w.side = sg; return [dx, dy]; }
+    }
+    w.side = 0;
+    return [wx, wy];
   }
   // The head's radius for bumping into rock it can't shake.
   collR() { return Math.max(1.6, this.girth() * .5); }

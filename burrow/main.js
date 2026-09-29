@@ -49,41 +49,67 @@ function newGame(text, saved = null) {
 }
 
 /* ---------- steering ---------- */
+// Touch and hold (or hold the mouse button) where the worm should go; with more than one finger down, the last one
+// pressed steers, and lifting it hands over to another still down. Or the keys: WASD or the arrows, eight ways.
 const canvas = $('c');
 let hold = null;
-const keys = new Set();
+const holds = new Map();                              // every pointer held down on the world, oldest first
+const keys = new Map();                               // steering keys held down: the key (where it is) → which way
 canvas.addEventListener('pointerdown', e => {
   if (e.button > 0 || !playing) return;
-  canvas.setPointerCapture?.(e.pointerId);
-  hold = { x: e.clientX, y: e.clientY, id: e.pointerId, t: performance.now() };
+  try { canvas.setPointerCapture(e.pointerId); } catch { /* (it's steering all the same) */ }
+  hold = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  holds.delete(e.pointerId); holds.set(e.pointerId, hold);
   canvas.classList.add('steering');
   sound.unlock();
   e.preventDefault();
 });
-canvas.addEventListener('pointermove', e => { if (hold && e.pointerId === hold.id) { hold.x = e.clientX; hold.y = e.clientY; } });
-const let_go = e => { if (hold && (!e || e.pointerId === hold.id)) { hold = null; canvas.classList.remove('steering'); } };
+canvas.addEventListener('pointermove', e => { const h = holds.get(e.pointerId); if (h) { h.x = e.clientX; h.y = e.clientY; } });
+const let_go = e => {
+  if (e) holds.delete(e.pointerId); else holds.clear();
+  hold = [...holds.values()].pop() || null;
+  if (!hold) canvas.classList.remove('steering');
+};
 canvas.addEventListener('pointerup', let_go);
 canvas.addEventListener('pointercancel', let_go);
 canvas.addEventListener('lostpointercapture', let_go);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 // Safari zooms the page on a pinch whatever the viewport says
 for (const t of ['gesturestart', 'gesturechange']) document.addEventListener(t, e => e.preventDefault());
-const STEER_KEYS = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1] };
+// WASD by the letter or by where the keys are (so ZQSD on a French keyboard), and the arrows
+const STEER_KEYS = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1],
+  KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1] };
 addEventListener('keydown', e => {
-  if (e.target instanceof HTMLInputElement) return;
-  if (STEER_KEYS[e.key.toLowerCase()] && playing) { keys.add(e.key.toLowerCase()); sound.unlock(); e.preventDefault(); }
+  if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey) return;
+  const way = STEER_KEYS[e.key.toLowerCase()] || STEER_KEYS[e.code], digging = playing && !$('panel').classList.contains('open');
+  if (way && digging) { keys.set(e.code || e.key, way); sound.unlock(); e.preventDefault(); }
+  // 1–5 buy the Resonator's upgrades, while it's showing
+  const u = /^[1-9]$/.test(e.key) && !e.repeat && digging && !$('tray').hidden ? UPGRADES[+e.key - 1] : null;
+  if (u) { buy(u.id); const c = $('cards').querySelector(`[data-id="${u.id}"]`); c?.classList.add('pressed'); setTimeout(() => c?.classList.remove('pressed'), 140); }
+  // Enter or Space on the title digs (or carries on)
+  if ((e.key === 'Enter' || e.key === ' ') && !playing && !$('title').hidden && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); ($('continueBtn').hidden ? $('startBtn') : $('continueBtn')).click(); }
   if (e.key === 'Escape') togglePanel();
   if (e.key === 'm' || e.key === 'M') setSound(!ui.sound);
 });
-addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('keyup', e => {
+  keys.delete(e.code || e.key);
+  if (e.key === 'Meta') keys.clear();                  // (a Mac sends no key-ups while ⌘ is down)
+});
 addEventListener('blur', () => { keys.clear(); let_go(); });
 function steer() {
   if (player) return;
   const w = game.worm;
   if (hold) { game.steer = view.toWorld(hold.x, hold.y); return; }
   let dx = 0, dy = 0;
-  for (const k of keys) { const v = STEER_KEYS[k]; if (v) { dx += v[0]; dy += v[1]; } }
+  for (const v of keys.values()) { dx += v[0]; dy += v[1]; }
   game.steer = dx || dy ? { x: w.x + dx * 60, y: w.y + dy * 60 } : null;
+}
+
+// How to steer, in the words for this device: a phone or tablet, or a mouse and keys.
+if (TOUCH) {
+  canvas.setAttribute('aria-label', 'The dig. Tap and hold where the worm should go.');
+  $('howto').textContent = 'Tap and hold where the worm should go. About half an hour to the core.';
+  $('howSteer').textContent = 'Tap and hold where you want the worm to go: it swims toward your finger through the ground, leaving a trail of shaken earth.';
 }
 
 /* ---------- the loop ---------- */
@@ -303,7 +329,7 @@ function toast(html, cls = '', ms = 3000) {
   el.innerHTML = html;
   for (const c of el.querySelectorAll('canvas[data-kind]')) paintIcon(c, SPRITES[c.dataset.kind], 3);
   box.prepend(el);
-  while (box.children.length > 3) box.lastChild.remove();
+  while (box.children.length > (innerHeight < 520 ? 2 : 3)) box.lastChild.remove();
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, ms);
 }
 function bump(id) { const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
@@ -320,7 +346,7 @@ paintIcon($('coinIco'), SPRITES.coin, 3);
 
 // Hints, one at a time, each shown until it's done (or for a while) and then never again.
 const HINTS = {
-  steer: () => TOUCH ? 'Hold a finger where you want the worm to go.' : 'Hold the mouse button where you want the worm to go.',
+  steer: () => TOUCH ? 'Tap and hold where you want the worm to go.' : 'Hold the mouse button where you want the worm to go, or steer with WASD or the arrow keys.',
   eat: () => 'Swallow what glitters: gems, coins, odd old things, veins of ore.',
   full: () => 'Your belly’s full. Swim back up to the camp to sell it all.',
   sell: () => 'Spend it at the Resonator. Vibration lets you shake through harder rock, and so go deeper.',
@@ -453,12 +479,14 @@ function nextText(u, l) {
 function buildCards() {
   const box = $('cards');
   box.textContent = '';
+  box.classList.toggle('keyed', !TOUCH);
   for (const u of UPGRADES) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'card'; b.dataset.id = u.id;
     const ic = document.createElement('canvas'); ic.className = 'ico'; paintIcon(ic, ICONS[u.id], 3);
     b.innerHTML = `<span class="nm">${esc(u.name)}</span><span class="pips">${u.costs.map(() => '<i></i>').join('')}</span><span class="next"></span><span class="cost"></span>`;
     b.prepend(ic);
+    if (!TOUCH) b.insertAdjacentHTML('beforeend', `<kbd class="hot" aria-hidden="true">${UPGRADES.indexOf(u) + 1}</kbd>`);   // (its key)
     b.title = u.blurb;
     b.onclick = () => buy(u.id);
     b.onpointerenter = () => { $('trayNote').textContent = u.blurb; };
@@ -499,6 +527,7 @@ function togglePanel(open) {
   p.classList.toggle('open', o);
   $('menuBtn').setAttribute('aria-expanded', o);
   if (o) refreshMenu();
+  else if (p.contains(document.activeElement)) canvas.focus({ preventScroll: true });
 }
 $('menuBtn').onclick = () => { sound.unlock(); togglePanel(); };
 $('closePanel').onclick = () => togglePanel(false);
@@ -533,6 +562,7 @@ $('homeBtn').onclick = () => {
   game.wriggleHome(); events(); togglePanel(false);
 };
 $('diceBtn').onclick = () => { $('seedInput').value = randomSeedText(); };
+$('seedInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('newBtn').click(); });
 $('newBtn').onclick = () => {
   const b = $('newBtn');
   if (playing && !ended && game.t > 30 && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sure? This dig will be lost'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Dig this world'; }, 3500); return; }

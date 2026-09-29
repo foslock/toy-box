@@ -426,7 +426,7 @@ export function buildBand(plan, b, mat, shade) {
           v = v * .8 + .2 - Math.min(.25, d / 600);
           if (h < .018) acc = 2;
           // (none where the worm starts, under the middle of the camp)
-          if (d > 5 && vnoise(x * .3, y * .3, salt[23]) > .86 && (x - W / 2) ** 2 + (d - 18) ** 2 > 400) mt = STONE;
+          if (d > 5 && vnoise(x * .3, y * .3, salt[23]) > .92 && (x - W / 2) ** 2 + (d - 18) ** 2 > 400) mt = STONE;
           break;
         case 1:
           v = v * .7 + .15 + .16 * Math.sin(y * .55 + 5 * vnoise1(x * .03, salt[24]));
