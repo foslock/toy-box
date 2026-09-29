@@ -97,7 +97,8 @@ addEventListener('keydown', e => {
   const way = STEER_KEYS[e.key.toLowerCase()] || STEER_KEYS[e.code], digging = playing && !$('panel').classList.contains('open');
   if (way && digging) { keys.set(e.code || e.key, way); sound.unlock(); e.preventDefault(); }
   // 1–5 buy the Resonator's upgrades, while it's showing
-  const u = /^[1-9]$/.test(e.key) && !e.repeat && digging && !$('tray').hidden ? UPGRADES[+e.key - 1] : null;
+  if (e.key === '1' && !e.repeat && digging && !$('tray').hidden && trayMode === 'offer') { buyPost(); return; }
+  const u = /^[1-9]$/.test(e.key) && !e.repeat && digging && !$('tray').hidden && trayMode !== 'offer' ? UPGRADES[+e.key - 1] : null;
   if (u) { buy(u.id); const c = $('cards').querySelector(`[data-id="${u.id}"]`); c?.classList.add('pressed'); setTimeout(() => c?.classList.remove('pressed'), 140); }
   // Enter or Space on the title digs (or carries on)
   if ((e.key === 'Enter' || e.key === ' ') && !playing && !$('title').hidden && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); ($('continueBtn').hidden ? $('startBtn') : $('continueBtn')).click(); }
@@ -157,6 +158,15 @@ function layoutTray() {
   const width = Math.min(250, margin - 22);
   tray.style.setProperty('--side', width + 'px');
   tray.style.left = side ? Math.max(8, (margin - width) / 2) + 'px' : '';
+  // down the side the note wraps: room for as many lines as the longest it can show
+  if (side && !tray.hidden) {
+    const note = $('trayNote'), was = note.textContent, lh = parseFloat(getComputedStyle(note).lineHeight) || 16;
+    note.style.height = 'auto';
+    let lines = 1;
+    for (const t of NOTES) { note.textContent = t; lines = Math.max(lines, Math.round(note.offsetHeight / lh)); }
+    note.textContent = was; note.style.height = '';
+    tray.style.setProperty('--note-lines', lines);
+  }
   $('bottom').style.bottom = !side && !tray.hidden ? `calc(${tray.offsetHeight + 16}px + env(safe-area-inset-bottom))` : '';
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); keys.clear(); let_go(); } last = performance.now(); });
@@ -210,7 +220,7 @@ function events() {
         sound.hard();
         if (e.need < 90) {
           view.float(e.x, e.y, 'TOO HARD', '#ff9a7a', 1.1);
-          if (once('hard' + e.m, 15000)) toast(`<span>${esc(MATS[e.m].name)} is too hard to shake<small>It needs Vibration ${ROMAN[e.need]}. Buy it at the Resonator in the camp.</small></span>`, 'bad', 3200);
+          if (once('hard' + e.m, 15000)) toast(`<span>${esc(MATS[e.m].name)} is too hard to shake<small>It needs Vibration ${ROMAN[e.need]}. Buy it at the Resonator, at the camp (or an outpost).</small></span>`, 'bad', 3200);
         } else if (e.m !== 20 && once('alloy', 20000)) toast(`<span>${esc(MATS[e.m].name)}<small>Nothing can shake it. Find a way around.</small></span>`, 'bad', 3000);
         hint('hard');
         break;
@@ -230,11 +240,21 @@ function events() {
       case 'lunge': sound.lunge(); break;
       case 'thud': sound.thud(e.v); break;
       case 'camp': view.cheer(); sound.camp(); break;
+      case 'outpost':
+        if (e.bought) { view.cheer(); sound.camp(); }
+        else if (once('outpost' + e.k, 90000)) toast(`<span><b>An outpost, shut up</b><small>Buy it for ${money(game.posts[e.k].price)}: then you can sell and upgrade down here, and you'll wake here if you faint below it.</small></span>`, '', 5200);
+        break;
+      case 'outpostBought':
+        sound.upgrade(3); view.cheer();
+        toast(`<span><b>The outpost's open!</b><small>Sell and spend here. Faint below it, or wriggle home, and you wake here.</small></span>`, 'good', 4200);
+        drawGauge(true);
+        save();
+        break;
       case 'sell': {
         const n = e.list.reduce((a, b) => a + (b.kind ? b.n : 0), 0), ore = e.list.filter(b => b.ore !== undefined);
-        const px0 = CAMP.post, py0 = game.plan.surf[CAMP.post] - 14;
+        const px0 = e.at.x, py0 = e.at.y - 14;
         for (let k = 0; k < Math.min(30, 6 + e.total / 50); k++) view.spawn('coin', w.x + (Math.random() - .5) * 6, w.y - 4, { vx: (px0 - w.x) * (.8 + Math.random() * .6) + (Math.random() - .5) * 30, vy: -120 - Math.random() * 60 + (py0 - w.y) * .9, g: 260, life: 1.1 + Math.random() * .3, col: px(Math.random() < .5 ? '#ffd24a' : '#fff4a0') });
-        view.float(CAMP.post, py0 - 6, '+' + money(e.total), '#ffe070', 2.4, true);
+        view.float(px0, py0 - 6, '+' + money(e.total), '#ffe070', 2.4, true);
         sound.sell(e.total);
         const parts = [];
         if (n) parts.push(`${n} ${n === 1 ? 'find' : 'finds'}`);
@@ -248,9 +268,9 @@ function events() {
       }
       case 'upgrade': {
         const u = UPGRADE_BY_ID[e.id];
-        view.hum = 1;
+        view.hum = 1; view.humAt = e.at;
         sound.upgrade(e.level);
-        view.float(CAMP.resonator, game.plan.surf[CAMP.resonator] - 36, `${u.name.toUpperCase()} ${ROMAN[e.level]}`, '#d8c4ff', 2, true);
+        view.float(e.at.x, e.at.y - 36, `${u.name.toUpperCase()} ${ROMAN[e.level]}`, '#d8c4ff', 2, true);
         const card = $('cards').querySelector(`[data-id="${e.id}"]`);
         if (card) { card.classList.remove('bought'); void card.offsetWidth; card.classList.add('bought'); }
         if (e.id === 'vib') toast(`<span><b>Vibration ${ROMAN[e.level]}</b><small>You can shake through ${esc(STRATA[e.level].name)} now, down to ${metres(e.level < STRATA.length - 1 ? STRATA[e.level + 1].top : CORE_DEPTH)}.</small></span>`, 'good', 3600);
@@ -268,7 +288,7 @@ function events() {
         sound.faint();
         view.cam.ready = false;
         toast(e.voluntary ? `<span>Home again<small>${e.cache ? 'Your haul is waiting where you left it: look for the glowing sack on the gauge.' : 'Nothing was in your belly.'}</small></span>`
-          : `<span><b>You fainted!</b><small>${e.cache ? 'Your haul is waiting where you dropped it: the glowing sack, marked on the gauge.' : 'You wake at the camp.'}</small></span>`, 'bad', 4500);
+          : `<span><b>You fainted!</b><small>${e.cache ? 'Your haul is waiting where you dropped it: the glowing sack, marked on the gauge.' : e.post >= 0 ? 'You wake at the outpost.' : 'You wake at the camp.'}</small></span>`, 'bad', 4500);
         drawGauge(true);
         break;
       case 'cache': sound.set(); toast(`<span>${e.all ? 'Got your haul back!' : 'Got some of your haul back'}<small>${e.all ? '' : 'Your belly filled up: the rest is still there.'}</small></span>`, 'good', 2600); drawGauge(true); break;
@@ -464,10 +484,12 @@ function hud() {
   $('depth').textContent = metres(game.depth());
   const w = game.worm, xi = Math.max(0, Math.min(W - 1, Math.floor(w.x)));
   const k = w.y > game.plan.surf[xi] ? layerAt(game.plan, xi, Math.floor(w.y)) : -1;
-  $('sub').textContent = playing ? (game.atCamp ? 'At the camp' : k >= 0 ? STRATA[k].name : 'In the open air') + ' · ' + seedText : 'Dig to the heart of the world';
-  const tray = $('tray'), show = playing && game.atCamp && $('end').hidden;
+  const post = game.posts[game.atPost];
+  $('sub').textContent = playing ? (game.atCamp ? 'At the camp' : post ? (post.bought ? 'At the outpost' : 'An outpost, shut up') : k >= 0 ? STRATA[k].name : 'In the open air') + ' · ' + seedText : 'Dig to the heart of the world';
+  const tray = $('tray'), show = playing && $('end').hidden && (game.atShop || !!post);
+  if (show) setTray(game.atCamp ? 'camp' : post.bought ? 'post' : 'offer');
   if (tray.hidden === show) { tray.hidden = !show; layoutTray(); }
-  if (show) updateCards();
+  if (show) { if (trayMode === 'offer') updateOffer(post); else updateCards(); }
   drawGauge();
 }
 
@@ -478,7 +500,7 @@ function drawGauge(force) {
   if (!game) return;
   const dpr = Math.min(3, devicePixelRatio || 1), h = Math.round(gauge.clientHeight * dpr) || 200, wv = Math.round(gauge.clientWidth * dpr) || 16;
   const w = game.worm, D = CORE_DEPTH + 30, yOf = d => Math.round(Math.max(0, Math.min(1, d / D)) * (h - 1));
-  const key = [h, wv, Math.round(yOf(game.depth())), Math.round(yOf(game.stats.deepest)), game.up.vib, game.objs.length, game.won].join();
+  const key = [h, wv, Math.round(yOf(game.depth())), Math.round(yOf(game.stats.deepest)), game.up.vib, game.objs.length, game.won, game.posts.map(o => o.bought).join()].join();
   if (!force && key === gaugeKey) return;
   gaugeKey = key;
   if (gauge.width !== wv || gauge.height !== h) { gauge.width = wv; gauge.height = h; }
@@ -499,23 +521,64 @@ function drawGauge(force) {
   }
   // the deepest yet
   g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(0, yOf(game.stats.deepest), wv, Math.max(1, dpr));
+  // the outposts: a notch either side, gold once bought
+  for (const o of game.posts) {
+    const y = yOf(o.depth);
+    g.fillStyle = o.bought ? '#ffd24a' : 'rgba(220,210,190,.55)';
+    g.fillRect(0, y - dpr, wv * .3, 2 * dpr); g.fillRect(wv * .7, y - dpr, wv * .3, 2 * dpr);
+    if (o.bought) g.fillRect(wv * .3, y - dpr * .5, wv * .4, dpr);
+  }
   // a lost haul
   for (const o of game.objs) if (o.kind === 'cache' && !o.gone) { g.fillStyle = '#ffb040'; g.fillRect(0, yOf(o.y - GROUND) - dpr, wv, 3 * dpr); }
   // you
   const y = yOf(game.depth());
   g.fillStyle = '#fff'; g.fillRect(0, y - dpr * 2, wv, dpr * 4);
   g.fillStyle = '#e8a080'; g.fillRect(dpr * 2, y - dpr, wv - dpr * 4, dpr * 2);
-  gauge.title = `${metres(game.depth())} down, of ${metres(CORE_DEPTH)} to the core.` + (lim !== null ? ` With Vibration ${ROMAN[game.up.vib]} you can dig down to about ${metres(lim)}.` : '');
+  gauge.title = `${metres(game.depth())} down, of ${metres(CORE_DEPTH)} to the core.` + (lim !== null ? ` With Vibration ${ROMAN[game.up.vib]} you can dig down to about ${metres(lim)}.` : '')
+    + ` Outposts at ${game.posts.map(o => metres(o.depth) + (o.bought ? ' (yours)' : '')).join(' and ')}.`;
 }
 
-/* ---------- the Resonator's upgrades ---------- */
+/* ---------- the Resonator's upgrades (at the camp, or a bought outpost), or an outpost to buy ---------- */
+const TRAY = {
+  camp: ['The Resonator', 'Spend what you sold. Leave camp to dig again.'],
+  post: ['The outpost', 'Spend what you sold, down here. Dig on when you like.'],
+  offer: ['An outpost, shut up', 'Buy it, and you can sell and spend down here.'],
+};
+const NOTES = [...Object.values(TRAY).map(t => t[1]), ...UPGRADES.map(u => u.blurb)];   // (all the tray's note can say)
+let trayMode = '', trayNote = TRAY.camp[1];
+function setTray(mode) {
+  if (mode === trayMode) return;
+  trayMode = mode;
+  [$('trayTitle').textContent, trayNote] = TRAY[mode];
+  $('trayNote').textContent = trayNote;
+  $('cards').hidden = mode === 'offer';
+  $('offer').hidden = mode !== 'offer';
+  layoutTray();
+}
+function updateOffer(o) {
+  const b = $('offerBtn'), can = game.money >= o.price;
+  $('offerCost').textContent = money(o.price);
+  b.classList.toggle('can', can); b.classList.toggle('poor', !can);
+  b.setAttribute('aria-label', `Open this outpost, for ${money(o.price)}. You can sell and upgrade here, and wake here if you faint below it.`);
+}
+function buyPost() {
+  sound.unlock();
+  const r = game.buyPost();
+  if (!r.ok) { if (r.why === 'money') { sound.no(); $('offerBtn').animate?.([{ transform: 'translateX(-3px)' }, { transform: 'translateX(3px)' }, { transform: 'none' }], { duration: 200 }); } return; }
+  events();
+  updateCards();
+}
+$('offerBtn').onclick = buyPost;
+if (!TOUCH) $('offerBtn').insertAdjacentHTML('beforeend', '<kbd class="hot" aria-hidden="true">1</kbd>');
 const ICONS = {
   vib: sprite(['..ooooo..', '.o.....o.', 'o..ooo..o', 'o.o...o.o', 'o.o.v.o.o', 'o.o...o.o', 'o..ooo..o', '.o.....o.', '..ooooo..'], { o: '#b89aff', v: '#ffffff' }),
   belly: sprite(['...tt....', '...ot....', '..obbo...', '.obllbo..', 'oblllbbo.', 'obllbbdo.', 'obbbbddo.', '.obbddo..', '..oooo...'], { o: '#2a1a0a', b: '#b8844a', l: '#e0b070', d: '#7a5028', t: '#ffd24a' }),
   muscle: sprite(['....oo...', '...oyo...', '..oyyo...', '.oyyyoooo', 'oyyyyyyyo', 'ooooyyyo.', '...oyyo..', '...oyo...', '...oo....'], { o: '#3a1a04', y: '#ffb040' }),
   maw: sprite(['..ooooo..', '.otototo.', 'ot.....to', 'o.......o', 'ot..r..to', 'o.......o', 'ot.....to', '.otototo.', '..ooooo..'], { o: '#8a2230', t: '#f4ead4', r: '#ff6a6a' }),
+  post: sprite(['.ooooooo.', 'o.......o', 'o.w...w.o', 'owwwwwwwo', 'o.w.l.w.o', 'o.wdddw.o', 'o.wdddw.o', 'o.wdddw.o', 'ooooooooo'], { o: '#8a7058', w: '#a0703c', l: '#ffd070', d: '#2a1a10' }),
   hide: sprite(['.ooooooo.', 'oslslslso', 'olslslslo', 'oslslslso', 'olslslslo', '.oslslso.', '..olslo..', '...oso...', '....o....'], { o: '#1a1418', s: '#8a7a6a', l: '#c0b0a0' }),
 };
+paintIcon($('offerIco'), ICONS.post, 3);
 function nextText(u, l) {
   const v = u.values;
   if (l >= u.costs.length) return 'All done';
@@ -542,7 +605,7 @@ function buildCards() {
     b.title = u.blurb;
     b.onclick = () => buy(u.id);
     b.onpointerenter = () => { $('trayNote').textContent = u.blurb; };
-    b.onpointerleave = () => { $('trayNote').textContent = 'Spend what you sold. Leave camp to dig again.'; };
+    b.onpointerleave = () => { $('trayNote').textContent = trayNote; };
     box.append(b);
   }
   updateCards();
@@ -604,10 +667,11 @@ function refreshMenu() {
   }
   if (!$('seedInput').value) $('seedInput').value = randomSeedText();
   $('soundSw').setAttribute('aria-checked', ui.sound);
-  $('homeBtn').disabled = !playing || game.atCamp;
+  $('homeBtn').disabled = !playing || game.atShop;
+  $('homeBtn').title = `Wake up at ${game.homeFor(game.worm.y) ? 'the outpost above you' : 'the camp'}. What's in your belly stays where you are, to come back for.`;
 }
 $('homeBtn').onclick = () => {
-  if (!playing || game.atCamp) return;
+  if (!playing || game.atShop) return;
   const b = $('homeBtn');
   if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = game.belly > 0 ? 'Sure? Your haul stays here' : 'Sure?'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Wriggle home'; }, 3000); return; }
   b.dataset.sure = ''; b.textContent = 'Wriggle home';

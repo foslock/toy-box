@@ -6,7 +6,7 @@
 // stand-in player (autoplay.js).
 import {
   W, H, GROUND, BAND, BANDS, CORE_X, CORE_Y, CORE_R, MATS, NMAT, STRATA, ITEMS, SLOTS_BY_SIZE, ORE_PER_SLOT,
-  UPGRADES, UPGRADE_BY_ID, WORM, TOUGH, HURT, CAMP, BEAM,
+  UPGRADES, UPGRADE_BY_ID, WORM, TOUGH, HURT, CAMP, BEAM, OUTPOST,
   AIR, WATER, LAVA, GAS, SAND, CRYSTAL, OBSIDIAN, ALLOY, CORE,
 } from './rules.js';
 import { makePlan, buildBand, baseAt, layerAt, hash2, rng } from './world.js';
@@ -46,7 +46,7 @@ export class Game {
 
     /* the finds */
     this.objs = this.plan.items.map(p => ({ id: p.id, kind: p.kind, x: p.x + .5, y: p.y + .5, r: SIZE_R[ITEMS[p.kind].size], st: p.st, set: p.set, n: p.n,
-      gone: false, rest: false, fresh: true, vy: 0, nagT: 0, hazard: ITEMS[p.kind].hazard || 0, fall: 0 }));
+      gone: !!p.skip, rest: false, fresh: true, vy: 0, nagT: 0, hazard: ITEMS[p.kind].hazard || 0, fall: 0 }));
     this.objBand = Array.from({ length: BANDS }, () => []);
     for (const o of this.objs) this.objBand[bandOf(o.y)].push(o);
     this.setLeft = this.plan.sets.map(s => s.n);
@@ -62,6 +62,10 @@ export class Game {
     this.won = false; this.wonAt = null;
     this.combo = { n: 0, t: -9 };
     this.atCamp = false;
+    // the outposts (world.js places them): shut until bought; atPost is the one the worm's in, atShop whether it can
+    // sell and buy where it is (the camp, or a bought outpost)
+    this.posts = this.plan.outposts.map(o => ({ ...o, bought: false }));
+    this.atPost = -1; this.atShop = false;
     this.hp = this.hpMax();
 
     /* the worm: its body trails back up to the grass along an easy curve, through ground it has just shaken */
@@ -703,13 +707,22 @@ export class Game {
     }
     this.hold = {}; this.ore = {}; this.belly = 0; this.holdValue = 0;
     if (!voluntary) this.stats.faints++;
-    const x = W / 2 + (this.R() - .5) * 60;
-    w.x = x; w.y = this.plan.surf[Math.round(x)] - 46; w.vx = 0; w.vy = 40; w.a = Math.PI / 2; w.mode = 'air'; w.jump = false; w.tuck = 0;
-    this.resetPath(w.x, w.y, 0, -1);
+    const home = this.homeFor(w.y);
+    if (home) {
+      // on the floor of the outpost's hall, lying along it
+      const x = home.x + (this.R() - .5) * 30;
+      w.x = x; w.y = home.y1 - 4; w.vx = 0; w.vy = 0; w.a = 0; w.mode = 'air';
+      this.resetPath(w.x, w.y, this.R() < .5 ? -1 : 1, 0);
+    } else {
+      const x = W / 2 + (this.R() - .5) * 60;
+      w.x = x; w.y = this.plan.surf[Math.round(x)] - 46; w.vx = 0; w.vy = 40; w.a = Math.PI / 2; w.mode = 'air';
+      this.resetPath(w.x, w.y, 0, -1);
+    }
+    w.jump = false; w.tuck = 0;
     this.hp = this.hpMax();
-    this.event('faint', { voluntary, cache: dropped });
+    this.event('faint', { voluntary, cache: dropped, post: home ? home.k : -1 });
   }
-  wriggleHome() { if (!this.atCamp) this.faint(true); }
+  wriggleHome() { if (!this.atShop) this.faint(true); }
 
   /* ---------- finds that fall ---------- */
   supported(o) {
@@ -838,10 +851,56 @@ export class Game {
     const at = d <= CAMP.depth && w.x >= CAMP.x0 && w.x <= CAMP.x1;
     if (at && !this.atCamp) this.event('camp', {});
     this.atCamp = at;
-    if (at) {
+    // in an outpost's hall (or in the rock just round it)
+    const k = this.posts.findIndex(o => w.x >= o.x0 - 2 && w.x <= o.x1 + 2 && w.y >= o.y0 - 6 && w.y <= o.y1 + 5);
+    if (k !== this.atPost) { this.atPost = k; if (k >= 0) this.event('outpost', { k, bought: this.posts[k].bought }); }
+    this.atShop = at || (k >= 0 && this.posts[k].bought);
+    if (this.atShop) {
       if (this.belly > 0) this.sell();
       this.hp = this.hpMax();
     }
+  }
+  // An outpost's hall keeps its floor clear: whatever falls in (the worm's own tunnel, pouring in after it through the
+  // roof) is carted off a little at a time, from the top of each heap.
+  sweep() {
+    for (const o of this.posts) {
+      if (!this.built[o.y0 >> 6] || !this.built[(o.y1 - 1) >> 6]) continue;
+      for (let x = Math.ceil(o.x0); x <= Math.floor(o.x1); x++) {
+        const u = (x + .5 - o.x) / ((o.x1 - o.x0) / 2);
+        if (Math.abs(u) > 1) continue;
+        for (let y = Math.ceil(o.y0 + (o.y1 - o.y0) * .45 * u * u) + 1; y < o.y1; y++) {
+          const i = y * W + x, m = this.mat[i];
+          if (m === AIR) continue;
+          if (SOLID[m] && !OREV[m] && !(TIER[m] > 90)) { this.vacate(i); this.touch(i); this.wakeAt(x, y, 2); }
+          break;
+        }
+      }
+    }
+  }
+  // Where the shop the worm's at keeps its trading post and its Resonator (for the coins and the hum to go to).
+  shopSpot(which) {
+    const o = this.posts[this.atPost];
+    if (this.atCamp || !o) { const x = which === 'post' ? CAMP.post : CAMP.resonator; return { x, y: this.plan.surf[x] }; }
+    return { x: o.x + OUTPOST[which], y: o.y1 };
+  }
+  // The shop to go back to from depth y: the deepest bought outpost above it, or the camp (null).
+  homeFor(y) {
+    let best = null;
+    for (const o of this.posts) if (o.bought && o.y < y && (!best || o.y > best.y)) best = o;
+    return best;
+  }
+  // Buying the outpost the worm's in, there and then.
+  buyPost() {
+    const o = this.posts[this.atPost];
+    if (!o || o.bought) return { ok: false, why: 'none' };
+    if (this.money < o.price) return { ok: false, why: 'money' };
+    this.money -= o.price;
+    o.bought = true;
+    this.stats.posts = (this.stats.posts || 0) + 1;
+    (this.stats.postAt ||= [])[o.k] = this.t;
+    this.event('outpostBought', { k: o.k, x: o.x, y: o.y });
+    this.checkCamp();                                  // (a shop now: it takes what's carried)
+    return { ok: true };
   }
   sell() {
     const list = [];
@@ -852,10 +911,10 @@ export class Game {
     this.money += total; this.earned += total;
     this.stats.trips++; this.stats.sold += total; this.stats.bestHaul = Math.max(this.stats.bestHaul, total);
     this.hold = {}; this.ore = {}; this.belly = 0; this.holdValue = 0;
-    this.event('sell', { total, list });
+    this.event('sell', { total, list, at: this.shopSpot('post') });
   }
   buy(id) {
-    if (!this.atCamp) return { ok: false, why: 'camp' };
+    if (!this.atShop) return { ok: false, why: 'camp' };
     const c = this.cost(id);
     if (c === null) return { ok: false, why: 'max' };
     if (this.money < c) return { ok: false, why: 'money' };
@@ -863,7 +922,7 @@ export class Game {
     this.up[id]++;
     this.stats.upAt[id + this.up[id]] = this.t;
     this.hp = this.hpMax();
-    this.event('upgrade', { id, level: this.up[id] });
+    this.event('upgrade', { id, level: this.up[id], at: this.shopSpot('resonator') });
     return { ok: true };
   }
 
@@ -880,6 +939,7 @@ export class Game {
     this.moveObjects(dt);
     this.moveParts(dt);
     this.checkCamp();
+    if ((this.sweepT = (this.sweepT || 0) - dt) <= 0) { this.sweepT = .3; this.sweep(); }
     this.sag(dt);
     this.body();
     this.beams(dt);
@@ -924,13 +984,13 @@ export class Game {
     const gone = [], moved = [], caches = [];
     for (const o of this.objs) {
       if (o.kind === 'cache') { if (!o.gone) caches.push({ x: o.x, y: o.y, cache: o.cache }); continue; }
-      if (o.gone) gone.push(o.id);
+      if (o.gone && !this.plan.items[o.id].skip) gone.push(o.id);
       else if (!o.fresh) { const p = this.plan.items[o.id]; if (Math.abs(o.y - (p.y + .5)) > .5) moved.push([o.id, Math.round(o.y * 10) / 10]); }
     }
     const w = this.worm;
     return { v: 1, seed: this.seed, t: Math.round(this.t * 10) / 10, money: this.money, earned: this.earned, up: this.up, hp: this.hp,
       hold: this.hold, ore: this.ore, belly: this.belly, holdValue: this.holdValue, found: this.found, stats: this.stats, won: this.won, wonAt: this.wonAt,
-      worm: { x: w.x, y: w.y }, gone, moved, caches, bands };
+      worm: { x: w.x, y: w.y }, gone, moved, caches, bands, posts: this.posts.map(o => o.bought ? 1 : 0) };
   }
   restore(s) {
     Object.assign(this, { t: s.t || 0, money: s.money || 0, earned: s.earned || 0, hold: s.hold || {}, ore: s.ore || {}, belly: s.belly || 0,
@@ -938,7 +998,8 @@ export class Game {
     Object.assign(this.up, s.up || {});
     Object.assign(this.stats, s.stats || {});
     const gone = new Set(s.gone || []);
-    for (const o of this.objs) if (gone.has(o.id)) { o.gone = true; if (o.set >= 0) this.setLeft[o.set]--; }
+    for (const o of this.objs) if (gone.has(o.id) && !o.gone) { o.gone = true; if (o.set >= 0) this.setLeft[o.set]--; }
+    (s.posts || []).forEach((b, k) => { if (this.posts[k]) this.posts[k].bought = !!b; });
     for (const [id, y] of s.moved || []) { const o = this.objs[id]; if (!o) continue; const b = bandOf(o.y); o.y = y; o.fresh = false; o.rest = true; this.rebucket(o, b); }
     for (const c of s.caches || []) {
       const o = { id: this.objs.length, kind: 'cache', x: c.x, y: c.y, r: SIZE_R[1] + 1, st: -1, set: -1, n: 0, gone: false, rest: false, fresh: false, vy: 0, nagT: 0, cache: c.cache };

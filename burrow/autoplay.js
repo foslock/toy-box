@@ -1,9 +1,10 @@
 // A stand-in player, for the headless balance runs (balance.mjs) and the page's ?demo. It steers the worm the way a
-// person might: toward the most worthwhile find it can reach, home to the camp when its belly is full (or it's
-// hurt), and at the camp it buys upgrades. When the way is blocked by rock it can't shake, it plans a path around
-// on a coarse grid. Styles: 'good' plays well; 'casual' is slower to choose, wanders a little and goes home early,
-// more like someone playing for the first time; 'greedy' buys whatever it can afford the moment it can.
-import { W, H, GROUND, STRATA, ITEMS, SLOTS_BY_SIZE, UPGRADES, CAMP, CORE_X, CORE_Y, CORE_R, ALLOY, LAVA, AIR, GAS } from './rules.js';
+// person might: toward the most worthwhile find it can reach, back to the nearest shop (the camp, or an outpost it's
+// bought) when its belly is full (or it's hurt), and there it buys upgrades; it buys an outpost once it has the
+// money. When the way is blocked by rock it can't shake, it plans a path around on a coarse grid. Styles: 'good'
+// plays well; 'casual' is slower to choose, wanders a little and goes home early, more like someone playing for the
+// first time; 'greedy' buys whatever it can afford the moment it can.
+import { W, H, GROUND, STRATA, ITEMS, SLOTS_BY_SIZE, UPGRADES, CAMP, CORE_X, CORE_Y, CORE_R, ALLOY, LAVA, AIR, GAS, stratumOf } from './rules.js';
 import { SOLID, TIER, LIQ, OREV } from './sim.js';
 
 const G = 4;                                          // path grid: 4×4 cells to a square
@@ -15,16 +16,18 @@ export function makePlayer(style = 'good', rand = Math.random) {
   let bestD = Infinity, bestAt = 0, goalKey = '';
   const play = function (game) {
     const w = game.worm, t = game.t;
-    // at the camp: sell (automatic), spend, then go back down
-    if (game.atCamp) {
-      shop(game, style);
-      if (mode === 'home') { mode = 'dive'; target = null; path = null; }
-    }
+    // in an outpost that's shut, with the money for it: buy it
+    const post = game.posts[game.atPost];
+    if (post && !post.bought && game.money >= post.price) game.buyPost();
+    // at the camp or an outpost: sell (automatic), spend, then go back down (or on to an outpost it can buy now)
+    if (game.atShop) shop(game, style);
+    const buy = forSale(game);
+    if (game.atShop && mode === 'home' && !buy) { mode = 'dive'; target = null; path = null; }
     const room = game.cap() - game.belly;
     const lowHp = game.hp < game.hpMax() * .35;
     const last = game.up.vib >= STRATA.length - 1;
     const goHome = (!last && (room < (casual ? 1.6 : .95) || (casual && room < game.cap() * .12))) || lowHp;
-    if (goHome && mode !== 'home' && !game.atCamp) { mode = 'home'; target = null; path = null; }
+    if (((goHome && !game.atShop) || buy) && mode !== 'home') { mode = 'home'; target = null; path = null; }
     if (game.won) { game.steer = null; return; }
 
     // stuck? (not getting anywhere for a while) — plan a way round, and give up on that target for a bit
@@ -39,9 +42,9 @@ export function makePlayer(style = 'good', rand = Math.random) {
         path = planPath(game, mode === 'home' ? homeGoal(game) : target || deeper(game));
         pathAt = t;
         if (!path) {
-          // no way found from here: back out the way it came (up), then look again
+          // no way found from here: back out, then look again
           if (mode !== 'home') target = null;
-          path = [{ x: w.x + (rand() - .5) * 20, y: w.y - 14 }];
+          path = backOut(game, rand, 20);
         }
       }
     }
@@ -57,7 +60,7 @@ export function makePlayer(style = 'good', rand = Math.random) {
       if (target?.cell !== undefined) bad.set('c' + target.cell, t + 40);
       path = planPath(game, gp);
       pathAt = t;
-      if (!path) { if (mode !== 'home') target = null; path = [{ x: w.x + (rand() - .5) * 40, y: w.y - 14 }]; }
+      if (!path) { if (mode !== 'home') target = null; path = backOut(game, rand, 40); }
     }
     if (game.up.vib >= STRATA.length - 1 && mode !== 'home') target = null;     // all it can shake: straight for the core
     let goal;
@@ -86,9 +89,35 @@ export function makePlayer(style = 'good', rand = Math.random) {
   return play;
 }
 
+// The shop to make for: an outpost it can buy now, or else the nearest of the camp and the outposts it has bought.
 function homeGoal(game) {
   const w = game.worm, x = Math.max(CAMP.x0 + 10, Math.min(CAMP.x1 - 10, w.x));
-  return { x, y: game.plan.surf[Math.round(x)] + 8 };      // just under the grass: the camp counts from 30 m down
+  const hall = o => ({ x: Math.max(o.x0 + 12, Math.min(o.x1 - 12, w.x)), y: o.y1 - 3 });     // on its floor
+  const buy = forSale(game);
+  if (buy) return hall(buy);
+  let best = { x, y: game.plan.surf[Math.round(x)] + 8 }, bestD = Math.abs(w.y - best.y);   // just under the grass: the camp counts from 30 m down
+  for (const o of game.posts) {
+    const d = Math.abs(w.y - o.y) + Math.abs(w.x - o.x) * .5;
+    if (o.bought && d < bestD) { bestD = d; best = hall(o); }
+  }
+  return best;
+}
+// An outpost it has the money for, and can get to (the layer it's in isn't too hard to shake): once it's below one,
+// or not far above it. (It doesn't go out of its way from much further up; it'll come across it soon enough.)
+function forSale(game) {
+  for (const o of game.posts) if (!o.bought && game.money >= o.price && game.worm.y > o.y0 - 240 && stratumOf(o.depth) <= game.up.vib) return o;
+  return null;
+}
+// Somewhere a little way off to back out to: the way it came (up) if that's clear of rock it can't shake, or else
+// whichever way is (it can wedge itself in a crack going up, and only get out going back down).
+function backOut(game, rand, spread) {
+  const w = game.worm, rc = game.collR(), s = rand() < .5 ? 1 : -1;
+  for (const [dx, dy] of [[0, -1], [s * .7, -.7], [-s * .7, -.7], [s, 0], [-s, 0], [s * .7, .7], [-s * .7, .7], [0, 1]]) {
+    let clear = true;
+    for (let t = 2; t <= 14 && clear; t += 2) if (game.hardNear(w.x + dx * t, w.y + dy * t, rc)) clear = false;
+    if (clear) return [{ x: w.x + dx * 14 + (rand() - .5) * spread * (dy < 0 ? 1 : .3), y: w.y + dy * 14 }];
+  }
+  return [{ x: w.x + (rand() - .5) * spread, y: w.y - 14 }];
 }
 // Nowhere better to go: down, toward the deepest rock it can shake (or the core, when it can shake everything).
 function deeper(game) {

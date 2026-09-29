@@ -7,7 +7,7 @@
 import { Game } from './sim.js';
 import { makePlayer } from './autoplay.js';
 import { rng } from './world.js';
-import { STRATA, UPGRADES } from './rules.js';
+import { STRATA, UPGRADES, OUTPOSTS } from './rules.js';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const SEEDS = +arg('seeds', 6), MINUTES = +arg('minutes', 60), EVERY = +arg('every', 0), FIRST = +arg('seed', 1);
@@ -17,7 +17,7 @@ const mmss = s => s == null ? '  -  ' : `${Math.floor(s / 60)}:${String(Math.flo
 
 for (const style of STYLES) {
   console.log(`\n=== ${style} player, ${SEEDS} worlds, up to ${MINUTES} minutes ===`);
-  console.log('seed      ' + STRATA.map(s => s.id.slice(0, 5).padStart(6)).join('') + '   core  trips faint  earned     finds  ms/min');
+  console.log('seed      ' + STRATA.map(s => s.id.slice(0, 5).padStart(6)).join('') + '   core ' + OUTPOSTS.map((_, k) => ` post${k + 1}`).join('') + '  trips faint  earned     finds  ms/min');
   const sum = [];
   for (let k = 0; k < SEEDS; k++) {
     const seed = FIRST + k * 7919;
@@ -37,13 +37,15 @@ for (const style of STYLES) {
     }
     const ms = performance.now() - t0, s = game.stats;
     const layers = STRATA.map((_, q) => q === 0 ? 0 : s.layerAt[q] ?? null);
-    console.log(`${String(seed).padEnd(8)}  ${layers.map(v => mmss(v).padStart(6)).join('')}  ${mmss(game.wonAt).padStart(6)}  ${String(s.trips).padStart(5)} ${String(s.faints).padStart(5)}  ${('$' + game.earned.toLocaleString('en-US')).padStart(11)}  ${String(s.eaten).padStart(5)}  ${(ms / (game.t / 60)).toFixed(0).padStart(6)}`);
+    const posts = OUTPOSTS.map((_, k) => mmss(s.postAt?.[k]).padStart(6)).join('');
+    console.log(`${String(seed).padEnd(8)}  ${layers.map(v => mmss(v).padStart(6)).join('')}  ${mmss(game.wonAt).padStart(6)}${posts}  ${String(s.trips).padStart(5)} ${String(s.faints).padStart(5)}  ${('$' + game.earned.toLocaleString('en-US')).padStart(11)}  ${String(s.eaten).padStart(5)}  ${(ms / (game.t / 60)).toFixed(0).padStart(6)}`);
     for (const r of rows) console.log(r);
-    sum.push({ won: game.wonAt, layers, trips: s.trips, faints: s.faints, earned: game.earned, up: { ...game.up } });
+    sum.push({ won: game.wonAt, layers, posts: OUTPOSTS.map((_, k) => s.postAt?.[k] ?? null), trips: s.trips, faints: s.faints, earned: game.earned, up: { ...game.up } });
   }
   const done = sum.filter(r => r.won != null).map(r => r.won);
   const avg = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
   console.log(`-- ${style}: reached the core in ${done.length}/${sum.length}` + (done.length ? `, ${mmss(Math.min(...done))}–${mmss(Math.max(...done))} (avg ${mmss(avg(done))})` : '') +
     `; per layer avg ` + STRATA.map((_, q) => { const v = sum.map(r => r.layers[q]).filter(x => x != null); return v.length ? mmss(avg(v)).trim() : '-'; }).join(' / ') +
+    `; outposts bought ` + OUTPOSTS.map((_, k) => { const v = sum.map(r => r.posts[k]).filter(x => x != null); return v.length ? `${v.length}/${sum.length} at ${mmss(avg(v)).trim()}` : '-'; }).join(' / ') +
     `; trips ${avg(sum.map(r => r.trips)).toFixed(1)}, faints ${avg(sum.map(r => r.faints)).toFixed(1)}`);
 }

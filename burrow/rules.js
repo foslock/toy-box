@@ -229,4 +229,12 @@ export const BEAM = { period: 2.6, duty: .5, push: 140 };
 // The camp: where on the surface the worm sells its finds and buys upgrades. Anywhere between x0 and x1 counts,
 // if its head is no more than `depth` cells below the ground.
 export const CAMP = { x0: 30, x1: W - 30, depth: 30, post: 84, resonator: 176 };
+// Outposts: shops down in the rock, a third and two thirds of the way to the core, straight down from the camp. Each
+// is shut up and dark until it's bought (there and then, with money already made); after that it's a camp of its
+// own: it buys what you carry, sells the Resonator's upgrades, and it's where you wake after fainting below it.
+export const OUTPOSTS = [
+  { depth: Math.round(CORE_DEPTH / 3), price: 12000 },
+  { depth: Math.round(CORE_DEPTH * 2 / 3), price: 90000 },
+];
+export const OUTPOST = { w: 88, h: 38, post: -22, resonator: 24 };    // its chamber, and where its two buildings stand
 export const NAME = 'Burrow';

@@ -6,7 +6,7 @@
 import {
   W, H, GROUND, BAND, BANDS, CORE_X, CORE_Y, CORE_R, STRATA, FINDS, ITEMS,
   AIR, WATER, LAVA, GAS, SOIL, ROOT, MOSS, STONE, CLAY, SAND, GRAVEL, LIME, GRANITE, GEODE, CRYSTAL, BASALT, OBSIDIAN,
-  RUIN, MANTLE, ALLOY, CORE, COAL,
+  RUIN, MANTLE, ALLOY, CORE, COAL, OUTPOSTS, OUTPOST,
 } from './rules.js';
 
 /* ---------- seeded numbers ---------- */
@@ -167,6 +167,7 @@ export function makePlan(seed) {
 
   for (let k = 0; k < STRATA.length; k++) planLayer(plan, k, R);
   plan.feats.push({ t: 'core', z: 9, y0: CORE_Y - CORE_R - 20, y1: H - 1 });
+  planOutposts(plan);
 
   // index everything by band, so building a band only looks at what's in it
   plan.feats.sort((a, b) => a.z - b.z);
@@ -327,6 +328,31 @@ function planLayer(plan, k, R) {
     if (!used.every(u => Math.hypot(u.x - x, u.y - y) > u.r * .8)) continue;
     item(R.weighted(F.loose), x, y);
   }
+}
+
+// The outposts' chambers, carved after everything else is planned (so the rest of the world comes out just as it
+// would without them): anything planned where one goes, or close by, is left out: caves, lakes, lava, gas, and the
+// finds, a whole formation if any of it is in the way (they stay in the list, marked, so the rest keep their ids).
+function planOutposts(plan) {
+  plan.outposts = OUTPOSTS.map((o, k) => {
+    const x = W / 2, y = GROUND + o.depth;
+    return { k, x, y, x0: x - OUTPOST.w / 2, x1: x + OUTPOST.w / 2, y0: y - OUTPOST.h / 2, y1: y + OUTPOST.h / 2, depth: o.depth, price: o.price };
+  });
+  const sets = new Set();
+  for (const o of plan.outposts) {
+    const X0 = o.x0 - 14, X1 = o.x1 + 14, Y0 = o.y0 - 14, Y1 = o.y1 + 14;
+    const hits = (x0, x1, y0, y1) => x1 >= X0 && x0 <= X1 && y1 >= Y0 && y0 <= Y1;
+    const span = f => f.t === 'cavern' ? f.rx * 1.4 : f.t === 'geode' ? f.r + 6 : f.t === 'gas' ? f.r + 2 : f.t === 'shaft' ? f.w + 4 : f.t === 'blob' ? f.r * 1.4 : null;
+    plan.feats = plan.feats.filter(f => {
+      if (f.t === 'river') return !hits(0, W, f.y0, f.y1);
+      const r = span(f);
+      return r === null || !hits(f.x - r, f.x + r, f.y0, f.y1);
+    });
+    for (const it of plan.items) if (hits(it.x, it.x, it.y, it.y)) { it.skip = true; if (it.set >= 0) sets.add(it.set); }
+    plan.feats.push({ t: 'outpost', id: NEXT_FEAT++, z: 8, x: o.x, x0: o.x0, x1: o.x1, y0: o.y0, y1: o.y1 });
+    plan.protect.push({ x: o.x, y: o.y, r: OUTPOST.w / 2 + 14 });
+  }
+  for (const it of plan.items) if (sets.has(it.set)) it.skip = true;
 }
 
 // Where a cavern's roof is above x (worked out the same way its cells are drawn), or null.
@@ -600,6 +626,15 @@ function drawFeature(plan, f, y0, y1, mat, shade) {
         const i = y * W + x;
         mat[i] = mt;
         shade[i] = mt === ALLOY ? ((x + y) % 9 === 0 ? 2 << 6 : 0) | Math.round(26 + 10 * hash2(x, y, 5)) : mt === AIR ? Math.round(10 + 10 * hash2(x >> 2, y >> 2, 6)) | 3 << 6 : shade[i];
+      }
+      break;
+    case 'outpost':
+      // a hall with a flat floor and a vaulted roof, low at the ends, carved out of whatever rock is there
+      for (let y = lo; y <= hi; y++) for (let x = Math.max(0, Math.floor(f.x0)); x <= Math.min(W - 1, Math.ceil(f.x1)); x++) {
+        const u = (x + .5 - f.x) / ((f.x1 - f.x0) / 2), roof = f.y0 + (f.y1 - f.y0) * .45 * u * u;
+        if (Math.abs(u) > 1 || y < roof || y >= f.y1) continue;
+        const i = y * W + x;
+        mat[i] = AIR; shade[i] = Math.round(8 + 10 * hash2(x >> 1, y >> 1, 9));
       }
       break;
     case 'core':

@@ -3,7 +3,7 @@
 // changes), the finds, the flying dirt, the worm, then the light (dark down deep, with the worm's own glow, lava,
 // crystals and the like lighting their surroundings, in dithered steps), then sparkles and words on top. It only
 // ever reads the game.
-import { W, H, GROUND, BAND, BANDS, STRATA, ITEMS, CAMP, CORE_X, CORE_Y, CORE_R,
+import { W, H, GROUND, BAND, BANDS, STRATA, ITEMS, CAMP, OUTPOST, CORE_X, CORE_Y, CORE_R,
   AIR, WATER, LAVA, GAS, SOIL, MOSS, CORE } from './rules.js';
 import { SOLID, TIER, LIQ, DIST } from './sim.js';
 import { RAMPS, BACKWALL, GLOW, SKINS, SPRITES, POST, RESONATOR, HUT, TENT, FOLK, CACTUS, FONT, SKY, MESA, TRAIL_TINT, px, rgb, mixHex } from './art.js';
@@ -43,6 +43,7 @@ export class View {
     this.t = 0;
     this.dayT = 0;
     this.folk = Array.from({ length: 6 }, (_, k) => ({ x: 40 + k * 32 + hsh(k, 1) * 20, dir: k % 2 ? 1 : -1, look: k, cheer: 0, walk: hsh(k, 2) * 10 }));
+    this.postFolk = [];
     this.resize();
   }
   resize() {
@@ -216,6 +217,8 @@ export class View {
       }
     }
     this.drawSurface(game, camX, camY, dt);
+    this.drawOutposts(game, camX, camY, dt);
+    this.drawHum(game, camX, camY, dt);
     this.drawObjects(game, camX, camY);
     this.drawParts(game, camX, camY);
     this.drawWorm(game, camX, camY);
@@ -294,12 +297,6 @@ export class View {
     at(HUT, 214, surf[214] + 1);
     at(POST, CAMP.post, surf[CAMP.post] + 1);
     at(RESONATOR, CAMP.resonator, surf[CAMP.resonator] + 1);
-    // the resonator hums after an upgrade
-    if (this.hum > 0) {
-      this.hum -= dt;
-      const rx = CAMP.resonator - camX, ry = surf[CAMP.resonator] - 26 - camY;
-      for (let a = 0; a < 20; a++) { const r = 8 + (1 - this.hum) * 30, an = a / 20 * Math.PI * 2; this.put(Math.round(rx + Math.cos(an) * r), Math.round(ry + Math.sin(an) * r * .6), px('#fff4c0')); }
-    }
     // the people of the camp
     for (const f of this.folk) {
       f.walk += dt;
@@ -310,7 +307,68 @@ export class View {
       this.blit(sp, xi - 1 - camX, surf[xi] - sp.h - hop - camY, 1);
     }
   }
-  cheer() { for (const f of this.folk) f.cheer = 2 + Math.random(); }
+  cheer() { for (const f of this.folk.concat(...this.postFolk)) f.cheer = 2 + Math.random(); }
+  // A Resonator hums after an upgrade: rings spreading out from it (the camp's, or an outpost's: humAt).
+  drawHum(game, camX, camY, dt) {
+    if (!(this.hum > 0)) return;
+    this.hum -= dt;
+    const at = this.humAt || { x: CAMP.resonator, y: game.plan.surf[CAMP.resonator] };
+    const rx = at.x - camX, ry = at.y - 26 - camY;
+    for (let a = 0; a < 20; a++) { const r = 8 + (1 - this.hum) * 30, an = a / 20 * Math.PI * 2; this.put(Math.round(rx + Math.cos(an) * r), Math.round(ry + Math.sin(an) * r * .6), px('#fff4c0')); }
+  }
+
+  /* ---------- the outposts ---------- */
+  // Each hall, shored up with timber, with a trading post and a Resonator like the camp's: shut up, greyed and dark
+  // but for a glimmer, with a sign up, until it's bought; after, its lanterns lit and a couple of folk minding it.
+  lanterns(o) { const x0 = Math.round(o.x0 + 12), x1 = Math.round(o.x1 - 12); return [x0 + 10, Math.round(o.x - 6), Math.round(o.x + 8), x1 - 10]; }
+  drawOutposts(game, camX, camY, dt) {
+    const WOOD = px('#6a4526'), WOOD_D = px('#43291a'), WOOD_L = px('#8a6036');
+    game.posts.forEach((o, n) => {
+      if (o.y1 + 4 < camY || o.y0 - 44 > camY + this.bh) return;
+      const k = o.bought ? 1 : .5, dim = c => k === 1 ? c : pack(R8(c) * k | 0, G8(c) * k | 0, B8(c) * k | 0);
+      const fy = o.y1 - camY, bx0 = Math.round(o.x0 + 12), bx1 = Math.round(o.x1 - 12), by = Math.round(o.y0 + 10) - camY;
+      // the shoring: two posts, and a beam across under the roof
+      for (const bx of [bx0, bx1]) for (let y = by; y < fy; y++) { this.put(bx - camX, y, dim(WOOD_L)); this.put(bx + 1 - camX, y, dim(WOOD)); this.put(bx + 2 - camX, y, dim(WOOD_D)); }
+      for (let x = bx0 - 2; x <= bx1 + 4; x++) { this.put(x - camX, by - 1, dim(WOOD_L)); this.put(x - camX, by, dim(WOOD)); this.put(x - camX, by + 1, dim(WOOD_D)); }
+      // lanterns hanging from it
+      for (const lx of this.lanterns(o)) {
+        const x = lx - camX, lit = o.bought, flick = lit ? .85 + .15 * Math.sin(this.t * 7 + lx) : 0;
+        this.put(x, by + 2, dim(WOOD_D));
+        const glass = lit ? pack(255, 200 + 40 * flick | 0, 110 * flick | 0) : px('#4a4238');
+        for (const [dx, dy] of [[0, 3], [-1, 4], [0, 4], [1, 4], [0, 5]]) this.put(x + dx, by + dy, dy === 4 && dx === 0 ? glass : lit ? px('#8a5a20') : px('#2e2822'));
+      }
+      this.blit(POST, Math.round(o.x + OUTPOST.post - POST.w / 2) - camX, fy - POST.h, k);
+      this.blit(RESONATOR, Math.round(o.x + OUTPOST.resonator - RESONATOR.w / 2) - camX, fy - RESONATOR.h, k);
+      if (!o.bought) {
+        // FOR SALE: a board on a stick, with a coin sign on it
+        const sx = Math.round(o.x) - camX, sy = fy - 12;
+        for (let y = sy + 6; y < fy; y++) this.put(sx, y, WOOD_D);
+        for (let y = sy - 1; y < sy + 7; y++) for (let x = sx - 4; x <= sx + 4; x++) this.put(x, y, y === sy - 1 || y === sy + 6 || x === sx - 4 || x === sx + 4 ? WOOD_D : WOOD);
+        for (const [gx, gy] of FONT['$']) this.put(sx - 1 + gx, sy + gy, px('#e0b040'));
+      } else {
+        // the folk who mind it
+        const folk = this.postFolk[n] ||= [0, 1].map(j => ({ x: o.x + (j ? 18 : -30), dir: j ? -1 : 1, look: 2 + j * 2 + n, cheer: 0, walk: j * 3 }));
+        for (const f of folk) {
+          f.walk += dt;
+          if (f.cheer > 0) f.cheer -= dt;
+          else { f.x += f.dir * 6 * dt; if (f.x < o.x0 + 16 || f.x > o.x1 - 16 || hsh(Math.floor(f.walk / 3), f.look) < .004) f.dir *= -1; }
+          const frames = FOLK[f.look % FOLK.length], sp = f.cheer > 0 ? frames[2] : frames[Math.floor(f.walk * 4) % 2];
+          this.blit(sp, Math.round(f.x) - 1 - camX, fy - sp.h - (f.cheer > 0 && Math.floor(f.cheer * 6) % 2 ? 1 : 0), 1);
+        }
+      }
+    });
+  }
+  // Their light: lanterns once bought; before, a faint glimmer, to show something's there.
+  outpostLight(game, camY, gy0) {
+    for (const o of game.posts) {
+      if (o.y1 + 40 < camY || o.y0 - 40 > camY + this.bh) continue;
+      const by = Math.round(o.y0 + 10);
+      if (o.bought) {
+        for (const lx of this.lanterns(o)) this.lamp(lx, by + 4, gy0, 1.3, [1, .78, .42]);
+        this.lamp(o.x + OUTPOST.resonator, o.y1 - 22, gy0, .6, [.75, .62, 1]);
+      } else this.lamp(o.x, o.y1 - 8, gy0, .35, [.55, .7, 1]);
+    }
+  }
 
   /* ---------- finds ---------- */
   drawObjects(game, camX, camY) {
@@ -446,6 +504,7 @@ export class View {
       this.lamp(o.x, o.y, gy0, sp.glow * 3, sp.glowCol || [1, 1, 1]);
     }
     for (const f of this.fx) if (f.light) this.lamp(f.x, f.y, gy0, f.light * 2 * (f.life / f.max), f.lc);
+    this.outpostLight(game, camY, gy0);
     for (const b of game.plan.beams) if (b.y0 > camY - 20 && b.y0 < camY + bh + 20 && game.beamOn(b)) {
       for (let k = 0; k <= 1; k += .25) this.lamp(b.x0 + (b.x1 - b.x0) * k, b.y0 + (b.y1 - b.y0) * k, gy0, .9, [.3, 1, .95]);
     }
