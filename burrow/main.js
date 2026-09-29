@@ -41,6 +41,7 @@ function newGame(text, saved = null) {
   view.cache = new Array(view.cache.length);
   view.cam.ready = false;
   view.fx = []; view.floats = [];
+  setSpots = new Map();
   $('sub').textContent = 'Dig to the heart of the world';
   shownMoney = game.money;
   ended = game.won;
@@ -159,7 +160,7 @@ function events() {
     switch (e.type) {
       case 'eat': {
         const I = ITEMS[e.kind];
-        view.float(e.x, e.y, '+$' + I.value.toLocaleString('en-US') + (e.set ? ` ${e.set[0]}/${e.set[1]}` : ''), valueColour(I.value));
+        valuePopup(e, I.value);
         burst(e.x, e.y, SPRITES[e.kind], 10);
         sound.eat(e.combo, I.st);
         if (e.first) toast(`<canvas class="ico" data-kind="${e.kind}"></canvas><span>New find: <b>${esc(I.name)}</b><small>${esc(I.blurb)}</small></span>`, 'find', 4200);
@@ -167,7 +168,12 @@ function events() {
         break;
       }
       case 'set':
-        if (e.bonus) { view.float(e.x, e.y - 8, shapeWord(e.shape) + ' +$' + e.bonus.toLocaleString('en-US'), '#ffe070', 2, true); toast(`<span><b>${shapeWord(e.shape, true)} complete!</b><small>Every one of them: a quarter more for the lot, +${money(e.bonus)}.</small></span>`, 'good', 3000); }
+        if (e.bonus) {
+          // just above the formation's popup
+          const f = view.floats.find(f => f.sid === e.sid), at = f ? { x: f.x, y: f.y - f.rise - 7 } : { x: e.x, y: e.y - 8 };
+          view.float(at.x, at.y, shapeWord(e.shape) + ' +$' + e.bonus.toLocaleString('en-US'), '#ffe070', 2, true);
+          toast(`<span><b>${shapeWord(e.shape, true)} complete!</b><small>Every one of them: a quarter more for the lot, +${money(e.bonus)}.</small></span>`, 'good', 3000);
+        }
         sound.set();
         for (let k = 0; k < 24; k++) view.spawn('glint', e.x, e.y, { vx: Math.cos(k / 24 * 6.28) * 60, vy: Math.sin(k / 24 * 6.28) * 60, life: .7, drag: 3, col: px('#ffe890') });
         break;
@@ -286,6 +292,37 @@ function events() {
     }
   }
   game.events.length = 0;
+}
+// What a find was worth, floating up from it. A find from a formation adds to that formation's popup, which sits
+// over the middle of the whole formation; any other find adds to a popup still showing near it. Either way the
+// popup pops again with the total so far, and lasts from then. Otherwise the find gets a popup of its own.
+const NEAR = 22;
+let setSpots = new Map();                              // formation → where its popup sits (over the middle of it)
+function setSpot(sid) {
+  let at = setSpots.get(sid);
+  if (!at) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    for (const o of game.objs) if (o.set === sid) { x0 = Math.min(x0, o.x); x1 = Math.max(x1, o.x); y0 = Math.min(y0, o.y - o.r); }
+    setSpots.set(sid, at = { x: (x0 + x1) / 2, y: y0 });
+  }
+  return at;
+}
+function valuePopup(e, value) {
+  const live = view.floats.filter(f => f.worth !== undefined && f.t < f.life - .05);
+  let f = null;
+  if (e.sid >= 0) f = live.find(g => g.sid === e.sid) || null;
+  else { let best = NEAR; for (const g of live) { const d = Math.hypot(g.x - e.x, g.y - g.rise - e.y); if (d < best) { best = d; f = g; } } }
+  const words = g => '+$' + g.worth.toLocaleString('en-US') + (g.prog ? ` ${g.prog[0]}/${g.prog[1]}` : '');
+  if (f) {
+    f.worth += value;
+    if (e.sid >= 0) f.prog = e.set;
+    view.repop(f, words(f), valueColour(f.worth));
+    return;
+  }
+  const at = e.sid >= 0 ? setSpot(e.sid) : e;
+  f = view.float(at.x, at.y, '', valueColour(value));
+  Object.assign(f, { worth: value, sid: e.sid, prog: e.sid >= 0 ? e.set : null });
+  f.text = words(f).toUpperCase();
 }
 function valueColour(v) { return v >= 10000 ? '#ff9aff' : v >= 1000 ? '#8ae8ff' : v >= 200 ? '#ffe070' : v >= 40 ? '#d8f0a0' : '#f4ecdc'; }
 function oreColour(m) { return ({ 21: '#aaaaaa', 22: '#ff9a50', 23: '#e8f0ff', 24: '#ffe060', 25: '#d8f4ff', 26: '#ff7a30', 27: '#60ffd8', 28: '#ff90ff' })[m] || '#ffffff'; }

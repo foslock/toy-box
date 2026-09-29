@@ -6,7 +6,7 @@
 import { W, H, GROUND, BAND, BANDS, STRATA, ITEMS, CAMP, CORE_X, CORE_Y, CORE_R,
   AIR, WATER, LAVA, GAS, SOIL, MOSS, CORE } from './rules.js';
 import { SOLID, TIER, LIQ, DIST } from './sim.js';
-import { RAMPS, BACKWALL, GLOW, SKINS, SPRITES, POST, RESONATOR, HUT, TENT, FOLK, CACTUS, FONT, textWidth, SKY, MESA, TRAIL_TINT, px, rgb, mixHex } from './art.js';
+import { RAMPS, BACKWALL, GLOW, SKINS, SPRITES, POST, RESONATOR, HUT, TENT, FOLK, CACTUS, FONT, SKY, MESA, TRAIL_TINT, px, rgb, mixHex } from './art.js';
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const bay = (x, y) => BAYER[((y & 3) << 2) | (x & 3)];
@@ -37,7 +37,7 @@ export class View {
     this.buf = document.createElement('canvas');
     this.bctx = this.buf.getContext('2d');
     this.cache = new Array(BANDS);
-    this.fx = []; this.floats = []; this.rings = [];
+    this.fx = []; this.floats = []; this.rings = []; this.words = new Map();
     this.cam = { x: 0, y: 0, ready: false };
     this.shakeT = 0; this.shakeA = 0;
     this.t = 0;
@@ -224,10 +224,10 @@ export class View {
     this.drawBeams(game, camX, camY);
     this.drawFx(camX, camY);
     this.drawTarget(camX, camY);
-    this.drawFloats(camX, camY, dt);
     this.bctx.putImageData(this.img, 0, 0);
     const fy = Math.round((this.cam.y - Math.floor(this.cam.y)) * S);
     this.ctx.drawImage(this.buf, 0, -fy, bw * S, bh * S);
+    this.drawFloats(camX, camY, dt, fy);
   }
 
   /* ---------- the sky ---------- */
@@ -345,12 +345,6 @@ export class View {
     }
   }
   put(x, y, c) { if (x >= 0 && y >= 0 && x < this.bw && y < this.bh) { this.px[y * this.bw + x] = c; this.skyMask[y * this.bw + x] = 0; } }
-  // Part way from what's there to c (a: 0 to 1).
-  mix(x, y, c, a) {
-    if (x < 0 || y < 0 || x >= this.bw || y >= this.bh) return;
-    const i = y * this.bw + x, v = this.px[i];
-    this.px[i] = pack(R8(v) + (R8(c) - R8(v)) * a, G8(v) + (G8(c) - G8(v)) * a, B8(v) + (B8(c) - B8(v)) * a);
-  }
   add(x, y, r, g, b) {
     if (x < 0 || y < 0 || x >= this.bw || y >= this.bh) return;
     const i = y * this.bw + x, v = this.px[i];
@@ -607,43 +601,61 @@ export class View {
       } else if (f.life / f.max > .25 || (x + y) & 1) this.put(x, y, f.col);
     }
   }
-  // Words and numbers floating up from where something happened.
+  // Words and numbers floating up from where something happened. Each pops up (half as big again for a moment, and
+  // bright, easing back), rises a little and fades away; repop gives one new words and pops it again, and it lasts
+  // from then. The same words again close by (TOO HARD, grinding at rock) pop that one again, rather than another.
   float(x, y, text, col = '#ffffff', life = 1.3, big = false) {
+    text = String(text).toUpperCase();
+    const same = text && this.floats.find(f => f.text === text && f.worth === undefined && f.t < f.life - .05 && Math.abs(f.x - x) < 12 && Math.abs(f.y - f.rise - y) < 12);
+    if (same) { this.repop(same, text); return same; }
     if (this.floats.length > 24) this.floats.shift();
-    this.floats.push({ x, y, text: String(text).toUpperCase(), col: px(col), t: 0, life, big });
+    const f = { x, y, text, col: px(col), t: 0, age: 0, pop: 0, rise: 0, life, big };
+    this.floats.push(f);
+    return f;
   }
-  drawFloats(camX, camY, dt) {
-    const keep = [];
+  repop(f, text, col) {
+    f.text = String(text).toUpperCase();
+    if (col) f.col = px(col);
+    f.t = 0; f.pop = 0;
+  }
+  // They're drawn on the screen itself, over the world (so the pop can grow smoothly): each one's words and outline
+  // drawn once to a little canvas, to scale up by the world's pixel size (or just the letters in white, for the flash).
+  wordsSprite(text, col, flash = false) {
+    const key = (flash ? 'flash' : col) + '|' + text;
+    let cv = this.words.get(key);
+    if (cv) return cv;
+    const bw = text.length * 4 + 1, bh = 7, m = new Uint8Array(bw * bh);
+    let cx = 1;
+    for (const ch of text) { for (const [gx, gy] of FONT[ch] || FONT['?']) m[(gy + 1) * bw + cx + gx] = 2; cx += 4; }
+    for (let i = 0; i < m.length; i++) if (m[i] === 2) for (const d of [-1, 1, -bw, bw]) if (!m[i + d]) m[i + d] = 1;
+    cv = document.createElement('canvas'); cv.width = bw; cv.height = bh;
+    const g = cv.getContext('2d'), img = g.createImageData(bw, bh), P = new Uint32Array(img.data.buffer);
+    const ink = flash ? px('#ffffff') : col, rim = px('#140c0a');
+    for (let i = 0; i < m.length; i++) if (m[i] === 2) P[i] = ink; else if (m[i] === 1 && !flash) P[i] = rim;
+    g.putImageData(img, 0, 0);
+    if (this.words.size > 300) this.words.clear();
+    this.words.set(key, cv);
+    return cv;
+  }
+  drawFloats(camX, camY, dt, fy) {
+    const ctx = this.ctx, S = this.S, keep = [];
     for (const f of this.floats) {
-      f.t += dt;
+      f.t += dt; f.age += dt; f.pop += dt;
       if (f.t > f.life) continue;
       keep.push(f);
-      const rise = Math.min(1, f.t / .5) * 10 + f.t * 3;
-      const x = Math.round(f.x - textWidth(f.text) / 2) - camX, y = Math.round(f.y - 10 - rise) - camY;
-      // in quickly, then fading away over the last part of its life (smoothly: lots of them at once stay calm)
-      const a = Math.max(0, Math.min(1, f.t / .08, (f.life - f.t) / Math.min(.6, f.life * .5)));
-      this.text(f.text, x, y, f.col, undefined, a * a * (3 - 2 * a));
+      f.rise = Math.min(1, f.age / .5) * 10 + Math.min(f.age, 1.5) * 3;
+      // fading away over the last part of its life (smoothly: lots of them at once stay calm)
+      let a = Math.max(0, Math.min(1, (f.life - f.t) / Math.min(.6, f.life * .5)));
+      a = a * a * (3 - 2 * a);
+      // popping, from the middle of the words
+      const p = Math.max(0, 1 - f.pop / .25), k = this.reduced ? 1 : 1 + .5 * p * p;
+      const spr = this.wordsSprite(f.text, f.col), w = Math.round(spr.width * S * k), h = Math.round(spr.height * S * k);
+      const x = Math.round((f.x - camX) * S - w / 2), y = Math.round((f.y - 10 - f.rise + 2.5 - camY) * S - fy - h / 2);
+      ctx.globalAlpha = a;
+      ctx.drawImage(spr, x, y, w, h);
+      if (p > 0) { ctx.globalAlpha = a * .7 * p; ctx.drawImage(this.wordsSprite(f.text, 0, true), x, y, w, h); }
     }
+    ctx.globalAlpha = 1;
     this.floats = keep;
-  }
-  text(s, x, y, col, outline = px('#140c0a'), a = 1) {
-    if (a <= 0) return;
-    if (a < 1) {
-      // see-through: the letters and their outline marked out first, so each pixel's mixed in just once
-      const bw = s.length * 4 + 2, bh = 7, m = new Uint8Array(bw * bh);
-      let cx = 1;
-      for (const ch of s) { for (const [gx, gy] of FONT[ch] || FONT['?']) m[(gy + 1) * bw + cx + gx] = 2; cx += 4; }
-      for (let i = 0; i < m.length; i++) if (m[i] === 2) for (const d of [-1, 1, -bw, bw]) if (!m[i + d]) m[i + d] = 1;
-      for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) { const v = m[j * bw + i]; if (v) this.mix(x - 1 + i, y - 1 + j, v === 2 ? col : outline, a); }
-      return;
-    }
-    let cx = x;
-    for (const ch of s) {
-      const g = FONT[ch] || FONT['?'];
-      for (const [gx, gy] of g) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) this.put(cx + gx + ox, y + gy + oy, outline);
-      cx += 4;
-    }
-    cx = x;
-    for (const ch of s) { const g = FONT[ch] || FONT['?']; for (const [gx, gy] of g) this.put(cx + gx, y + gy, col); cx += 4; }
   }
 }

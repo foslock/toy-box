@@ -579,13 +579,13 @@ export class Game {
     this.combo = this.t - this.combo.t < 1.5 ? { n: this.combo.n + 1, t: this.t } : { n: 1, t: this.t };
     w.chomp = 1;
     const S = o.set >= 0 ? this.plan.sets[o.set] : null, left = S ? --this.setLeft[o.set] : 0;
-    this.event('eat', { x: o.x, y: o.y, kind: o.kind, value: I.value, combo: this.combo.n, first, set: S ? [S.n - left, S.n] : null });
+    this.event('eat', { x: o.x, y: o.y, kind: o.kind, value: I.value, combo: this.combo.n, first, set: S ? [S.n - left, S.n] : null, sid: S ? o.set : -1 });
     if (S) {
       if (left === 0) {
         const bonus = S.vault === undefined ? Math.round(this.setWorth[o.set] * .25) : 0;
         this.holdValue += bonus;
         this.stats.sets++;
-        this.event('set', { x: o.x, y: o.y, bonus, n: S.n, shape: S.shape, st: S.st });
+        this.event('set', { x: o.x, y: o.y, bonus, n: S.n, shape: S.shape, st: S.st, sid: o.set });
         if (S.vault !== undefined) this.openVault(S.vault);
       }
     }
