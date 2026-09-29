@@ -4,8 +4,10 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Vec2 } from 'planck';
-import { BASE_F, basePiece, nextPiece, mulberry, posedParts } from './pieces.js';
-import { G, STEP, createWorld, addBody, step, bodyPolys, placePolys, clearance, polysBounds } from './stack.js';
+import { BASE_F, basePiece, nextPiece, mulberry } from './pieces.js';
+import { G, STEP, createWorld, addBody, step, bodyPolys, supports } from './stack.js';
+import { placePolys, clearance, polysBounds } from './geom.js';
+import { posedParts, poseOf, restPoses, spotsOn, choosePlacement, hoverGap } from './fit.js';
 import { buildModel, disposeModel } from './models.js';
 import { Sound } from './music.js';
 
@@ -25,8 +27,9 @@ const store = {
   set: (k, v) => { try { localStorage.setItem('tablesandchairs.' + k, v); } catch {} },
 };
 
-// How the tower's height turns into heat for the music and the sky: calm at the bottom, flat out by about 13 m.
-const heatFor = top => clamp(Math.pow(Math.max(0, top - 7.5) / 125, .85), 0, 1);
+// How the tower's height turns into heat for the music and the sky: calm at the bottom, rock by about 12 m and
+// flat-out metal only by 25 m.
+const heatFor = top => clamp(Math.max(0, top - 7.5) / 242.5, 0, 1);
 
 /* ---------- renderer and scene ---------- */
 const canvas = $('c');
@@ -179,26 +182,33 @@ const slots = [0, 1, 2].map(() => {
   li.append(cv, nm, sz); $('queue').append(li);
   return { cv, nm, sz, piece: null };
 });
+// The thumbnails share one scale, set by the biggest of the queue and the piece in hand, so a piece that's
+// coming bigger looks bigger (down to 40% of the frame, so the small ones still read).
 const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
-function renderThumb(p, cv) {
+const thumbFit = p => Math.max((p.maxX - p.minX) * .62, p.maxY * .75) + p.D * .12;
+function renderThumb(p, cv, ref) {
   const g = p.model.group;
   g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); g.scale.set(1, 1, 1);
   thumbScene.add(g); g.updateMatrixWorld(true);
   _box.setFromObject(g); _box.getCenter(_c); _box.getSize(_s);
-  const r = Math.max(_s.x * .62, _s.y * .75) + _s.z * .12, dist = r / Math.tan(13 * Math.PI / 180);
-  thumbCam.position.set(_c.x + dist * .4, _c.y + dist * .24, _c.z + dist * .88);
-  thumbCam.lookAt(_c); thumbCam.near = dist * .05; thumbCam.far = dist * 4; thumbCam.updateProjectionMatrix();
+  const fit = thumbFit(p), r = Math.min(Math.max(fit, ref), fit * 2.5), dist = r / Math.tan(13 * Math.PI / 180);
+  // feet on a common floor line, so the small ones stand where the big ones do rather than float mid-frame
+  const cy = Math.max(_c.y, _c.y - _s.y / 2 + r * .62);
+  thumbCam.position.set(_c.x + dist * .4, cy + dist * .24, _c.z + dist * .88);
+  thumbCam.lookAt(_c.x, cy, _c.z); thumbCam.near = dist * .05; thumbCam.far = dist * 4; thumbCam.updateProjectionMatrix();
   thumbR.render(thumbScene, thumbCam);
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, TW, TH); ctx.drawImage(thumbR.domElement, 0, 0);
   thumbScene.remove(g);
 }
+const cm = u => Math.round(u * 10);
 function drawQueue() {
+  const ref = Math.max(...queue.slice(0, 3).concat(held ? [held.p] : []).map(thumbFit));
   slots.forEach((s, i) => {
     const p = queue[i];
-    if (!p || s.piece === p) return;
-    s.piece = p; renderThumb(p, s.cv);
+    if (!p || (s.piece === p && s.ref === ref)) return;
+    s.piece = p; s.ref = ref; renderThumb(p, s.cv, ref);
     s.nm.textContent = p.name;
-    s.sz.textContent = `${Math.round((p.maxX - p.minX) * 10)} cm wide`;
+    s.sz.textContent = `${cm(p.maxX - p.minX)} × ${cm(p.maxY)} cm`;
   });
 }
 
@@ -212,7 +222,7 @@ world.on('begin-contact', c => {
 });
 
 const sound = new Sound();
-let R, pieces = [], queue = [], recent = [], lastSpec = null, held = null;
+let R, pieces = [], queue = [], recent = [], lastSpec = null, held = null, tipShown = 0;
 let state = 'intro', count = 0, runBest = 0, best = +store.get('best') || 0;
 let heatTarget = 0, skyHeat = 0, dropT = 0, overT = 0, lastRun = null, zoom = 1, flash = 0, nextFlash = 8;
 let polys = [], towerB = { x0: -8, x1: 8, y0: 0, y1: 8 };
@@ -223,7 +233,7 @@ function clearAll() {
   for (const p of queue) disposeModel(p.model.group);
   if (held) { scene.remove(held.group); disposeModel(held.group); }
   pieces = []; queue = []; recent = []; held = null; fell = null;
-  for (const s of slots) s.piece = null;
+  for (const s of slots) s.piece = s.ref = null;
 }
 function newGame(seed) {
   clearAll();
@@ -252,29 +262,68 @@ function refill() {
     p.model = buildModel(p);
     recent.push(p); queue.push(p); lastSpec = p;
   }
-  drawQueue();
 }
 function takeNext() {
   const p = queue.shift();
   refill();
-  held = { p, group: p.model.group, flip: false, turn: 0, cx: platformCentre(pieces.at(-1)), x: 0, y: null };
+  const top = topCentre();
+  held = { p, group: p.model.group, flip: false, turn: 0, cx: top.x, x: 0, y: null,
+    vis: { a: 0, aT: 0, px: top.x, py: towerB.y1 + 20, flipT: 1, mirror: 1, axis: 'y', dir: 1 } };
   setPose(held);
-  held.group.position.set(held.cx, towerB.y1 + 20, 0);
+  held.group.rotation.set(0, 0, 0); held.group.scale.set(1, 1, 1);
   scene.add(held.group);
+  drawQueue();
+  const h = held;
+  if (!AUTO && !DEMO) setTimeout(() => { if (held === h) findRoom(h); });
 }
 // cx is the middle of the piece's outline, so flipping or turning it keeps it where it was.
 function setPose(h) {
   h.posed = posedParts(h.p, h.flip, h.turn);
   h.local = polysBounds(h.posed.map(q => q.v));
-  h.group.scale.x = h.flip ? -1 : 1;
-  h.group.rotation.z = h.turn * Math.PI / 2;
+  h.pose = poseOf(h.flip, h.turn);
+  h.y = null;
 }
-function platformCentre(rec) {
-  const pl = rec.p.platform, m = rec.flip ? -1 : 1;
-  return rec.body.getWorldPoint(Vec2((pl.x0 + pl.x1) / 2 * m, pl.y)).x;
+// The middle of the top of the last piece put down: where the next one starts, and what the camera watches.
+function topCentre() {
+  const r = pieces.at(-1);
+  if (!r?.polys) return { x: 0, y: 0 };
+  const b = polysBounds(r.polys);
+  return { x: (b.x0 + b.x1) / 2, y: b.y1, h: b.y1 - b.y0 };
 }
-function flip() { if (state === 'aim' && held) { held.flip = !held.flip; setPose(held); held.y = null; } }
-function turn(d) { if (state === 'aim' && held) { held.turn = (held.turn + d + 4) % 4; setPose(held); held.y = null; } }
+// Flips are drawn as half turns, about the upright axis (a flip: it faces the other way) or about the
+// left-right one (turned over, end over end). Halfway, side-on, the drawing swaps to the new pose.
+function swapSides(h) {
+  const v = h.vis;
+  v.mirror = h.flip ? -1 : 1;
+  if (v.axis === 'x') { v.a = Math.PI - v.a; v.aT = Math.PI - v.aT; } else { v.a = -v.a; v.aT = -v.aT; }
+}
+// A flip that's still going finishes at once before anything else changes the piece.
+function settleFlip(h) {
+  if (h.vis.flipT < .5) swapSides(h);
+  h.vis.flipT = 1;
+}
+function flip() {
+  if (state !== 'aim' || !held) return;
+  const h = held; settleFlip(h);
+  h.flip = !h.flip; h.turn = (4 - h.turn) % 4;          // mirrored left to right, as you see it
+  Object.assign(h.vis, { flipT: 0, axis: 'y', dir: 1 });
+  setPose(h); poseChanged();
+}
+// Turned over end over end, upside down: d = 1 brings its top towards you, -1 sends it away.
+function turnOver(d) {
+  if (state !== 'aim' || !held) return;
+  const h = held; settleFlip(h);
+  h.flip = !h.flip; h.turn = (6 - h.turn) % 4;          // mirrored top to bottom, as you see it
+  Object.assign(h.vis, { flipT: 0, axis: 'x', dir: d });
+  setPose(h); poseChanged();
+}
+// d = 1 turns it a quarter anticlockwise, -1 clockwise.
+function turn(d) {
+  if (state !== 'aim' || !held) return;
+  const h = held; settleFlip(h);
+  h.turn = (h.turn + d + 4) % 4; h.vis.aT += d * Math.PI / 2;
+  setPose(h); poseChanged();
+}
 
 // This frame's outlines of everything standing, and their bounds.
 function refresh() {
@@ -290,18 +339,42 @@ function placeHeld(dt, snap = false) {
   h.cx = clamp(h.cx, towerB.x0 - w / 2 - 1.5, towerB.x1 + w / 2 + 1.5);
   const ox = h.cx - (L.x0 + L.x1) / 2;
   const { need } = clearance(placePolys(h.posed, ox, 0), polys);
-  const last = pieces.at(-1).p;
-  const reach = Math.max(ht * 1.6, last.H * 1.1, 4);
-  const target = Math.max(need + Math.max(.2, ht * .035), towerB.y1 - reach - L.y0);
+  const reach = Math.max(ht * 1.6, (topCentre().h || 0) * 1.1, 4);
+  const target = Math.max(need + hoverGap(ht), towerB.y1 - reach - L.y0);
   h.y = h.y == null || snap || target > h.y ? target : damp(h.y, target, 14, dt);
   h.x = ox;
-  h.group.position.set(ox, h.y, 0);
+  showHeld(h, dt, snap);
+}
+// The held piece as it's drawn: turning and flipping are animated, about the middle of its outline, which eases
+// after where the physics has it. A flip turns it round edge-on and swaps in the mirror image halfway.
+const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3();
+function showHeld(h, dt, snap) {
+  const v = h.vis, L = h.local, c = h.p, g = h.group;
+  const px = h.cx, py = h.y + (L.y0 + L.y1) / 2;
+  if (snap) { v.px = px; v.py = py; v.a = v.aT; v.flipT = 1; v.mirror = h.flip ? -1 : 1; }
+  if (v.flipT < 1) {
+    const was = v.flipT; v.flipT = Math.min(1, v.flipT + dt / .18);
+    if (was < .5 && v.flipT >= .5) swapSides(h);
+  }
+  v.a = REDUCED ? v.aT : damp(v.a, v.aT, 18, dt);
+  if (Math.abs(v.a - v.aT) < 1e-3) v.a = v.aT;
+  v.px = damp(v.px, px, 20, dt); v.py = damp(v.py, py, 20, dt);
+  const half = REDUCED || v.flipT >= 1 ? 0 : v.dir * (v.flipT < .5 ? v.flipT : v.flipT - 1) * Math.PI;
+  const rx = v.axis === 'x' ? half : 0, ry = v.axis === 'x' ? 0 : half;
+  g.scale.set(v.mirror, 1, 1);
+  g.rotation.set(rx, ry, v.a);
+  // the local point at the middle of the piece's outline goes to (px, py)
+  _v.set((c.minX + c.maxX) / 2 * v.mirror, c.maxY / 2, 0).applyQuaternion(_q.setFromEuler(_e.set(rx, ry, v.a)));
+  g.position.set(v.px - _v.x, v.py - _v.y, -_v.z);
 }
 
 function drop() {
   if (state !== 'aim' || !held) return;
+  if (held.y == null) placeHeld(0, true);              // turned since the last frame: find where it hovers now
   const h = held; held = null;
+  h.group.rotation.set(0, 0, 0);
   addPlaced(h.p, h.flip, h.turn, h.x, h.y);
+  tip(null);
   state = 'drop'; dropT = 0;
   for (const b of beams) b.visible = false;
   updateButtons();
@@ -315,10 +388,10 @@ function settled() {
   sound.sfx?.placed(count);
   const p = pieces.at(-1).p;
   say(`${p.name} placed. The tower is ${metres(towerB.y1)} metres tall.`);
-  takeNext();
   state = 'aim';
+  takeNext();
   updateButtons();
-  if (count >= 4) $('hint').hidden = true;
+  if (count >= 4 && !tipOn) $('hint').hidden = true;
 }
 
 function topple() {
@@ -326,6 +399,7 @@ function topple() {
   state = 'over'; overT = 0;
   if (held) { scene.remove(held.group); disposeModel(held.group); held = null; }
   for (const b of beams) b.visible = false;
+  tip(null);
   sound.music?.fall();
   const isNew = runBest > best + .05;
   if (isNew) { best = runBest; store.set('best', best.toFixed(2)); }
@@ -334,21 +408,44 @@ function topple() {
   updateButtons();
 }
 
-// Picks where to drop the held piece so its feet sit in the middle of the last piece's top or seat.
+// Which ways up the held piece has somewhere to stand on the tower as it is. If the way it's held isn't one of
+// them but another is, say so: it wants turning.
+let tipOn = false;
+function findRoom(h) {
+  // only what's near the top: it can't be held any lower than that (see placeHeld)
+  const RP = restPoses(h.p), low = towerB.y1 - 2 * Math.max(h.p.maxX - h.p.minX, h.p.maxY, topCentre().h || 0) - 4;
+  const near = polys.filter(q => q.some(v => v[1] > low));
+  h.room = RP.map(r => !!r && r.same === r.pose && spotsOn(h.p, r.pose, near).length > 0);
+  RP.forEach((r, i) => { if (r && r.same !== i) h.room[i] = h.room[r.same]; });
+  poseChanged();
+}
+const WAYS = [[0, 4], [1, 3, 5, 7], [2, 6]];        // upright, on its side, upside down
+function poseChanged() {
+  const h = held;
+  if (!h?.room || AUTO || DEMO) return;
+  if (h.room[h.pose] || !h.room.some(Boolean)) return tip(null);
+  const has = w => w.some(i => h.room[i]), mine = WAYS.find(w => w.includes(h.pose));
+  if (has(mine)) return tip(`It has nowhere to stand like this, but it would the other way round. ${TOUCH ? 'Flip it' : '<kbd>F</kbd> flips it'}.`, 'flipme');
+  const how = ['the right way up', 'on its side', 'upside down'].filter((w, i) => WAYS[i] !== mine && has(WAYS[i])).join(' or ');
+  tip(`It has nowhere to stand this way up. Try it ${how}: ${TOUCH ? '↺ and ↻ turn it' : '<kbd>←</kbd> <kbd>→</kbd> turn it, <kbd>↑</kbd> <kbd>↓</kbd> turn it over'}.`, 'turnme');
+}
+function tip(html, cls) {
+  tipOn = !!html;
+  document.body.classList.toggle('turnme', cls === 'turnme');
+  document.body.classList.toggle('flipme', cls === 'flipme');
+  if (html) { $('hint').innerHTML = html; $('hint').hidden = false; if (!tipShown++) say($('hint').textContent); }
+  else if (count < 4 && state !== 'over' && !DEMO) { $('hint').innerHTML = HINT; $('hint').hidden = false; }
+  else $('hint').hidden = true;
+}
+
+// For ?auto and the preview: turn the held piece the way choosePlacement likes and say where its middle goes.
 function autoAim(h) {
-  const last = pieces.at(-1), pl = last.p.platform, m = last.flip ? -1 : 1;
-  const a = last.body.getWorldPoint(Vec2(pl.x0 * m, pl.y)), b = last.body.getWorldPoint(Vec2(pl.x1 * m, pl.y));
-  const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), py = Math.max(a.y, b.y), mid = (x0 + x1) / 2;
-  const L = h.local, foot = (h.p.fx0 + h.p.fx1) / 2 * (h.flip ? -1 : 1) - (L.x0 + L.x1) / 2;
-  let bestX = null, bestD = Infinity;
-  for (let k = 0; k <= 120; k++) {
-    const cx = x0 - 2 + (x1 - x0 + 4) * k / 120;
-    const { need } = clearance(placePolys(h.posed, cx - (L.x0 + L.x1) / 2, 0), polys);
-    if (Math.abs(need + L.y0 - py) > .03 * (L.y1 - L.y0) + .08) continue;
-    const d = Math.abs(cx + foot - mid);
-    if (d < bestD) { bestD = d; bestX = cx; }
-  }
-  return bestX;
+  const tagged = pieces.flatMap((r, i) => r.polys.map(q => (q.owner = i, q)));
+  const c = choosePlacement(h.p, tagged, queue[0], supports(world, pieces.map(r => r.body), ground));
+  if (!c) return null;
+  h.flip = c.pose >= 4; h.turn = c.pose & 3; h.vis.aT = h.turn * Math.PI / 2; h.vis.mirror = h.flip ? -1 : 1;
+  setPose(h);
+  return c.k + (h.local.x0 + h.local.x1) / 2;
 }
 
 /* ---------- sound effects from the physics ---------- */
@@ -379,13 +476,15 @@ function updateCamera(dt) {
     const heldTop = held && held.y != null ? held.y + L.y1 : 0;
     top = Math.max(heldTop, towerB.y1) + Math.max(3, size * .7);
     bottom = top - clamp(top + 3, 26, Math.max(26, size * 10));
-    cam.fx = damp(cam.fx, pieces.length ? platformCentre(pieces.at(-1)) : 0, 2, dt);
+    cam.fx = damp(cam.fx, topCentre().x, 2, dt);
     tx = cam.fx; halfW = Math.max(size * 2.3, 11);
   }
   let span = (top - bottom) * zoom;
   if (span * aspect < halfW * 2) span = halfW * 2 / aspect;
-  let ty = Math.max(top - span / 2 - (zoom - 1) * span * .1, span / 2 - 3);
-  if (state === 'over') ty = Math.max(bottom + span / 2, span / 2 - 3);
+  // the ground never comes further up the screen than just above the buttons
+  const floor = span / 2 - 3 - span * uiBottom;
+  let ty = Math.max(top - span / 2 - (zoom - 1) * span * .1, floor);
+  if (state === 'over') ty = Math.max(bottom + span / 2, floor);
   if (!cam.ready) { cam.x = tx; cam.y = ty; cam.span = span; cam.ready = true; }
   const k = state === 'over' ? 1.4 : 3;
   cam.x = damp(cam.x, tx, k, dt); cam.y = damp(cam.y, ty, k, dt); cam.span = damp(cam.span, span, k, dt);
@@ -523,29 +622,34 @@ addEventListener('keydown', e => {
   if (e.target.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   switch (e.key) {
-    case 'ArrowLeft': case 'a': case 'A': keys.left = 1; pointer.mouse = false; e.preventDefault(); break;
-    case 'ArrowRight': case 'd': case 'D': keys.right = 1; pointer.mouse = false; e.preventDefault(); break;
-    case ' ': case 'Enter': case 'ArrowDown': case 's': case 'S': e.preventDefault(); if (!e.repeat) drop(); break;
-    case 'f': case 'F': flip(); break;
-    case 'r': case 'R': case 'e': case 'E': case 'ArrowUp': e.preventDefault(); turn(1); break;
-    case 'q': case 'Q': turn(-1); break;
+    case 'a': case 'A': keys.left = 1; pointer.mouse = false; break;
+    case 'd': case 'D': keys.right = 1; pointer.mouse = false; break;
+    case ' ': e.preventDefault(); if (!e.repeat) drop(); break;
+    // a quarter turn a press, ← and Q anticlockwise, → and E clockwise; ↑ and ↓ turn it over, away from you
+    // or towards you; F flips it to face the other way
+    case 'ArrowLeft': case 'q': case 'Q': case 'z': case 'Z': e.preventDefault(); if (!e.repeat) turn(1); break;
+    case 'ArrowRight': case 'e': case 'E': case 'r': case 'R': e.preventDefault(); if (!e.repeat) turn(-1); break;
+    case 'ArrowUp': e.preventDefault(); if (!e.repeat) turnOver(-1); break;
+    case 'ArrowDown': e.preventDefault(); if (!e.repeat) turnOver(1); break;
+    case 'f': case 'F': if (!e.repeat) flip(); break;
     case 'Shift': keys.fine = 1; break;
     case '+': case '=': zoom = clamp(zoom / 1.15, .75, 3); break;
     case '-': case '_': zoom = clamp(zoom * 1.15, .75, 3); break;
   }
 });
 addEventListener('keyup', e => {
-  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = 0;
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = 0;
+  if (e.key === 'a' || e.key === 'A') keys.left = 0;
+  if (e.key === 'd' || e.key === 'D') keys.right = 0;
   if (e.key === 'Shift') keys.fine = 0;
 });
 addEventListener('blur', () => { keys.left = keys.right = keys.fine = 0; });
 $('flip').onclick = () => { flip(); };
-$('turn').onclick = () => { turn(1); };
+$('left').onclick = () => { turn(1); };
+$('right').onclick = () => { turn(-1); };
 $('drop').onclick = () => { drop(); };
 function updateButtons() {
   const on = state === 'aim' && !!held;
-  $('flip').disabled = $('turn').disabled = $('drop').disabled = !on;
+  $('flip').disabled = $('left').disabled = $('right').disabled = $('drop').disabled = !on;
 }
 
 // Sound toggle
@@ -567,12 +671,14 @@ function showCard(kind) {
   cardKind = kind;
   if (kind === 'intro') {
     $('cardTitle').textContent = 'Tables & Chairs';
-    $('cardBody').innerHTML = `<p>Stack each table and chair on the tower. Every one is a little smaller than the last, and they obey gravity: load one side too much and it tips.</p>
+    $('cardBody').innerHTML = `<p>Stack each table and chair on the tower. They come in every size, bigger as well as smaller, and they obey gravity: load one side too much and it tips.</p>
+      <p>Turn a piece on its side or upside down to make a flat place for the next one. Keep an eye on what's coming up.</p>
       <p>Only the bottom table may touch the ground. If anything else lands on it, the tower's done.</p>
-      <dl><dt>Aim</dt><dd>${TOUCH ? 'drag anywhere' : 'move the mouse, or ← →'}</dd>
+      <dl><dt>Aim</dt><dd>${TOUCH ? 'drag anywhere' : 'move the mouse, or A and D'}</dd>
       <dt>Drop</dt><dd>${TOUCH ? 'tap, or the Drop button' : 'click, or Space'}</dd>
-      <dt>Flip</dt><dd>${TOUCH ? 'the Flip button' : 'right-click, or F'}</dd>
-      <dt>Turn</dt><dd>${TOUCH ? 'the Turn button' : 'R'}</dd></dl>`;
+      <dt>Turn</dt><dd>${TOUCH ? 'the ↺ and ↻ buttons' : '← and →, a quarter turn each way'}</dd>
+      ${TOUCH ? '' : '<dt>Turn over</dt><dd>↑ and ↓, end over end</dd>'}
+      <dt>Flip</dt><dd>${TOUCH ? 'the Flip button' : 'F or right-click, to face the other way'}</dd></dl>`;
     $('go').textContent = 'Start stacking';
     $('cardFine').textContent = 'Sound on. It starts as a spa. It doesn’t stay one.';
   } else {
@@ -631,7 +737,7 @@ function tick(now) {
       if (dir) held.cx += dir * Math.max(1.5, (held.local.x1 - held.local.x0) * .7) * (keys.fine ? .25 : 1) * dt;
       if (AUTO) {
         autoT += dt;
-        if (autoX == null && autoT > .5) { if (held.p.kind === 'chair' && Math.random() < .5) flip(); autoX = autoAim(held) ?? held.cx; }
+        if (autoX == null && autoT > .5) autoX = autoAim(held) ?? held.cx;
         if (autoX != null) { held.cx = damp(held.cx, autoX, 6, dt); if (Math.abs(held.cx - autoX) < .02 && autoT > 1.2) { autoX = null; autoT = 0; drop(); } }
       }
     }
@@ -660,21 +766,24 @@ function hud() {
   if (c !== shown.c) $('count').textContent = shown.c = c;
   if (b !== shown.b) $('best').textContent = shown.b = b;
 }
+// How much of the screen, from the bottom, the buttons cover.
+let uiBottom = 0;
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  uiBottom = Math.max(0, Math.min(.3, (innerHeight - $('drop').getBoundingClientRect().top + 6) / innerHeight));
 }
 addEventListener('resize', resize);
 resize();
 
-$('hint').innerHTML = TOUCH
-  ? 'Drag to aim · tap to drop'
-  : 'Move to aim · <kbd>click</kbd> to drop · <kbd>right-click</kbd> flips · <kbd>R</kbd> turns · scroll to zoom';
+const HINT = TOUCH
+  ? 'Drag to aim · tap to drop · ↺ ↻ turn it'
+  : 'Move to aim · <kbd>click</kbd> to drop · <kbd>←</kbd> <kbd>→</kbd> turn · <kbd>↑</kbd> <kbd>↓</kbd> turn over · <kbd>F</kbd> flips';
+$('hint').innerHTML = HINT;
 
 // ?demo: stack a few pieces before the first frame, the way ?auto would.
 function demoBuild(n) {
   for (let i = 0; i < n && held; i++) {
-    if (held.p.kind === 'chair' && R() < .5) { held.flip = true; setPose(held); }
     const x = autoAim(held); if (x == null) break;
     held.cx = x; placeHeld(0, true); drop();
     for (let t = 0; t < 2.5; t += STEP) step(world);
@@ -687,7 +796,11 @@ function demoBuild(n) {
   skyHeat = heatTarget;
 }
 
-newGame(DEMO ? 20260925 : undefined);
+// ?debug: a handle on the game from the console
+if (params.has('debug')) window.TC = { get held() { return held; }, get pieces() { return pieces; }, get queue() { return queue; }, get state() { return state; },
+  get polys() { return polys; }, turn, flip, drop, restPoses, spotsOn, newGame, autoAim };
+
+newGame(params.has('seed') ? +params.get('seed') : DEMO ? 12 : undefined);
 if (DEMO) { state = 'aim'; demoBuild(+params.get('n') || 9); $('hint').hidden = true; }
 else if (AUTO) { state = 'aim'; }
 else showCard('intro');

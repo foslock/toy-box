@@ -1,5 +1,5 @@
-// The physics side: a planck.js (Box2D) world with a floor, each piece a rigid body made of its convex parts,
-// and the geometry for lowering a held piece until it would just touch whatever is under it.
+// The physics side: a planck.js (Box2D) world with a floor, each piece a rigid body made of its convex parts.
+// The flat geometry (outlines, lowering a piece onto the tower) is in geom.js and fit.js.
 // Units are decimetres, so gravity is 98 units/s².
 import { World, Vec2, Polygon, Box, Settings } from 'planck';
 
@@ -28,6 +28,34 @@ export function addBody(world, piece, flip, turn, x, y) {
 
 export const step = world => world.step(STEP, 24, 12);
 
+// Who rests on whom, from the physics' own contacts: for each body, its mass and centre of mass, the span of
+// the contacts it stands on (x0..x1, at about height y) and the body under it taking most of its weight (its
+// index, or -1 for the ground). See steadiness in fit.js.
+export function supports(world, bodies, ground) {
+  const index = new Map(bodies.map((b, i) => [b, i]));
+  const S = bodies.map(b => { const c = b.getWorldCenter(); return { m: b.getMass(), cx: c.x, cy: c.y, x0: Infinity, x1: -Infinity, y: 0, n: 0, votes: new Map(), under: -1 }; });
+  for (let c = world.getContactList(); c; c = c.getNext()) {
+    if (!c.isTouching()) continue;
+    const A = c.getFixtureA().getBody(), B = c.getFixtureB().getBody(), wm = c.getWorldManifold(null);
+    if (!wm || Math.abs(wm.normal.y) < .35) continue;                 // side by side, not one on the other
+    const up = wm.normal.y < 0 ? A : B, low = up === A ? B : A, s = S[index.get(up)];   // the normal points from A to B
+    if (!s) continue;
+    const j = index.get(low) ?? -1;
+    for (let k = 0; k < wm.pointCount; k++) {
+      const { x, y } = wm.points[k];
+      if (x < s.x0) s.x0 = x; if (x > s.x1) s.x1 = x;
+      s.y += y; s.n++; s.votes.set(j, (s.votes.get(j) || 0) + 1);
+    }
+  }
+  for (const s of S) {
+    if (s.n) s.y /= s.n;
+    let most = 0;
+    for (const [j, v] of s.votes) if (v > most) { most = v; s.under = j; }
+    delete s.votes; delete s.n;
+  }
+  return S;
+}
+
 // The parts of a body as world-space polygons, [[x, y], ...].
 export function bodyPolys(body, out = []) {
   for (let f = body.getFixtureList(); f; f = f.getNext()) {
@@ -36,56 +64,4 @@ export function bodyPolys(body, out = []) {
     out.push(poly);
   }
   return out;
-}
-
-// Local parts (already posed) moved to (x, y).
-export const placePolys = (posed, x, y) => posed.map(q => q.v.map(([px, py]) => [px + x, py + y]));
-
-function xRange(poly) {
-  let a = Infinity, b = -Infinity;
-  for (const [x] of poly) { if (x < a) a = x; if (x > b) b = x; }
-  return [a, b];
-}
-// Where a vertical line at x crosses a convex polygon: [bottom, top], or null.
-function vSpan(poly, x) {
-  let lo = Infinity, hi = -Infinity;
-  for (let i = 0, n = poly.length; i < n; i++) {
-    const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % n];
-    if (x < Math.min(x1, x2) - 1e-9 || x > Math.max(x1, x2) + 1e-9) continue;
-    if (Math.abs(x2 - x1) < 1e-9) { lo = Math.min(lo, y1, y2); hi = Math.max(hi, y1, y2); continue; }
-    const y = y1 + (y2 - y1) * (x - x1) / (x2 - x1);
-    if (y < lo) lo = y; if (y > hi) hi = y;
-  }
-  return lo <= hi ? [lo, hi] : null;
-}
-
-// How far the held polygons (placed at height 0) have to be raised to sit on top of everything under them,
-// as if lowered from far above until something touched. Also reports which obstacle it would land on.
-// For two convex outlines the gap between the top of one and the bottom of the other is concave across their
-// shared x-range, so checking every corner's x (and the range ends) finds the first touch.
-export function clearance(held, obstacles) {
-  let need = -Infinity, hit = null;
-  for (const A of held) {
-    const [ax0, ax1] = xRange(A);
-    for (const [, y] of A) if (-y > need) { need = -y; hit = null; }   // the floor
-    for (const B of obstacles) {
-      const [bx0, bx1] = B.range || (B.range = xRange(B));
-      const x0 = Math.max(ax0, bx0), x1 = Math.min(ax1, bx1);
-      if (x1 - x0 < 1e-6) continue;
-      const xs = [x0, x1];
-      for (const [x] of A) if (x > x0 && x < x1) xs.push(x);
-      for (const [x] of B) if (x > x0 && x < x1) xs.push(x);
-      for (const x of xs) {
-        const sa = vSpan(A, x), sb = vSpan(B, x);
-        if (sa && sb && sb[1] - sa[0] > need) { need = sb[1] - sa[0]; hit = B; }
-      }
-    }
-  }
-  return { need, hit };
-}
-
-export function polysBounds(polys) {
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const p of polys) for (const [x, y] of p) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  return { x0, x1, y0, y1 };
 }

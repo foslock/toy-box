@@ -2,11 +2,12 @@
 // (1 unit = 10 cm), standing on y = 0 and centred on x = 0. Chairs face +x, so their back is on the left.
 // Nothing here touches three.js, so the sizing rules can be tried out in Node.
 //
-// Each piece is a little smaller than the one before, and never too big to stand on it: it has to fit
-// on the top of the previous table, or on the seat of the previous chair beside its back.
+// Each piece comes at its own size, bigger or smaller than the one before, but never without somewhere to go:
+// see nextPiece.
+import { posesAfter, restPoses } from './fit.js';
 
 export const BASE_F = 14.5;        // leg span of the bottom table (about a 1.6 m dining table)
-const MIN_F = 2;                   // pieces stop shrinking at about 20 cm
+const MIN_F = 2;                   // nothing comes smaller than about 20 cm
 
 const U = (R, a, b) => a + (b - a) * R();
 const pick = (R, arr) => arr[R() * arr.length | 0];
@@ -58,7 +59,7 @@ const TYPES = {
       part(rect(0, (fh + H - t) / 2, cw / 2, (H - t - fh) / 2), cw, 3),
       part(rect(0, fh / 2, F / 2, fh / 2), foot === 'disc' ? F * .785 : fh * 3, 3),
     ];
-    return { W, H, D: W, parts, platform: { x0: -W / 2, x1: W / 2, y: H, wall: 0 }, dims: { W, H, t, cw, fh, F, round, foot } };
+    return { W, H, D: W, parts, dims: { W, H, t, cw, fh, F, round, foot } };
   } },
   desk: { kind: 'table', name: 'Writing desk', size: .95, make(F, R) {
     // drawers down one side, a pair of legs on the other: it's heavier on the drawer side
@@ -71,7 +72,7 @@ const TYPES = {
       part(leg(lx, lx, lw * .8, lw, 0, hb), 2 * lw),
       part(rect((-F / 2 + pw + lx) / 2, hb - ap / 2, (lx - (-F / 2 + pw)) / 2, ap / 2), 2 * at),
     ];
-    return { W, H, D, parts, platform: { x0: -W / 2, x1: W / 2, y: H, wall: 0 }, dims: { W, H, D, t, pw, lw, lx, px, ap, at, lz: D / 2 - ov - lw / 2, F, drawers: 2 + (R() * 2 | 0) } };
+    return { W, H, D, parts, dims: { W, H, D, t, pw, lw, lx, px, ap, at, lz: D / 2 - ov - lw / 2, F, drawers: 2 + (R() * 2 | 0) } };
   } },
   nightstand: { kind: 'table', name: 'Nightstand', size: .7, make(F, R) {
     const ov = F * U(R, .02, .06), W = F + 2 * ov, H = W * U(R, 1, 1.25), t = W * U(R, .04, .055);
@@ -82,14 +83,14 @@ const TYPES = {
       part(leg(-lx, -lx, lw * .7, lw, 0, legH + t), 2 * lw),
       part(leg(lx, lx, lw * .7, lw, 0, legH + t), 2 * lw),
     ];
-    return { W, H, D, parts, platform: { x0: -W / 2, x1: W / 2, y: H, wall: 0 }, dims: { W, H, D, t, legH, lw, lx, F, lz: D * .46 - lw / 2, open: R() < .6 } };
+    return { W, H, D, parts, dims: { W, H, D, t, legH, lw, lx, F, lz: D * .46 - lw / 2, open: R() < .6 } };
   } },
   chair: { kind: 'chair', name: 'Chair', size: .78, make(F, R) {
     const lw = F * U(R, .07, .09);
     return chair(F, R, { lw, BH: F * U(R, .8, 1.08), rake: U(R, .06, .14), back: pick(R, ['slats', 'spindles', 'panel']),
       style: pick(R, ['square', 'taper', 'round']), cushion: R() < .4 ? F * U(R, .06, .08) : 0, rush: false });
   } },
-  ladder: { kind: 'chair', name: 'Ladder-back chair', size: .76, make(F, R) {
+  ladder: { kind: 'chair', name: 'Ladder-back chair', size: .7, make(F, R) {
     const lw = F * U(R, .075, .09);
     return chair(F, R, { lw, BH: F * U(R, 1.3, 1.65), rake: U(R, .03, .08), back: 'ladder', style: 'turned', cushion: 0, rush: true, rungs: 3 + (R() * 2 | 0) });
   } },
@@ -103,8 +104,7 @@ const TYPES = {
       part(leg(xb, xt, lwb, lw, 0, SH - st), 2 * lw),
       part(rect(0, ry, rx, lw * .3), lw),
     ];
-    return { W: SW, H: SH, D: SW, parts, platform: { x0: -SW / 2, x1: SW / 2, y: SH, wall: 0 },
-      dims: { SW, SH, st, lw, lwb, xb, xt, splay, round, ry, F, style: pick(R, ['round', 'taper']) } };
+    return { W: SW, H: SH, D: SW, parts, dims: { SW, SH, st, lw, lwb, xb, xt, splay, round, ry, F, style: pick(R, ['round', 'taper']) } };
   } },
   barstool: { kind: 'chair', name: 'Bar stool', size: .68, make(F, R) {
     // tall, splayed legs, and a seat narrower than its feet
@@ -116,8 +116,7 @@ const TYPES = {
       part(leg(xb, xt, lw, lw, 0, SH - st), 2 * lw),
       part(rect(0, ry, rx + lw * .3, lw * .3), lw * 2, 2),
     ];
-    return { W: SW, H: SH, D: SW, parts, platform: { x0: -SW / 2, x1: SW / 2, y: SH, wall: 0 },
-      dims: { SW, SH, st, lw, xb, xt, splay, ry, rx, F, cushion: R() < .5, metal: R() < .5 } };
+    return { W: SW, H: SH, D: SW, parts, dims: { SW, SH, st, lw, xb, xt, splay, ry, rx, F, cushion: R() < .5, metal: R() < .5 } };
   } },
 };
 
@@ -131,7 +130,7 @@ function table(d) {
     part(leg(lx, lx, lwb, lw, 0, H - t), 2 * lw),
   ];
   if (shelf) { d.st = t * .8; parts.push(part(rect(0, shelf, lx, d.st / 2), D * .8)); }
-  return { W, H, D, parts, platform: { x0: -W / 2, x1: W / 2, y: H, wall: 0 }, dims: d };
+  return { W, H, D, parts, dims: d };
 }
 
 // Chairs, side on: seat, a front leg, a back leg, and the back post leaning away from the seat.
@@ -147,8 +146,7 @@ function chair(F, R, o) {
   ];
   if (cushion) parts.push(part(rect((-F / 2 + pw + sx1) / 2, SH + cushion / 2, (sx1 - (-F / 2 + pw)) / 2, cushion / 2), Dz * .25));
   const W = sx1 + Math.sin(rake) * L + F / 2;
-  return { W, H: by + Math.cos(rake) * L, D: Dz, parts, platform: { x0: -F / 2 + pw, x1: sx1, y: SH + cushion, wall: -1 },
-    dims: { F, SH, st, lw, lwb, pw, fo, Dz, BH, rake, cushion, L, bx, by, sx0, sx1, back: o.back, style: o.style, rush: o.rush, rungs: o.rungs } };
+  return { W, H: by + Math.cos(rake) * L, D: Dz, parts, dims: { F, SH, st, lw, lwb, pw, fo, Dz, BH, rake, cushion, L, bx, by, sx0, sx1, back: o.back, style: o.style, rush: o.rush, rungs: o.rungs } };
 }
 
 // Builds one piece. The same seed always gives the same proportions, so a piece can be rebuilt smaller.
@@ -156,17 +154,9 @@ export function makePiece(type, F, seed) {
   const T = TYPES[type], R = mulberry(seed);
   const p = T.make(F, R);
   Object.assign(p, { type, kind: T.kind, name: T.name, F, seed });
-  let minX = Infinity, maxX = -Infinity, fx0 = Infinity, fx1 = -Infinity, maxY = 0;
-  for (const q of p.parts) for (const [x, y] of q.v) {
-    if (x < minX) minX = x; if (x > maxX) maxX = x; if (y > maxY) maxY = y;
-    if (y < 1e-6) { if (x < fx0) fx0 = x; if (x > fx1) fx1 = x; }
-  }
-  Object.assign(p, { minX, maxX, maxY, fx0, fx1 });
-  // Room it needs on a flat top (its feet), and on a chair seat, where it has to stay clear of the back too.
-  p.needOpen = fx1 - fx0;
-  p.needWall = Math.min(fx1 - minX, maxX - fx0);
-  p.platform.width = p.platform.x1 - p.platform.x0;
-  return p;
+  let minX = Infinity, maxX = -Infinity, maxY = 0;
+  for (const q of p.parts) for (const [x, y] of q.v) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y > maxY) maxY = y; }
+  return Object.assign(p, { minX, maxX, maxY });
 }
 
 const TABLE_TYPES = [['dining', 3], ['coffee', 2], ['side', 2], ['bistro', 1.4], ['desk', 1.4], ['nightstand', 1.5]];
@@ -180,29 +170,35 @@ function weighted(R, list, avoid) {
 
 export function basePiece(R) {
   const p = makePiece('dining', BASE_F, R() * 2 ** 31 | 0);
-  p.scale = 1;
-  return p;
+  return Object.assign(p, { n: 0, fits: [0] });
 }
 
-// The next piece in the queue, given the one before it.
+// The size a piece n up from the bottom tends to be, as a share of the bottom table's: it drifts down slowly.
+const typicalAt = n => .32 + .68 * Math.pow(.965, n);
+const gauss = R => Math.sqrt(-2 * Math.log(1 - R())) * Math.cos(2 * Math.PI * R());
+
+// The next piece in the queue, given the one before it. Its size is its own, drawn around the typical size, so
+// it can come a good deal bigger than the last piece as well as smaller. It only has to have somewhere to go:
+// some pose of it (turned, flipped, upright) has to stand on the piece before it, in a pose that piece can take
+// on the one before it, and so on down. So the queue can always be stacked if each piece goes down the right
+// way up, which isn't always upright. A piece too big for anything is tried again smaller, and so is one more
+// than two and a half times as wide or eight times as heavy as the piece it goes on: those only ever balance on
+// a knife edge.
 export function nextPiece(prev, recent, R) {
+  const n = prev.n + 1;
   const chairsInARow = recent.slice(-2).filter(p => p.kind === 'chair').length;
   const kind = chairsInARow >= 2 ? 'table' : R() < .44 ? 'chair' : 'table';
   const type = weighted(R, kind === 'table' ? TABLE_TYPES : CHAIR_TYPES, prev.type);
-  // scale is a slow envelope everything shrinks under; a piece that has to squeeze onto a small seat
-  // comes out smaller than it, and the ones after can grow back towards it on wider tops.
-  const scale = Math.max(MIN_F / BASE_F, prev.scale * U(R, .962, .985));
-  const seed = R() * 2 ** 31 | 0;
-  let F = BASE_F * scale * TYPES[type].size;
-  let p = makePiece(type, F, seed);
-  const room = prev.platform.width * U(R, .88, .97), need = prev.platform.wall ? p.needWall : p.needOpen;
-  if (need > room) { F = Math.max(MIN_F * .7, F * room / need); p = makePiece(type, F, seed); }
-  p.scale = scale;
+  const seed = R() * 2 ** 31 | 0, typical = BASE_F * TYPES[type].size * typicalAt(n);
+  let F = typical * Math.exp(Math.max(-1, Math.min(.75, gauss(R) * .42))), p;
+  const heaviest = restPoses(prev).find(Boolean).mass * 8, widest = (prev.maxX - prev.minX) * 2.5;
+  for (let i = 0; i < 16; i++, F *= .9) {
+    p = makePiece(type, Math.max(MIN_F, F), seed);
+    if (F > MIN_F && (p.maxX - p.minX > widest || restPoses(p).find(Boolean).mass > heaviest)) continue;
+    p.fits = posesAfter(prev, p, prev.fits);
+    if (p.fits.length || F <= MIN_F) break;
+  }
+  if (!p.fits.length) p.fits = restPoses(p).filter(Boolean).map(r => r.pose);   // never seen, but don't strand the rest of the queue
+  p.n = n;
   return p;
-}
-
-// The outline turned into a flipped (mirrored) and/or rotated (quarter turns) pose.
-export function posedParts(p, flip, turn) {
-  const a = turn * Math.PI / 2, c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a)), m = flip ? -1 : 1;
-  return p.parts.map(q => ({ dz: q.dz, v: q.v.map(([x, y]) => { x *= m; return [x * c - y * s, x * s + y * c]; }) }));
 }
