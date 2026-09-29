@@ -322,8 +322,9 @@ export class Game {
         w.jump = false;
         // on a floor in the open: slide along it toward the pointer, or leap at it
         if (has && wy < -.45 && w.lungeT <= 0) {
-          const v = Math.max(170, base * 1.7);
-          w.vx = wx * v; w.vy = wy * v; w.lungeT = .7; w.jump = true;
+          // only as hard as the room that way calls for: a hop in a pocket, a big leap in a cave or at the sky
+          const room = this.openAhead(w.x, w.y, wx, wy, 60), v = clamp(Math.sqrt(2 * WORM.gravity * (room + 4)) * 1.1, 70, Math.max(170, base * 1.7));
+          w.vx = wx * v; w.vy = wy * v; w.lungeT = .7; w.jump = room > 20;
           this.event('lunge', { x: w.x, y: w.y });
         } else w.vx = approach(w.vx, has ? wx * base * WORM.crawl : 0, base * 5 * dt);
       }
@@ -460,12 +461,24 @@ export class Game {
     if (vn < 0) { w.vx -= vn * nx; w.vy -= vn * ny; }
     w.vx *= .9;
   }
-  // Out of the ground into the open. Only out of the ground proper: not in and out of a pocket, or of its own
-  // churned-up trail, a moment after coming in (each would speed it up again, and spray out more pockets).
+  // How far the open (air or gas) goes from x, y along ux, uy, up to max cells (0: ground in the very next cell).
+  openAhead(x, y, ux, uy, max) {
+    for (let d = 1; d <= max; d++) { const m = this.cell(x + ux * d, y + uy * d); if (SOLID[m] || LIQ[m]) return d - 1; }
+    return max;
+  }
+  // Out of the ground into the open. Only out of the ground proper: not in and out of a pocket a moment after coming
+  // in, and not through a crack, or a gap in broken ground with more ground just beyond (its own churned-up trail,
+  // say): each would speed it up again, and spray out more pockets. Bursting out into real room at speed (the sky,
+  // a big cave) is a leap, with a kick the more room there is.
   breach(x, y, into) {
     const w = this.worm, sp = Math.hypot(w.vx, w.vy);
-    if (w.inGround < .12) return;
-    if (sp > this.topSpeed() * .55 && !LIQ[into]) { w.vx *= 1.45; w.vy *= 1.45; w.jump = true; }
+    if (w.inGround < .12 || sp < 1) return;
+    const room = this.openAhead(x, y, w.vx / sp, w.vy / sp, 48);
+    if (room < 6) return;
+    if (sp > this.topSpeed() * .55 && room >= 16) {
+      const kick = 1 + .2 * clamp((room - 16) / 28, 0, 1);
+      w.vx *= kick; w.vy *= kick; w.jump = true;
+    }
     // a spray of the ground it came out of
     const n = Math.min(14, Math.round(sp / 11));
     const r = this.girth();

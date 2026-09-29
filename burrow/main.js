@@ -172,7 +172,9 @@ function events() {
           // just above the formation's popup
           const f = view.floats.find(f => f.sid === e.sid), at = f ? { x: f.x, y: f.y - f.rise - 7 } : { x: e.x, y: e.y - 8 };
           view.float(at.x, at.y, shapeWord(e.shape) + ' +$' + e.bonus.toLocaleString('en-US'), '#ffe070', 2, true);
-          toast(`<span><b>${shapeWord(e.shape, true)} complete!</b><small>Every one of them: a quarter more for the lot, +${money(e.bonus)}.</small></span>`, 'good', 3000);
+          // a toast only the first time each shape's done in this world (after that, just the bonus over it)
+          const shapes = game.stats.shapes ||= {};
+          if (!shapes[e.shape]) { shapes[e.shape] = 1; toast(`<span><b>${shapeWord(e.shape, true)} complete!</b><small>Every one of them: a quarter more for the lot, +${money(e.bonus)}.</small></span>`, 'good', 3000); }
         }
         sound.set();
         for (let k = 0; k < 24; k++) view.spawn('glint', e.x, e.y, { vx: Math.cos(k / 24 * 6.28) * 60, vy: Math.sin(k / 24 * 6.28) * 60, life: .7, drag: 3, col: px('#ffe890') });
