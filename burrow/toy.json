@@ -1,0 +1,9 @@
+{
+  "title": "Burrow",
+  "blurb": "You're a great worm, and the camp on top wants what's buried. Hold the mouse where you want to go and swim down through the ground, swallowing gems laid out in rings and spirals, fossils and relics; sell your haul, buy the vibration to shake through harder rock, and dig past caves, lava and alien ruins to the core. Every seed is a new world.",
+  "added": "2026-09-29",
+  "tags": ["canvas", "pixel art", "game", "physics"],
+  "tape": "orange",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 3500, "query": "?demo" }
+}

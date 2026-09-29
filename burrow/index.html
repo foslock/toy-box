@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Burrow</title>
+<meta name="description" content="A pixel-art digging game: steer a great worm down through the ground to the core of the world.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Numbers take their digits from Jersey 10: Silkscreen's are tiny five-pixel shapes, hard to tell apart. */
+  @font-face { font-family: Digits; src: url(https://fonts.gstatic.com/s/jersey10/v4/GftH7vZKsggXMf9n_J5n_5jh6V89Sg.woff2) format('woff2'); font-display: swap; size-adjust: 125%; unicode-range: U+0030-0039; }
+  :root { --ink: #f6ecdc; --ink-2: #d2c2ac; --ink-3: #9c8c78; --panel: rgba(26, 17, 12, .88); --edge: #6d553f; --edge-2: #3a2a1e;
+    --gold: #ffd24a; --good: #8fe07a; --bad: #ff7a64; --hp: #ff6a5a; --belly: #f0b04a; --vib: #b89aff; }
+  html, body { height: 100%; margin: 0; }
+  /* The page never zooms or scrolls: only the world moves. */
+  html, body { touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* (no ligatures: Pixelify Sans draws "fi" as one odd glyph) */
+  body { color: var(--ink); font: 400 15px/1.35 Digits, 'Pixelify Sans', ui-monospace, monospace; font-variant-ligatures: none; overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; background: #0b0706; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: crosshair; image-rendering: pixelated; }
+  #c.steering { cursor: none; }
+  [hidden] { display: none !important; }
+  button, input { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  canvas.ico { image-rendering: pixelated; display: block; flex: none; }
+  .panelish { background: var(--panel); border: 2px solid var(--edge); box-shadow: inset 0 0 0 1px var(--edge-2), 0 8px 24px -10px rgba(0, 0, 0, .8); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; border: 2px solid var(--edge); background: #2e2119; cursor: pointer;
+    font: 400 12px/1 Digits, Silkscreen, monospace; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+  .btn:hover { background: #3c2b20; border-color: #a0805c; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.gold { background: #6b4c10; border-color: var(--gold); color: #fff3c4; }
+  .btn.gold:hover { background: #7e5a14; }
+  .btn.big { min-height: 46px; padding: 0 22px; font-size: 14px; }
+  .btn.icon { width: 40px; padding: 0; }
+
+  /* the name, top left, clear of the Home button */
+  .name { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 60px; margin: 0; pointer-events: none; z-index: 3; }
+  .name h1 { margin: 0; font: 700 22px/28px Silkscreen, monospace; letter-spacing: .06em; color: #fff; text-shadow: 0 2px 0 #000; }
+  .name p { margin: 0; font-size: 13.5px; color: var(--ink-2); text-shadow: 0 1px 0 #000; }
+
+  /* the numbers, top right */
+  .hud { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: stretch; gap: 6px; z-index: 5; max-width: calc(100vw - 180px); }
+  .chip { position: relative; display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 11px 0 8px; box-sizing: border-box; white-space: nowrap; }
+  .chip b { font: 400 18px/1 Digits, Silkscreen, monospace; }
+  .chip .lbl { font: 400 10px/1 Silkscreen, monospace; color: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+  .bar { position: relative; width: 74px; height: 10px; border: 2px solid var(--edge-2); background: #140d09; }
+  .bar i { position: absolute; inset: 0 auto 0 0; width: 0%; background: repeating-linear-gradient(90deg, var(--belly) 0 6px, #b87a24 6px 8px); transition: width .2s; }
+  .bar.hp i { background: repeating-linear-gradient(90deg, var(--hp) 0 6px, #b8403a 6px 8px); }
+  .chip.full { border-color: var(--belly); animation: pulse 1s infinite; }
+  .chip.low { border-color: var(--hp); animation: pulse .6s infinite; }
+  .chip.bump { animation: bump .5s; }
+  @keyframes pulse { 50% { box-shadow: inset 0 0 0 1px var(--edge-2), 0 0 0 3px rgba(255, 200, 80, .25); } }
+  @keyframes bump { 30% { transform: translateY(-3px); border-color: var(--gold); } }
+  .chip .delta { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; padding: 2px 6px; font-size: 14px; color: var(--good); background: rgba(20, 12, 8, .88); pointer-events: none; animation: float 1.6s forwards; white-space: nowrap; }
+  @keyframes float { from { opacity: 0; transform: translate(-50%, -6px); } 15% { opacity: 1; transform: translate(-50%, 0); } 75% { opacity: 1; } to { opacity: 0; transform: translate(-50%, 8px); } }
+
+  /* how deep, down the right-hand side */
+  #gauge { position: fixed; z-index: 4; right: max(14px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px); width: 16px; height: min(52vh, 420px); image-rendering: pixelated; border: 2px solid var(--edge); box-shadow: 0 6px 16px -8px #000; cursor: help; }
+  .gauge-label { position: fixed; z-index: 4; right: calc(max(14px, env(safe-area-inset-right)) + 24px); font: 400 10px/1 Silkscreen, monospace; color: var(--ink-2); text-shadow: 0 1px 0 #000, 0 0 4px #000; pointer-events: none; transform: translateY(-50%); white-space: nowrap; }
+  .gauge-label.here { color: #fff; font-size: 11px; }
+  .gauge-label.limit { color: var(--bad); }
+
+  .toasts { position: fixed; left: 50%; top: max(62px, calc(env(safe-area-inset-top) + 54px)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 6; pointer-events: none; width: min(480px, calc(100% - 24px)); }
+  .toast { display: flex; align-items: center; gap: 10px; padding: 7px 12px; font-size: 15px; text-align: left; animation: toastIn .3s ease-out; transition: opacity .4s, transform .4s; }
+  .toast small { display: block; color: var(--ink-2); font-size: 13px; }
+  .toast.bad { border-color: #b8563f; }
+  .toast.good { border-color: #a0883a; }
+  .toast.find { border-color: #7a9a3a; }
+  .toast.out { opacity: 0; transform: translateY(-6px); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } }
+
+  .bottom { position: fixed; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;
+    width: min(900px, calc(100% - 20px)); z-index: 5; pointer-events: none; }
+  .bottom > * { pointer-events: auto; }
+  .hint { margin: 0; max-width: min(640px, 100%); box-sizing: border-box; padding: 8px 14px; font-size: 15.5px; text-align: center; transition: opacity .4s; pointer-events: none !important; }
+  .hint.off { opacity: 0; pointer-events: none; }
+  .hint .tag { display: inline-block; margin-right: 7px; padding: 3px 5px 2px; background: var(--gold); color: #2c1a00; font: 400 9.5px/1 Silkscreen, monospace; vertical-align: 2px; }
+
+  /* the Resonator's upgrades, while the worm is at the camp: along the bottom, or down the side where there's room */
+  .tray { position: fixed; z-index: 5; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(900px, calc(100% - 20px));
+    box-sizing: border-box; padding: 8px 10px 10px; animation: trayIn .3s ease-out; }
+  .tray.side { left: max(12px, env(safe-area-inset-left)); top: 50%; bottom: auto; transform: translateY(-46%); width: var(--side, 230px); animation: sideIn .3s ease-out; }
+  @keyframes sideIn { from { opacity: 0; transform: translate(-14px, -46%); } }
+  .tray.side .tray-head { flex-direction: column; align-items: flex-start; gap: 5px; }
+  .tray.side .tray-head p { white-space: normal; font-size: 12.5px; line-height: 1.25; }
+  .tray.side .cards { grid-template-columns: 1fr; gap: 5px; }
+  .tray.side .card { grid-template-columns: auto 1fr auto; grid-template-rows: auto auto; justify-items: start; align-items: center; column-gap: 9px; row-gap: 3px; min-height: 0; padding: 7px 8px; text-align: left; }
+  .tray.side .card canvas { grid-row: span 2; }
+  .tray.side .card .nm { grid-column: 2; }
+  .tray.side .card .pips { grid-column: 2; grid-row: 2; justify-content: flex-start; }
+  .tray.side .card .next { grid-column: 1 / -1; grid-row: 3; font-size: 12.5px; }
+  .tray.side .card .cost { grid-column: 3; grid-row: 1 / span 2; justify-self: end; font-size: 14.5px; padding: 3px 5px 2px; }
+  .tray.side .card > * { min-width: 0; }
+  .tray.side .card canvas { width: 20px !important; height: 20px !important; }
+  .tray.side { padding: 7px 8px 8px; }
+  @keyframes trayIn { from { opacity: 0; transform: translateY(14px); } }
+  .tray-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 2px 7px; }
+  .tray-head h2 { margin: 0; font: 400 12px/1 Silkscreen, monospace; letter-spacing: .05em; color: var(--ink-2); text-transform: uppercase; }
+  .tray-head p { margin: 0; font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .card { position: relative; display: grid; grid-template-rows: auto auto 1fr auto; justify-items: center; gap: 3px; min-height: 118px; padding: 8px 6px 6px; box-sizing: border-box;
+    border: 2px solid var(--edge-2); background: #22170f; cursor: pointer; text-align: center; }
+  .card:hover { border-color: var(--edge); background: #2c1e14; }
+  .card.can { border-color: #9a7a2a; }
+  .card.can:hover { border-color: var(--gold); background: #33240f; }
+  .card:disabled { cursor: default; }
+  .card.maxed { opacity: .55; }
+  .card .nm { font: 400 11px/1.2 Silkscreen, monospace; letter-spacing: .03em; }
+  .card .next { font-size: 13px; line-height: 1.2; color: var(--ink-2); }
+  .card .cost { font: 400 16px/1 Digits, Silkscreen, monospace; color: var(--gold); padding: 4px 8px 3px; border: 2px solid transparent; }
+  .card.can .cost { border-color: #9a7a2a; background: #3a2a0a; }
+  .card.poor .cost { color: var(--bad); }
+  .card .pips { display: flex; gap: 2px; justify-content: center; }
+  .card .pips i { width: 6px; height: 4px; background: #4a3a2c; }
+  .card .pips i.on { background: var(--gold); }
+  .card.key { border-color: var(--vib); }
+  .card.bought { animation: bought .5s; }
+  @keyframes bought { 30% { transform: translateY(-4px) scale(1.03); border-color: #fff; } }
+
+  /* the menu */
+  .panel { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(390px, 100%); box-sizing: border-box; display: flex; flex-direction: column;
+    background: rgba(22, 15, 10, .96); border-left: 2px solid var(--edge); transform: translateX(105%); visibility: hidden; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s .28s;
+    -webkit-user-select: text; user-select: text; touch-action: pan-y; }
+  .panel.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+  .panel header { display: flex; align-items: center; justify-content: space-between; padding: max(12px, env(safe-area-inset-top)) 12px 6px 18px; }
+  .panel h2 { margin: 0; font: 400 16px/1 Silkscreen, monospace; }
+  .panel .scroll { flex: 1; overflow-y: auto; padding: 0 18px max(24px, env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+  .panel h3 { margin: 20px 0 8px; font: 400 11px/1 Silkscreen, monospace; letter-spacing: .06em; color: var(--ink-3); text-transform: uppercase; }
+  .panel p { margin: 6px 0; color: var(--ink-2); font-size: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+  .seed { flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 2px solid var(--edge); background: #140d09; font-size: 15px; letter-spacing: .02em; -webkit-user-select: text; user-select: text; }
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: 14px; }
+  .stats dt { color: var(--ink-2); } .stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .finds { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
+  .finds div { display: grid; place-items: center; height: 38px; border: 2px solid var(--edge-2); background: #1a120c; position: relative; }
+  .finds div.none canvas { filter: brightness(0) opacity(.35); }
+  .finds div small { position: absolute; right: 2px; bottom: 0; font-size: 11px; color: var(--ink-3); }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--edge-2); }
+  .setting p { margin: 0; color: var(--ink); }
+  .setting small { display: block; color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+  .switch { position: relative; width: 44px; height: 24px; flex: none; border: 2px solid var(--edge); background: #1a130e; cursor: pointer; padding: 0; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: var(--ink-3); transition: transform .15s; }
+  .switch[aria-checked="true"] { border-color: #6a9a3a; } .switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--good); }
+  kbd { font: 400 11px/1 Silkscreen, monospace; padding: 2px 4px; border: 1px solid var(--edge); background: #2a1e16; }
+
+  /* the title and the end */
+  .overlay { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; box-sizing: border-box;
+    background: radial-gradient(90% 70% at 50% 40%, rgba(20, 12, 8, .35), rgba(8, 5, 4, .82)); animation: fadeIn .5s; }
+  @keyframes fadeIn { from { opacity: 0; } }
+  .overlay.out { opacity: 0; transition: opacity .6s; pointer-events: none; }
+  .card-big { width: min(430px, 100%); box-sizing: border-box; padding: 22px 22px 20px; text-align: center; }
+  .logo { margin: 0; font: 700 min(15vw, 64px)/1 Silkscreen, monospace; letter-spacing: .06em; color: #ffe2a8; text-shadow: 0 4px 0 #6a3a14, 0 8px 0 #2a150a, 0 0 30px rgba(255, 170, 80, .25); }
+  .tag-line { margin: 12px 0 18px; color: var(--ink-2); font-size: 16px; }
+  .card-big .row { justify-content: center; }
+  .card-big .howto { margin: 16px 0 0; font-size: 13.5px; color: var(--ink-3); }
+  .card-big h2 { margin: 0 0 6px; font: 700 26px/1.1 Silkscreen, monospace; color: #fff0c0; }
+  .end-stats { display: grid; grid-template-columns: 1fr auto; gap: 5px 16px; margin: 16px auto; max-width: 300px; text-align: left; font-size: 15px; }
+  .end-stats dt { color: var(--ink-2); } .end-stats dd { margin: 0; text-align: right; }
+  .flash { position: fixed; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 120px 30px rgba(255, 40, 30, .0); transition: box-shadow .5s; }
+  .flash.on { box-shadow: inset 0 0 120px 30px rgba(255, 40, 30, .45); transition: box-shadow .05s; }
+  .fade { position: fixed; inset: 0; z-index: 25; background: #fff8e0; opacity: 0; pointer-events: none; transition: opacity 1.8s; }
+  .fade.on { opacity: 1; }
+  .coach-hand { position: fixed; z-index: 8; left: 0; top: 0; width: 52px; height: 52px; pointer-events: none; opacity: 0; transform-origin: 22px 3px; will-change: transform, opacity; }
+  .coach-hand svg { display: block; width: 100%; height: 100%; }
+
+  @media (max-width: 720px) {
+    .name h1 { font-size: 17px; line-height: 22px; }
+    .name p { font-size: 12px; }
+    .hud { gap: 4px; max-width: calc(100vw - 130px); }
+    .chip { height: 32px; padding: 0 7px 0 6px; gap: 5px; }
+    .chip b { font-size: 15px; }
+    .chip .lbl { display: none; }
+    .bar { width: 44px; }
+    .cards { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+    .card { min-height: 104px; padding: 6px 3px 5px; }
+    .card .next { font-size: 11.5px; }
+    .card .nm { font-size: 9.5px; }
+    .card .cost { font-size: 13px; padding: 3px 4px 2px; }
+    .tray-head p { display: none; }
+    #gauge { height: 36vh; top: calc(max(12px, env(safe-area-inset-top)) + 84px); }
+  }
+  @media (max-width: 560px) {
+    .name p { display: none; }
+    .toasts { top: calc(max(12px, env(safe-area-inset-top)) + 84px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .toast, .tray, .overlay { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="The dig. Hold the mouse or a finger where the worm should go."></canvas>
+
+<header class="name"><h1>Burrow</h1><p id="sub">Dig to the heart of the world</p></header>
+
+<div class="hud" id="hud">
+  <div class="chip panelish" id="moneyChip" title="Money, from selling finds at the trading post"><canvas class="ico" id="coinIco" width="7" height="7"></canvas><b id="money">$0</b></div>
+  <div class="chip panelish" id="bellyChip" title="Your belly: finds take room in it. Come up to camp to sell."><span class="lbl">Belly</span><span class="bar"><i id="bellyBar"></i></span><b id="bellyTxt">0/8</b></div>
+  <div class="chip panelish" id="hideChip" title="Hide: your health. Lava, blasts and falling rock hurt. It heals over time, and fully at camp."><span class="lbl">Hide</span><span class="bar hp"><i id="hpBar"></i></span></div>
+  <div class="chip panelish" id="depthChip" title="How deep you are"><b id="depth">0 m</b></div>
+  <button class="btn icon panelish" id="menuBtn" type="button" aria-label="Menu" aria-controls="panel" aria-expanded="false">
+    <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true"><path d="M0 1h18M0 7h18M0 13h18" stroke="currentColor" stroke-width="2"/></svg>
+  </button>
+</div>
+<canvas id="gauge" width="16" height="200" aria-hidden="true"></canvas>
+<div id="gaugeLabels" aria-hidden="true"></div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<div class="flash" id="flash"></div>
+<div class="fade" id="fade"></div>
+
+<div class="bottom" id="bottom">
+  <p class="hint panelish off" id="hint"></p>
+</div>
+<section class="tray panelish" id="tray" hidden aria-label="Upgrades at the Resonator">
+  <div class="tray-head"><h2>The Resonator</h2><p id="trayNote">Spend what you sold. Leave camp to dig again.</p></div>
+  <div class="cards" id="cards"></div>
+</section>
+
+<aside class="panel" id="panel" aria-label="Menu">
+  <header><h2>Burrow</h2><button class="btn icon" id="closePanel" type="button" aria-label="Close menu">✕</button></header>
+  <div class="scroll">
+    <h3>This dig</h3>
+    <dl class="stats" id="stats"></dl>
+    <div class="row">
+      <button class="btn" id="homeBtn" type="button" title="Wake up at the camp. What's in your belly stays where you are, to come back for.">Wriggle home</button>
+    </div>
+    <h3>A new world</h3>
+    <p>Every seed digs up different ground. Share yours, or type one in.</p>
+    <div class="row"><input class="seed" id="seedInput" aria-label="Seed" maxlength="40" spellcheck="false" autocomplete="off"><button class="btn icon" id="diceBtn" type="button" aria-label="Random seed" title="Random seed">⚄</button></div>
+    <div class="row"><button class="btn gold" id="newBtn" type="button">Dig this world</button></div>
+    <h3>Finds <span id="findCount"></span></h3>
+    <div class="finds" id="finds"></div>
+    <h3>Settings</h3>
+    <div class="setting"><div><p>Sound</p><small>Rumbles, crunches and chimes</small></div><button class="switch" id="soundSw" type="button" role="switch" aria-checked="true" aria-label="Sound"></button></div>
+    <div class="setting"><div><p>Walkthrough</p><small>Show the hints again</small></div><button class="btn" id="tutBtn" type="button">Replay</button></div>
+    <h3>How to play</h3>
+    <p>Hold the mouse (or a finger) where you want the worm to go; it swims toward it through the ground, leaving a trail of shaken earth. Arrow keys or WASD steer too.</p>
+    <p>Swallow what glitters: gems, fossils, old coins and odd relics, and veins of ore. Your belly only holds so much, so swim back up to the camp on the surface to sell it all, then buy upgrades at the Resonator.</p>
+    <p><b>Vibration</b> lets you shake through harder rock, and so go deeper; rock you can't shake yet is cross-hatched. <b>Maw</b> swallows bigger finds. Break into a cave and you fall; steer into a wall or the floor to dig again.</p>
+    <p>Reach the core, 6,080 m down, to win.</p>
+  </div>
+</aside>
+
+<div class="overlay" id="title">
+  <div class="card-big panelish">
+    <h1 class="logo">BURROW</h1>
+    <p class="tag-line">You are a great worm. Dig to the heart of the world.</p>
+    <div class="row"><input class="seed" id="titleSeed" aria-label="Seed for a new world" maxlength="40" spellcheck="false" autocomplete="off"><button class="btn icon" id="titleDice" type="button" aria-label="Random seed" title="Random seed">⚄</button></div>
+    <div class="row" style="margin-top: 14px">
+      <button class="btn gold big" id="startBtn" type="button">Dig</button>
+      <button class="btn big" id="continueBtn" type="button" hidden>Continue</button>
+    </div>
+    <p class="howto">Hold the mouse, or a finger, where the worm should go. About half an hour to the core.</p>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <div class="card-big panelish">
+    <h2>The heart of the world</h2>
+    <p class="tag-line" id="endLine">You coiled around the core, and the whole planet hummed.</p>
+    <dl class="end-stats" id="endStats"></dl>
+    <div class="row">
+      <button class="btn gold big" id="againBtn" type="button">Dig a new world</button>
+      <button class="btn big" id="keepBtn" type="button">Keep digging</button>
+    </div>
+  </div>
+</div>
+
+<div class="coach-hand" id="coachHand" aria-hidden="true">
+  <svg viewBox="0 0 48 48"><path d="M20 4c-2.2 0-4 1.8-4 4v18.5l-3.1-3.1c-1.6-1.6-4.2-1.6-5.7 0-1.5 1.5-1.6 3.9-.2 5.5l9.4 10.7C19 42.5 22.6 44 26.4 44H30c6.6 0 12-5.4 12-12V21c0-2.2-1.8-4-4-4-.8 0-1.5.2-2.1.6-.5-1.8-2.1-3.1-3.9-3.1-1 0-1.9.3-2.6.9-.6-1.5-2.1-2.4-3.9-2.4-.5 0-1 .1-1.5.3V8c0-2.2-1.8-4-4-4z" fill="#fff4dc" stroke="#2a1a0e" stroke-width="2.5" stroke-linejoin="round"/></svg>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
