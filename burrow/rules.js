@@ -236,5 +236,7 @@ export const OUTPOSTS = [
   { depth: Math.round(CORE_DEPTH / 3), price: 12000 },
   { depth: Math.round(CORE_DEPTH * 2 / 3), price: 90000 },
 ];
-export const OUTPOST = { w: 88, h: 38, post: -22, resonator: 24 };    // its chamber, and where its two buildings stand
+// Its hall, where its two buildings stand, and how far from the hall still counts as being at it (as the camp counts
+// from 30 m down), so there's no need to squeeze right in to trade.
+export const OUTPOST = { w: 88, h: 38, post: -22, resonator: 24, reach: 24 };
 export const NAME = 'Burrow';

@@ -851,8 +851,9 @@ export class Game {
     const at = d <= CAMP.depth && w.x >= CAMP.x0 && w.x <= CAMP.x1;
     if (at && !this.atCamp) this.event('camp', {});
     this.atCamp = at;
-    // in an outpost's hall (or in the rock just round it)
-    const k = this.posts.findIndex(o => w.x >= o.x0 - 2 && w.x <= o.x1 + 2 && w.y >= o.y0 - 6 && w.y <= o.y1 + 5);
+    // at an outpost: in its hall, or in the rock round it (and a little further to leave, so the edge doesn't flicker)
+    const near = (o, r) => w.x >= o.x0 - r && w.x <= o.x1 + r && w.y >= o.y0 - r && w.y <= o.y1 + r;
+    const k = this.atPost >= 0 && near(this.posts[this.atPost], OUTPOST.reach + 4) ? this.atPost : this.posts.findIndex(o => near(o, OUTPOST.reach));
     if (k !== this.atPost) { this.atPost = k; if (k >= 0) this.event('outpost', { k, bought: this.posts[k].bought }); }
     this.atShop = at || (k >= 0 && this.posts[k].bought);
     if (this.atShop) {
