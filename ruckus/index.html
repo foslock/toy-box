@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Ruckus</title>
+<meta name="description" content="Type anything and every letter, number and mark arrives with its own loud, flat-colored routine.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1a1046; }
+  html, body { height: 100%; margin: 0; }
+  /* The page never scrolls or zooms: it is one canvas and a hidden field that brings up the phone keyboard. */
+  html, body { overflow: hidden; overscroll-behavior: none; touch-action: none; background: #2f5cff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { color: #fff; font: 700 15px/1.3 Fredoka, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  /* The canvas and the words over it are sized to what is actually visible, so a phone keyboard doesn't cover the show. */
+  #c, #ui { position: fixed; left: 0; top: 0; width: 100%; height: 100%; }
+  #c { display: block; touch-action: none; outline: none; }
+  #ui { pointer-events: none; }
+  .name { position: absolute; top: max(19px, env(safe-area-inset-top)); left: 60px; margin: 0; font-size: 22px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 var(--ink), 0 0 0 var(--ink); }
+  .hint { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; width: max-content; max-width: calc(100% - 32px); text-align: center;
+    font-size: 15px; letter-spacing: .04em; color: #fff; text-shadow: 0 2px 0 var(--ink); transition: opacity .8s ease; }
+  .hint.gone { opacity: 0; }
+  .hint small { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 500; opacity: .85; }
+  #keys { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; caret-color: transparent; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" role="img" aria-label="Flat, colorful animations that play for every letter, number and mark you type"></canvas>
+<div id="ui">
+  <p class="name">Ruckus</p>
+  <p class="hint" id="hint"><span id="hintMain">Type anything</span><small id="hintSub">Shift makes it louder · Enter for a new line · Backspace takes one back</small></p>
+</div>
+<input id="keys" type="text" inputmode="text" enterkeyhint="enter" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Type letters, numbers and marks for the show">
+<p class="sr" id="live" aria-live="polite"></p>
+<script type="module" src="main.js"></script>
+</body>
+</html>
