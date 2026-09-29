@@ -67,7 +67,8 @@ export class Game {
     /* the worm: its body trails back up to the grass along an easy curve, through ground it has just shaken */
     const x0 = W / 2, y0 = this.plan.surf[W / 2] + 18;
     this.worm = { x: x0, y: y0, vx: 0, vy: 0, a: Math.PI / 2, mode: 'dig', m: 0, mf: 1, want: 1, lungeT: 0, hurtT: 99, bonkT: 0, fullT: 0,
-      px: new Float32Array(PATH), py: new Float32Array(PATH), ph: 0, pn: 0, chomp: 0, grounded: false, trail: false, speed: 0, inAir: 0 };
+      px: new Float32Array(PATH), py: new Float32Array(PATH), pv: new Float32Array(PATH), ph: 0, pn: 0, chomp: 0, grounded: false, trail: false, speed: 0, inAir: 0,
+      jump: false, tuck: 0, tuckA: 0, stuckT: 0, out: 0 };
     this.segX = new Float32Array(256); this.segY = new Float32Array(256); this.segR = new Float32Array(256); this.segN = 0;
     this.ensureBands(0, bandOf(y0) + 3);
     for (let k = 0; k <= 80; k++) {
@@ -210,12 +211,37 @@ export class Game {
   pushPath(x, y) {
     const w = this.worm;
     if (w.pn) { const k = (w.ph - 1 + PATH) % PATH; if ((w.px[k] - x) ** 2 + (w.py[k] - y) ** 2 < .25) return; }
-    w.px[w.ph] = x; w.py[w.ph] = y; w.ph = (w.ph + 1) % PATH; w.pn = Math.min(PATH, w.pn + 1);
+    w.px[w.ph] = x; w.py[w.ph] = y; w.pv[w.ph] = 0; w.ph = (w.ph + 1) % PATH; w.pn = Math.min(PATH, w.pn + 1);
   }
   resetPath(x, y, dx, dy) {
     const w = this.worm;
     w.pn = 0; w.ph = 0;
     for (let k = 400; k >= 0; k--) this.pushPath(x + dx * k * .5, y + dy * k * .5);
+  }
+  // The body out of the ground falls. Each point of the path it lies along that's in the open (not in the ground, or
+  // in water or lava) drops until the body there rests on something, so a worm that's come up and stopped lies along
+  // the ground, and one that's dropped into a cave hangs from the hole it came in by. Not while it's in the air on a
+  // leap, nor while it's pulling itself back in after one (tuck): then the body keeps to the arc it flew along.
+  // Counts the points out in the open, too (w.out), for the tuck. Points a way past the tail fall as well: when an
+  // arc falls the path gets shorter, and the tail slides back along it onto them.
+  sag(dt) {
+    const w = this.worm, len = this.segCount() * WORM.spacing, r0 = this.girth() * .8, g = WORM.gravity;
+    const holds = m => SOLID[m] || LIQ[m], free = !w.jump && !(w.tuck > 0);
+    let k = (w.ph - 1 + PATH) % PATH, left = w.pn, s = 0, lx = w.x, ly = w.y, out = 0;
+    for (; left > 0 && s < len + 80; left--, k = (k - 1 + PATH) % PATH) {
+      const x = w.px[k], y = w.py[k];
+      s += Math.hypot(x - lx, y - ly); lx = x; ly = y;
+      if (holds(this.cell(x, y))) { w.pv[k] = 0; continue; }
+      if (s < len) out++;
+      if (!free || s < 3) continue;                     // (right behind the head, it's the head's to move)
+      // how far down the body's underside is from the path here (a little into what it lies on), thinner to the tail
+      const u = Math.min(1, s / len), under = r0 * (u < .6 ? 1 : 1 - (u - .6) / .4 * .62);
+      if (holds(this.cell(x, y + under))) { w.pv[k] = 0; continue; }
+      let v = Math.min(w.pv[k] + g * dt, WORM.maxFall), ny = y + v * dt;
+      for (let c = Math.floor(y + under) + 1; c <= Math.floor(ny + under); c++) if (holds(this.cell(x, c))) { ny = c - under; v = 0; break; }
+      w.py[k] = ny; w.pv[k] = v; ly = ny;
+    }
+    w.out = out;
   }
   // The body: segments spaced along the path the head has taken, fattest behind the head, tapering to the tail.
   body() {
@@ -243,7 +269,7 @@ export class Game {
   }
 
   moveWorm(dt) {
-    const w = this.worm, vib = this.up.vib, base = this.topSpeed(), r = this.headR();
+    const w = this.worm, vib = this.up.vib, base = this.topSpeed(), r = this.headR(), x0 = w.x, y0 = w.y;
     w.lungeT -= dt; w.bonkT -= dt; w.hurtT += dt; w.chomp = Math.max(0, w.chomp - dt * 3);
     // where the player wants to go
     let wx = 0, wy = 0, has = false, far = 0;
@@ -253,10 +279,13 @@ export class Game {
     w.m = m0;
     const mode = SOLID[m0] ? 'dig' : m0 === WATER ? 'water' : m0 === LAVA ? 'lava' : 'air';
     w.mode = mode;
+    if (mode !== 'dig') w.tuck = 0;
+    // pulling its body back in after diving back into the ground, with no one steering: on the way it dived in
+    if (!has && w.tuck > 0) { wx = Math.cos(w.tuckA); wy = Math.sin(w.tuckA); has = true; far = 60; w.want = .7; }
     if (has && mode !== 'air') [wx, wy] = this.detour(wx, wy, far);
     w.grounded = false;
     if (mode === 'dig') {
-      w.inAir = 0;
+      w.inAir = 0; w.jump = false;
       const dist = (this.flags[i0] & DIST) !== 0;
       w.trail = dist;
       const mf = TIER[m0] > 90 ? .3 : SPEED[m0] * (dist ? WORM.trail : 1) * (1 + WORM.deepBonus * Math.max(0, vib - TIER[m0]));
@@ -276,7 +305,7 @@ export class Game {
       } else sp = approach(sp, 0, WORM.brake * base * dt);
       w.a = a; w.vx = Math.cos(a) * sp; w.vy = Math.sin(a) * sp;
     } else if (mode === 'water' || mode === 'lava') {
-      w.inAir = 0;
+      w.inAir = 0; w.jump = false;
       const vmax = base * (mode === 'water' ? WORM.water : WORM.lava);
       const tx = has ? wx * vmax * w.want : 0, ty = has ? wy * vmax * w.want : 26;
       const k = Math.min(1, dt * 3);
@@ -289,10 +318,11 @@ export class Game {
       w.vx *= 1 - .2 * dt;
       w.grounded = w.vy >= -5 && (this.solidAt(w.x, w.y + r * .5 + 1.2) || this.solidAt(w.x - r * .5, w.y + r * .5 + 1) || this.solidAt(w.x + r * .5, w.y + r * .5 + 1));
       if (w.grounded) {
+        w.jump = false;
         // on a floor in the open: slide along it toward the pointer, or leap at it
         if (has && wy < -.45 && w.lungeT <= 0) {
           const v = Math.max(170, base * 1.7);
-          w.vx = wx * v; w.vy = wy * v; w.lungeT = .7;
+          w.vx = wx * v; w.vy = wy * v; w.lungeT = .7; w.jump = true;
           this.event('lunge', { x: w.x, y: w.y });
         } else w.vx = approach(w.vx, has ? wx * base * WORM.crawl : 0, base * 5 * dt);
       }
@@ -349,6 +379,12 @@ export class Game {
       ore += this.shake(nx, ny);
     }
     if (ore) this.event('ore', { x: w.x, y: w.y, n: ore, m: this.lastOre });
+    // pulling its body back in: done when it's all in, or if it's stuck
+    if (w.tuck > 0) {
+      w.tuck -= dt;
+      w.stuckT = Math.hypot(w.x - x0, w.y - y0) < 4 * dt ? w.stuckT + dt : 0;
+      if (w.out === 0 || w.stuckT > .35) w.tuck = 0;
+    }
     // things in reach of the mouth
     this.eat();
     // the vibration shakes loose anything granular nearby
@@ -425,7 +461,7 @@ export class Game {
   }
   breach(x, y, into) {
     const w = this.worm, sp = Math.hypot(w.vx, w.vy);
-    if (sp > this.topSpeed() * .55 && !LIQ[into]) { w.vx *= 1.45; w.vy *= 1.45; }
+    if (sp > this.topSpeed() * .55 && !LIQ[into]) { w.vx *= 1.45; w.vy *= 1.45; w.jump = true; }
     // a spray of the ground it came out of
     const n = Math.min(14, Math.round(sp / 11));
     const r = this.girth();
@@ -456,12 +492,16 @@ export class Game {
       }
     }
     if (from === AIR || from === GAS) { w.vx *= .8; w.vy *= .8; }
+    // back in the ground with some of its body still out: it keeps going till that's in too
+    w.jump = false;
+    if (w.out > 0) { w.tuck = 4; w.stuckT = 0; w.tuckA = Math.atan2(w.vy, w.vx); }
     this.wakeAt(x, y, r + 4);
     this.event('plunge', { x, y, v: sp });
   }
   // Into water or lava: a splash from the open, and either way it's soon down to swimming pace.
   intoLiquid(x, y, m, fromGround) {
     const w = this.worm, sp = Math.hypot(w.vx, w.vy), lim = this.topSpeed() * (m === WATER ? WORM.water : WORM.lava) * 1.5;
+    w.jump = false;
     if (!fromGround || sp > 60) this.event('splash', { x, y, m, v: sp });
     if (sp > lim) { w.vx *= lim / sp; w.vy *= lim / sp; }
   }
@@ -646,7 +686,7 @@ export class Game {
     this.hold = {}; this.ore = {}; this.belly = 0; this.holdValue = 0;
     if (!voluntary) this.stats.faints++;
     const x = W / 2 + (this.R() - .5) * 60;
-    w.x = x; w.y = this.plan.surf[Math.round(x)] - 46; w.vx = 0; w.vy = 40; w.a = Math.PI / 2; w.mode = 'air';
+    w.x = x; w.y = this.plan.surf[Math.round(x)] - 46; w.vx = 0; w.vy = 40; w.a = Math.PI / 2; w.mode = 'air'; w.jump = false; w.tuck = 0;
     this.resetPath(w.x, w.y, 0, -1);
     this.hp = this.hpMax();
     this.event('faint', { voluntary, cache: dropped });
@@ -822,6 +862,7 @@ export class Game {
     this.moveObjects(dt);
     this.moveParts(dt);
     this.checkCamp();
+    this.sag(dt);
     this.body();
     this.beams(dt);
     // how deep, and which layer

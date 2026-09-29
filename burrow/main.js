@@ -406,6 +406,7 @@ function hud() {
   const cap = game.cap(), b = game.belly, full = b >= cap - .04;
   $('bellyBar').style.width = Math.min(100, b / cap * 100) + '%';
   $('bellyTxt').textContent = `${Math.floor(b + 1e-6)}/${cap}`;
+  $('bellyTxt').style.minWidth = cap < 10 ? '1.75em' : '2.8em';     // (as wide as it can get at this size of belly)
   $('bellyChip').classList.toggle('full', full && playing);
   $('hpBar').style.width = Math.max(0, game.hp / game.hpMax() * 100) + '%';
   $('hideChip').classList.toggle('low', game.hp < game.hpMax() * .3);

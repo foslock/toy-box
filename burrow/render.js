@@ -337,6 +337,12 @@ export class View {
     }
   }
   put(x, y, c) { if (x >= 0 && y >= 0 && x < this.bw && y < this.bh) { this.px[y * this.bw + x] = c; this.skyMask[y * this.bw + x] = 0; } }
+  // Part way from what's there to c (a: 0 to 1).
+  mix(x, y, c, a) {
+    if (x < 0 || y < 0 || x >= this.bw || y >= this.bh) return;
+    const i = y * this.bw + x, v = this.px[i];
+    this.px[i] = pack(R8(v) + (R8(c) - R8(v)) * a, G8(v) + (G8(c) - G8(v)) * a, B8(v) + (B8(c) - B8(v)) * a);
+  }
   add(x, y, r, g, b) {
     if (x < 0 || y < 0 || x >= this.bw || y >= this.bh) return;
     const i = y * this.bw + x, v = this.px[i];
@@ -606,12 +612,23 @@ export class View {
       keep.push(f);
       const rise = Math.min(1, f.t / .5) * 10 + f.t * 3;
       const x = Math.round(f.x - textWidth(f.text) / 2) - camX, y = Math.round(f.y - 10 - rise) - camY;
-      if (f.t > f.life - .3 && Math.floor(f.t * 20) % 2) continue;
-      this.text(f.text, x, y, f.col);
+      // in quickly, then fading away over the last part of its life (smoothly: lots of them at once stay calm)
+      const a = Math.max(0, Math.min(1, f.t / .08, (f.life - f.t) / Math.min(.6, f.life * .5)));
+      this.text(f.text, x, y, f.col, undefined, a * a * (3 - 2 * a));
     }
     this.floats = keep;
   }
-  text(s, x, y, col, outline = px('#140c0a')) {
+  text(s, x, y, col, outline = px('#140c0a'), a = 1) {
+    if (a <= 0) return;
+    if (a < 1) {
+      // see-through: the letters and their outline marked out first, so each pixel's mixed in just once
+      const bw = s.length * 4 + 2, bh = 7, m = new Uint8Array(bw * bh);
+      let cx = 1;
+      for (const ch of s) { for (const [gx, gy] of FONT[ch] || FONT['?']) m[(gy + 1) * bw + cx + gx] = 2; cx += 4; }
+      for (let i = 0; i < m.length; i++) if (m[i] === 2) for (const d of [-1, 1, -bw, bw]) if (!m[i + d]) m[i + d] = 1;
+      for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) { const v = m[j * bw + i]; if (v) this.mix(x - 1 + i, y - 1 + j, v === 2 ? col : outline, a); }
+      return;
+    }
     let cx = x;
     for (const ch of s) {
       const g = FONT[ch] || FONT['?'];
