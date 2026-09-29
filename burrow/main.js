@@ -674,6 +674,7 @@ function setupDemo() {
   w.x = x0; w.y = y0; w.a = -1.2; w.vx = Math.cos(w.a) * 120; w.vy = Math.sin(w.a) * 120; w.mode = 'dig';
   game.resetPath(w.x, w.y, -.45, 1);
   for (let k = 0; k < 160; k++) game.shake(w.x - .45 * k * .5, w.y + k * .5, true);
+  for (const o of game.objs) if (Math.abs(o.x - x0 - 8) < 22 && o.y > y0 - 70 && o.y < y0 + 12) o.gone = true;   // (a clear way up)
   const t0 = game.t;
   let apex = false;
   player = g => {

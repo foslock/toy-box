@@ -72,17 +72,25 @@ export class View {
   shake(a, t = .35) { if (this.reduced) return; if (a > this.shakeA * (this.shakeT / .35)) { this.shakeA = a; this.shakeT = t; } }
 
   /* ---------- the camera ---------- */
+  // Eases after the worm. It looks ahead the way the worm's heading, up or down (further the faster), and that
+  // look-ahead eases in and out as well, as does the change from the camp's framing (the worm in the middle) to
+  // the one down deep (a little higher, to see more below): so a sudden change of speed, bursting out of the
+  // ground, stopping dead against rock, a leap, doesn't jolt the view. It only hurries as the worm nears the top or
+  // bottom of the screen.
   follow(game, dt, snap = false) {
-    const w = game.worm, bh = this.bh - 1, bw = this.bw;
-    const surfaceView = w.y < GROUND + 50;
-    let ty = w.y - bh * (surfaceView ? .5 : .42) + clamp(w.vy * .45, -bh * .22, bh * .26);
+    const w = game.worm, bh = this.bh - 1, bw = this.bw, c = this.cam;
+    const lead = clamp(w.vy * .45, -bh * .22, bh * .26);
+    c.lead = snap || !c.ready ? lead : c.lead + (lead - c.lead) * (1 - Math.exp(-dt * 2.2));
+    const deep = clamp((w.y - GROUND - 20) / 70, 0, 1);
+    let ty = w.y - bh * (.5 - .08 * deep * deep * (3 - 2 * deep)) + c.lead;
     if (game.won && Math.abs(w.y - CORE_Y) < 400) ty = CORE_Y - CORE_R - bh * .55;
     ty = clamp(ty, 0, H - bh);
     const tx = bw >= W ? -(bw - W) / 2 : clamp(w.x - bw / 2, 0, W - bw);
-    if (snap || !this.cam.ready) { this.cam.x = tx; this.cam.y = ty; this.cam.ready = true; return; }
-    const k = 1 - Math.exp(-dt * 5.5);
-    this.cam.y += (ty - this.cam.y) * k;
-    this.cam.x += (tx - this.cam.x) * Math.min(1, k * 1.5);
+    if (snap || !c.ready) { c.x = tx; c.y = ty; c.ready = true; return; }
+    const f = (w.y - c.y) / bh, edge = Math.max(0, .15 - f, f - .8) / .15;
+    const k = 1 - Math.exp(-dt * 5.5 * (1 + 3 * edge * edge));
+    c.y += (ty - c.y) * k;
+    c.x += (tx - c.x) * Math.min(1, k * 1.5);
   }
 
   /* ---------- a band's colours ---------- */

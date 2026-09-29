@@ -68,7 +68,7 @@ export class Game {
     const x0 = W / 2, y0 = this.plan.surf[W / 2] + 18;
     this.worm = { x: x0, y: y0, vx: 0, vy: 0, a: Math.PI / 2, mode: 'dig', m: 0, mf: 1, want: 1, lungeT: 0, hurtT: 99, bonkT: 0, fullT: 0,
       px: new Float32Array(PATH), py: new Float32Array(PATH), pv: new Float32Array(PATH), ph: 0, pn: 0, chomp: 0, grounded: false, trail: false, speed: 0, inAir: 0,
-      jump: false, tuck: 0, tuckA: 0, stuckT: 0, out: 0 };
+      inGround: 0, jump: false, tuck: 0, tuckA: 0, stuckT: 0, out: 0 };
     this.segX = new Float32Array(256); this.segY = new Float32Array(256); this.segR = new Float32Array(256); this.segN = 0;
     this.ensureBands(0, bandOf(y0) + 3);
     for (let k = 0; k <= 80; k++) {
@@ -285,7 +285,7 @@ export class Game {
     if (has && mode !== 'air') [wx, wy] = this.detour(wx, wy, far);
     w.grounded = false;
     if (mode === 'dig') {
-      w.inAir = 0; w.jump = false;
+      w.inAir = 0; w.inGround += dt; w.jump = false;
       const dist = (this.flags[i0] & DIST) !== 0;
       w.trail = dist;
       const mf = TIER[m0] > 90 ? .3 : SPEED[m0] * (dist ? WORM.trail : 1) * (1 + WORM.deepBonus * Math.max(0, vib - TIER[m0]));
@@ -293,6 +293,7 @@ export class Game {
       const vmax = base * w.mf;
       let sp = Math.hypot(w.vx, w.vy), a = sp > 2 ? Math.atan2(w.vy, w.vx) : w.a;
       if (sp > vmax * 1.25) sp = approach(sp, vmax, 10 * base * dt);     // a dive from the open soon slows in the ground
+      sp = Math.min(sp, Math.max(vmax * 2.5, 340));                   // (and never runs away)
       if (has) {
         let da = Math.atan2(wy, wx) - a;
         while (da > Math.PI) da -= Math.PI * 2;
@@ -305,14 +306,14 @@ export class Game {
       } else sp = approach(sp, 0, WORM.brake * base * dt);
       w.a = a; w.vx = Math.cos(a) * sp; w.vy = Math.sin(a) * sp;
     } else if (mode === 'water' || mode === 'lava') {
-      w.inAir = 0; w.jump = false;
+      w.inAir = 0; w.inGround = 0; w.jump = false;
       const vmax = base * (mode === 'water' ? WORM.water : WORM.lava);
       const tx = has ? wx * vmax * w.want : 0, ty = has ? wy * vmax * w.want : 26;
       const k = Math.min(1, dt * 3);
       w.vx += (tx - w.vx) * k; w.vy += (ty - w.vy) * k;
       if (mode === 'lava') this.hurt(HURT.lava * dt, 'lava');
     } else {
-      w.inAir += dt;
+      w.inAir += dt; w.inGround = 0;
       w.vy = Math.min(w.vy + WORM.gravity * dt, WORM.maxFall);
       if (has) { w.vx += wx * WORM.airControl * dt; w.vy += wy * WORM.airControl * .5 * dt; }
       w.vx *= 1 - .2 * dt;
@@ -459,8 +460,11 @@ export class Game {
     if (vn < 0) { w.vx -= vn * nx; w.vy -= vn * ny; }
     w.vx *= .9;
   }
+  // Out of the ground into the open. Only out of the ground proper: not in and out of a pocket, or of its own
+  // churned-up trail, a moment after coming in (each would speed it up again, and spray out more pockets).
   breach(x, y, into) {
     const w = this.worm, sp = Math.hypot(w.vx, w.vy);
+    if (w.inGround < .12) return;
     if (sp > this.topSpeed() * .55 && !LIQ[into]) { w.vx *= 1.45; w.vy *= 1.45; w.jump = true; }
     // a spray of the ground it came out of
     const n = Math.min(14, Math.round(sp / 11));
@@ -479,6 +483,7 @@ export class Game {
   }
   plunge(x, y, from) {
     const w = this.worm, sp = Math.hypot(w.vx, w.vy), r = this.girth();
+    if (w.inAir < .12) return;                        // (just back in through a pocket, as for breach)
     const n = Math.min(9, Math.round(sp / 18));
     let made = 0;
     for (let t = 0; t < 40 && made < n; t++) {
