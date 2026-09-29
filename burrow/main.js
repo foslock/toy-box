@@ -65,8 +65,20 @@ canvas.addEventListener('pointerdown', e => {
   sound.unlock();
   e.preventDefault();
 });
-canvas.addEventListener('pointermove', e => { const h = holds.get(e.pointerId); if (h) { h.x = e.clientX; h.y = e.clientY; } });
+// Held over the Resonator's cards (or anything else on top of the world), it doesn't steer: the worm stays at the
+// camp. Moved onto a card like that and let go of there, it buys it, just as a click would.
+const onTop = (x, y) => { const el = document.elementFromPoint(x, y); return el && el !== canvas ? el : null; };
+canvas.addEventListener('pointermove', e => {
+  const h = holds.get(e.pointerId);
+  if (!h) return;
+  h.x = e.clientX; h.y = e.clientY;
+  h.ui = onTop(h.x, h.y);
+  const card = h.ui?.closest('.card');
+  if (card) h.card = card;
+});
 const let_go = e => {
+  const h = e && holds.get(e.pointerId);
+  if (h?.card && e.type === 'pointerup' && onTop(e.clientX, e.clientY)?.closest('.card') === h.card && !h.card.disabled) h.card.click();
   if (e) holds.delete(e.pointerId); else holds.clear();
   hold = [...holds.values()].pop() || null;
   if (!hold) canvas.classList.remove('steering');
@@ -100,7 +112,7 @@ addEventListener('blur', () => { keys.clear(); let_go(); });
 function steer() {
   if (player) return;
   const w = game.worm;
-  if (hold) { game.steer = view.toWorld(hold.x, hold.y); return; }
+  if (hold) { game.steer = hold.ui ? null : view.toWorld(hold.x, hold.y); return; }
   let dx = 0, dy = 0;
   for (const v of keys.values()) { dx += v[0]; dy += v[1]; }
   game.steer = dx || dy ? { x: w.x + dx * 60, y: w.y + dy * 60 } : null;
