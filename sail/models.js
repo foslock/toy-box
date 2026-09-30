@@ -26,6 +26,13 @@ export const noLine = m => { m.userData.outlineParameters = { visible: false }; 
 const mesh = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); return m; };
 
 /* ---------- little shapes ---------- */
+// A tail stock: round, easing from radius r0 at the origin down to r1 at len along +z, closed at the thin end.
+function taper(r0, r1, len) {
+  const pts = [];
+  for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push(new THREE.Vector2(r1 + (r0 - r1) * (.5 + .5 * Math.cos(Math.PI * t)), t * len)); }
+  pts.push(new THREE.Vector2(0, len + r1 * .6));
+  return new THREE.LatheGeometry(pts, 12).rotateX(Math.PI / 2);
+}
 function barrelGeo(r = .12, h = .3) {
   const pts = [];
   for (let i = 0; i <= 8; i++) { const t = i / 8, y = (t - .5) * h; pts.push(new THREE.Vector2(r * (.82 + .18 * Math.sin(t * Math.PI)), y)); }
@@ -203,10 +210,17 @@ export function makeWhale(color = '#3d6fae') {
   const blue = toon(color), belly = toon('#d9e6ef');
   const b = mesh(new THREE.SphereGeometry(.34, 18, 12), blue, 0, 0, 0); b.scale.set(.95, .62, 1.5); body.add(b);
   const bl = mesh(new THREE.SphereGeometry(.34, 16, 10), belly, 0, -.06, -.06); bl.scale.set(.8, .5, 1.25); body.add(bl);
-  const tail = new THREE.Group(); tail.position.set(0, .05, .5); body.add(tail);
-  const stalk = mesh(new THREE.ConeGeometry(.12, .34, 10), blue, 0, 0, .12); stalk.rotation.x = Math.PI / 2; tail.add(stalk);
-  const fl = new THREE.Shape(); fl.moveTo(0, 0); fl.bezierCurveTo(.12, .05, .26, .16, .3, .1); fl.bezierCurveTo(.2, .02, .1, -.02, 0, -.02); fl.bezierCurveTo(-.1, -.02, -.2, .02, -.3, .1); fl.bezierCurveTo(-.26, .16, -.12, .05, 0, 0);
-  const flukes = mesh(new THREE.ExtrudeGeometry(fl, { depth: .03, bevelEnabled: false }), blue, 0, 0, .3); flukes.rotation.x = -Math.PI / 2; tail.add(flukes);
+  // the tail: a stock tapering out of the back of the body (from well inside it, so it stays joined however it
+  // sways) and a pair of flukes on the end, swept back and rounded at every edge
+  const tail = new THREE.Group(); tail.position.set(0, .03, .3); body.add(tail);
+  const stock = mesh(taper(.14, .045, .4), blue); stock.scale.y = .8; tail.add(stock);
+  const fl = new THREE.Shape();
+  fl.moveTo(0, -.04);
+  fl.bezierCurveTo(.1, -.03, .23, .01, .3, .12); fl.bezierCurveTo(.21, .13, .09, .09, 0, .11);
+  fl.bezierCurveTo(-.09, .09, -.21, .13, -.3, .12); fl.bezierCurveTo(-.23, .01, -.1, -.03, 0, -.04);
+  const fg = new THREE.ExtrudeGeometry(fl, { depth: .012, bevelEnabled: true, bevelThickness: .016, bevelSize: .014, bevelSegments: 3, curveSegments: 14 });
+  fg.translate(0, 0, -.006).rotateX(Math.PI / 2);
+  tail.add(mesh(fg, blue, 0, 0, .4));
   const eyeW = toon('#ffffff'), eyeB = toon('#10141c', { line: 0 });
   for (const sd of [-1, 1]) {
     const e = mesh(new THREE.SphereGeometry(.05, 8, 6), eyeW, sd * .27, .03, -.28); body.add(e);
@@ -223,15 +237,24 @@ export function makeShark() {
   const grey = toon('#8d9aa8'), pale = toon('#e8edf2');
   // most of it under the water: a dark shape, then its back, fin and tail cutting the surface
   const under = mesh(new THREE.SphereGeometry(.3, 14, 8), noLine(new THREE.MeshBasicMaterial({ color: '#06203a', transparent: true, opacity: .55, depthWrite: false })), 0, .01, 0);
-  under.scale.set(.75, .05, 1.7); under.renderOrder = 1;
+  under.scale.set(.75, .05, 2); under.position.z = .06; under.renderOrder = 1;
   g.add(under);
   const top = mesh(new THREE.SphereGeometry(.3, 14, 8), grey, 0, -.06, 0); top.scale.set(.62, .42, 1.45); body.add(top);
   const fin = new THREE.Shape(); fin.moveTo(-.2, 0); fin.quadraticCurveTo(-.03, .14, .03, .48); fin.quadraticCurveTo(.1, .16, .22, 0); fin.lineTo(-.2, 0);
   const finM = mesh(new THREE.ExtrudeGeometry(fin, { depth: .05, bevelEnabled: true, bevelSize: .018, bevelThickness: .014, bevelSegments: 2 }), grey, -.025, .04, .02);
   finM.rotation.y = Math.PI / 2; body.add(finM);
-  const tail = new THREE.Group(); tail.position.set(0, 0, .4); body.add(tail);
-  const tf = new THREE.Shape(); tf.moveTo(0, 0); tf.quadraticCurveTo(.05, .12, .02, .24); tf.quadraticCurveTo(.1, .1, .18, .02); tf.lineTo(0, 0);
-  const tailFin = mesh(new THREE.ExtrudeGeometry(tf, { depth: .03, bevelEnabled: false }), grey, 0, -.02, 0); tailFin.rotation.y = Math.PI / 2; tail.add(tailFin);
+  // the tail: a stock tapering out of the back of the body, its top just breaking the surface, and a crescent tail on
+  // the end with its tall upper lobe standing out of the water
+  const tail = new THREE.Group(); tail.position.set(0, -.015, .18); body.add(tail);
+  const stock = mesh(taper(.07, .03, .32), grey); stock.scale.x = .75; tail.add(stock);
+  const tf = new THREE.Shape();
+  tf.moveTo(-.02, .03);
+  tf.bezierCurveTo(.03, .1, .07, .22, .15, .32); tf.bezierCurveTo(.12, .2, .09, .1, .08, .02);
+  tf.bezierCurveTo(.1, -.04, .12, -.08, .14, -.14); tf.bezierCurveTo(.07, -.1, .02, -.06, -.02, -.03);
+  tf.lineTo(-.02, .03);
+  const tg = new THREE.ExtrudeGeometry(tf, { depth: .01, bevelEnabled: true, bevelThickness: .012, bevelSize: .01, bevelSegments: 3, curveSegments: 12 });
+  tg.translate(0, 0, -.005).rotateY(-Math.PI / 2);
+  tail.add(mesh(tg, grey, 0, 0, .32));
   body.add(mesh(new THREE.SphereGeometry(.2, 10, 6), pale, 0, -.2, -.1));
   // a white tip to the fin, and eyes
   const tip = mesh(new THREE.SphereGeometry(.035, 6, 5), pale, 0, .5, .03); body.add(tip);

@@ -669,8 +669,9 @@ export class Sea {
     this.beasts?.forEach((m, j) => {
       const u = m.userData;
       u.body.position.y = (u.kind === 'whale' ? .02 : 0) + Math.sin(t * 1.7 + j) * .03 + (u.dive || 0);
-      u.tail.rotation.y = Math.sin(t * (u.kind === 'shark' ? 6 : 2.5) + j) * .35;
-      if (u.kind === 'whale') { u.tail.rotation.x = Math.sin(t * 2.5 + j) * .15; u.spoutT = (u.spoutT ?? Math.random() * 4) - dt; if (u.spoutT < 0 && m.visible) { u.spoutT = 3 + Math.random() * 3; this.spout(m); } }
+      // a shark sweeps its tail side to side; a whale beats its flukes mostly up and down
+      u.tail.rotation.y = Math.sin(t * (u.kind === 'shark' ? 6 : 2.5) + j) * (u.kind === 'shark' ? .35 : .12);
+      if (u.kind === 'whale') { u.tail.rotation.x = Math.sin(t * 2.5 + j + .6) * .16; u.spoutT = (u.spoutT ?? Math.random() * 4) - dt; if (u.spoutT < 0 && m.visible) { u.spoutT = 3 + Math.random() * 3; this.spout(m); } }
     });
     // the active mark's ring breathes
     if (this.markRing.visible) { const k = (t * .8) % 1; this.markRing.scale.setScalar(.8 + k * .7); this.markRing.material.opacity = .9 * (1 - k); }
