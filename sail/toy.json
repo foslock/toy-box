@@ -1,0 +1,18 @@
+{
+  "title": "Sail",
+  "blurb": "Sail a little boat home from the far side of the world, one harbour at a time. For each leg, drag the crew's orders onto the scroll (hoist, strike, port, starboard, and later the anchor, the cannon and the grappling hook), then set sail and watch them play out past currents, wind lanes, whirlpools, whales and sharks.",
+  "added": "2026-09-30",
+  "tags": [
+    "three.js",
+    "puzzle",
+    "game"
+  ],
+  "tape": "blue",
+  "loader": true,
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 5200,
+    "query": "?demo&level=20"
+  }
+}

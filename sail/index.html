@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Sail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Pirata+One&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #3b2412; --ink-2: #6b4a2c; --ink-3: #9a7a55; --parch: #f6e7bf; --parch-2: #ecd59c; --parch-3: #d9b877;
+    --sea: #1b6fae; --sea-2: #0e4f86; --line: #2a1a10; --gold: #f5c542; --good: #3fae5a; --bad: #e0524a;
+    --panel: 340px;   /* the plan's width beside the board, on wide screens */
+    --card: 56px;
+  }
+  html, body { height: 100%; margin: 0; }
+  html, body { touch-action: pan-x pan-y; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { background: #0e4f86; color: var(--ink); font: 500 15px/1.35 Fredoka, system-ui, sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; }
+  button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* chunky cartoon buttons: a thick dark outline and a shadow they press down into */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 44px; padding: 0 16px; box-sizing: border-box; cursor: pointer; white-space: nowrap;
+    border: 3px solid var(--line); border-radius: 14px; background: var(--parch); color: var(--ink); font: 600 16px/1 Fredoka, system-ui, sans-serif;
+    box-shadow: 0 4px 0 var(--line); transition: transform .08s, box-shadow .08s, background-color .15s; }
+  .btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn svg { width: 20px; height: 20px; flex: none; }
+  .btn.go { background: var(--gold); min-width: 124px; font-size: 18px; }
+  .btn.go:not(:disabled) { animation: ready 1.6s ease-in-out infinite; }
+  @keyframes ready { 50% { background: #ffe07a; } }
+  .btn.round { width: 42px; height: 42px; padding: 0; border-radius: 50%; }
+  .btn.small { height: 36px; padding: 0 11px; font-size: 14px; border-radius: 11px; box-shadow: 0 3px 0 var(--line); }
+  @media (hover: hover) and (pointer: fine) { .btn:hover:not(:disabled) { background: #fff4d6; } .btn.go:hover:not(:disabled) { background: #ffd964; } }
+
+  /* the level's name, top left beside the Home button */
+  .top { position: fixed; z-index: 5; top: max(12px, env(safe-area-inset-top)); left: 60px; right: max(12px, env(safe-area-inset-right)); display: flex; align-items: flex-start; gap: 10px; pointer-events: none; }
+  .title { flex: 1; min-width: 0; margin: 0; color: #fff; text-shadow: 0 2px 0 var(--line), 2px 0 0 var(--line), -2px 0 0 var(--line), 0 -2px 0 var(--line), 0 3px 8px rgba(0, 0, 0, .35); }
+  .title b { display: block; font: 700 22px/1.1 Fredoka, sans-serif; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title small { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; opacity: .95; }
+  .tools { display: flex; gap: 8px; pointer-events: auto; }
+
+  /* ---------- the plan: scroll, crew and Set sail ---------- */
+  .dock { position: fixed; z-index: 4; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; }
+  .leg { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; color: #fff; text-shadow: 0 1px 0 var(--line), 1px 0 0 var(--line), -1px 0 0 var(--line), 0 -1px 0 var(--line); }
+  .leg .pips { display: flex; gap: 4px; }
+  .leg .pip { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); background: #fff; box-sizing: border-box; }
+  .leg .pip.done { background: var(--good); } .leg .pip.now { background: var(--gold); }
+  .leg .what { flex: 1; min-width: 0; }
+
+  .scroll { position: relative; padding: 12px 14px; border: 3px solid var(--line); border-radius: 12px; background: var(--parch);
+    background-image: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .5), transparent 60%), radial-gradient(90% 70% at 100% 100%, rgba(160, 110, 40, .2), transparent 70%);
+    box-shadow: 0 5px 0 var(--line), inset 0 0 0 3px var(--parch-2); }
+  /* the rolled ends */
+  .scroll::before, .scroll::after { content: ''; position: absolute; top: -6px; bottom: -6px; width: 12px; border: 3px solid var(--line); border-radius: 8px;
+    background: linear-gradient(90deg, #c99a52, #f2d08e 45%, #b8843e); }
+  .scroll::before { left: -10px; } .scroll::after { right: -10px; }
+  .slots { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; list-style: none; margin: 0; padding: 0; }
+  .slot { position: relative; width: var(--card); height: calc(var(--card) + 8px); box-sizing: border-box; border-radius: 12px; border: 2.5px dashed var(--ink-3); flex: none; transition: border-color .12s, background-color .12s, transform .12s; }
+  .slot::after { content: attr(data-n); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 700 18px/1 Fredoka, sans-serif; color: var(--ink-3); opacity: .7; }
+  .slot.filled::after { display: none; }
+  .slot.over { border-color: var(--ink); background: rgba(255, 255, 255, .6); transform: scale(1.06); }
+  .slot.now > .card { transform: translateY(-5px) scale(1.08); box-shadow: 0 0 0 4px var(--gold), 0 5px 0 var(--line); }
+  .slot.did > .card { filter: saturate(.55) brightness(.92); }
+  .slot.did::before { content: ''; position: absolute; z-index: 2; right: -5px; top: -7px; width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); box-sizing: border-box;
+    background: var(--good) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>') center/14px no-repeat; }
+  .slot.bad > .card { animation: shake .45s; box-shadow: 0 0 0 4px var(--bad), 0 4px 0 var(--line); }
+  .slot.hint > .card { box-shadow: 0 0 0 4px #7ad1ff, 0 4px 0 var(--line); }
+  @keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+  /* an order: a colored card with its icon and name */
+  .card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: var(--card); height: calc(var(--card) + 8px);
+    box-sizing: border-box; padding: 5px 2px 4px; border: 3px solid var(--line); border-radius: 12px; background: var(--c, #ccc); color: #fff; cursor: grab;
+    box-shadow: 0 4px 0 var(--line); touch-action: none; transition: transform .12s, box-shadow .12s, filter .15s; }
+  .card svg { width: 30px; height: 30px; flex: none; filter: drop-shadow(0 1.5px 0 rgba(42, 26, 16, .55)); }
+  .card span { font: 700 11px/1 Fredoka, sans-serif; letter-spacing: .01em; text-shadow: 0 1px 0 rgba(42, 26, 16, .65); white-space: nowrap; }
+  .card .n { position: absolute; right: -8px; top: -9px; min-width: 22px; height: 22px; padding: 0 5px; box-sizing: border-box; border-radius: 11px; border: 2.5px solid var(--line);
+    background: #fff; color: var(--ink); font: 700 12px/17px Fredoka, sans-serif; text-align: center; text-shadow: none; }
+  .card.out { filter: grayscale(1) brightness(1.15); opacity: .45; cursor: default; }
+  .card.out .n { background: #ddd; }
+  .card.lift { opacity: .35; }
+  .card.new { animation: newcard 1.2s ease-in-out 3; }
+  @keyframes newcard { 50% { transform: translateY(-6px) rotate(-4deg); box-shadow: 0 0 0 4px var(--gold), 0 8px 0 var(--line); } }
+  @media (hover: hover) and (pointer: fine) { .tray .card:not(.out):hover { transform: translateY(-3px); } }
+  .ghost { position: fixed; z-index: 50; left: 0; top: 0; pointer-events: none; transform-origin: 50% 50%; box-shadow: 0 10px 18px rgba(0, 0, 0, .3), 0 4px 0 var(--line); }
+  .card[data-o="hoist"] { --c: #3f97d6; } .card[data-o="strike"] { --c: #6f7f8f; } .card[data-o="steady"] { --c: #e0a526; }
+  .card[data-o="port"] { --c: #e0524a; } .card[data-o="starboard"] { --c: #34a853; }
+  .card[data-o="anchor"] { --c: #2f6f7e; } .card[data-o="fire"] { --c: #f07f2a; } .card[data-o="grapple"] { --c: #8a5cc2; }
+
+  .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 11px; padding: 10px 6px 4px; }
+  .actions { display: flex; justify-content: center; gap: 9px; }
+  .actions .lbl { display: none; }
+  .actions .btn.small { width: 44px; padding: 0; }
+  .actions #bHint { width: auto; padding: 0 12px 0 9px; } .actions #bHint .lbl { display: inline; }
+
+  /* wide screens: the plan stands beside the board */
+  body.side .dock { top: max(74px, calc(env(safe-area-inset-top) + 62px)); right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); width: var(--panel); justify-content: center; }
+  body.side .slots { justify-content: flex-start; }
+  /* narrow ones: under it */
+  body:not(.side) .dock { left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
+  body:not(.side) .leg { justify-content: center; }
+  body:not(.side) .leg .what { flex: none; }
+  @media (max-width: 420px) { .card svg { width: 27px; height: 27px; } .card span { font-size: 10px; } .slots { gap: 7px; } .tray { gap: 11px 9px; } .title b { font-size: 19px; } }
+  .dock.tight .card span { display: none; }
+  .dock.tight .card svg { width: 26px; height: 26px; }
+  .dock.tight .card .n { right: -7px; top: -9px; min-width: 20px; height: 20px; font-size: 11px; line-height: 15px; }
+  .dock.tight .card { height: calc(var(--card) + 4px); }
+  .dock.tight .slot { height: calc(var(--card) + 4px); }
+
+  /* ---------- messages over the board ---------- */
+  .toast { position: fixed; z-index: 8; left: 50%; transform: translate(-50%, 0); max-width: min(440px, calc(100vw - 28px)); box-sizing: border-box;
+    padding: 12px 16px; border: 3px solid var(--line); border-radius: 16px; background: var(--parch); box-shadow: 0 5px 0 var(--line); text-align: center;
+    font-size: 16px; transition: opacity .25s, transform .25s; }
+  .toast.away { opacity: 0; transform: translate(-50%, -12px); pointer-events: none; }
+  .toast b { display: block; font-size: 19px; margin-bottom: 2px; }
+  .toast p { margin: 0; color: var(--ink-2); }
+  .toast .row { display: flex; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .toast.bad b { color: #b8322a; } .toast.good b { color: #257a3c; }
+
+  /* a crew member's word: who's speaking, and what's new */
+  .tip { position: fixed; z-index: 7; display: flex; gap: 10px; align-items: flex-start; max-width: min(460px, calc(100vw - 24px)); box-sizing: border-box; padding: 10px 14px 11px 10px;
+    border: 3px solid var(--line); border-radius: 16px; background: #fffaf0; box-shadow: 0 5px 0 var(--line); transition: opacity .25s, transform .25s; }
+  .tip.away { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  .tip .face { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 3px solid var(--line); box-sizing: border-box; overflow: hidden; background: #bfe6ff; }
+  .tip .face svg { display: block; width: 100%; height: 100%; }
+  .tip .words { font-size: 15px; line-height: 1.35; }
+  .tip .words .who { display: block; font-size: 13px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 1px; }
+  .tip .words b { color: var(--ink); }
+  .tip .x { flex: none; align-self: flex-start; margin: -2px -6px 0 0; width: 30px; height: 30px; border: 0; background: none; cursor: pointer; color: var(--ink-3); font-size: 20px; line-height: 1; }
+
+  /* the coach's pointing hand */
+  .hand { position: fixed; z-index: 60; left: 0; top: 0; width: 44px; height: 52px; pointer-events: none; opacity: 0; filter: drop-shadow(0 3px 0 rgba(42, 26, 16, .4)); }
+
+  /* ---------- cards over everything: a level's start and end, the chart, help ---------- */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; box-sizing: border-box; background: rgba(8, 30, 50, .45); }
+  .sheet { position: relative; width: min(440px, 100%); max-height: calc(100% - 8px); overflow: auto; box-sizing: border-box; padding: 22px 22px 20px; border: 3px solid var(--line); border-radius: 22px;
+    background: var(--parch); box-shadow: 0 7px 0 var(--line), 0 30px 60px -20px rgba(0, 0, 0, .6); text-align: center; -webkit-user-select: text; user-select: text; }
+  .sheet h2 { margin: 0 0 4px; font: 700 28px/1.1 Fredoka, sans-serif; }
+  .sheet .kicker { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .sheet p { margin: 0 0 12px; color: var(--ink-2); font-size: 16px; }
+  .sheet .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .sheet .crew { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .sheet .crew .card { cursor: default; }
+  .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; margin: 14px 0 6px; text-align: left; align-items: center; }
+  .sheet dt .card { cursor: default; }
+  .sheet dd { margin: 0; font-size: 14.5px; color: var(--ink-2); }
+  .sheet dd b { color: var(--ink); }
+  .stars { font-size: 30px; letter-spacing: 4px; margin: 4px 0 6px; }
+
+  /* the sea chart */
+  .chart { position: fixed; inset: 0; z-index: 15; overflow: auto; overscroll-behavior: contain; background: #0e4f86;
+    background-image: radial-gradient(120% 90% at 50% 40%, #1b6fae, #0b3f6c); touch-action: pan-y; }
+  .chart svg { display: block; margin: 0 auto; }
+  .chart .stop { cursor: pointer; }
+  .chart .stop.locked { cursor: default; }
+  .chart-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: max(12px, env(safe-area-inset-top)) 14px 10px 60px; pointer-events: none; }
+  .chart-head .title { pointer-events: none; }
+  .chart-head .btn { pointer-events: auto; }
+  .card-level { position: fixed; z-index: 16; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(400px, calc(100vw - 24px)); box-sizing: border-box;
+    padding: 14px 16px; border: 3px solid var(--line); border-radius: 18px; background: var(--parch); box-shadow: 0 6px 0 var(--line); display: flex; align-items: center; gap: 12px; }
+  .card-level .words { flex: 1; min-width: 0; }
+  .card-level .words small { display: block; font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .card-level .words b { display: block; font-size: 19px; line-height: 1.15; }
+  .card-level .words span { display: block; font-size: 13.5px; color: var(--ink-2); }
+
+  .fade { position: fixed; inset: 0; z-index: 30; background: #0b3f6c; opacity: 0; pointer-events: none; transition: opacity .35s; }
+  .fade.on { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="The sea, seen from above, with the boat on it"></canvas>
+
+<header class="top" id="top" hidden>
+  <h1 class="title"><b id="lvName"></b><small id="lvWhere"></small></h1>
+  <div class="tools">
+    <button class="btn round" id="bRestart" type="button" aria-label="Start this voyage again" title="Start again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/></svg></button>
+    <button class="btn round" id="bSound" type="button" aria-label="Sound off" title="Sound"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path id="cross" d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="display:none"/></svg></button>
+    <button class="btn round" id="bMenu" type="button" aria-label="The sea chart" title="The chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
+  </div>
+</header>
+
+<section class="dock" id="dock" hidden aria-label="The ship's plan">
+  <p class="leg" id="leg"><span class="pips" id="pips"></span><span class="what" id="legWhat"></span></p>
+  <div class="scroll"><ol class="slots" id="slots" aria-label="Orders, in the order the crew will carry them out"></ol></div>
+  <div class="tray" id="tray" role="group" aria-label="The crew's orders"></div>
+  <div class="actions">
+    <button class="btn small" id="bClear" type="button" aria-label="Clear the scroll" title="Clear the scroll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span class="lbl">Clear</span></button>
+    <button class="btn small" id="bUndo" type="button" hidden aria-label="Back to the last buoy" title="Back to the last buoy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span class="lbl">Back</span></button>
+    <button class="btn small" id="bHint" type="button" aria-label="Ask the navigator for a hint" title="Ask the navigator"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7l2.2 5L12 17l-2.2-5z" fill="currentColor"/></svg><span class="lbl">Hint</span></button>
+    <button class="btn go" id="bGo" type="button" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c3 4 5 9 5 14H12z" /><path d="M11 5c-3 3-5 7-5 11h5z" opacity=".7"/><path d="M3 18h18l-3 4H6z"/></svg><span id="goLbl">Set sail!</span></button>
+  </div>
+</section>
+
+<div class="toast away" id="toast" role="status" aria-live="polite"></div>
+<div class="tip away" id="tip" role="note"></div>
+<svg class="hand" id="hand" viewBox="0 0 44 52" aria-hidden="true"><path d="M16 50c-6-3-11-9-12-16l-1-9c0-2 2-3 4-2l4 5V6c0-3 5-3 5 0v14l1-4c0-3 5-3 5 0v5l1-3c0-3 5-3 5 0v5l1-2c0-3 5-3 5 0v12c0 8-4 15-9 17z" fill="#fff" stroke="#2a1a10" stroke-width="2.5" stroke-linejoin="round"/></svg>
+
+<div class="veil" id="veil" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<div class="chart" id="chart" hidden>
+  <div class="chart-head">
+    <h1 class="title"><b>Sail</b><small id="chartSub">The long way home</small></h1>
+    <button class="btn round" id="bHelp" type="button" aria-label="How to play" title="How to play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V14"/><circle cx="12" cy="18" r=".6" fill="currentColor"/></svg></button>
+  </div>
+  <div id="chartMap"></div>
+</div>
+<div class="card-level" id="chartCard" hidden></div>
+<div class="fade" id="fade"></div>
+<p class="sr" id="live" aria-live="polite"></p>
+
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
