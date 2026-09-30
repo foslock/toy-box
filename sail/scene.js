@@ -292,17 +292,22 @@ export class Sea {
   }
 
   // The islands: the chart's land squares, blurred into round-shouldered blobs and raised; sand at the water,
-  // grass above, in hard toon bands. Land at the chart's edge carries on past it, so the chart sits in a coastline.
+  // grass above, in hard toon bands. Land at the chart's edge carries on past it, so the chart sits in a coastline,
+  // and then out to a shore of its own a few squares off, wandering in and out, with a beach and surf like any other.
   buildLand(lv) {
     const W = lv.W, H = lv.H, M = 5, S = 7, GW = (W + 2 * M) * S, GH = (H + 2 * M) * S;
     const land = new Float32Array(GW * GH), shore = new Float32Array(GW * GH);
+    const C = rand(lv.W * 13 + lv.H * 29 + 5), ph = [C(), C(), C(), C()].map(v => v * 6.283);
+    // how far past the chart's edge the land runs, here: between about 2 and 3.9 squares (well inside the margin)
+    const reach = (x, y) => 2.95 + .42 * Math.sin(x * .9 + ph[0]) * Math.cos(y * .8 + ph[1]) + .32 * Math.sin((x - y) * .41 + ph[2]) + .16 * Math.sin((x + y) * 1.35 + ph[3]);
     for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
       const x = (gx + .5) / S - M, y = (gy + .5) / S - M;
       const tx = clamp(Math.floor(x), 0, W - 1), ty = clamp(Math.floor(y), 0, H - 1), k = lv.kind[ty * W + tx];
       const i = gy * GW + gx;
-      land[i] = k === LAND ? 1 : 0;
+      const past = Math.hypot(Math.max(0, -x, x - W), Math.max(0, -y, y - H)), isLand = k === LAND && past < reach(x, y);
+      land[i] = isLand ? 1 : 0;
       const inside = x >= 0 && y >= 0 && x < W && y < H;
-      shore[i] = k === LAND ? 1 : (inside && k === ROCK && Math.hypot(x - tx - .5, y - ty - .5) < .34) ? 1 : 0;
+      shore[i] = isLand ? 1 : (inside && k === ROCK && Math.hypot(x - tx - .5, y - ty - .5) < .34) ? 1 : 0;
     }
     // a box blur, twice over (so nearly a gaussian), with the edges carried on outward
     const blur = (a, r) => {
