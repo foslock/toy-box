@@ -153,6 +153,7 @@ export class Sea {
     r.outputColorSpace = THREE.SRGBColorSpace;
     this.canvas = canvas;
     this.scene = new THREE.Scene();
+    this.overlay = new THREE.Scene();   // drawn last, over everything and its outlines: the creatures' numbered markers
     this.camera = new THREE.PerspectiveCamera(30, 1, .1, 500);
     this.outline = new OutlineEffect(r, { defaultThickness: .0042, defaultColor: [.12, .07, .04] });
     this.hemi = new THREE.HemisphereLight('#ffffff', '#6a8aa0', 1.2);
@@ -282,7 +283,7 @@ export class Sea {
     this.anchorRing.renderOrder = 2;
     this.anchorRing.rotation.x = -Math.PI / 2; this.anchorRing.position.y = .015;
     B.add(this.anchorRing);
-    this.forecastGroup = new THREE.Group(); B.add(this.forecastGroup);
+    this.forecastGroup = new THREE.Group(); this.overlay.add(this.forecastGroup);
     const ancTex = labelTexture((c, w, h) => {
       c.fillStyle = '#2f6f7e'; c.strokeStyle = '#2a1a10'; c.lineWidth = 8;
       c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 6, 0, 7); c.fill(); c.stroke();
@@ -299,6 +300,7 @@ export class Sea {
   clear() {
     if (!this.board) return;
     this.dropRope();
+    this.forecast(null); this.overlay.remove(this.forecastGroup);
     // everything but the lights and the sea: the board, and whatever an animation left lying about (particles, a
     // cannonball, stars)
     for (const o of [...this.scene.children]) if (o !== this.hemi && o !== this.sun && o !== this.water) this.scene.remove(o);
@@ -559,7 +561,7 @@ export class Sea {
         c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 6, 0, 7); c.fill(); c.stroke();
         c.fillStyle = pale ? '#2a1a10' : '#fff'; c.font = '700 60px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), w / 2, h / 2 + 4);
       }, 96, 96);
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: .92 }));
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, opacity: .92 }));
       s.userData.outlineParameters = { visible: false };
       s.scale.setScalar(.3);
       s.position.set(sq % W + .5 + (k % 3 - 1) * .24, .08 + Math.floor(k / 3) * .3, Math.floor(sq / W) + .5 + (k ? .18 : 0));
@@ -646,6 +648,8 @@ export class Sea {
     }
     if (this.board) this.idle(dt);
     this.outline.render(this.scene, this.camera);
+    const r = this.renderer, ac = r.autoClear;
+    r.autoClear = false; r.render(this.overlay, this.camera); r.autoClear = ac;
   }
   idle(dt) {
     const t = this.t, b = this.boat, d = b.userData;
