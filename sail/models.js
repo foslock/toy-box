@@ -198,9 +198,9 @@ export function makeSailor(who) {
 }
 
 /* ---------- creatures ---------- */
-export function makeWhale() {
+export function makeWhale(color = '#3d6fae') {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const blue = toon('#3d6fae'), belly = toon('#d9e6ef');
+  const blue = toon(color), belly = toon('#d9e6ef');
   const b = mesh(new THREE.SphereGeometry(.34, 18, 12), blue, 0, 0, 0); b.scale.set(.95, .62, 1.5); body.add(b);
   const bl = mesh(new THREE.SphereGeometry(.34, 16, 10), belly, 0, -.06, -.06); bl.scale.set(.8, .5, 1.25); body.add(bl);
   const tail = new THREE.Group(); tail.position.set(0, .05, .5); body.add(tail);

@@ -19,19 +19,19 @@ const wrapTo = (a, b) => { while (b - a > Math.PI) b -= Math.PI * 2; while (b - 
 // The light and colour of each stretch of the voyage home: bright noon in the Far Isles, a gold evening at home.
 export const LOOKS = [
   { deep: '#1784c9', mid: '#28a8d8', shallow: '#62dde0', foam: '#ffffff', current: '#0f6fa8', wind: '#8fd8f0', sky: '#bfe9ff', sun: '#fff6e0', sunI: 2.1, hemi: 1.25, grass: '#72c850', grass2: '#4fa53a', sand: '#f4dc9c', rim: '#1b5f8f',
-    leaf: '#3e9c3c', leaf2: '#63c34d', pine: '#2e7d4a', pine2: '#3a9456', bark: '#7a4f2c', palmBark: '#b07f48', nut: '#6b4a22', stone: '#9aa3ab', stone2: '#7e8891',
+    leaf: '#3e9c3c', leaf2: '#63c34d', pine: '#2e7d4a', pine2: '#3a9456', bark: '#7a4f2c', palmBark: '#b07f48', nut: '#6b4a22', stone: '#9aa3ab', stone2: '#7e8891', whale: '#3d6fae',
     flowers: ['#ff7fa8', '#ffe066', '#ffffff'], mix: { palm: 5, puff: 3, bush: 2.5, rock: .4 } },
   { deep: '#157aa6', mid: '#2398b8', shallow: '#5cd4c6', foam: '#f4fffb', current: '#0d5f85', wind: '#86cfe0', sky: '#bfe4f0', sun: '#fff0cc', sunI: 2.0, hemi: 1.2, grass: '#63bb52', grass2: '#46963c', sand: '#efd699', rim: '#185878',
-    leaf: '#37923f', leaf2: '#58b64f', pine: '#2c7648', pine2: '#378c52', bark: '#7a4f2c', palmBark: '#a97a45', nut: '#6b4a22', stone: '#98a1a8', stone2: '#7b858d',
+    leaf: '#37923f', leaf2: '#58b64f', pine: '#2c7648', pine2: '#378c52', bark: '#7a4f2c', palmBark: '#a97a45', nut: '#6b4a22', stone: '#98a1a8', stone2: '#7b858d', whale: '#3d6fae',
     flowers: ['#ffe066', '#ffffff'], mix: { palm: 3, puff: 4, bush: 2.5, pine: .6, rock: .4 } },
   { deep: '#2f6a8e', mid: '#3f84a4', shallow: '#78c5c4', foam: '#f2f6f8', current: '#24587a', wind: '#9ec8d8', sky: '#c8d6df', sun: '#f4f2ea', sunI: 1.8, hemi: 1.25, grass: '#6aa859', grass2: '#4c8a44', sand: '#e2d0a0', rim: '#244f6a',
-    leaf: '#4b8a47', leaf2: '#67a95a', pine: '#356e48', pine2: '#437f53', bark: '#6f4a2e', palmBark: '#9c7549', nut: '#5e4226', stone: '#9aa0a4', stone2: '#7c8286',
+    leaf: '#4b8a47', leaf2: '#67a95a', pine: '#356e48', pine2: '#437f53', bark: '#6f4a2e', palmBark: '#9c7549', nut: '#5e4226', stone: '#9aa0a4', stone2: '#7c8286', whale: '#3d6fae',
     flowers: ['#f2f2f2', '#ffd76a'], mix: { palm: 1.5, puff: 4, pine: 1.5, bush: 2.5, rock: .8 } },
   { deep: '#2b5a86', mid: '#3a6f9c', shallow: '#6fb3c0', foam: '#eef2ff', current: '#213f6e', wind: '#a4b8e8', sky: '#c8c4e8', sun: '#ffd8c0', sunI: 1.9, hemi: 1.15, grass: '#5aa060', grass2: '#3f7f4c', sand: '#e0c89c', rim: '#233a60',
-    leaf: '#3c7f52', leaf2: '#5aa068', pine: '#2b5e4a', pine2: '#357058', bark: '#6a4630', palmBark: '#94704c', nut: '#5a3f28', stone: '#9a9aa8', stone2: '#7a7a8a',
+    leaf: '#3c7f52', leaf2: '#5aa068', pine: '#2b5e4a', pine2: '#357058', bark: '#6a4630', palmBark: '#94704c', nut: '#5a3f28', stone: '#9a9aa8', stone2: '#7a7a8a', whale: '#a3aec0',
     flowers: ['#c9a2ff', '#ffffff'], mix: { puff: 3, pine: 4, bush: 2, lolly: .8, rock: .8 } },
   { deep: '#2d78a8', mid: '#4a90b0', shallow: '#8fd0c0', foam: '#fff8ec', current: '#205e88', wind: '#f0d8a8', sky: '#ffd9a8', sun: '#ffd08a', sunI: 2.2, hemi: 1.1, grass: '#7cbc4e', grass2: '#5a9a3c', sand: '#f4d494', rim: '#2a5070',
-    leaf: '#5b9a3c', leaf2: '#80bb4b', pine: '#3d7842', pine2: '#4a8a4c', bark: '#7a4f2c', palmBark: '#b07f48', nut: '#6b4a22', stone: '#a6a39c', stone2: '#86837c',
+    leaf: '#5b9a3c', leaf2: '#80bb4b', pine: '#3d7842', pine2: '#4a8a4c', bark: '#7a4f2c', palmBark: '#b07f48', nut: '#6b4a22', stone: '#a6a39c', stone2: '#86837c', whale: '#3d6fae',
     autumn: '#e39a38', autumn2: '#d7702e', flowers: ['#ff7fa8', '#ffe066', '#ffffff', '#ff9a3a'], mix: { puff: 4, lolly: 2, pine: 2, bush: 3, rock: .3 } },
 ];
 
@@ -258,7 +258,7 @@ export class Sea {
     // the boat and the creatures
     this.boat = makeBoat(crew, { brokenMast: lv.brokenMast });
     B.add(this.boat);
-    this.beasts = lv.beasts.map(b => { const m = b.kind === 'shark' ? makeShark() : makeWhale(); B.add(m); return m; });
+    this.beasts = lv.beasts.map(b => { const m = b.kind === 'shark' ? makeShark() : makeWhale(this.look.whale); B.add(m); return m; });
     // the ring round the mark being sailed for
     const ringMat = noLine(new THREE.MeshBasicMaterial({ color: '#ffe066', transparent: true, opacity: .9, depthWrite: false }));
     this.markRing = new THREE.Mesh(new THREE.RingGeometry(.4, .5, 36), ringMat);
@@ -284,9 +284,11 @@ export class Sea {
   }
   clear() {
     if (!this.board) return;
-    this.scene.remove(this.board);
+    this.dropRope();
+    // everything but the lights and the sea: the board, and whatever an animation left lying about (particles, a
+    // cannonball, stars)
+    for (const o of [...this.scene.children]) if (o !== this.hemi && o !== this.sun && o !== this.water) this.scene.remove(o);
     this.board.traverse(o => { if (o.geometry) o.geometry.dispose(); });
-    for (const b of this.bits) this.scene.remove(b.obj);
     this.bits = []; this.tweens = [];
     this.board = null;
   }
@@ -528,11 +530,11 @@ export class Sea {
     const W = this.lv.W, counts = new Map();
     for (const { sq, n, j } of list) {
       const key = sq, k = counts.get(key) || 0; counts.set(key, k + 1);
-      const col = this.lv.beasts[j].kind === 'shark' ? '#7d8a99' : '#3d6fae';
+      const col = this.lv.beasts[j].kind === 'shark' ? '#7d8a99' : this.look.whale, pale = new THREE.Color(col).getHSL({}, THREE.SRGBColorSpace).l > .55;
       const tex = labelTexture((c, w, h) => {
         c.fillStyle = col; c.strokeStyle = '#2a1a10'; c.lineWidth = 7;
         c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 6, 0, 7); c.fill(); c.stroke();
-        c.fillStyle = '#fff'; c.font = '700 60px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), w / 2, h / 2 + 4);
+        c.fillStyle = pale ? '#2a1a10' : '#fff'; c.font = '700 60px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), w / 2, h / 2 + 4);
       }, 96, 96);
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: .92 }));
       s.userData.outlineParameters = { visible: false };
@@ -781,6 +783,7 @@ export class Sea {
   }
   async grapple(e) {
     const b = this.boat, [dx, dy] = DIRS[e.dir];
+    this.dropRope();   // a new throw takes in the last one's hook and rope, if they're still out
     this.crewDo('hook', .45, (u, k) => { u.arms[1].rotation.x = -2.8 + k * 2; });
     const from = new THREE.Vector3(0, .35, -.2).applyAxisAngle(new THREE.Vector3(0, 1, 0), b.rotation.y).add(b.position);
     const [tx, ty] = e.to, to = new THREE.Vector3(tx + .5 - dx * (e.caught ? .12 : 0), e.caught ? .6 : 0, ty + .5 - dy * (e.caught ? .12 : 0));
@@ -793,7 +796,7 @@ export class Sea {
     if (!e.caught) {
       this.splash(to.x, to.z, .6);
       await this.tween(.3, k => { hook.position.lerpVectors(to, from, k); rope.set(from, hook.position, .05); });
-      this.scene.remove(hook); rope.remove();
+      this.scene.remove(hook); rope.remove(); this.rope = null;
       return;
     }
     this.sfx?.('clunk');
