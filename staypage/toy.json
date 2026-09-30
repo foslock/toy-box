@@ -1,0 +1,9 @@
+{
+  "title": "Please Stay on This Page",
+  "blurb": "A very simple web page: one button, and a calm narrator who explains, a little too carefully, what you're meant to do next. Then the narrator starts noticing what you do with the browser itself: switching tabs, resizing, sitting still, right-clicking, highlighting, scrolling past the end. The page peels back to its scaffolding, its 1998 self, or a comments section. Twelve endings, and it remembers you.",
+  "added": "2026-09-30",
+  "category": "games",
+  "tags": ["narrative", "browser", "game"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
