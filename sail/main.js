@@ -117,12 +117,7 @@ function render() {
     tray.append(c);
   }
   fitCards();
-  $('bClear').disabled = G.busy || plan.every(p => !p);
-  $('bUndo').hidden = !G.hist.length;
-  $('bUndo').disabled = G.busy;
-  $('bHint').disabled = G.busy;
-  $('goLbl').textContent = G.busy ? (saved.fast ? 'Faster ✓' : 'Faster') : 'Set sail!';
-  $('bGo').disabled = G.busy ? false : !plan.some(p => p);   // with a gap, it still answers, to say what's wrong
+  controls();
   forecast();
   requestAnimationFrame(layout);
 }
@@ -158,8 +153,23 @@ function forecast() {
   sea.forecast(list);
 }
 
+// The buttons under the scroll. While a Try again prompt is up they all still work: see unstick.
+function controls() {
+  const idle = !G.busy || G.failed, plan = G.plan;
+  $('bClear').disabled = !idle || plan.every(p => !p);
+  $('bUndo').hidden = !G.hist.length;
+  $('bUndo').disabled = !idle;
+  $('bHint').disabled = !idle;
+  $('goLbl').textContent = idle ? 'Set sail!' : saved.fast ? 'Faster ✓' : 'Faster';
+  $('bGo').disabled = idle ? !plan.some(p => p) : false;   // with a gap, it still answers, to say what's wrong
+}
+// Under the Try again prompt, touching the orders or any of those buttons takes her back to the start of the leg, as
+// Try again would, and then does what was asked; there's no need to press Try again first.
+function unstick() { if (G?.failed) retry(); }
+
 /* ---------- putting orders on the scroll ---------- */
 function place(o, k) {
+  unstick();
   if (G.busy || spare(o) <= 0) return false;
   if (k == null) k = G.plan.indexOf(null);
   if (k < 0 || k >= G.plan.length) { bump($('slots')); return false; }
@@ -170,6 +180,7 @@ function place(o, k) {
   return true;
 }
 function unplace(k) {
+  unstick();
   if (G.busy || !G.plan[k]) return;
   G.plan[k] = null;
   sound.play('untap');
@@ -181,8 +192,15 @@ function bump(el) { el.animate([{ transform: 'translateX(0)' }, { transform: 'tr
 // take it back. A tap puts an order in the first empty square, or takes one off the scroll.
 let drag = null;
 document.addEventListener('pointerdown', e => {
-  const c = e.target.closest('.card');
-  if (!c || !G || G.busy || c.closest('.sheet') || c.classList.contains('out')) return;
+  let c = e.target.closest('.card');
+  if (!c || !G || c.closest('.sheet') || c.classList.contains('out')) return;
+  if (G.failed) {
+    // back to the start of the leg; that draws the scroll and the crew afresh, so pick up the new card under the finger
+    retry();
+    c = document.elementFromPoint(e.clientX, e.clientY)?.closest('.card');
+    if (!c || c.classList.contains('out')) return;
+  }
+  if (G.busy) return;
   e.preventDefault();
   const slot = c.closest('.slot');
   drag = { o: c.dataset.o, from: slot ? +slot.dataset.k : null, el: c, x0: e.clientX, y0: e.clientY, id: e.pointerId, moved: false };
@@ -253,11 +271,12 @@ document.addEventListener('keydown', e => {
 
 /* ---------- sailing ---------- */
 $('bGo').onclick = () => go();
-$('bClear').onclick = () => { if (!G.busy) { G.plan.fill(null); sound.play('untap'); render(); } };
-$('bUndo').onclick = () => backABuoy();
-$('bHint').onclick = () => hint();
+$('bClear').onclick = () => { unstick(); if (!G.busy) { G.plan.fill(null); sound.play('untap'); render(); } };
+$('bUndo').onclick = () => { unstick(); backABuoy(); };
+$('bHint').onclick = () => { unstick(); hint(); };
 async function go() {
   if (!G) return;
+  unstick();
   if (G.busy) { saved.fast = !saved.fast; save(); sea.speed = saved.fast ? 2.2 : 1; render(); return; }
   const plan = orders();
   if (!plan) {
@@ -304,10 +323,12 @@ function failed(w) {
   sound.play(w ? 'fail' : 'meh');
   toast({ kind: 'bad', title, text: why + who, buttons: [['Try again', () => retry(), true]] });
   $('live').textContent = `${title} ${why}`;
+  G.failed = true;
+  controls();
 }
 function retry() {
   toast(null);
-  G.busy = false;
+  G.busy = false; G.failed = false;
   sea.speed = 1;
   sea.show(G.s, G.leg);
   render();
@@ -346,6 +367,7 @@ function backABuoy() {
   sound.play('untap');
 }
 function restart() {
+  unstick();
   if (!G || G.busy) return;
   toast(null);
   begin(G.n, false);
@@ -568,7 +590,7 @@ function pickStop(n, quiet) {
   el.querySelector('button').onclick = () => { sound.unlock(); sound.play('tap'); through(() => begin(n)); };
   if (!quiet) sound.play('tap');
 }
-$('bMenu').onclick = () => { if (!G?.busy) through(() => showChart()); };
+$('bMenu').onclick = () => { unstick(); if (!G?.busy) through(() => showChart()); };
 $('bHelp').onclick = () => help();
 $('bSound').onclick = () => {
   saved.sound = !saved.sound; save();
