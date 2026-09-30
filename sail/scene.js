@@ -132,6 +132,15 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+// The harbour's pier runs out of its square toward whichever side has land (or the chart's edge): the side, or -1.
+// Its middle is PIER_AT from the square's centre, and it's PIER_LEN long.
+const PIER_AT = .62, PIER_LEN = .95;
+function pierSide(lv) {
+  const W = lv.W, hm = lv.marks[lv.marks.length - 1], hx = hm % W, hy = Math.floor(hm / W);
+  for (const d of [0, 3, 1, 2]) { const nx = hx + DIRS[d][0], ny = hy + DIRS[d][1]; if (nx < 0 || ny < 0 || nx >= W || ny >= lv.H || lv.kind[ny * W + nx] === LAND) return d; }
+  return -1;
+}
+
 // A small particle: a mesh that flies, grows, fades and goes.
 class Bit {
   constructor(obj, o) { Object.assign(this, { obj, v: new THREE.Vector3(), g: 0, life: 1, age: 0, s0: 1, s1: 1, a0: 1, a1: 0, spin: 0, drag: 0 }, o); }
@@ -346,14 +355,23 @@ export class Sea {
     const noise = new Float32Array(GW * GH).map(() => R());
     blur(noise, 6); blur(noise, 6);
     { let lo = 1, hi = 0; for (const v of noise) { lo = Math.min(lo, v); hi = Math.max(hi, v); } for (let i = 0; i < noise.length; i++) noise[i] = (noise[i] - lo) / (hi - lo || 1); }
-    const pos = new Float32Array(GW * GH * 3), inl = new Float32Array(GW * GH);
+    const pos = new Float32Array(GW * GH * 3), inl = new Float32Array(GW * GH), hts = new Float32Array(GW * GH);
     const hOf = (v, nz) => v < .5 ? (v - .5) * 1.6 : Math.min(.28, (v - .5) * 2.4) + Math.max(0, v - .62) * .5 + Math.max(0, nz - .45) * 2.6 * clamp((v - .78) * 5, 0, 1);
-    this.heightAt = (x, y) => { const gx = clamp(Math.round((x + M) * S - .5), 0, GW - 1), gy = clamp(Math.round((y + M) * S - .5), 0, GH - 1), i = gy * GW + gx; return hOf(land[i], noise[i]); };
+    // where the pier comes ashore, the bank is cut down to a sandy landing just under its deck, so it never sinks in
+    const side = pierSide(lv), hm = lv.marks[lv.marks.length - 1], px = hm % W + .5, pz = Math.floor(hm / W) + .5;
+    const [pdx, pdz] = side >= 0 ? DIRS[side] : [0, 0], a0 = PIER_AT - PIER_LEN / 2, a1 = PIER_AT + PIER_LEN / 2;
+    const offPier = (x, y) => {   // how far x, y is from the ground under the pier, in squares
+      if (side < 0) return 9;
+      const rx = x - px, rz = y - pz, a = rx * pdx + rz * pdz, c = Math.abs(rx * pdz - rz * pdx);
+      return Math.hypot(Math.max(a0 - a, a - a1, 0), Math.max(c - .2, 0));
+    };
     for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
-      const i = gy * GW + gx, v = land[i];
-      pos[i * 3] = (gx + .5) / S - M; pos[i * 3 + 1] = hOf(v, noise[i]); pos[i * 3 + 2] = (gy + .5) / S - M;
-      inl[i] = v;
+      const i = gy * GW + gx, v = land[i], x = (gx + .5) / S - M, y = (gy + .5) / S - M, d = offPier(x, y);
+      hts[i] = Math.min(hOf(v, noise[i]), .1 + (d / .45) ** 2 * 1.5);
+      pos[i * 3] = x; pos[i * 3 + 1] = hts[i]; pos[i * 3 + 2] = y;
+      inl[i] = d < .06 ? Math.min(v, .6) : v;
     }
+    this.heightAt = (x, y) => hts[clamp(Math.round((y + M) * S - .5), 0, GH - 1) * GW + clamp(Math.round((x + M) * S - .5), 0, GW - 1)];
     const idx = [];
     for (let gy = 0; gy < GH - 1; gy++) for (let gx = 0; gx < GW - 1; gx++) {
       const a = gy * GW + gx, b = a + 1, c = a + GW, d = c + 1;
@@ -415,14 +433,14 @@ export class Sea {
     // buoys sit at the side of their square, so the boat can come alongside rather than on top of them
     this.buoys = lv.marks.slice(0, -1).map((m, k) => { const b = makeBuoy(k + 1); b.position.set(m % W + .8, 0, Math.floor(m / W) + .3); B.add(b); return b; });
     const hm = lv.marks[lv.marks.length - 1], hx = hm % W, hy = Math.floor(hm / W);
-    // the pier runs out from whichever side has land
-    let side = -1;
-    for (const d of [0, 3, 1, 2]) { const nx = hx + DIRS[d][0], ny = hy + DIRS[d][1]; if (nx < 0 || ny < 0 || nx >= W || ny >= lv.H || lv.kind[ny * W + nx] === LAND) { side = d; break; } }
-    const pier = makePier(.95);
-    pier.position.set(hx + .5 + (side >= 0 ? DIRS[side][0] * .62 : 0), 0, hy + .5 + (side >= 0 ? DIRS[side][1] * .62 : 0));
+    // the pier runs out from whichever side has land, and nothing grows where it comes ashore
+    const side = pierSide(lv);
+    const pier = makePier(PIER_LEN);
+    pier.position.set(hx + .5 + (side >= 0 ? DIRS[side][0] * PIER_AT : 0), 0, hy + .5 + (side >= 0 ? DIRS[side][1] * PIER_AT : 0));
     pier.rotation.y = side >= 0 ? angOf(side) : 0;
     B.add(pier);
     this.pier = pier;
+    if (side >= 0) this.built.add((hx + DIRS[side][0]) + ',' + (hy + DIRS[side][1]));
     if (side >= 0) {
       const hut = makeHut(hx * 7 + hy, lv.home ? '#2d78c8' : '#d9463c');
       const bx = hx + DIRS[side][0] * 1.5 + .5 + (side % 2 ? 0 : .35), by = hy + DIRS[side][1] * 1.5 + .5 + (side % 2 ? .35 : 0);
