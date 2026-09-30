@@ -74,3 +74,5 @@ Screenshots are taken locally and committed, so the Render build never needs a b
 ## Deploy on Render
 
 In the Render dashboard choose **New → Blueprint** and pick this repo. `render.yaml` creates a static site that runs `npm run build` and publishes `dist/`. Pushes to `main` redeploy automatically.
+
+For a few minutes after a deploy, Render's CDN can still serve the previous copy of a file. The build keeps that from mixing old and new modules: it versions each toy's scripts by content, so a toy page's `<script src>`s and every import of the toy's own modules ask for `file.js?v=<hash>`. It does this by adding the entries to the page's import map, or adding an import map if the page has none. A toy only needs to import its own files by relative path, as they all do already. Workers aren't covered: a script started with `new Worker(...)` loads by its plain name.

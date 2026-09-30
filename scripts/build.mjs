@@ -1,7 +1,8 @@
 // Builds the static site into dist/: copies every toy folder and writes the home page.
 // Usage: node scripts/build.mjs
 import { rmSync, mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname, relative, sep, posix } from 'node:path';
+import { createHash } from 'node:crypto';
 import { ROOT, loadToys } from './lib/toys.mjs';
 
 const DIST = join(ROOT, 'dist');
@@ -107,6 +108,39 @@ function addLoader(file) {
   writeFileSync(file, html.slice(0, at) + loader + html.slice(at));
 }
 
+// Right after a deploy the CDN can still hand out the last deploy's copy of one file for a few minutes, and a toy
+// that gets a new module beside an old one it imports fails to start. So a toy page asks for its scripts by content:
+// each local <script src> gets ?v=<hash of that file>, and an import map sends every import of the toy's own modules
+// (static or dynamic, from any of them) to the same address. A changed file has an address no cache has seen yet.
+// The scripts themselves are copied as they are.
+const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(d => d.isDirectory() ? walk(join(dir, d.name)) : [join(dir, d.name)]);
+const dotted = p => p.startsWith('../') ? p : './' + p;
+function versionScripts(dir, entry) {
+  const file = join(dir, entry), at = {};
+  for (const f of walk(dir)) {
+    if (!/\.m?js$/.test(f)) continue;
+    const rel = relative(dirname(file), f).split(sep).join('/');
+    at[rel] = rel + '?v=' + createHash('sha256').update(readFileSync(f)).digest('hex').slice(0, 10);
+  }
+  let html = readFileSync(file, 'utf8');
+  html = html.replace(/(<script\b[^>]*?\ssrc=)(["'])([^"']+)\2/gi, (m, pre, q, src) => {
+    const v = at[posix.normalize(src)];
+    return v ? pre + q + v + q : m;
+  });
+  const imports = Object.fromEntries(Object.entries(at).map(([k, v]) => [dotted(k), dotted(v)]));
+  const map = html.match(/(<script\b[^>]*\btype=["']?importmap["']?[^>]*>)([\s\S]*?)(<\/script>)/i);
+  if (map) {
+    let json;
+    try { json = JSON.parse(map[2]); } catch (e) { throw new Error(`${file} has an import map that isn't valid JSON: ${e.message}`); }
+    json.imports = { ...imports, ...json.imports };   // the toy's own entries win
+    html = html.slice(0, map.index) + map[1] + JSON.stringify(json, null, 2) + map[3] + html.slice(map.index + map[0].length);
+  } else {
+    const first = html.search(/<script\b[^>]*\btype=["']?module\b/i);
+    if (first >= 0) html = html.slice(0, first) + `<script type="importmap">${JSON.stringify({ imports }, null, 2)}</script>\n` + html.slice(first);
+  }
+  writeFileSync(file, html);
+}
+
 function card(t, i) {
   const color = TAPES[t.tape] || (/^#[0-9a-f]{6}$/i.test(t.tape || '') ? t.tape : TAPES[ROTATION[i % ROTATION.length]]);
   const href = encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry));
@@ -137,6 +171,7 @@ rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
+  versionScripts(join(DIST, t.slug), t.entry);
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
   if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
