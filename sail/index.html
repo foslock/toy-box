@@ -71,6 +71,7 @@
     background: var(--good) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>') center/14px no-repeat; }
   .slot.bad > .card { animation: shake .45s; box-shadow: 0 0 0 4px var(--bad), 0 4px 0 var(--line); }
   .slot.hint > .card { box-shadow: 0 0 0 4px #7ad1ff, 0 4px 0 var(--line); }
+  .slot.gap { border-color: var(--bad); background: rgba(255, 255, 255, .5); animation: shake .45s; }
   @keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
 
   /* an order: a colored card with its icon and name */
@@ -107,7 +108,7 @@
   /* narrow ones: under it */
   body:not(.side) .dock { left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
   body:not(.side) .leg { justify-content: center; }
-  body:not(.side) .leg .what { flex: none; }
+  body:not(.side) .leg .what { flex: 0 1 auto; text-align: center; }
   @media (max-width: 420px) { .card svg { width: 27px; height: 27px; } .card span { font-size: 10px; } .slots { gap: 7px; } .tray { gap: 11px 9px; } .title b { font-size: 19px; } }
   .dock.tight .card span { display: none; }
   .dock.tight .card svg { width: 26px; height: 26px; }

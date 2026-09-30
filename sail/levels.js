@@ -22,7 +22,7 @@ export const LEVELS = [
     teach: [
       { who: 'captain', text: "Orders go on the scroll, one for each step. Drag them there from the crew, or just tap them." },
       { who: 'bosun', text: "<b>Hoist</b> the sail and she sails a square every step while it’s up. <b>Steady</b> keeps her doing what she’s doing." },
-      { who: 'captain', text: "Fill the scroll, then <b>Set sail!</b> Round the buoy first, then make for the harbour." },
+      { who: 'captain', text: "Then <b>Set sail!</b> Try a few orders at a time if you like. Round the buoy first, then make for the harbour." },
     ],
     map: [
       '###H###',

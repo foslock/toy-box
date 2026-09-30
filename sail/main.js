@@ -66,14 +66,21 @@ function begin(n, fromChart = true) {
 }
 // the orders still to hand: the pool less what's on the scroll
 const spare = o => (G.pool[o] || 0) - G.plan.filter(p => p === o).length;
-// What the crew will carry out: the whole scroll, or, once they've no orders left to give, the orders at its start
-// (with no gaps) and nothing after.
+// What the crew will carry out: the orders from the top of the scroll down to its first empty square. It needn't be
+// full. A leg ends the moment she reaches the mark, with the orders after that going back to the crew, so a short
+// scroll can't win in any way a full one couldn't; one that falls short is a practice run, and she goes back to where
+// the leg began with nothing spent. An empty square is never played as a wait (that would be a free Steady), so
+// orders after a gap can't be carried out until it's filled.
 function orders() {
-  const n = G.plan.indexOf(null);
-  if (n < 0) return G.plan.slice();
-  const outOfOrders = ORDER_IDS.every(o => spare(o) <= 0);
-  return outOfOrders && n > 0 && G.plan.slice(n).every(p => !p) ? G.plan.slice(0, n) : null;
+  const n = G.plan.indexOf(null), run = n < 0 ? G.plan.slice() : G.plan.slice(0, n);
+  return run.length && gapAt() < 0 ? run : null;
 }
+// the first empty square with an order somewhere after it, or -1
+function gapAt() {
+  const n = G.plan.indexOf(null);
+  return n >= 0 && G.plan.slice(n).some(p => p) ? n : -1;
+}
+const outOfOrders = () => ORDER_IDS.every(o => spare(o) <= 0);
 
 function render() {
   if (!G) return;
@@ -82,8 +89,8 @@ function render() {
   const pips = $('pips'); pips.textContent = '';
   lv.marks.forEach((m, k) => { const p = document.createElement('span'); p.className = 'pip' + (k < leg ? ' done' : k === leg ? ' now' : ''); pips.append(p); });
   const last = leg === lv.marks.length - 1;
-  const short = plan.includes(null) && orders();
-  $('legWhat').textContent = `${last ? 'To the harbour' : `To buoy ${leg + 1}`} · ${plan.length} order${plan.length === 1 ? '' : 's'}${short ? ' · the crew have no more to give' : ''}`;
+  const short = plan.includes(null) && outOfOrders();
+  $('legWhat').textContent = `${last ? 'To the harbour' : `To buoy ${leg + 1}`} · up to ${plan.length} order${plan.length === 1 ? '' : 's'}${short ? ' · the crew have no more to give' : ''}`;
   // the scroll
   const slots = $('slots');
   slots.textContent = '';
@@ -115,7 +122,7 @@ function render() {
   $('bUndo').disabled = G.busy;
   $('bHint').disabled = G.busy;
   $('goLbl').textContent = G.busy ? (saved.fast ? 'Faster ✓' : 'Faster') : 'Set sail!';
-  $('bGo').disabled = G.busy ? false : !orders();
+  $('bGo').disabled = G.busy ? false : !plan.some(p => p);   // with a gap, it still answers, to say what's wrong
   forecast();
   requestAnimationFrame(layout);
 }
@@ -253,7 +260,14 @@ async function go() {
   if (!G) return;
   if (G.busy) { saved.fast = !saved.fast; save(); sea.speed = saved.fast ? 2.2 : 1; render(); return; }
   const plan = orders();
-  if (!plan) return;
+  if (!plan) {
+    const k = gapAt(), el = document.querySelectorAll('#slots .slot')[k];
+    if (k < 0) return;
+    el.classList.remove('gap'); void el.offsetWidth; el.classList.add('gap');
+    sound.unlock(); sound.play('meh');
+    toast({ title: 'A gap in the scroll', text: `Step ${k + 1} is empty. Fill it, or take off the orders after it, then set sail.`, timeout: 3600 });
+    return;
+  }
   sound.unlock();
   toast(null); tip(null); coach.stop();
   const { lv } = G, leg = G.leg;
@@ -282,7 +296,10 @@ const WRECKS = {
   beast: ['Ouch!', 'She bumped right into it.'], rammed: ['Whump!', 'It swam straight into her.'],
 };
 function failed(w) {
-  const [title, why] = w ? WRECKS[w.why] || ['Wrecked!', ''] : ['Not there yet', `She didn’t reach ${G.leg === G.lv.marks.length - 1 ? 'the harbour' : `buoy ${G.leg + 1}`} by the end of the scroll.`];
+  const mark = G.leg === G.lv.marks.length - 1 ? 'the harbour' : `buoy ${G.leg + 1}`;
+  const [title, why] = w ? WRECKS[w.why] || ['Wrecked!', ''] : ['Not there yet', G.plan.includes(null) && !outOfOrders()
+    ? `That’s every order on the scroll, and she isn’t at ${mark} yet. Add some more and set sail again.`
+    : `She didn’t reach ${mark} by the end of the scroll.`];
   const who = w ? (w.why === 'beast' || w.why === 'rammed' ? ` ${G.lv.beasts[w.beast]?.kind === 'shark' ? 'The shark' : 'The whale'} is fine.` : '') : '';
   sound.play(w ? 'fail' : 'meh');
   toast({ kind: 'bad', title, text: why + who, buttons: [['Try again', () => retry(), true]] });
@@ -302,7 +319,7 @@ async function reached(res) {
   for (const o of G.plan.slice(0, res.used)) G.pool[o]--;
   G.hist.push(before);
   G.s = res.s;
-  const left = G.plan.length - res.used;
+  const left = G.plan.slice(res.used).filter(Boolean).length;
   await sea.reached(leg, final);
   if (final) return finished();
   G.leg++;
@@ -378,7 +395,7 @@ function hint() {
     }
     rest = G.nav.finishLeg(G.s, G.leg, G.pool, placed);
   }
-  if (!rest.length) { toast({ title: 'The navigator says', text: 'The orders on the scroll will do it. Fill the rest with anything and set sail!', timeout: 3200 }); return; }
+  if (!rest.length) { toast({ title: 'The navigator says', text: 'The orders on the scroll will do it. Set sail!', timeout: 3200 }); return; }
   const k = placed.length;
   G.plan[k] = rest[0];
   G.hints++;
@@ -564,6 +581,7 @@ function help() {
   const orders = known(n);
   sheet(`<h2>How to sail</h2>
     <p>Get the boat home, one leg at a time. For each leg, put the crew’s orders on the scroll, one per step, then <b>Set sail!</b> Reach the buoy (or the harbour) before the scroll runs out.</p>
+    <p>The scroll needn’t be full: set sail with a few orders to try them out. If she falls short, she goes back to where the leg began, and no orders are spent.</p>
     <p>Each order can only be used once per voyage; the crew rest and have them all back at the next harbour. Orders not needed once a buoy is reached go back to the crew.</p>
     <dl>${orders.map(o => `<dt>${card(o).outerHTML}</dt><dd><b>${ORDERS[o].name}.</b> ${ORDERS[o].text}</dd>`).join('')}</dl>
     <p style="font-size:14px">Currents carry the boat a square a step; wind lanes blow her along only with her sail up; whirlpools swirl her round and drain into their eye. Creatures swim a square a step: the numbers on the water show where.</p>
@@ -582,8 +600,6 @@ async function autoplay(onlyOne) {
     if (!rest) { console.warn('the navigator is stuck on', G.def.name); return; }
     G.plan.fill(null);
     for (const o of rest) { place(o); await sleep(AUTO ? 260 : 180); }
-    for (let k = 0; k < G.plan.length; k++) if (!G.plan[k]) { const o = ORDER_IDS.find(o => spare(o) > 0); if (o) G.plan[k] = o; }
-    render();
     await sleep(350);
     const leg = G.leg, n = G.n;
     await go();
