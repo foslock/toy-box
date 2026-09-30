@@ -60,6 +60,19 @@ float cells(vec2 p, float t) {
   return d2 - d1;
 }
 vec2 dirOf(float code) { float d = floor(code * 4. + .5) - 1.; return d < .5 ? vec2(0., -1.) : d < 1.5 ? vec2(1., 0.) : d < 2.5 ? vec2(0., 1.) : vec2(-1., 0.); }
+// the way a square's current runs, or nothing (a whirlpool's ring has its own swirl)
+vec2 flowAt(vec2 t) {
+  if (t.x < 0. || t.y < 0. || t.x >= uSize.x || t.y >= uSize.y) return vec2(0.);
+  vec4 i = texture2D(uInfo, (t + .5) / uSize);
+  return i.r > .05 && i.b < .5 ? dirOf(i.r) : vec2(0.);
+}
+// the flow at p, blended between square centres, so it bends round a corner and slows along a bank
+vec2 flowField(vec2 p) {
+  vec2 q = p - .5, t = floor(q), f = fract(q);
+  return mix(mix(flowAt(t), flowAt(t + vec2(1., 0.)), f.x), mix(flowAt(t + vec2(0., 1.)), flowAt(t + 1.), f.x), f.y);
+}
+// where a current's foam bunches up: soft patches a couple of squares across, with bare water between
+float patches(vec2 q) { return smoothstep(.05, .75, sin(q.x * 1.5 + sin(q.y * 1.1)) * sin(q.y * 1.3 + sin(q.x * .9)) + .3); }
 void main() {
   vec2 p = vW.xz;
   bool inB = p.x > 0. && p.y > 0. && p.x < uSize.x && p.y < uSize.y;
@@ -67,21 +80,29 @@ void main() {
   float land = texture2D(uShore, (p - uShoreO) / uShoreS).r;
   if (inB) col = uMid;
   col = mix(col, uShallow, smoothstep(.06, .46, land));
-  // the squiggles come in drifting patches, not a net over everything
-  float c = cells(p * 1.1 + vec2(uTime * .05, uTime * .03), uTime * .35);
-  float blot = smoothstep(.1, .7, sin(p.x * .7 + uTime * .23 + sin(p.y * .5)) * sin(p.y * .6 - uTime * .17 + sin(p.x * .4)) + .35);
-  col = mix(col, uFoam, smoothstep(.07, .02, c) * blot * (inB ? .55 : .6));
   vec2 t = floor(p), f = fract(p) - .5;
   vec4 info = inB ? texture2D(uInfo, (t + .5) / uSize) : vec4(0.);
-  // currents: darker water with white chevrons running the way it flows
   if (info.r > .05 && info.b < .5) {
+    // currents: darker water whose squiggles, in patches, are carried along with it, and faint chevrons to point the
+    // way. The foam is two copies of the pattern half a beat apart, each pushed along the flow and then handed over
+    // to the other, so it runs on without ever visibly jumping back or tearing where the current turns.
     vec2 d = dirOf(info.r), n = vec2(-d.y, d.x);
     float s = dot(p, d), q = dot(f, n);
     col = mix(col, uCurrent, .6);
-    float ch = fract((s + abs(q) * .85) * 2. - uTime * 1.25);   // arms swept back, so each points the way it runs
-    float band = smoothstep(.0, .05, ch) * smoothstep(.2, .12, ch) * smoothstep(.36, .28, abs(q));
-    float streak = smoothstep(.9, 1., sin(q * 19. + sin(s * 1.7) * 1.3)) * smoothstep(.3, .9, sin(s * 1.3 - uTime * 3.)) * .5;
-    col = mix(col, uFoam, max(band * .9, streak * smoothstep(.45, .3, abs(q))));
+    vec2 w = flowField(p) * 1.1;   // how far the water carries its foam in one beat
+    float T = uTime * .7, ph0 = fract(T), ph1 = fract(T + .5);
+    vec2 q0 = p - w * ph0, q1 = p - w * ph1 + vec2(3.7, 1.9);
+    float f0 = smoothstep(.07, .02, cells(q0 * 1.4, uTime * .3)) * patches(q0);
+    float f1 = smoothstep(.07, .02, cells(q1 * 1.4, uTime * .3)) * patches(q1);
+    col = mix(col, uFoam, mix(f0, f1, abs(ph0 - .5) * 2.) * .6);
+    float ch = fract((s + abs(q) * .85) * 2. - uTime * 1.54);   // arms swept back, so each points the way it runs; as fast as the foam
+    float band = smoothstep(.0, .04, ch) * smoothstep(.13, .08, ch) * smoothstep(.32, .24, abs(q));
+    col = mix(col, uFoam, band * .3);
+  } else {
+    // the squiggles come in drifting patches, not a net over everything
+    float c = cells(p * 1.1 + vec2(uTime * .05, uTime * .03), uTime * .35);
+    float blot = smoothstep(.1, .7, sin(p.x * .7 + uTime * .23 + sin(p.y * .5)) * sin(p.y * .6 - uTime * .17 + sin(p.x * .4)) + .35);
+    col = mix(col, uFoam, smoothstep(.07, .02, c) * blot * (inB ? .55 : .6));
   }
   // wind lanes: pale water, raked with fine lines blowing along
   if (info.g > .05) {
