@@ -64,6 +64,7 @@
   .slot { position: relative; width: var(--card); height: calc(var(--card) + 8px); box-sizing: border-box; border-radius: 12px; border: 2.5px dashed var(--ink-3); flex: none; transition: border-color .12s, background-color .12s, transform .12s; }
   .slot::after { content: attr(data-n); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 700 18px/1 Fredoka, sans-serif; color: var(--ink-3); opacity: .7; }
   .slot.filled::after { display: none; }
+  .slot > .card { position: absolute; inset: -2.5px; width: auto; height: auto; }   /* squarely over the dashed square, border and all */
   .slot.over { border-color: var(--ink); background: rgba(255, 255, 255, .6); transform: scale(1.06); }
   .slot.now > .card { transform: translateY(-5px) scale(1.08); box-shadow: 0 0 0 4px var(--gold), 0 5px 0 var(--line); }
   .slot.did > .card { filter: saturate(.55) brightness(.92); }
