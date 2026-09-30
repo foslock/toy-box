@@ -68,7 +68,7 @@ void main() {
     vec2 d = dirOf(info.r), n = vec2(-d.y, d.x);
     float s = dot(p, d), q = dot(f, n);
     col = mix(col, uCurrent, .6);
-    float ch = fract((s - abs(q) * .85) * 2. - uTime * 1.25);
+    float ch = fract((s + abs(q) * .85) * 2. - uTime * 1.25);   // arms swept back, so each points the way it runs
     float band = smoothstep(.0, .05, ch) * smoothstep(.2, .12, ch) * smoothstep(.36, .28, abs(q));
     float streak = smoothstep(.9, 1., sin(q * 19. + sin(s * 1.7) * 1.3)) * smoothstep(.3, .9, sin(s * 1.3 - uTime * 3.)) * .5;
     col = mix(col, uFoam, max(band * .9, streak * smoothstep(.45, .3, abs(q))));
@@ -171,24 +171,46 @@ export class Sea {
     this.rect = rect;
     this.fitCamera();
   }
+  // Frames the chart's sea, not its land: the box round every square that isn't land (the water, and the rocks,
+  // barrels, posts and whirlpools in it), with a strip of shore, and what stands on its far side. It's centred by where
+  // it falls on screen, since in a tilted view the far side comes out smaller than the near.
   fitCamera() {
-    const cam = this.camera, { x, y, w, h } = this.rect, cw = this.canvas.clientWidth, ch = this.canvas.clientHeight;
-    if (!this.lv || w < 10 || h < 10) return;
+    const cam = this.camera, { x, y, w, h } = this.rect, cw = this.canvas.clientWidth, ch = this.canvas.clientHeight, lv = this.lv;
+    if (!lv || w < 10 || h < 10) return;
     cam.aspect = w / h;
     cam.clearViewOffset();
-    const W = this.lv.W, H = this.lv.H, pitch = .98;   // radians down from level
-    const target = new THREE.Vector3(W / 2, 0, H / 2 + .15);
-    const dir = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch));
-    const pts = [[0, 0, 0], [W, 0, 0], [0, 0, H], [W, 0, H], [0, .9, 0], [W, .9, 0]].map(p => new THREE.Vector3(...p));
-    // the nearest distance at which every corner of the chart (and what stands on its far edge) fits, with a margin
-    let lo = 2, hi = 200;
-    for (let i = 0; i < 30; i++) {
-      const d = (lo + hi) / 2;
-      cam.position.copy(target).addScaledVector(dir, d); cam.lookAt(target); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-      const fits = pts.every(p => { const q = p.clone().project(cam); return Math.abs(q.x) < .94 && q.y < .93 && q.y > -.95; });
-      if (fits) hi = d; else lo = d;
+    let x0 = lv.W, x1 = 0, y0 = lv.H, y1 = 0, sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < lv.W * lv.H; i++) {
+      if (lv.kind[i] === LAND) continue;
+      const tx = i % lv.W, ty = Math.floor(i / lv.W);
+      x0 = Math.min(x0, tx); x1 = Math.max(x1, tx + 1); y0 = Math.min(y0, ty); y1 = Math.max(y1, ty + 1);
+      sx += tx + .5; sy += ty + .5; n++;
     }
-    cam.position.copy(target).addScaledVector(dir, hi); cam.lookAt(target);
+    const heart = new THREE.Vector3(sx / n, 0, sy / n);   // where the water mostly is: an L-shaped sea sits off its box's middle
+    const m = .45, pitch = .98;   // shore round the sea; the camera's tilt, down from level
+    x0 -= m; x1 += m; y0 -= m; y1 += m;
+    const pts = [[x0, 0, y0], [x1, 0, y0], [x0, 0, y1], [x1, 0, y1], [x0, .8, y0], [x1, .8, y0]].map(p => new THREE.Vector3(...p));
+    const dir = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch)), target = new THREE.Vector3((x0 + x1) / 2, 0, (y0 + y1) / 2);
+    const aim = d => { cam.position.copy(target).addScaledVector(dir, d); cam.lookAt(target); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); };
+    const spread = () => {
+      const e = { x0: 9, x1: -9, y0: 9, y1: -9 };
+      for (const p of pts) { const q = p.clone().project(cam); e.x0 = Math.min(e.x0, q.x); e.x1 = Math.max(e.x1, q.x); e.y0 = Math.min(e.y0, q.y); e.y1 = Math.max(e.y1, q.y); }
+      return e;
+    };
+    // the nearest the camera can be, aimed where it is, with it all in view
+    const fit = () => {
+      let lo = 1, hi = 300;
+      for (let i = 0; i < 28; i++) { const d = (lo + hi) / 2; aim(d); const e = spread(); if (e.x0 > -.93 && e.x1 < .93 && e.y0 > -.93 && e.y1 < .93) hi = d; else lo = d; }
+      aim(hi);
+      return hi;
+    };
+    for (let pass = 0; pass < 4; pass++) {
+      // slide the aim over so the middle of the frame is halfway between the box's middle and the water's heart
+      const d = fit(), e = spread(), c = heart.clone().project(cam), half = Math.tan(cam.fov * Math.PI / 360) * d;
+      target.x += ((e.x0 + e.x1) / 2 + c.x) / 2 * half * cam.aspect;
+      target.z -= ((e.y0 + e.y1) / 2 + c.y) / 2 * half / Math.sin(pitch);
+    }
+    fit();
     cam.setViewOffset(w, h, -x, -y, cw, ch);
     cam.updateProjectionMatrix();
   }

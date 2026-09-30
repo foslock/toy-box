@@ -517,6 +517,7 @@ function layout() {
   const vw = innerWidth, vh = innerHeight;
   document.body.classList.toggle('side', vw >= 860 && vw / vh > 1.12);
   const side = document.body.classList.contains('side');
+  if (G && !$('dock').hidden) fitCards();
   const top = $('top').hidden ? 0 : $('top').getBoundingClientRect().bottom + 6;
   let rect;
   if ($('dock').hidden || !G) rect = { x: 0, y: 0, w: vw, h: vh };
