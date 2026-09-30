@@ -185,11 +185,12 @@ document.addEventListener('pointermove', e => {
   if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 7) return;
   if (!drag.moved) {
     drag.moved = true;
+    // a copy of the card to carry, held where it was picked up (without the card's own bob or slide)
     const r = drag.el.getBoundingClientRect(), g = drag.el.cloneNode(true);
-    g.classList.add('ghost'); g.querySelector('.n')?.remove();
+    g.className = 'card ghost'; g.querySelector('.n')?.remove();
     g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
     document.body.append(g);
-    drag.ghost = g; drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top;
+    drag.ghost = g; drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
     drag.el.classList.add('lift');
     sound.play('pick');
     coach.hold();

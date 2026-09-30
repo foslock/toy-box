@@ -87,7 +87,8 @@
   .card.new { animation: newcard 1.2s ease-in-out 3; }
   @keyframes newcard { 50% { transform: translateY(-6px) rotate(-4deg); box-shadow: 0 0 0 4px var(--gold), 0 8px 0 var(--line); } }
   @media (hover: hover) and (pointer: fine) { .tray .card:not(.out):hover { transform: translateY(-3px); } }
-  .ghost { position: fixed; z-index: 50; left: 0; top: 0; pointer-events: none; transform-origin: 50% 50%; box-shadow: 0 10px 18px rgba(0, 0, 0, .3), 0 4px 0 var(--line); }
+  .card.ghost { position: fixed; z-index: 50; left: 0; top: 0; margin: 0; pointer-events: none; transform-origin: 50% 50%; transition: none; animation: none;
+    box-shadow: 0 10px 18px rgba(0, 0, 0, .3), 0 4px 0 var(--line); }
   .card[data-o="hoist"] { --c: #3f97d6; } .card[data-o="strike"] { --c: #6f7f8f; } .card[data-o="steady"] { --c: #e0a526; }
   .card[data-o="port"] { --c: #e0524a; } .card[data-o="starboard"] { --c: #34a853; }
   .card[data-o="anchor"] { --c: #2f6f7e; } .card[data-o="fire"] { --c: #f07f2a; } .card[data-o="grapple"] { --c: #8a5cc2; }
