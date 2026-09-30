@@ -96,8 +96,10 @@
   .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 11px; padding: 10px 6px 4px; }
   .actions { display: flex; justify-content: center; gap: 9px; }
   .actions .lbl { display: none; }
-  .actions .btn.small { width: 44px; padding: 0; }
-  .actions #bHint { width: auto; padding: 0 12px 0 9px; } .actions #bHint .lbl { display: inline; }
+  /* the plan's buttons all stand as tall as Set sail */
+  .actions .btn.small { width: 44px; height: 44px; padding: 0; border-radius: 14px; box-shadow: 0 4px 0 var(--line); font-size: 16px; }
+  .actions .btn.small:active:not(:disabled) { box-shadow: 0 1px 0 var(--line); }
+  .actions #bHint { width: auto; padding: 0 14px 0 11px; } .actions #bHint .lbl { display: inline; }
 
   /* wide screens: the plan stands beside the board */
   body.side .dock { top: max(74px, calc(env(safe-area-inset-top) + 62px)); right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); width: var(--panel); justify-content: center; }

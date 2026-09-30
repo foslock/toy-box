@@ -2,6 +2,7 @@
 // sharks, and the buoys, barrels, posts, rocks, palms and piers. One unit is one square of the chart; the boat's bow
 // points down -z, so a heading of north needs no turn.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ---------- toon materials ---------- */
 // Three bands of light, hard-edged: the cel-shaded look.
@@ -308,33 +309,86 @@ export function makeRock(seed) {
   }
   return g;
 }
-export function makePalm(seed) {
-  const g = new THREE.Group(), R = rand(seed);
-  const trunkM = toon('#9c6b3c'), leafM = toon('#3f9a3a'), leafM2 = toon('#5cc24a', { line: 0 });
-  const h = .75 + R() * .35, lean = (R() - .5) * .5;
-  const pts = [];
-  for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new THREE.Vector3(Math.sin(lean) * t * t * .4, t * h, 0)); }
-  const trunk = mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 8, .04, 6), trunkM);
-  g.add(trunk);
-  const top = pts[pts.length - 1];
-  const crown = new THREE.Group(); crown.position.copy(top); g.add(crown);
-  const leaf = new THREE.Shape(); leaf.moveTo(0, 0); leaf.quadraticCurveTo(.12, .06, .42, -.08); leaf.quadraticCurveTo(.14, -.04, 0, 0);
-  const lg = new THREE.ShapeGeometry(leaf, 6);
-  const k = 5 + (R() * 2 | 0);
-  for (let i = 0; i < k; i++) {
-    const l = mesh(lg, i % 2 ? leafM : leafM2); l.material = l.material.clone(); l.material.side = THREE.DoubleSide; l.material.userData = { outlineParameters: { visible: false } };
-    l.rotation.set(-Math.PI / 2 + .25, (i / k) * Math.PI * 2 + R() * .4, 0);
-    crown.add(l);
+/* ---------- what grows on the islands ---------- */
+// Trees and bushes are built from a few chunky shapes (balls, cones, a bent trunk), each piece coloured through its
+// vertices, and the whole island's worth is baked into one mesh: one draw and one outline, however many trees.
+const BALL = new THREE.IcosahedronGeometry(1, 1), BEAD = new THREE.SphereGeometry(1, 7, 5), CONE = new THREE.ConeGeometry(1, 1, 8), STEM = new THREE.CylinderGeometry(.7, 1, 1, 7);   // BEAD: a lighter ball, for the small bits
+const STONE = new THREE.DodecahedronGeometry(1, 0);
+const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+// a piece's place in its plant: where, a turn about y, a tilt of its length (x) up or down, and its size
+const at = (x, y, z, yaw = 0, tilt = 0, sx = 1, sy = sx, sz = sx) => new THREE.Matrix4().compose(_p.set(x, y, z), _q.setFromEuler(_e.set(0, yaw, tilt, 'YZX')), _s.set(sx, sy, sz));
+
+export class Flora {
+  constructor(look) { this.L = look; this.parts = []; }
+  // adds one piece: a shape, a colour, where it sits in its plant (m) and where the plant stands (base)
+  piece(geo, color, m, base) {
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+    g.applyMatrix4(base.clone().multiply(m));
+    const c = new THREE.Color(color), n = g.attributes.position.count, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    this.parts.push(g);
   }
-  crown.add(mesh(new THREE.SphereGeometry(.05, 6, 5), toon('#6b4a22'), .03, -.03, 0), mesh(new THREE.SphereGeometry(.05, 6, 5), toon('#6b4a22'), -.03, -.04, .02));
-  g.rotation.y = R() * 6;
-  g.userData.crown = crown;
-  return g;
-}
-export function makeBush(seed) {
-  const g = new THREE.Group(), R = rand(seed), m = toon(R() < .5 ? '#3f9a3a' : '#4fae45');
-  for (let i = 0; i < 3; i++) g.add(mesh(new THREE.SphereGeometry(.1 + R() * .06, 8, 6), m, (R() - .5) * .2, .06, (R() - .5) * .2));
-  return g;
+  // one plant of the given kind, standing at x, h, z
+  plant(kind, x, h, z, R) {
+    const base = new THREE.Matrix4().compose(_p.set(x, h - .02, z), _q.setFromEuler(_e.set(0, R() * 6.28, 0)), _s.setScalar(.85 + R() * .35));
+    const L = this.L, add = (geo, color, m) => this.piece(geo, color, m, base), leaf = () => R() < .5 ? L.leaf : L.leaf2;
+    if (kind === 'puff') {
+      // a round, puffy broadleaf: a short trunk and a clump of balls
+      const t = .26 + R() * .16, autumn = L.autumn && R() < .3, green = c => autumn ? (R() < .5 ? L.autumn : L.autumn2) : c;
+      add(STEM, L.bark, at(0, t / 2, 0, 0, 0, .055, t, .055));
+      add(BALL, green(L.leaf), at(0, t + .15, 0, 0, 0, .24, .2, .24));
+      const n = 3 + (R() * 3 | 0);
+      for (let i = 0; i < n; i++) {
+        const a = i / n * 6.28 + R() * .6, d = .13 + R() * .06, r = .12 + R() * .07;
+        add(BALL, green(leaf()), at(Math.cos(a) * d, t + .06 + R() * .12, Math.sin(a) * d, 0, 0, r, r * .85, r));
+      }
+      add(BALL, green(L.leaf2), at((R() - .5) * .06, t + .3, (R() - .5) * .06, 0, 0, .12, .1, .12));
+    } else if (kind === 'palm') {
+      // a leaning palm: a curved trunk, a crown of thick drooping fronds, and coconuts
+      const t = .55 + R() * .3, lean = .1 + R() * .18, pts = [];
+      for (let i = 0; i <= 6; i++) { const k = i / 6; pts.push(new THREE.Vector3(lean * k * k, t * k, 0)); }
+      add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 8, .045, 6), L.palmBark, new THREE.Matrix4());
+      const top = pts[pts.length - 1], n = 6 + (R() * 2 | 0);
+      for (let i = 0; i < n; i++) {
+        const yaw = i / n * 6.28 + R() * .4, dx = Math.cos(yaw), dz = -Math.sin(yaw), len = .8 + R() * .3;
+        add(BEAD, L.leaf2, at(top.x + dx * .12 * len, top.y + .03, top.z + dz * .12 * len, yaw, .25, .15 * len, .028, .055));
+        add(BEAD, L.leaf, at(top.x + dx * .31 * len, top.y - .04, top.z + dz * .31 * len, yaw, -.55, .14 * len, .026, .05));
+      }
+      add(BEAD, L.leaf2, at(top.x, top.y + .02, top.z, 0, 0, .06));
+      for (let i = 0; i < 3; i++) { const a = i * 2.1 + R(); add(BEAD, L.nut, at(top.x + Math.cos(a) * .045, top.y - .05, top.z + Math.sin(a) * .045, 0, 0, .04)); }
+    } else if (kind === 'pine') {
+      // a pine: tiers of cones on a stub of trunk
+      const t = .12 + R() * .06, k = 3 + (R() < .4 ? 1 : 0);
+      add(STEM, L.bark, at(0, t / 2, 0, 0, 0, .045, t, .045));
+      for (let i = 0; i < k; i++) {
+        const r = .26 - i * (.2 / k), hh = .26 - i * .03, y = t + i * (.5 / k) + hh / 2 - .03;
+        add(CONE, i % 2 ? L.pine : L.pine2, at(0, y, 0, R() * 6, 0, r, hh, r));
+      }
+    } else if (kind === 'lolly') {
+      // a slim trunk and one round head
+      const t = .34 + R() * .12, color = L.autumn && R() < .5 ? L.autumn : leaf();
+      add(STEM, L.bark, at(0, t / 2, 0, 0, 0, .035, t, .035));
+      add(BALL, color, at(0, t + .12, 0, 0, 0, .17, .19, .17));
+    } else if (kind === 'bush') {
+      // a low bush, sometimes in flower
+      const n = 2 + (R() * 3 | 0), flowers = L.flowers && R() < .4;
+      for (let i = 0; i < n; i++) { const a = R() * 6.28, d = R() * .1, r = .08 + R() * .05; add(BEAD, leaf(), at(Math.cos(a) * d, r * .6, Math.sin(a) * d, 0, 0, r, r * .8, r)); }
+      if (flowers) { const f = L.flowers[R() * L.flowers.length | 0]; for (let i = 0; i < 4; i++) { const a = R() * 6.28, d = R() * .1; add(BEAD, f, at(Math.cos(a) * d, .12 + R() * .05, Math.sin(a) * d, 0, 0, .025)); } }
+    } else if (kind === 'rock') {
+      // a boulder or two in the grass
+      add(STONE, L.stone, at(0, .03, 0, R() * 6, R(), .09 + R() * .05, .07 + R() * .04, .09 + R() * .05));
+      if (R() < .5) add(STONE, L.stone2, at(.1, .02, .05, R() * 6, R(), .05, .04, .05));
+    }
+  }
+  mesh() {
+    if (!this.parts.length) return null;
+    const geo = mergeGeometries(this.parts);
+    this.parts.forEach(g => g.dispose());
+    const m = new THREE.Mesh(geo, toon('#ffffff', { params: { vertexColors: true } }));
+    return m;
+  }
 }
 export function makeHut(seed, roof = '#d9463c') {
   const g = new THREE.Group(), R = rand(seed);

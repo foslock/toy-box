@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 import { DIRS, LAND, ROCK, BARREL, POST, beastSquare } from './rules.js';
-import { toon, noLine, makeBoat, makeWhale, makeShark, makeBuoy, makeBarrels, makePost, makeRock, makePalm, makeBush, makeHut, makeLighthouse, makePier, labelTexture, rand } from './models.js';
+import { toon, noLine, makeBoat, makeWhale, makeShark, makeBuoy, makeBarrels, makePost, makeRock, Flora, makeHut, makeLighthouse, makePier, labelTexture, rand } from './models.js';
 
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -18,11 +18,21 @@ const wrapTo = (a, b) => { while (b - a > Math.PI) b -= Math.PI * 2; while (b - 
 
 // The light and colour of each stretch of the voyage home: bright noon in the Far Isles, a gold evening at home.
 export const LOOKS = [
-  { deep: '#1784c9', mid: '#28a8d8', shallow: '#62dde0', foam: '#ffffff', current: '#0f6fa8', wind: '#8fd8f0', sky: '#bfe9ff', sun: '#fff6e0', sunI: 2.1, hemi: 1.25, grass: '#72c850', grass2: '#4fa53a', sand: '#f4dc9c', rim: '#1b5f8f' },
-  { deep: '#157aa6', mid: '#2398b8', shallow: '#5cd4c6', foam: '#f4fffb', current: '#0d5f85', wind: '#86cfe0', sky: '#bfe4f0', sun: '#fff0cc', sunI: 2.0, hemi: 1.2, grass: '#63bb52', grass2: '#46963c', sand: '#efd699', rim: '#185878' },
-  { deep: '#2f6a8e', mid: '#3f84a4', shallow: '#78c5c4', foam: '#f2f6f8', current: '#24587a', wind: '#9ec8d8', sky: '#c8d6df', sun: '#f4f2ea', sunI: 1.8, hemi: 1.25, grass: '#6aa859', grass2: '#4c8a44', sand: '#e2d0a0', rim: '#244f6a' },
-  { deep: '#2b5a86', mid: '#3a6f9c', shallow: '#6fb3c0', foam: '#eef2ff', current: '#213f6e', wind: '#a4b8e8', sky: '#c8c4e8', sun: '#ffd8c0', sunI: 1.9, hemi: 1.15, grass: '#5aa060', grass2: '#3f7f4c', sand: '#e0c89c', rim: '#233a60' },
-  { deep: '#2d78a8', mid: '#4a90b0', shallow: '#8fd0c0', foam: '#fff8ec', current: '#205e88', wind: '#f0d8a8', sky: '#ffd9a8', sun: '#ffd08a', sunI: 2.2, hemi: 1.1, grass: '#7cbc4e', grass2: '#5a9a3c', sand: '#f4d494', rim: '#2a5070' },
+  { deep: '#1784c9', mid: '#28a8d8', shallow: '#62dde0', foam: '#ffffff', current: '#0f6fa8', wind: '#8fd8f0', sky: '#bfe9ff', sun: '#fff6e0', sunI: 2.1, hemi: 1.25, grass: '#72c850', grass2: '#4fa53a', sand: '#f4dc9c', rim: '#1b5f8f',
+    leaf: '#3e9c3c', leaf2: '#63c34d', pine: '#2e7d4a', pine2: '#3a9456', bark: '#7a4f2c', palmBark: '#b07f48', nut: '#6b4a22', stone: '#9aa3ab', stone2: '#7e8891',
+    flowers: ['#ff7fa8', '#ffe066', '#ffffff'], mix: { palm: 5, puff: 3, bush: 2.5, rock: .4 } },
+  { deep: '#157aa6', mid: '#2398b8', shallow: '#5cd4c6', foam: '#f4fffb', current: '#0d5f85', wind: '#86cfe0', sky: '#bfe4f0', sun: '#fff0cc', sunI: 2.0, hemi: 1.2, grass: '#63bb52', grass2: '#46963c', sand: '#efd699', rim: '#185878',
+    leaf: '#37923f', leaf2: '#58b64f', pine: '#2c7648', pine2: '#378c52', bark: '#7a4f2c', palmBark: '#a97a45', nut: '#6b4a22', stone: '#98a1a8', stone2: '#7b858d',
+    flowers: ['#ffe066', '#ffffff'], mix: { palm: 3, puff: 4, bush: 2.5, pine: .6, rock: .4 } },
+  { deep: '#2f6a8e', mid: '#3f84a4', shallow: '#78c5c4', foam: '#f2f6f8', current: '#24587a', wind: '#9ec8d8', sky: '#c8d6df', sun: '#f4f2ea', sunI: 1.8, hemi: 1.25, grass: '#6aa859', grass2: '#4c8a44', sand: '#e2d0a0', rim: '#244f6a',
+    leaf: '#4b8a47', leaf2: '#67a95a', pine: '#356e48', pine2: '#437f53', bark: '#6f4a2e', palmBark: '#9c7549', nut: '#5e4226', stone: '#9aa0a4', stone2: '#7c8286',
+    flowers: ['#f2f2f2', '#ffd76a'], mix: { palm: 1.5, puff: 4, pine: 1.5, bush: 2.5, rock: .8 } },
+  { deep: '#2b5a86', mid: '#3a6f9c', shallow: '#6fb3c0', foam: '#eef2ff', current: '#213f6e', wind: '#a4b8e8', sky: '#c8c4e8', sun: '#ffd8c0', sunI: 1.9, hemi: 1.15, grass: '#5aa060', grass2: '#3f7f4c', sand: '#e0c89c', rim: '#233a60',
+    leaf: '#3c7f52', leaf2: '#5aa068', pine: '#2b5e4a', pine2: '#357058', bark: '#6a4630', palmBark: '#94704c', nut: '#5a3f28', stone: '#9a9aa8', stone2: '#7a7a8a',
+    flowers: ['#c9a2ff', '#ffffff'], mix: { puff: 3, pine: 4, bush: 2, lolly: .8, rock: .8 } },
+  { deep: '#2d78a8', mid: '#4a90b0', shallow: '#8fd0c0', foam: '#fff8ec', current: '#205e88', wind: '#f0d8a8', sky: '#ffd9a8', sun: '#ffd08a', sunI: 2.2, hemi: 1.1, grass: '#7cbc4e', grass2: '#5a9a3c', sand: '#f4d494', rim: '#2a5070',
+    leaf: '#5b9a3c', leaf2: '#80bb4b', pine: '#3d7842', pine2: '#4a8a4c', bark: '#7a4f2c', palmBark: '#b07f48', nut: '#6b4a22', stone: '#a6a39c', stone2: '#86837c',
+    autumn: '#e39a38', autumn2: '#d7702e', flowers: ['#ff7fa8', '#ffe066', '#ffffff', '#ff9a3a'], mix: { puff: 4, lolly: 2, pine: 2, bush: 3, rock: .3 } },
 ];
 
 const WATER_VS = `
@@ -242,7 +252,9 @@ export class Sea {
     this.waterU.uEyeN.value = eyes.length;
     this.windSqs = null;
     this.buildLand(lv);
+    this.built = new Set();   // squares with a house on them, where nothing's planted
     this.buildProps(lv);
+    this.plant(lv);
     // the boat and the creatures
     this.boat = makeBoat(crew, { brokenMast: lv.brokenMast });
     B.add(this.boat);
@@ -324,7 +336,7 @@ export class Sea {
     { let lo = 1, hi = 0; for (const v of noise) { lo = Math.min(lo, v); hi = Math.max(hi, v); } for (let i = 0; i < noise.length; i++) noise[i] = (noise[i] - lo) / (hi - lo || 1); }
     const pos = new Float32Array(GW * GH * 3), inl = new Float32Array(GW * GH);
     const hOf = (v, nz) => v < .5 ? (v - .5) * 1.6 : Math.min(.28, (v - .5) * 2.4) + Math.max(0, v - .62) * .5 + Math.max(0, nz - .45) * 2.6 * clamp((v - .78) * 5, 0, 1);
-    this.heightAt = (x, y) => hOf(this.landAt(x, y), .45);
+    this.heightAt = (x, y) => { const gx = clamp(Math.round((x + M) * S - .5), 0, GW - 1), gy = clamp(Math.round((y + M) * S - .5), 0, GH - 1), i = gy * GW + gx; return hOf(land[i], noise[i]); };
     for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
       const i = gy * GW + gx, v = land[i];
       pos[i * 3] = (gx + .5) / S - M; pos[i * 3 + 1] = hOf(v, noise[i]); pos[i * 3 + 2] = (gy + .5) / S - M;
@@ -355,14 +367,26 @@ export class Sea {
     this.landMat = mat;
     const m = new THREE.Mesh(geo, mat);
     this.board.add(m);
-    // palms and bushes on the land squares inside the chart, and a few just outside it
-    for (let y = -2; y < H + 2; y++) for (let x = -2; x < W + 2; x++) {
-      const v = this.landAt(x + .5, y + .5);
-      if (v < .8) continue;
-      const r = R();
-      if (r < .28) { const p = makePalm(x * 91 + y * 7 + 3); p.position.set(x + .3 + R() * .4, this.heightAt(x + .5, y + .5) - .02, y + .3 + R() * .4); p.scale.setScalar(.85 + R() * .3); this.board.add(p); }
-      else if (r < .45) { const b = makeBush(x * 13 + y * 5); b.position.set(x + .2 + R() * .6, this.heightAt(x + .5, y + .5), y + .2 + R() * .6); this.board.add(b); }
+  }
+
+  // What grows on the land in and just around the chart: a mix of trees, bushes and boulders that changes as the
+  // voyage goes on (palms in the Far Isles, pines by the Drowned Docks, a few turning gold at home), clear of the
+  // squares that have a house on them.
+  plant(lv) {
+    const L = this.look, F = new Flora(L), R = rand(lv.W * 7 + lv.H * 131 + lv.map.join('').length * 3);
+    const kinds = Object.entries(L.mix), total = kinds.reduce((a, [, w]) => a + w, 0);
+    const pick = () => { let r = R() * total; for (const [k, w] of kinds) if ((r -= w) <= 0) return k; return kinds[0][0]; };
+    for (let y = -2; y < lv.H + 2; y++) for (let x = -2; x < lv.W + 2; x++) {
+      if (this.landAt(x + .5, y + .5) < .8 || this.built.has(x + ',' + y) || R() > .55) continue;
+      const kind = pick(), px = x + .25 + R() * .5, pz = y + .25 + R() * .5;
+      F.plant(kind, px, this.heightAt(px, pz), pz, R);
+      if (kind !== 'bush' && kind !== 'rock' && R() < .3) {
+        const bx = x + .1 + R() * .8, bz = y + .1 + R() * .8;
+        if (this.landAt(bx, bz) > .78) F.plant('bush', bx, this.heightAt(bx, bz), bz, R);
+      }
     }
+    const m = F.mesh();
+    if (m) this.board.add(m);
   }
 
   buildProps(lv) {
@@ -390,7 +414,7 @@ export class Sea {
     if (side >= 0) {
       const hut = makeHut(hx * 7 + hy, lv.home ? '#2d78c8' : '#d9463c');
       const bx = hx + DIRS[side][0] * 1.5 + .5 + (side % 2 ? 0 : .35), by = hy + DIRS[side][1] * 1.5 + .5 + (side % 2 ? .35 : 0);
-      if (this.landAt(bx, by) > .7) { hut.position.set(bx, this.heightAt(bx, by), by); B.add(hut); }
+      if (this.landAt(bx, by) > .7) { hut.position.set(bx, this.heightAt(bx, by), by); B.add(hut); this.built.add(Math.floor(bx) + ',' + Math.floor(by)); }
     }
     if (lv.home) {
       // home: the lighthouse, and the village's houses along the shore
@@ -400,6 +424,7 @@ export class Sea {
         if (lv.kind[y * W + x] !== LAND || this.landAt(x + .5, y + .5) < .8 || R() > .35) continue;
         const h = placed === 0 ? makeLighthouse() : makeHut(x * 3 + y, ['#2d78c8', '#e0524a', '#f5c542', '#3fae5a'][placed % 4]);
         h.position.set(x + .5, this.heightAt(x + .5, y + .5), y + .5); B.add(h);
+        this.built.add(x + ',' + y);
         if (placed === 0) this.lighthouse = h;
         placed++;
       }
