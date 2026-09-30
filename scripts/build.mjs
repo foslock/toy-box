@@ -3,7 +3,7 @@
 import { rmSync, mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, sep, posix } from 'node:path';
 import { createHash } from 'node:crypto';
-import { ROOT, loadToys } from './lib/toys.mjs';
+import { ROOT, CATEGORIES, loadToys } from './lib/toys.mjs';
 
 const DIST = join(ROOT, 'dist');
 const SITE = join(ROOT, 'site');
@@ -149,7 +149,7 @@ function card(t, i) {
     : `<div class="shot shot--blank" aria-hidden="true"><span>${esc(initials(t.title))}</span></div>`;
   const meta = [t.added ? `<time datetime="${esc(t.added)}">${month(t.added)}</time>` : '', ...t.tags.map(x => `<span>${esc(x)}</span>`)].filter(Boolean).join('');
   return `
-      <li class="toy" style="--tape:${color}">
+      <li class="toy"${t.category ? ` data-category="${t.category}"` : ''} style="--tape:${color}">
         <a href="${href}">
           ${shot}
           <div class="card-body">
@@ -178,12 +178,18 @@ for (const t of toys) {
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
 
 const count = `${toys.length} ${toys.length === 1 ? 'toy' : 'toys'} on the board`;
+// A pill above the board for each category some toy is in; the page's own script does the filtering.
+const cats = Object.keys(CATEGORIES).filter(c => toys.some(t => t.category === c));
+const filters = cats.length ? `<div class="filters" role="group" aria-label="Show only">${cats.map(c =>
+  `<button class="pill" type="button" data-category="${c}" aria-pressed="false">${esc(CATEGORIES[c])}</button>`).join('')}</div>` : '';
 const html = readFileSync(join(SITE, 'index.html'), 'utf8')
   .replace('<!--HEADER_TAPE-->', tape('Toy Box', 'tape--xl'))
   .replace('<!--COUNT-->', count)
+  .replace('<!--FILTERS-->', filters)
   .replace('<!--TOYS-->', toys.map(card).join('') || '\n      <li class="empty">No toys yet — add a folder with a toy.json.</li>');
 writeFileSync(join(DIST, 'index.html'), html);
 
-const missing = toys.filter(t => !t.hasPreview).map(t => t.slug);
+const missing = toys.filter(t => !t.hasPreview).map(t => t.slug), unsorted = toys.filter(t => !t.category).map(t => t.slug);
 console.log(`Built ${count} → dist/`);
 if (missing.length) console.log(`No preview image yet for: ${missing.join(', ')} — run \`npm run shots\`.`);
+if (unsorted.length) console.log(`No category yet for: ${unsorted.join(', ')} — they only show with no filter on. Set "category" in toy.json.`);

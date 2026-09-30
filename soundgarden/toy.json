@@ -2,6 +2,7 @@
   "title": "Sound Garden",
   "blurb": "A walled garden in the late sun with eight speakers in its rooms, each playing one part of the same slow spa piece. Find them and switch them on, then sit in the chair in the middle to hear every part together (best with headphones).",
   "added": "2026-09-25",
+  "category": "ambient",
   "tags": ["three.js", "sound", "3D audio", "explore"],
   "tape": "green",
   "loader": true,

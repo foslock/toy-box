@@ -41,6 +41,7 @@ toy-box/
 | `blurb` | yes | | Short description under the label |
 | `added` | no | | `YYYY-MM-DD`. Cards are sorted newest first |
 | `position` | no | | Pins the card to that spot on the board (`1` is the first card) instead of sorting it by date |
+| `category` | no | | Which filter pill above the board shows it: `games`, `ambient` or `interactive`. A toy without one only shows when no filter is on |
 | `tags` | no | `[]` | Short words shown along the bottom of the card |
 | `tape` | no | rotates | Label color: `red`, `blue`, `green`, `teal`, `purple`, `orange`, `black`, or a `#rrggbb` hex |
 | `entry` | no | `index.html` | The page to link to, if it isn't `index.html` |

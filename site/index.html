@@ -90,6 +90,19 @@
   .intro p::before, .count::before { content: ""; position: absolute; z-index: -1; inset: -12px -22px; border-radius: 28px; background: var(--board); filter: blur(10px); opacity: .94; }
   .count::before { inset: -8px -16px; }
 
+  /* ---- category pills ---- */
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 clamp(22px, 3vw, 30px); }
+  .pill {
+    font: 600 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+    padding: 9px 15px 8px; border: 0; border-radius: 999px; cursor: pointer;
+    color: var(--ink-2); background: var(--card);
+    box-shadow: 0 0 0 1px var(--card-edge), var(--shadow);
+    transition: transform .2s ease, background-color .2s ease, color .2s ease;
+  }
+  .pill:hover { color: var(--ink); transform: translateY(-1px); }
+  .pill[aria-pressed="true"] { color: var(--card); background: var(--ink); }
+  .pill:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
   /* ---- the board ---- */
   .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
   .toy a {
@@ -123,8 +136,8 @@
   .foot a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
-    .toy a, .shot img, .tape { transition: none; }
-    .toy a:hover, .toy a:hover .shot img { transform: none; }
+    .toy a, .shot img, .tape, .pill { transition: none; }
+    .toy a:hover, .toy a:hover .shot img, .pill:hover { transform: none; }
   }
 </style>
 </head>
@@ -133,10 +146,33 @@
     <header class="intro">
       <h1><!--HEADER_TAPE--></h1>
       <p>Small browser experiments pinned to one board: pixel scenes, simulations and odd little toys. Each one runs on its own page. Pick one up.</p>
-      <span class="count"><!--COUNT--></span>
+      <span class="count" aria-live="polite"><!--COUNT--></span>
     </header>
+    <!--FILTERS-->
     <ul class="board"><!--TOYS-->
     </ul>
+    <script>
+      // The category pills: one at a time, and pressing the lit one again shows everything. The choice rides in the
+      // address (?category=games), so it's still there coming back from a toy, and a link can open on it.
+      (() => {
+        const pills = [...document.querySelectorAll('.pill')], toys = [...document.querySelectorAll('.board .toy')];
+        const count = document.querySelector('.count'), all = count.textContent;
+        function show(cat) {
+          if (!pills.some(p => p.dataset.category === cat)) cat = null;
+          let n = 0;
+          for (const t of toys) { t.hidden = !!cat && t.dataset.category !== cat; if (!t.hidden) n++; }
+          for (const p of pills) p.setAttribute('aria-pressed', String(p.dataset.category === cat));
+          count.textContent = cat ? `${n} of ${toys.length} toys on the board` : all;
+          return cat;
+        }
+        for (const p of pills) p.addEventListener('click', () => {
+          const cat = show(p.getAttribute('aria-pressed') === 'true' ? null : p.dataset.category), url = new URL(location.href);
+          if (cat) url.searchParams.set('category', cat); else url.searchParams.delete('category');
+          history.replaceState(null, '', url);
+        });
+        show(new URLSearchParams(location.search).get('category'));
+      })();
+    </script>
     <footer class="foot">
       <small>&copy; 2026 James Foster Lockwood</small>
       <a href="https://github.com/foslock/toy-box">Source on GitHub</a>

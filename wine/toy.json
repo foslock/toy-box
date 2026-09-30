@@ -2,6 +2,7 @@
   "title": "Swirl",
   "blurb": "A thin crystal glass of red wine: drag it in small circles, or swirl the phone itself, and it sloshes, climbs the glass and leaves legs as it drains.",
   "added": "2026-09-23",
+  "category": "interactive",
   "tags": ["three.js", "physics", "device motion"],
   "tape": "red",
   "loader": true,

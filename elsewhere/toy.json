@@ -2,6 +2,7 @@
   "title": "Elsewhere",
   "blurb": "Walk through rolling alien hills where walking is the clock: about 30 seconds of walking is 12 hours, so the sun sets and the strange plants fold up into glowing shapes. Walk back to turn time back.",
   "added": "2026-09-23",
+  "category": "ambient",
   "tags": ["three.js", "shaders", "generative"],
   "tape": "purple",
   "loader": true,

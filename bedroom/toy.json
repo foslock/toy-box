@@ -2,6 +2,7 @@
   "title": "Small Hours",
   "blurb": "A painted bedroom lit only by the moon, where it's always the dead of night. The red clock on the nightstand keeps your time, moved to a dark hour when it's light where you are, and the window's square of panes lies where the moon puts it: across the rug at ten, high on the wall by four, with dust glinting in the beam.",
   "added": "2026-09-28",
+  "category": "ambient",
   "tags": ["canvas", "shaders", "ambient", "painting"],
   "tape": "blue",
   "loader": true,

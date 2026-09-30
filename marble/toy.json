@@ -2,6 +2,7 @@
   "title": "Marble",
   "blurb": "Pour colors of resin into a clear mold and tip it while it's runny, so the colors stretch into veins instead of blending. When it sets, you pop out a polished slab of stone nobody has made before.",
   "added": "2026-09-24",
+  "category": "interactive",
   "tags": ["three.js", "fluid sim", "shaders"],
   "tape": "black",
   "loader": true,
