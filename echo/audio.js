@@ -57,15 +57,19 @@ export class CaveAudio {
   }
   noiseBuf(sec) { return this.buf(sec, d => { for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }); }
   brownBuf(sec) { return this.buf(sec, d => { let b = 0; for (let i = 0; i < d.length; i++) { b = (b + .02 * (Math.random() * 2 - 1)) / 1.02; d[i] = b * 3.5; } }); }
+  // A finger snap: a crisp crack (noise kept between about 1.5 and 5 kHz), the finger hitting the palm a
+  // millisecond or two later, and a short ring up around 2.5 kHz. No low body to it at all.
   snapBuf() {
-    const f = rnd(1700, 2300);
-    return this.buf(.14, d => {
+    const f1 = rnd(2300, 2900), f2 = f1 * rnd(1.45, 1.62), t2 = rnd(.0012, .0024);
+    const a = 1 - Math.exp(-2 * Math.PI * 5200 / SR);
+    return this.buf(.08, d => {
+      let l1 = 0, l2 = 0;
       for (let i = 0; i < d.length; i++) {
         const t = i / SR;
-        const crack = (Math.random() * 2 - 1) * Math.exp(-t / .004);
-        const skin = Math.sin(2 * Math.PI * f * t) * Math.exp(-t / .012) * .5;
-        const body = Math.sin(2 * Math.PI * 420 * t) * Math.exp(-t / .02) * .25;
-        d[i] = (crack + skin + body) * (t < .0004 ? t / .0004 : 1);
+        l1 += (Math.random() * 2 - 1 - l1) * a; l2 += (l1 - l2) * a;
+        const crack = l2 * 2.2 * (Math.exp(-t / .0024) + (t > t2 ? .6 * Math.exp(-(t - t2) / .0016) : 0));
+        const ring = (Math.sin(2 * Math.PI * f1 * t) * .45 + Math.sin(2 * Math.PI * f2 * t) * .22) * Math.exp(-t / .0065);
+        d[i] = (crack * .6 + ring * .5) * (t < .0002 ? t / .0002 : 1);
       }
     });
   }
@@ -159,7 +163,7 @@ export class CaveAudio {
   sound(kind, taps = [], under = false) {
     if (!this.ctx) return;
     const B = this.bufs[kind], b = B[Math.floor(Math.random() * B.length)];
-    const base = { snap: { gain: .8, filter: 'bandpass', freq: 3000, q: .7 }, clap: { gain: 1, filter: 'bandpass', freq: 1200, q: .55 }, whistle: { gain: .42, filter: 'highpass', freq: 600, q: .5 } }[kind];
+    const base = { snap: { gain: 1.1, filter: 'highpass', freq: 1500, q: .6 }, clap: { gain: 1, filter: 'bandpass', freq: 1200, q: .55 }, whistle: { gain: .42, filter: 'highpass', freq: 600, q: .5 } }[kind];
     const muff = under ? { filter: 'lowpass', freq: 600, q: .7 } : {};
     this.play(b, { ...base, ...muff, gain: base.gain * (under ? .7 : 1), rate: rnd(.97, 1.03), wet: 1 });
     let room = 0;
@@ -167,7 +171,10 @@ export class CaveAudio {
       room += d;
       if (d > 60) continue;
       const delay = 2 * d / 343;
-      this.play(b, { at: delay, gain: base.gain * .55 * hard / (1 + d * .22), pan: pan * .8, filter: 'lowpass', freq: under ? 500 : Math.max(900, 7000 - d * 160), q: .5, wet: .2 });
+      // the same filter as the sound itself (so a snap's echoes stay snappy), a little darker the farther it went
+      const far = Math.max(.55, 1 - d / 70);
+      this.play(b, under ? { at: delay, gain: base.gain * .4 * hard / (1 + d * .22), pan: pan * .8, filter: 'lowpass', freq: 500, q: .5, wet: .2 }
+        : { at: delay, gain: base.gain * .5 * hard / (1 + d * .22), pan: pan * .8, filter: base.filter, freq: base.freq * (base.filter === 'highpass' ? 1 : far), q: base.q, wet: .2 });
     }
     // bigger spaces ring longer and louder
     const avg = taps.length ? room / taps.length : 6;

@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { View, KINDS, MINI } from './render.js';
 import { Mesher } from './mesh.js';
 import { Sim, DT, EYE } from './sim.js';
-import { SECTIONS, ZONES, DRIPS, MOUTH, CLIFF_X, FINALE, march, clamp, lerp, smooth, waterLevel } from './world.js';
+import { SECTIONS, ZONES, DRIPS, MOUTH, CLIFF_X, FINALE, ROPE, march, clamp, lerp, smooth, waterLevel } from './world.js';
 import { CaveAudio } from './audio.js';
 import { Bot } from './route.js';
 import { Daylight } from './forest.js';
@@ -219,6 +219,9 @@ function teach(dt) {
   if (used.snap > 0 && !seen.has('used-snap')) { seen.add('used-snap'); save.seen = [...seen]; keep(); }
   if (firstAt.snap >= 0 && clock - firstAt.snap > 2.2 && walked < 1.5) once('walk', K.walk, 99, () => walked > 2.5);
   if (walked > 6 && turned < .6) once('look', K.look, 6, () => turned > 1.2);
+  // the rope you came down on is only scenery: say so once, when you walk up to it (without talking over a lesson)
+  if (sec() === 0 && hasSound('snap') && (Math.hypot(p.x - ROPE.x, p.z - ROPE.z) < 2.2 || Math.hypot(p.x - ROPE.coil[0], p.z - ROPE.coil[2]) < 2.2)) ropeNear = true;
+  if (ropeNear && sec() === 0 && Math.hypot(p.x, p.z) < 6 && !line?.hold && (seen.has('walk') || walked > 2.5)) once('rope', 'The rope snapped somewhere above. No way back up.', 4.5);
   if (sec() === 0 && walked > 14 && idle > 7) once('again', `Snap as you go. The ripple only shows what it reaches.<span class="k">${K.snap}</span>`, 5);
   // the hall: too big for a snap
   const Z = ZONES;
@@ -248,7 +251,7 @@ function teach(dt) {
   if (p.stuckT > 1.5) once('stuck', `No way out of here. To go back to the start of this stretch, ${K.back}.`, 7, () => p.stuckT === 0);
   if (secT > 170 && sec() > 0 && sec() < 9) once('lost' + sec(), `Lost? To go back to the start of this stretch, ${K.back}.`, 6);
 }
-let rimT = 0;
+let rimT = 0, ropeNear = false;
 function lastLit(r) {         // a loose rock is "seen" if a pulse front has crossed it in the last moment
   for (let i = 0; i < view.cubes.length; i++) {
     const c = view.cubes[i], P = view.U.uP.value[i], k = view.U.uK.value[i];
