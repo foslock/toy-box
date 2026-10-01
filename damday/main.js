@@ -287,6 +287,7 @@ function advance(dt, now) {
   typeTick(dt);
   if (fadingIn > 0) { fadingIn = Math.max(0, fadingIn - dt / 1.1); view.fade = fadingIn; }
   snd.ambient(g.t, g.t < 190 && !g.ended);
+  snd.musicUpdate(g.t, !g.ended && g.wake <= 0 && !DEMO);
   view.draw(g, now, dt); hud();
   if (!DEMO && !g.store.intro && !cardOpen && g.t < 1 && !g.ended) introCard();
 }

@@ -8,8 +8,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Pixelify Sans's 5 reads as an S, so numbers borrow their digits from Jersey 10 */
-  @font-face { font-family: Digits; src: url(https://fonts.gstatic.com/s/jersey10/v4/GftH7vZKsggXMf9n_J5n_5jh6V89Sg.woff2) format('woff2'); font-display: swap; size-adjust: 125%; unicode-range: U+0030-0039; }
+  /* Pixelify Sans's 5 reads as an S, and Jersey 10's digits were too thin to read at small sizes, so every number
+     is set in Bitcount Prop Single, whose 5 is unmistakable. */
+  @font-face { font-family: Digits; src: url(https://fonts.gstatic.com/s/bitcountpropsingle/v3/-W-gXIv9SyXT0xz0E9pIHCxbW8ZMGEVdhz4VoumsGFhzYseFqK9f_KOwYjYsHSocfu1DlxztzQH877SgJ2SUzQ4SJdODLz0JoLU3vXFrqXQooCdbs921GURlHGISgmFmdiScNw.woff2) format('woff2'); font-weight: 100 900; font-display: swap; size-adjust: 112%; unicode-range: U+0030-0039; }
   :root {
     --paper: #fff5df; --paper2: #f8e8c8; --paper3: #efd9b0; --ink: #5a4a6e; --ink2: #8a7aa0; --edge: #8c735f;
     --peach: #f6ad94; --lav: #b9a8ea; --lav2: #7a6ac0; --mint: #9ad8bd; --sky: #a9d4f5; --butter: #f8d98a; --rose: #f2a3b4; --warn: #e0606a;
