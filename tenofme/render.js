@@ -100,9 +100,10 @@ export class View {
       const dg = x.createLinearGradient(ex, 0, ex + T, 0); dg.addColorStop(0, '#0b1124'); dg.addColorStop(1, '#1c2a4f'); x.fillStyle = dg; x.fillRect(ex, ey, T, eh);
       x.fillStyle = 'rgba(160,190,255,.10)'; for (let k = ey + 2; k < ey + 10; k += 2) x.fillRect(ex, k, T, 1);
       for (let k = 0; k < T; k += 4) { x.fillStyle = k % 8 ? '#0b0b0b' : '#e8b93a'; x.fillRect(ex + k, ey + eh - 2, 4, 2); }
-      x.fillStyle = '#58f0a0'; x.beginPath(); x.arc(ex + 4, ey - 3, 1.6, 0, 7); x.fill();
-      x.save(); x.font = '600 6.5px Oswald, sans-serif'; x.textAlign = 'right'; x.fillStyle = '#58f0a0'; x.fillText('DOCK', ex + T - 1, ey - 6); x.restore();
-      x.fillStyle = 'rgba(88,240,160,.10)'; x.fillRect(ex - 6, ey, 6, eh);
+      const onLeft = ex < L.W * T / 2;
+      x.fillStyle = '#58f0a0'; x.beginPath(); x.arc(onLeft ? ex + T - 4 : ex + 4, ey - 3, 1.6, 0, 7); x.fill();
+      x.save(); x.font = '600 6.5px Oswald, sans-serif'; x.textAlign = onLeft ? 'left' : 'right'; x.fillStyle = '#58f0a0'; x.fillText('DOCK', onLeft ? ex + 1 : ex + T - 1, ey - 6); x.restore();
+      x.fillStyle = 'rgba(88,240,160,.10)'; x.fillRect(onLeft ? ex + T : ex - 6, ey, 6, eh);
     }
     // jewel pedestals and their glass cases
     for (const it of L.items) if (it.id === 'jewel') {

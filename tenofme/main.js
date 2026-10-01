@@ -186,7 +186,7 @@ function winCard() {
     ${last ? '<p>Every floor, every jewel. Ten of you, and not one of you seen leaving.</p>' : ''}
     <div class="row">${last ? '' : '<button class="btn go" id="cnext">Next floor <kbd>Enter</kbd></button>'}<button class="btn ${last ? 'go' : ''}" id="cagain">Play it again</button><button class="btn" id="cfl">Floors</button></div>`);
   on('#cnext', () => loadFloor(fi + 1));
-  on('#cagain', () => { closeCard(); g.restart(); hideBar(); });
+  on('#cagain', () => { closeCard(); mode = 'play'; g.restart(); hideBar(); });
   on('#cfl', menuCard);
   mode = 'won';
 }
@@ -219,7 +219,7 @@ function advance(dt, now) {
     while (acc >= DT && n++ < 30) {
       acc -= DT;
       let inp = bits();
-      if (bot) { inp = bot.input(g); if (bot.stop) { bot.stop = false; g.stop(); } }
+      if (bot) { g.start(); inp = bot.input(g); if (bot.stop) { bot.stop = false; g.stop(); } }
       g.step(inp); tap = 0;
       for (const ev of g.drain()) handle(ev);
       if (g.ended) { acc = 0; onEnd(); break; }
