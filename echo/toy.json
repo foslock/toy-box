@@ -1,0 +1,10 @@
+{
+  "title": "Echo",
+  "blurb": "Your headlamp has died deep in a cave, and it's pitch black. Snap, clap or whistle and each sound sends out a ripple of sight that lights only what it reaches: the snap is short and sharp, the whistle carries farthest but blurs. Walls send the ripple back to you, and water scatters it. Hear your way through tunnels, a maze, flooded sumps and rockfalls toward the light.",
+  "added": "2026-10-01",
+  "category": "games",
+  "tags": ["three.js", "first person", "sound", "game"],
+  "tape": "teal",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 5000, "query": "?demo" }
+}

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Echo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --snap: #80e3ff; --clap: #f080ff; --whistle: #b8ff6c; --amber: #ffb347; --ink: rgba(236, 240, 245, .92); --ink-2: rgba(236, 240, 245, .62); --ink-3: rgba(236, 240, 245, .36); }
+  html, body { height: 100%; margin: 0; background: #000; }
+  body { color: var(--ink); font: 300 15px/1.45 Outfit, system-ui, sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: crosshair; }
+  body.locked #c { cursor: none; }
+  button { font-family: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  kbd { display: inline-block; min-width: 1.3em; padding: 1px 7px 2px; margin: 0 1px; border-radius: 6px; font: 500 12.5px/1.35 Outfit, system-ui, sans-serif; text-align: center;
+    color: var(--ink); background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), inset 0 -2px 0 rgba(255, 255, 255, .1); letter-spacing: .02em; vertical-align: 1px; }
+
+  /* words in the dark */
+  .say { position: fixed; left: 50%; bottom: max(15vh, calc(env(safe-area-inset-bottom) + 96px)); transform: translate(-50%, 6px); width: min(560px, calc(100% - 40px));
+    margin: 0; text-align: center; font-size: 18px; font-weight: 300; letter-spacing: .015em; color: var(--ink); opacity: 0; pointer-events: none;
+    transition: opacity .9s, transform .9s; text-shadow: 0 0 12px #000, 0 0 3px #000; }
+  .say.show { opacity: 1; transform: translate(-50%, 0); }
+  .say .k { display: block; margin-top: 8px; font-size: 14px; color: var(--ink-2); }
+  .say i { font-style: normal; color: var(--c, var(--ink)); font-weight: 400; }
+  .place { position: fixed; left: 50%; top: max(22px, calc(env(safe-area-inset-top) + 14px)); transform: translateX(-50%); margin: 0; pointer-events: none;
+    font-size: 13px; font-weight: 400; letter-spacing: .38em; text-transform: uppercase; color: var(--ink-2); opacity: 0; transition: opacity 1.6s; white-space: nowrap; padding-left: .38em; }
+  .place.show { opacity: 1; }
+
+  /* breath */
+  .breath { position: fixed; left: 50%; top: max(52px, calc(env(safe-area-inset-top) + 44px)); width: 46px; height: 46px; margin-left: -23px; opacity: 0; transition: opacity .5s; pointer-events: none; }
+  .breath.show { opacity: 1; }
+  .breath circle { fill: none; stroke-width: 3; }
+  .breath .bg { stroke: rgba(255, 255, 255, .13); }
+  .breath .fg { stroke: #9fe4ff; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke .3s; }
+  .breath.low .fg { stroke: #ff7a6b; }
+  .breath span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 10px; letter-spacing: .14em; color: var(--ink-2); text-transform: uppercase; }
+
+  .dot { position: fixed; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: rgba(255, 255, 255, .28); pointer-events: none; opacity: 0; transition: opacity .4s; }
+  body.locked.playing .dot { opacity: 1; }
+
+  /* corner buttons */
+  .corner { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); display: flex; gap: 6px; opacity: .35; transition: opacity .3s; }
+  .corner:hover, .corner:focus-within { opacity: 1; }
+  .round { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: rgba(255, 255, 255, .06);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); color: var(--ink); touch-action: manipulation; }
+  .round svg { width: 18px; height: 18px; }
+  .round:hover { background: rgba(255, 255, 255, .14); }
+  .round.armed { background: rgba(255, 255, 255, .9); color: #000; }
+  button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  body:not(.playing) .corner { display: none; }
+  .resetHold { position: fixed; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .resetHold.show { opacity: 1; }
+  .resetHold circle { fill: none; stroke-width: 2.5; }
+
+  /* touch */
+  .touch { display: none; }
+  body.touchy.playing .touch { display: block; }
+  body.touchy.playing .touch[hidden] { display: none; }
+  .stick { position: fixed; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .25s;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .03); }
+  .stick.on { opacity: 1; }
+  .stick::after { content: ""; position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+    background: rgba(255, 255, 255, .22); transform: translate(var(--sx, 0px), var(--sy, 0px)); }
+  .sounds { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); width: 190px; height: 190px; pointer-events: none; }
+  .snd { position: absolute; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: none;
+    background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 18px -6px var(--c); color: var(--c); font: 400 12px/1 Outfit, system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase;
+    transition: transform .08s, background-color .2s, opacity .6s; }
+  .snd:active, .snd.hit { transform: scale(.92); background: color-mix(in srgb, var(--c) 30%, transparent); }
+  .snd.new { animation: beckon 1.6s ease-in-out infinite; }
+  @keyframes beckon { 50% { box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 10px color-mix(in srgb, var(--c) 18%, transparent), 0 0 30px -4px var(--c); } }
+  .snd.cool { opacity: .45; }
+  #bSnap { --c: var(--snap); width: 76px; height: 76px; right: 4px; bottom: 0; }
+  #bClap { --c: var(--clap); width: 70px; height: 70px; right: 96px; bottom: 6px; }
+  #bWhistle { --c: var(--whistle); width: 70px; height: 70px; right: 22px; bottom: 96px; }
+
+  /* cards */
+  .card { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: radial-gradient(120% 90% at 50% 45%, rgba(0, 0, 0, .55), #000 80%); transition: opacity 1.2s; }
+  .card.leaving { opacity: 0; pointer-events: none; }
+  .panel { width: min(430px, 100%); text-align: center; }
+  .panel h1 { margin: 0 0 18px; font: 200 64px/1 Outfit, system-ui, sans-serif; letter-spacing: .42em; padding-left: .42em; color: #fff;
+    text-shadow: 0 0 22px rgba(128, 227, 255, .35); }
+  .panel h1 span { display: inline-block; animation: ripple 5s ease-in-out infinite; }
+  .panel h1 span:nth-child(2) { animation-delay: .25s; } .panel h1 span:nth-child(3) { animation-delay: .5s; } .panel h1 span:nth-child(4) { animation-delay: .75s; }
+  @keyframes ripple { 0%, 70%, 100% { opacity: .9; } 80% { opacity: .35; } }
+  .panel p { margin: 0 0 12px; color: var(--ink-2); font-size: 16px; }
+  .go { display: block; width: 100%; max-width: 280px; margin: 26px auto 0; height: 52px; border: 0; border-radius: 999px; cursor: pointer;
+    font: 400 16px/1 Outfit, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #000; background: #e9f6ff;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .4), 0 0 34px -8px rgba(128, 227, 255, .8); transition: transform .1s, background-color .2s; }
+  .go:hover { background: #fff; }
+  .go:active { transform: translateY(1px); }
+  .go.quiet { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3); margin-top: 10px; height: 44px; font-size: 14px; }
+  .fine { margin-top: 18px !important; font-size: 13px !important; color: var(--ink-3) !important; }
+  .end .panel { width: min(470px, 100%); }
+  .end h2 { margin: 0 0 10px; font: 200 46px/1.05 Outfit, system-ui, sans-serif; letter-spacing: .08em; color: #fff; }
+  .end .stats { display: flex; justify-content: center; gap: 22px; margin: 18px 0 4px; font-size: 14px; color: var(--ink-2); }
+  .end .stats b { display: block; font-weight: 300; font-size: 26px; color: var(--ink); }
+  .end .stats .s b { color: var(--snap); } .end .stats .c b { color: var(--clap); } .end .stats .w b { color: var(--whistle); }
+  .card.end { background: linear-gradient(rgba(10, 30, 15, .1), rgba(5, 20, 10, .55)); }
+  .end .go { color: #0c1a10; background: #f3ffe9; }
+  .end p { color: rgba(245, 255, 240, .82); }
+  .end .go.quiet { color: #f3ffe9; background: rgba(0, 0, 0, .25); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
+
+  @media (max-width: 560px) { .place { top: max(62px, calc(env(safe-area-inset-top) + 54px)); font-size: 12px; letter-spacing: .3em; } .breath { top: max(92px, calc(env(safe-area-inset-top) + 84px)); } }
+  @media (max-width: 640px), (max-height: 500px) {
+    .say { font-size: 16px; bottom: max(31vh, calc(env(safe-area-inset-bottom) + 210px)); }
+    body:not(.touchy) .say { bottom: 14vh; }
+    .panel h1 { font-size: 50px; }
+  }
+  @media (max-height: 500px) { body.touchy .say { bottom: auto; top: 22vh; } .sounds { transform: scale(.88); transform-origin: 100% 100%; } }
+  @media (prefers-reduced-motion: reduce) { .say, .place, .card { transition: none; } .panel h1 span, .snd.new { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="Pitch dark. Snap, clap or whistle to see the cave in the echo of the sound."></canvas>
+<p class="place" id="place" aria-hidden="true"></p>
+<svg class="breath" id="breath" viewBox="0 0 46 46" aria-hidden="true"><circle class="bg" cx="23" cy="23" r="19"/><circle class="fg" id="breathFg" cx="23" cy="23" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"/></svg>
+<div class="dot" aria-hidden="true"></div>
+<svg class="resetHold" id="resetHold" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" stroke="rgba(255,255,255,.15)"/><circle id="resetFg" cx="32" cy="32" r="28" stroke="#fff" stroke-dasharray="176" stroke-dashoffset="176" transform="rotate(-90 32 32)"/></svg>
+<p class="say" id="say" aria-hidden="true"></p>
+<div class="corner">
+  <button class="round" id="back" type="button" aria-label="Back to the start of this stretch" title="Back to the start of this stretch (hold R)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>
+  </button>
+  <button class="round" id="sound" type="button" aria-pressed="false" aria-label="Mute" title="Mute (M)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path id="cross" d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"/></svg>
+  </button>
+</div>
+<div class="touch stick" id="stick" aria-hidden="true"></div>
+<div class="touch sounds" id="sounds">
+  <button class="snd" id="bWhistle" type="button" hidden>whistle</button>
+  <button class="snd" id="bClap" type="button" hidden>clap</button>
+  <button class="snd" id="bSnap" type="button" hidden>snap</button>
+</div>
+<div class="card" id="card">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
+    <h1 id="cardTitle" aria-label="Echo"><span>E</span><span>C</span><span>H</span><span>O</span></h1>
+    <p>Your headlamp died a long way down. There’s no light at all.</p>
+    <p>But sound gets around, and you can hear your way out.</p>
+    <button class="go" id="go" type="button">Begin</button>
+    <button class="go quiet" id="restart" type="button" hidden>Start from the top</button>
+    <p class="fine" id="fine">Best with headphones</p>
+  </div>
+</div>
+<div class="card end" id="end" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+    <h2 id="endTitle">Daylight</h2>
+    <p id="endNote">You found your way out of the dark.</p>
+    <div class="stats"><div><b id="sTime">0:00</b>underground</div><div class="s"><b id="sSnaps">0</b>snaps</div><div class="c"><b id="sClaps">0</b>claps</div><div class="w"><b id="sWhistles">0</b>whistles</div></div>
+    <button class="go" id="stay" type="button">Stay a while</button>
+    <button class="go quiet" id="again" type="button">Go back down</button>
+  </div>
+</div>
+<p class="sr" id="live" aria-live="polite"></p>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
