@@ -60,11 +60,22 @@ function drawFace(t) {
   const hand = (v, len, col) => { c.strokeStyle = col; c.lineWidth = 1; c.beginPath(); c.moveTo(11, 11); c.lineTo(11 + Math.cos(a(v)) * len, 11 + Math.sin(a(v)) * len); c.stroke(); };
   hand(h / 12, 4.5, '#5a4a6e'); hand(m / 60, 7, '#5a4a6e'); hand(((secs) % 60) / 60, 8, '#e0606a');
 }
+// The clock's digits are drawn from a chunky 5x7 bitmap font of their own, big and square, so they read at a glance
+const GLYPH = { '0': ['01110', '10001', '10001', '10001', '10001', '10001', '01110'], '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'], '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+  '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'], '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'], '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+  '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'], '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'], '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+  '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01110'], ':': ['0', '0', '1', '0', '1', '0', '0'] };
+const digitsEl = $('digits'), digitsCtx = digitsEl.getContext('2d');
+function drawDigits(text, alarm) {
+  const c = digitsCtx; c.clearRect(0, 0, 33, 7); c.fillStyle = alarm ? '#d84a58' : '#4a3d62'; let x = 0;
+  for (const ch of text) { const g = GLYPH[ch]; if (!g) continue; for (let y = 0; y < 7; y++) for (let i = 0; i < g[y].length; i++) if (g[y][i] === '1') c.fillRect(x + i, y, 1, 1); x += g[0].length + 1; }
+  digitsEl.setAttribute('aria-label', text);
+}
 let lastDigits = '';
 function hud() {
-  const s = clockText(g.t); if (s !== lastDigits) { lastDigits = s; $('digits').textContent = s; drawFace(g.t); }
+  const alarm = g.t >= 195 && !g.ended, s = clockText(g.t) + (alarm ? '!' : ''); if (s !== lastDigits) { lastDigits = s; drawDigits(clockText(g.t), alarm); drawFace(g.t); }
   $('level').firstElementChild.style.width = clamp(g.t / BREAK * 100, 0, 100) + '%';
-  $('plaque').classList.toggle('alarm', g.t >= 195 && !g.ended);
+  $('plaque').classList.toggle('alarm', alarm);
   $('loopn').textContent = 'Loop ' + (g.store.loops + (g.ended ? 0 : 1));
   const ready = !g.talk && !g.ended && g.nearby().length > 0; $('abtn').classList.toggle('ready', ready);
 }
