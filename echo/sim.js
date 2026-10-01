@@ -152,7 +152,7 @@ export class Sim {
     }
 
     // pushing loose rocks: walk into one's side
-    let pushing = null;
+    let pushing = null, stuckRock = null;
     for (const r of this.rocks) {
       const dx = p.x - r.x, dz = p.z - r.z;
       if (p.y > r.y + RH[1] - .1 || p.y + 1.7 < r.y - RH[1]) continue;
@@ -169,6 +169,8 @@ export class Sim {
         const moved = this.pushRock(r, alongX ? dir * sp * DT : 0, alongX ? 0 : dir * sp * DT);
         r.speed = moved ? sp : 0;
         if (moved) { r.moved += sp * DT; pushing = r; }
+        else stuckRock = { at: alongX ? [r.x - dir * RH[0], r.y + .42, clamp(p.z, r.z - RH[2], r.z + RH[2])] : [clamp(p.x, r.x - RH[0], r.x + RH[0]), r.y + .42, r.z - dir * RH[2]],
+          n: alongX ? [-dir, 0, 0] : [0, 0, -dir], rock: r };         // it won't budge: that's a bump too
         if (alongX) p.vx = dir * Math.min(Math.max(p.vx * dir, 0), moved ? sp : 0); else p.vz = dir * Math.min(Math.max(p.vz * dir, 0), moved ? sp : 0);
       }
     }
@@ -177,7 +179,7 @@ export class Sim {
     // move, then shove out of the rock
     const ox = p.x, oz = p.z;
     p.x += p.vx * DT; p.z += p.vz * DT;
-    let bumped = null;
+    let bumped = stuckRock;
     const g = [0, 0, 0, 0];
     for (let it = 0; it < 3; it++) {
       for (const [h, rad] of BODY) {
@@ -198,7 +200,11 @@ export class Sim {
           const vn = p.vx * nx + p.vz * nz;
           if (vn > 0) { p.vx -= vn * nx; p.vz -= vn * nz; }
         }
-        if (!bumped && d > -rad + .03) bumped = [p.x + g[0] * rad, y + g[1] * rad, p.z + g[2] * rad];
+        if (!bumped && d > -rad + .002) {                      // where you touched, and which way the surface faces
+          const hl = Math.hypot(g[0], g[2]) || 1;
+          bumped = p.swim ? { at: [p.x + g[0] * rad, y + g[1] * rad, p.z + g[2] * rad], n: [-g[0], -g[1], -g[2]] }
+            : { at: [p.x + g[0] / hl * rad, p.y + 1.35, p.z + g[2] / hl * rad], n: [-g[0] / hl, 0, -g[2] / hl] };   // just under your eyes, where you'd see it
+        }
       }
       // and the loose rocks, as boxes
       for (const r of this.rocks) {
@@ -209,6 +215,7 @@ export class Sim {
         if (dist >= .3) continue;
         if (dist < 1e-4) { if (Math.abs(dx) / RH[0] > Math.abs(dz) / RH[2]) { qx = Math.sign(dx); qz = 0; } else { qx = 0; qz = Math.sign(dz); } dist = 0; }
         else { qx /= dist; qz /= dist; }
+        if (!bumped && r !== pushing && dist < .298) bumped = { at: [p.x - qx * .3, r.y + .42, p.z - qz * .3], n: [qx, 0, qz], rock: r };
         p.x += qx * (.3 - dist); p.z += qz * (.3 - dist);
         const vn = p.vx * qx + p.vz * qz;
         if (vn < 0) { p.vx -= vn * qx; p.vz -= vn * qz; }
@@ -249,7 +256,9 @@ export class Sim {
     if (p.ground || p.swim) p.stepAcc += moved;
     if (p.stepAcc > (p.swim ? 1.3 : .78)) { p.stepAcc = 0; ev.push({ type: p.swim ? 'stroke' : 'step', water: p.wade > .05, under: p.under, x: p.x, y: p.y, z: p.z }); }
     p.bumpT -= DT;
-    if (bumped && p.bumpT <= 0 && Math.hypot(tvx, tvz) > 1) { p.bumpT = .45; ev.push({ type: 'bump', at: bumped }); }
+    // a bump only when you walk into something head on, not when you brush along it
+    const want = Math.hypot(tvx, tvz);
+    if (bumped && p.bumpT <= 0 && want > 1 && -(tvx * bumped.n[0] + tvz * bumped.n[2]) / want > .55) { p.bumpT = .6; ev.push({ type: 'bump', ...bumped }); }
 
     // checkpoints: only ever forward
     for (let i = this.cp + 1; i < SECTIONS.length; i++) {

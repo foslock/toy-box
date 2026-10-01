@@ -119,7 +119,7 @@ function echoShaders(low) {
       float facing = dot(n, -v / max(d, 1e-3));
       if (facing < -.05) return vec3(0.);
       float x = R - d, w = .12;
-      float I = (exp(-x * x / (w * w)) + (x > 0. ? .3 * exp(-x / (speed * .2)) : 0.)) * (1. - smoothstep(range * .3, range, d));
+      float I = (exp(-x * x / (w * w)) + (x > 0. ? .3 * exp(-x / (speed * .2)) : 0.)) * (1. - smoothstep(range * (K.w == 2. ? .55 : .3), range, d));
       return MCOL[int(K.w)] * I * K.z * (.35 + .65 * max(facing, 0.));
     }
 

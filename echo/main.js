@@ -269,7 +269,10 @@ function events() {
       view.mini(MINI.bubble, e.x, e.y + EYE - .2, e.z, clock, { range: 1.5, speed: 3.2, gain: .7 });
       audio.bubbles(2);
     } else if (e.type === 'bump') {
-      view.mini(MINI.bump, ...e.at, clock, { range: 1.1, speed: 3.2, gain: .9 }); audio.bump();
+      // a small ring on whatever stopped you, from just in front of it so the surface faces it
+      const [x, y, z] = e.at, [nx, ny, nz] = e.n;
+      view.mini(MINI.bump, x + nx * .3, y + ny * .3, z + nz * .3, clock, { range: .85, speed: 2.4, gain: e.rock ? .45 : .3 }); audio.bump();
+      if (e.rock) { const L = view.loose[sim.rocks.indexOf(e.rock)]; if (L) L.glow = Math.max(L.glow, .5); }   // and a stuck rock's outline flickers
     } else if (e.type === 'thud') {
       view.mini(MINI.grind, e.rock.x, e.rock.y - .45, e.rock.z, clock, { range: 3.2, speed: 4, gain: 1 }); audio.thud();
     } else if (e.type === 'dive') audio.dive();

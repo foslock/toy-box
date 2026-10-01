@@ -53,4 +53,21 @@ const from = process.argv[2] !== undefined ? +process.argv[2] : 0;
   if (r.x > 88.4) fail(`a rock got pushed up the step into the long swim (${r.x.toFixed(2)})`);
   else console.log(`rock at the step: stopped at x ${r.x.toFixed(2)}`);
 }
+// Walking into a wall head on bumps (a small ripple); sliding along one doesn't; a rock that won't move bumps too.
+{
+  const bumps = (cp, setup, yaw, fx, fz, secs = 2) => {
+    const sim = new Sim(cp); setup(sim); sim.drain();
+    let n = 0, rock = 0;
+    for (let i = 0; i < HZ * secs; i++) { sim.step({ fx, fz, yaw, pitch: 0 }); for (const e of sim.drain()) if (e.type === 'bump') { n++; if (e.rock) rock++; } }
+    return { n, rock };
+  };
+  const face = (dx, dz) => Math.atan2(-dx, -dz);
+  const head = bumps(5, s => Object.assign(s.p, { x: 71.5, z: -158.2 }), face(0, 1), 0, -1);                   // the passage's side wall
+  const slide = bumps(5, s => Object.assign(s.p, { x: 71.5, z: -157.55 }), face(1, .12), 0, -1, 1.2);              // along it
+  const rock = bumps(5, s => { const r = s.rocks.find(r => r.def.id === 'plug'); r.x = 75.84; Object.assign(s.p, { x: 74, z: -158 }); }, face(1, 0), 0, -1);
+  console.log(`\nbumps: head on ${head.n}, sliding ${slide.n}, stuck rock ${rock.n} (${rock.rock} on the rock)`);
+  if (head.n < 2) fail('walking into a wall should bump');
+  if (slide.n > 0) fail('sliding along a wall should not bump');
+  if (rock.rock < 2) fail('pushing a rock that won\'t move should bump on the rock');
+}
 console.log(bad ? `\n${bad} problems` : '\nall ok');
