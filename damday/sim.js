@@ -29,7 +29,7 @@ export class Game {
 
   /* ---------------------------------------------------------------- the loop */
   startLoop() {
-    this.t = 0; this.flags = new Map(); this.items = new Set(); this.ff = 0; this.talk = null; this.over = null; this.ended = false; this.lastObs = 0; this.chime = 0;
+    this.t = 0; this.flags = new Map(); this.items = new Set(); this.ff = 0; this.ffSpeed = 8; this.talk = null; this.over = null; this.ended = false; this.lastObs = 0; this.chime = 0;
     this.groans = 0; this.broke = false; this.nextBell = 0;
     this.player = new Walker(PLAYER_START.map, PLAYER_START.x, PLAYER_START.y, 'down'); this.player.dur = PLAYER_STEP;
     this.player.path = null; this.player.want = null; this.player.target = null; this.player.caught = false; this.wake = WAKE;
@@ -63,11 +63,11 @@ export class Game {
   tick(dt) {
     if (this.ended) return;
     if (this.talk) return;
-    if (this.ff > 0) { const step = Math.min(this.ff, dt * 8); this.ff -= step; this.ffRun = true; this.run(step); this.ffRun = false; return; }
+    if (this.ff > 0) { const step = Math.min(this.ff, dt * this.ffSpeed); this.ff -= step; this.ffRun = true; this.run(step); this.ffRun = false; return; }
     this.run(dt);
   }
   run(dt) {
-    while (dt > 1e-9 && !this.ended) { const h = Math.min(dt, 0.05); this.step(h); dt -= h; }
+    while (dt > 1e-9 && !this.ended) { const h = Math.min(dt, 0.04); this.step(h); dt -= h; }
   }
   step(dt) {
     this.t += dt;
@@ -127,6 +127,7 @@ export class Game {
   }
   stepNpc(n, dt) {
     if (n.caught) return;
+    if (this.ffRun) { const tr = n.trail || (n.trail = []); tr.push({ m: n.map, x: n.rx, y: n.ry }); if (tr.length > 10) tr.shift(); } else if (n.trail && n.trail.length) n.trail.length = 0;
     if (n.advance(dt)) this.arrive(n);
     const want = n.def.goal(this);
     if (want !== n.goal) { n.goal = want; const a = ANCHORS[want]; n.path = findPath(n, a) || []; n.goalWait = 0; }
@@ -177,17 +178,17 @@ export class Game {
   }
 
   /* ---------------------------------------------------------------- walking by command */
-  setWant(dir) { this.player.want = dir; if (dir) { this.player.path = null; this.player.target = null; this.player.queued = dir; } }
-  walkTo(map, x, y) { const r = findPath(this.player, { map, x, y }); this.player.target = null; this.player.path = r && r.length ? r : null; return !!r; }
-  goTo(target) { this.player.path = null; this.player.target = target; }
+  setWant(dir) { if (this.ff > 0) return; this.player.want = dir; if (dir) { this.player.path = null; this.player.target = null; this.player.queued = dir; } }
+  walkTo(map, x, y) { if (this.ff > 0) return false; const r = findPath(this.player, { map, x, y }); this.player.target = null; this.player.path = r && r.length ? r : null; return !!r; }
+  goTo(target) { if (this.ff > 0) return; this.player.path = null; this.player.target = target; }
   get walking() { return !!(this.player.path || this.player.target || this.player.moving || this.wake > 0); }
 
   /* ---------------------------------------------------------------- talking */
   interact(target) {
-    if (this.talk || this.ended || this.wake > 0 || this.player.caught) return null;
+    if (this.talk || this.ended || this.wake > 0 || this.player.caught || this.ff > 0) return null;
     const near = target ? [target] : this.nearby(); if (!near.length) return null;
     const c = near[0];
-    this.player.path = null; this.player.target = null; this.player.want = null; this.player.queued = null;
+    this.player.want = null; this.settlePlayer();
     if (c.kind === 'npc') {
       const n = this.npcs.find(x => x.id === c.id);
       const dx = n.x - this.player.x, dy = n.y - this.player.y; if (dx || dy) this.player.dir = dirOf(dx, dy);
@@ -203,6 +204,8 @@ export class Game {
     this.emit('talk', this.talk);
     return this.talk;
   }
+  // stand still on a tile: finish any step in progress, and forget the route and the keys that were pending
+  settlePlayer() { const p = this.player; if (p.p < 1) { p.p = 1; this.arrive(p); } p.path = null; p.target = null; p.queued = null; }
   setScene(sc) { const t = this.talk; t.pages = sc?.say?.length ? sc.say : ['…']; t.ask = sc?.ask || []; t.page = 0; }
   choose(topic) {
     const t = this.talk; if (!t || t.kind !== 'npc') return;
@@ -212,7 +215,7 @@ export class Game {
   advance() { const t = this.talk; if (!t) return false; if (t.page < t.pages.length - 1) { t.page++; return true; } return false; }
   leave() {
     const t = this.talk; if (!t) return 0;
-    this.talk = null; this.ff = t.cost; this.emit('leave', t.cost); return t.cost;
+    this.talk = null; this.settlePlayer(); this.ff = t.cost; this.ffSpeed = Math.max(8, t.cost / 1.5); this.ffCost = t.cost; this.emit('leave', t.cost); return t.cost;
   }
 
   /* ---------------------------------------------------------------- the end of a loop */

@@ -44,9 +44,10 @@ export class View {
   }
 
   /* ------------------------------------------------------------------------------------------------------------ frame */
-  draw(g, now, dt = 1 / 60) {
+  // alpha < 1 lays this picture over the last one, so several draws within one frame average into a motion blur
+  draw(g, now, dt = 1 / 60, alpha = 1) {
     const x = this.x, p = g.player, area = MAPS[p.map], t = g.t; this.setScale(area); const S = this.S;
-    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha;
     x.fillStyle = area.interior ? '#ecdcc4' : '#a8d8f0'; x.fillRect(0, 0, this.cv.width, this.cv.height);
     // camera: on the player, held inside the map; a room smaller than the screen sits in the middle
     const pw = area.w * T, ph = area.h * T;
@@ -79,10 +80,35 @@ export class View {
     // the light of the day: warm at first, then something cold in the air
     x.setTransform(1, 0, 0, 1, 0, 0);
     const warm = t < 190 ? 0.05 : 0, cold = clamp((t - 190) / 35, 0, 1) * 0.2;
-    if (g.ff > 0) { x.fillStyle = 'rgba(185,168,234,.14)'; x.fillRect(0, 0, this.cv.width, this.cv.height); }
     if (warm) { x.fillStyle = 'rgba(255,238,170,' + warm + ')'; x.fillRect(0, 0, this.cv.width, this.cv.height); }
     if (cold > 0) { x.fillStyle = 'rgba(96,110,160,' + cold + ')'; x.fillRect(0, 0, this.cv.width, this.cv.height); }
     if (this.fade > 0) { x.fillStyle = 'rgba(255,252,240,' + this.fade + ')'; x.fillRect(0, 0, this.cv.width, this.cv.height); }
+    x.globalAlpha = 1;
+    this.lapse = g.ff > 0 && !g.ended;
+    if (this.lapse) this.warp(g, now);
+  }
+  // Time catching up: the picture ripples like heat over water, and pale streaks rush out from the player, but
+  // everything stays plainly visible. It swells in at the start and settles out at the end.
+  warp(g, now) {
+    const cv = this.cv, W = cv.width, H = cv.height, S = this.S, x = this.x, f = 1 - g.ff / Math.max(0.01, g.ffCost || 1);
+    const env = Math.max(0, Math.min(1, f / 0.1, (1 - f) / 0.1)) * Math.min(1, (g.ffCost || 0) / 8);
+    if (env <= 0.01) return;
+    if (!this.buf || this.buf.width !== W || this.buf.height !== H) { this.buf = document.createElement('canvas'); this.buf.width = W; this.buf.height = H; this.bx = this.buf.getContext('2d'); }
+    this.bx.setTransform(1, 0, 0, 1, 0, 0); this.bx.drawImage(cv, 0, 0);
+    x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1;
+    const h = Math.max(3, Math.round(S * 1.5)), amp = env * S * 1.3, cy = H / 2;
+    for (let y = 0; y < H; y += h) {
+      const k = Math.abs(y - cy) / cy, dx = Math.round(Math.sin(y / (S * 3.2) + now * 11) * amp * (0.45 + 0.9 * k) + Math.sin(y / (S * 9) - now * 5) * amp * 0.6);
+      x.drawImage(this.buf, 0, y, W, h, dx, y, W, h);
+    }
+    // streaks rushing outward from where you stand
+    const p = g.player, px = (p.rx + 0.5) * T - this.cam.x, py = (p.ry + 0.5) * T - this.cam.y, cx0 = px * S, cy0 = py * S, R = Math.hypot(W, H) * 0.6;
+    x.lineCap = 'round';
+    for (let i = 0; i < 34; i++) {
+      const a = hash(i, 3, 91) * Math.PI * 2, sp = 0.5 + hash(i, 4, 92), u = (now * sp * 0.8 + hash(i, 5, 93)) % 1, r0 = (0.18 + u * 0.8) * R, len = (0.05 + 0.12 * hash(i, 6, 94)) * R * (0.4 + u);
+      x.strokeStyle = (i % 3 ? 'rgba(255,255,255,' : 'rgba(205,190,255,') + (env * 0.45 * Math.sin(u * Math.PI)) + ')'; x.lineWidth = Math.max(1, S * (0.5 + hash(i, 7, 95)));
+      x.beginPath(); x.moveTo(cx0 + Math.cos(a) * r0, cy0 + Math.sin(a) * r0); x.lineTo(cx0 + Math.cos(a) * (r0 + len), cy0 + Math.sin(a) * (r0 + len)); x.stroke();
+    }
   }
   shake(g) {
     const t = g.t; let s = 0;
@@ -126,6 +152,11 @@ export class View {
   drawRails(x, g, now) {
     if (g.player.map !== 'town') return;
     const t = Math.max(0, g.t - 1.5); if (t > 26) return;
+    // while time catches up, the train smears along its track
+    if (this.lapse) for (let k = 5; k >= 1; k--) { const tt = t - k * 0.22; if (tt < 0) continue; x.globalAlpha = 0.05 + 0.07 * (5 - k); this.trainAt(x, tt, false); }
+    x.globalAlpha = 1; this.trainAt(x, t, true);
+  }
+  trainAt(x, t, smoke) {
     const tx = 9 + t * t * 0.18, y = 40 * T - 2;
     const cars = [['#f2a3b4', '#f8c8d2'], ['#9ad0c0', '#bde8d8'], ['#f8d584', '#fbe6ae'], ['#b8a7e6', '#d6c9f4']];
     // the engine, facing east, then three carriages: the 7:56 you came in on, pulling away
@@ -140,7 +171,7 @@ export class View {
       for (let w = 0; w < 4; w++) { x.fillStyle = '#fffaf0'; x.fillRect(cx + 5 + w * 13, y + 2, 9, 7); x.fillStyle = '#bfe6f6'; x.fillRect(cx + 6 + w * 13, y + 3, 7, 5); }
       x.fillStyle = '#6c5a78'; x.fillRect(cx + 6, y + 16, 8, 6); x.fillRect(cx + 42, y + 16, 8, 6);
     }
-    for (let i = 0; i < 5; i++) { const k = (t * 2 + i * .3) % 1.5; x.fillStyle = 'rgba(255,255,255,' + (0.8 - k / 1.8) + ')'; const r = 3 + k * 5; x.beginPath(); x.arc(tx * T + 8 - k * 14 - i * 4, y - 10 - k * 24, r, 0, 7); x.fill(); }
+    if (smoke) for (let i = 0; i < 5; i++) { const k = (t * 2 + i * .3) % 1.5; x.fillStyle = 'rgba(255,255,255,' + (0.8 - k / 1.8) + ')'; const rr = 3 + k * 5; x.beginPath(); x.arc(tx * T + 8 - k * 14 - i * 4, y - 10 - k * 24, rr, 0, 7); x.fill(); }
   }
 
   /* ------------------------------------------------------------------------------------------------------------ things */
@@ -237,6 +268,12 @@ export class View {
     if (n.act === 'sleep') by = 0;
     if (n.act === 'speak') by = Math.sin(now * 5) > .6 ? -1 : 0;
     if (n.act === 'drill') by = Math.sin(now * 12) > 0 ? -1 : 0;
+    // while time catches up, anyone on the move leaves a soft trail behind them, and stays plainly visible on top of it
+    if (this.lapse && n.trail && n.trail.length > 1) {
+      const k = n.trail.length;
+      for (let i = 0; i < k - 1; i++) { const s = n.trail[i]; if (s.m !== n.map || Math.hypot(s.x - n.rx, s.y - n.ry) < 0.06) continue; x.globalAlpha = 0.06 + 0.3 * (i / k); x.drawImage(sp, Math.round(s.x * T - 2), Math.round(s.y * T + T - 19) - OY); }
+      x.globalAlpha = 1;
+    }
     x.drawImage(sp, px, py + by - OY + (cat && n.act === 'cat' && !moving ? 1 : 0));
     this.drawAct(x, n, px, py, now, g);
   }

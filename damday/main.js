@@ -226,16 +226,17 @@ addEventListener('keyup', e => { const d = DIRK[e.key]; if (d) { const i = held.
 addEventListener('blur', () => { held.length = 0; applyHeld(); });
 
 // the pad
-const pad = $('pad'), nub = pad.querySelector('.nub'); let padOn = false;
+const pad = $('pad'), nub = pad.querySelector('.nub'); let padOn = false, padDirNow = null;
 function padMove(e) {
   const r = pad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
   nub.style.transform = `translate(${clamp(dx, -42, 42)}px,${clamp(dy, -42, 42)}px)`;
+  padDirNow = Math.hypot(dx, dy) < 16 ? null : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
   if (modal()) return g.setWant(null);
-  g.setWant(Math.hypot(dx, dy) < 16 ? null : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  g.setWant(padDirNow);
 }
 pad.addEventListener('pointerdown', e => { snd.init(); padOn = true; pad.setPointerCapture(e.pointerId); padMove(e); e.preventDefault(); });
 pad.addEventListener('pointermove', e => { if (padOn) padMove(e); });
-for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) pad.addEventListener(ev, () => { padOn = false; nub.style.transform = ''; g.setWant(null); });
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) pad.addEventListener(ev, () => { padOn = false; padDirNow = null; nub.style.transform = ''; g.setWant(null); });
 $('abtn').addEventListener('pointerdown', e => { e.preventDefault(); snd.init(); $('abtn').classList.add('on'); if (g.talk) talkNext(); else if (!g.ended) g.interact(); });
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('abtn').addEventListener(ev, () => $('abtn').classList.remove('on'));
 
@@ -277,15 +278,17 @@ function handle(ev) {
 /* ----------------------------------------------------------------------------------------------------- the clock on the wall */
 let last = performance.now(), lastCell = '';
 function frame(nowMs) {
-  const dt = Math.min(0.1, (nowMs - last) / 1000); last = nowMs; advance(dt, nowMs / 1000); requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (nowMs - last) / 1000); last = nowMs; if (!window.__hold) advance(dt, nowMs / 1000); requestAnimationFrame(frame);
 }
+let wasCatchingUp = false;
 function advance(dt, now) {
-  if (!modal() && !g.ended) g.tick(dt);
-  else if (g.ended) endSequence(dt);
+  if (!modal() && !g.ended) g.tick(dt); else if (g.ended) endSequence(dt);
   for (const ev of g.drain()) handle(ev);
   const p = g.player, cell = p.map + p.x + ',' + p.y; if (cell !== lastCell) { lastCell = cell; if (!g.ended && g.t > 0.5) snd.step(); }
   typeTick(dt);
   if (fadingIn > 0) { fadingIn = Math.max(0, fadingIn - dt / 1.1); view.fade = fadingIn; }
+  // keys or the pad still held when time has caught up take effect again; nothing counts while it's catching up
+  const catchingUp = g.ff > 0; if (wasCatchingUp && !catchingUp) { applyHeld(); if (padOn) g.setWant(padDirNow); } wasCatchingUp = catchingUp;
   snd.ambient(g.t, g.t < 190 && !g.ended);
   snd.musicUpdate(g.t, !g.ended && g.wake <= 0 && !DEMO);
   view.draw(g, now, dt); hud();
