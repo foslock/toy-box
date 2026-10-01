@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Dam Day</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Pixelify Sans's 5 reads as an S, so numbers borrow their digits from Jersey 10 */
+  @font-face { font-family: Digits; src: url(https://fonts.gstatic.com/s/jersey10/v4/GftH7vZKsggXMf9n_J5n_5jh6V89Sg.woff2) format('woff2'); font-display: swap; size-adjust: 125%; unicode-range: U+0030-0039; }
+  :root {
+    --paper: #fff5df; --paper2: #f8e8c8; --paper3: #efd9b0; --ink: #5a4a6e; --ink2: #8a7aa0; --edge: #8c735f;
+    --peach: #f6ad94; --lav: #b9a8ea; --lav2: #7a6ac0; --mint: #9ad8bd; --sky: #a9d4f5; --butter: #f8d98a; --rose: #f2a3b4; --warn: #e0606a;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: #a8d8f0; color: var(--ink); font: 500 16px/1.4 Digits, 'Pixelify Sans', ui-monospace, monospace; overflow: hidden; -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; outline: none; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; }
+  button:focus-visible { outline: 2px solid var(--lav2); outline-offset: 2px; }
+
+  /* paper and plaques */
+  .paper { background: var(--paper); border: 3px solid var(--edge); box-shadow: inset 0 0 0 2px var(--paper3), 0 4px 0 rgba(90, 70, 110, .25), 0 12px 28px -12px rgba(60, 40, 90, .55); border-radius: 6px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border: 3px solid var(--edge); background: var(--paper2); color: var(--ink); border-radius: 6px; cursor: pointer;
+    box-shadow: inset 0 -3px 0 rgba(140, 115, 95, .22), 0 2px 0 rgba(90, 70, 110, .25); font-weight: 600; letter-spacing: .02em; }
+  .btn:hover { background: #fff0cf; } .btn:active { transform: translateY(1px); box-shadow: inset 0 -1px 0 rgba(140, 115, 95, .22); }
+  .btn.go { background: var(--peach); border-color: #b8654f; color: #5c2a1e; } .btn.go:hover { background: #f8bba5; }
+  .btn.mint { background: var(--mint); border-color: #5b9a7f; color: #1f4a3a; }
+  .btn.quiet { background: transparent; border-color: var(--paper3); box-shadow: none; color: var(--ink2); }
+
+  /* the corner: a clock, the loop, what you carry */
+  #name { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 60px; pointer-events: none; z-index: 5; text-shadow: 0 2px 0 rgba(255, 255, 255, .7); }
+  #name b { display: block; font-size: 22px; line-height: 22px; color: #5a4a6e; letter-spacing: .02em; }
+  #name span { display: block; font-size: 13px; color: #7a6a94; }
+  #corner { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 6; }
+  #plaque { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; pointer-events: none; }
+  #plaque canvas { width: 44px; height: 44px; image-rendering: pixelated; flex: none; }
+  #digits { font-size: 28px; line-height: 28px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  #sub { font-size: 12px; color: var(--ink2); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+  #level { width: 100%; height: 6px; background: #d7ecf7; border: 1px solid var(--edge); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+  #level i { display: block; height: 100%; width: 0; background: linear-gradient(#8fd6ea, #6fc0dd); }
+  #plaque.alarm { animation: alarm .9s infinite; } #plaque.alarm #digits { color: var(--warn); }
+  @keyframes alarm { 50% { box-shadow: inset 0 0 0 2px var(--paper3), 0 0 0 4px rgba(224, 96, 106, .45), 0 12px 28px -12px rgba(60, 40, 90, .55); } }
+  #bag { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; pointer-events: none; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; font-size: 14px; background: var(--paper); border: 2px solid var(--edge); border-radius: 14px; box-shadow: 0 2px 0 rgba(90, 70, 110, .25); animation: pop .35s; }
+  .chip i { width: 12px; height: 12px; border-radius: 3px; border: 2px solid rgba(0, 0, 0, .15); }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } }
+  #tools { display: flex; gap: 8px; }
+  #tools .btn { min-height: 40px; padding: 0 12px; position: relative; }
+  #tools .btn svg { width: 20px; height: 20px; }
+  #tools .dot { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: var(--warn); border: 2px solid var(--paper); animation: pop .4s; }
+
+  /* toasts: what the notebook just learned */
+  #toasts { position: fixed; top: max(70px, calc(env(safe-area-inset-top) + 56px)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; z-index: 7; pointer-events: none; width: min(560px, calc(100% - 24px)); }
+  .toast { padding: 7px 12px; font-size: 14px; line-height: 1.3; background: #fffbe8; border: 2px solid var(--lav2); border-radius: 6px; box-shadow: 0 3px 0 rgba(90, 70, 110, .25); animation: tin .3s, tout .5s 3.6s forwards; max-width: 100%; }
+  .toast b { color: var(--lav2); margin-right: 4px; }
+  @keyframes tin { from { transform: translateY(-10px); opacity: 0; } } @keyframes tout { to { opacity: 0; transform: translateY(-6px); } }
+
+  /* talking */
+  #talk { position: fixed; z-index: 20; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(720px, calc(100% - 20px)); box-sizing: border-box; padding: 14px 16px 12px; max-height: 62vh; display: flex; flex-direction: column; touch-action: pan-y; }
+  #talk .who { position: absolute; top: -17px; left: 16px; padding: 2px 12px 3px; background: var(--lav); border: 3px solid var(--edge); border-radius: 6px; font-weight: 700; font-size: 15px; color: #3d2f66; box-shadow: 0 2px 0 rgba(90, 70, 110, .25); }
+  #talk .who:empty { display: none; }
+  #said { font-size: 18px; line-height: 1.4; min-height: 52px; white-space: pre-wrap; overflow-y: auto; padding-top: 4px; }
+  #said em { color: var(--ink2); font-style: normal; }
+  #more { position: absolute; right: 16px; bottom: 10px; color: var(--lav2); animation: bob .8s infinite; font-size: 16px; }
+  @keyframes bob { 50% { transform: translateY(3px); } }
+  #asks { display: grid; gap: 7px; margin-top: 10px; overflow-y: auto; }
+  #asks .btn { justify-content: flex-start; text-align: left; min-height: 42px; padding: 6px 12px; font-weight: 500; font-size: 16px; line-height: 1.25; }
+  #asks .btn small { margin-left: auto; padding-left: 10px; color: var(--ink2); font-size: 12px; white-space: nowrap; }
+  #asks .btn.say { background: #fff; border-color: var(--lav2); }
+  #asks .bye { justify-content: center; }
+  #tcost { font-size: 12px; color: var(--ink2); margin-top: 6px; text-align: left; padding-right: 28px; }
+
+  /* touch controls */
+  #pad { position: fixed; left: max(14px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); width: 138px; height: 138px; z-index: 8; touch-action: none; display: none; }
+  #pad .ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(255, 245, 223, .55); border: 3px solid rgba(140, 115, 95, .55); box-shadow: 0 4px 0 rgba(90, 70, 110, .2); }
+  #pad .nub { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(185, 168, 234, .9); border: 3px solid var(--edge); transition: transform .05s; }
+  #pad svg { position: absolute; width: 20px; height: 20px; fill: rgba(90, 74, 110, .7); }
+  #abtn { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(28px, env(safe-area-inset-bottom)); width: 84px; height: 84px; border-radius: 50%; z-index: 8; display: none; place-items: center; font-weight: 700; font-size: 30px; border: 3px solid #b8654f; background: var(--peach); color: #5c2a1e; box-shadow: 0 5px 0 rgba(120, 60, 50, .35); touch-action: none; }
+  #abtn:active, #abtn.on { transform: translateY(3px); box-shadow: 0 2px 0 rgba(120, 60, 50, .35); }
+  #abtn.ready { animation: ready 1s infinite; }
+  @keyframes ready { 50% { box-shadow: 0 5px 0 rgba(120, 60, 50, .35), 0 0 0 8px rgba(246, 173, 148, .5); } }
+  body.touch #pad { display: block; } body.touch #abtn { display: grid; }
+  body.talking #pad, body.talking #abtn, body.talking #hints { display: none !important; }
+  #hints { position: fixed; left: 14px; bottom: 12px; font-size: 13px; color: #4f4468; background: rgba(255, 245, 223, .8); padding: 4px 9px; border-radius: 5px; z-index: 4; pointer-events: none; transition: opacity 1s; }
+  body.touch #hints { display: none; }
+
+  /* notebook */
+  #nb { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(90, 74, 110, .45); padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); touch-action: pan-y; }
+  #book { width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; background: var(--paper); }
+  #tabs { display: flex; gap: 6px; padding: 10px 10px 0 12px; align-items: center; }
+  #tabs .tab { padding: 6px 14px 8px; background: var(--paper3); border: 3px solid var(--edge); border-bottom: 0; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; color: var(--ink2); position: relative; top: 3px; }
+  #tabs .tab.on { background: var(--paper); color: var(--ink); z-index: 1; }
+  #tabs .x { margin-left: auto; min-height: 36px; }
+  #pages { flex: 1; overflow-y: auto; padding: 14px 14px 18px; border-top: 3px solid var(--edge); background: var(--paper); -webkit-overflow-scrolling: touch; touch-action: pan-y; user-select: text; -webkit-user-select: text; }
+  .count { color: var(--ink2); font-size: 13px; margin: 0 0 10px; }
+  .nudge { margin: 0 0 12px; padding: 8px 12px; background: #f1ecff; border: 2px dashed var(--lav2); border-radius: 6px; font-size: 15px; }
+  .thread { margin: 0 0 12px; padding: 10px 12px 11px; border: 2px solid var(--paper3); border-left: 8px solid var(--lav); background: #fffaf0; border-radius: 4px; }
+  .thread.solved { border-left-color: var(--mint); }
+  .thread h3 { margin: 0; font-size: 18px; line-height: 1.25; display: flex; gap: 8px; align-items: baseline; }
+  .thread h3 em { font-style: normal; font-size: 12px; padding: 1px 7px; border-radius: 9px; background: #efe8ff; color: var(--lav2); white-space: nowrap; margin-left: auto; }
+  .thread.solved h3 em { background: #dbf2e6; color: #2f7a58; }
+  .thread .bl { margin: 2px 0 6px; font-size: 13px; color: var(--ink2); }
+  .thread ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+  .thread li { padding-left: 14px; position: relative; font-size: 15px; line-height: 1.35; }
+  .thread li::before { content: ''; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px; background: var(--peach); border-radius: 2px; }
+  .thread li.new::before { background: var(--warn); }
+  .thread .lead { margin-top: 6px; padding-left: 14px; font-size: 14px; color: var(--lav2); }
+  .person { margin: 0 0 12px; padding: 10px 12px; border: 2px solid var(--paper3); background: #fffaf0; border-radius: 4px; }
+  .person h3 { margin: 0; font-size: 18px; } .person p { margin: 0 0 6px; font-size: 14px; color: var(--ink2); }
+  .grid { overflow-x: auto; margin: 0 -4px; padding-bottom: 4px; }
+  .grid table { border-collapse: separate; border-spacing: 2px; width: 100%; min-width: 560px; font-size: 12px; }
+  .grid th { font-weight: 500; color: var(--ink2); padding: 0 0 2px; text-align: center; white-space: nowrap; font-size: 11px; }
+  .grid td { text-align: center; padding: 3px 2px; background: #f3ead6; border-radius: 3px; height: 20px; color: var(--ink); white-space: nowrap; font-size: 11px; }
+  .grid td.has { background: #e4dcff; } .grid td.hill { background: #d6f0df; } .grid td.hot { background: #ffe0d6; }
+  .logrow { display: flex; gap: 10px; padding: 8px 10px; margin: 0 0 6px; border: 2px solid var(--paper3); border-radius: 4px; background: #fffaf0; align-items: baseline; flex-wrap: wrap; }
+  .logrow b { min-width: 64px; } .logrow span { color: var(--ink2); font-size: 14px; } .logrow.win { border-color: var(--mint); background: #effaf3; }
+  .foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* cards: the end of a loop, the start of one, the end of it all */
+  #card { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 14px; background: rgba(255, 249, 232, .86); touch-action: pan-y; }
+  #cbox { width: min(560px, 100%); max-height: 100%; overflow-y: auto; padding: 22px 22px 20px; box-sizing: border-box; text-align: center; }
+  #cbox h2 { margin: 0 0 4px; font-size: 28px; line-height: 1.15; } #cbox .sub { margin: 0 0 14px; color: var(--ink2); }
+  #cbox p { margin: 0 0 12px; font-size: 17px; line-height: 1.45; text-align: left; } #cbox .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+  #cbox .who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 14px; }
+  #cbox .who span { padding: 2px 10px 3px; border-radius: 12px; font-size: 14px; border: 2px solid var(--paper3); background: #fffaf0; }
+  #cbox .who span.ok { background: #d6f0df; border-color: #8fcfa8; color: #24603f; } #cbox .who span.no { background: #fde2dc; border-color: #eba597; color: #7c3a2c; text-decoration: none; }
+  #cbox .ticket { display: inline-block; margin: 0 0 12px; padding: 10px 16px; border: 3px dashed var(--edge); background: #fff0cf; transform: rotate(-1.5deg); font-size: 15px; line-height: 1.5; }
+  #cbox .ticket b { color: #b8654f; }
+
+  @media (max-width: 520px) {
+    #digits { font-size: 24px; line-height: 24px; } #plaque canvas { width: 36px; height: 36px; }
+    #name b { font-size: 18px; line-height: 18px; } #said { font-size: 17px; }
+    #talk { padding: 12px 12px 10px; } #asks .btn { font-size: 15px; }
+    #cbox { padding: 18px 16px; } #cbox h2 { font-size: 23px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .toast, .chip, #more, #abtn.ready, #plaque.alarm { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="The town of Wickerby, seen from above"></canvas>
+
+<div id="name"><b>Dam Day</b><span id="loopn">Loop 1</span></div>
+<div id="corner">
+  <div id="plaque" class="paper"><canvas id="face" width="22" height="22"></canvas>
+    <div><div id="digits">7:56:00</div><div id="sub"><span>your watch</span></div><div id="level"><i></i></div></div></div>
+  <div id="bag" aria-live="polite"></div>
+  <div id="tools">
+    <button class="btn" id="bnote" aria-label="Notebook (N)" title="Notebook (N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/></svg><span class="lbl">Notebook</span><i class="dot" hidden></i></button>
+    <button class="btn" id="bsnd" aria-label="Sound (M)" title="Sound (M)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path id="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></button>
+  </div>
+</div>
+<div id="toasts"></div>
+<div id="hints">Arrows / WASD to walk · Space to talk · click to walk there · N notebook</div>
+<div id="pad"><div class="ring"></div><svg viewBox="0 0 24 24" style="left:59px;top:10px"><path d="M12 4l8 11H4z"/></svg><svg viewBox="0 0 24 24" style="left:59px;bottom:10px"><path d="M12 20L4 9h16z"/></svg><svg viewBox="0 0 24 24" style="left:10px;top:59px"><path d="M4 12l11-8v16z"/></svg><svg viewBox="0 0 24 24" style="right:10px;top:59px"><path d="M20 12L9 4v16z"/></svg><div class="nub"></div></div>
+<button id="abtn" aria-label="Talk or read">A</button>
+
+<div id="talk" class="paper" hidden><div class="who" id="twho"></div><div id="said"></div><span id="more">▼</span><div id="asks"></div><div id="tcost"></div></div>
+<div id="nb" hidden><div id="book" class="paper"><div id="tabs"><button class="tab on" data-t="rumors">Rumors</button><button class="tab" data-t="people">People</button><button class="tab" data-t="log">Log</button><button class="btn x" id="nbx">Close</button></div><div id="pages"></div></div></div>
+<div id="card" hidden><div id="cbox" class="paper"></div></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
