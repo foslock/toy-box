@@ -100,7 +100,7 @@ export class Game {
     if (p.caught) return;
     if (p.advance(dt)) this.arrive(p);
     if (p.moving || this.ffRun) return;      // while time is passing under a conversation, you stand still
-    let dir = p.want;
+    let dir = p.want || p.queued; p.queued = null;     // a quick tap that was over before this tick still counts as one step
     if (!dir && p.path) {
       // follow the tapped route, one tile at a time; stop when it's done or the way is shut
       const n = p.path[0];
@@ -177,7 +177,7 @@ export class Game {
   }
 
   /* ---------------------------------------------------------------- walking by command */
-  setWant(dir) { this.player.want = dir; if (dir) { this.player.path = null; this.player.target = null; } }
+  setWant(dir) { this.player.want = dir; if (dir) { this.player.path = null; this.player.target = null; this.player.queued = dir; } }
   walkTo(map, x, y) { const r = findPath(this.player, { map, x, y }); this.player.target = null; this.player.path = r && r.length ? r : null; return !!r; }
   goTo(target) { this.player.path = null; this.player.target = target; }
   get walking() { return !!(this.player.path || this.player.target || this.player.moving || this.wake > 0); }
@@ -187,7 +187,7 @@ export class Game {
     if (this.talk || this.ended || this.wake > 0 || this.player.caught) return null;
     const near = target ? [target] : this.nearby(); if (!near.length) return null;
     const c = near[0];
-    this.player.path = null; this.player.target = null; this.player.want = null;
+    this.player.path = null; this.player.target = null; this.player.want = null; this.player.queued = null;
     if (c.kind === 'npc') {
       const n = this.npcs.find(x => x.id === c.id);
       const dx = n.x - this.player.x, dy = n.y - this.player.y; if (dx || dy) this.player.dir = dirOf(dx, dy);
