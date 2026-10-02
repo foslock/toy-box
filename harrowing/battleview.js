@@ -622,7 +622,8 @@ export class BattleView {
     const W = innerWidth;
     let left = clamp(x - r.width / 2, 8, W - r.width - 8), top = where === 'above' ? y - r.height : y;
     if (where === 'right') { left = x + r.width < W - 8 ? x : altX - r.width; top = y; }
-    top = clamp(top, 56, innerHeight - r.height - 8);
+    const bar = document.getElementById('top'), barB = bar && !bar.hidden ? bar.getBoundingClientRect().bottom + 8 : 56;
+    top = clamp(top, barB, innerHeight - r.height - 8);
     t.style.transform = `translate(${left}px, ${top}px)`;
   }
   hideTip() { this.tip.hidden = true; }

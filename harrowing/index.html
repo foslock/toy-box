@@ -14,6 +14,7 @@
   :root { --paper: #0d0a0b; --paper2: #1a1312; --bone: #f1e7d0; --ink: var(--bone); --ink2: rgba(241, 231, 208, .74); --ink3: rgba(241, 231, 208, .46);
     --gilt: #caa45c; --gilt2: #ead08e; --rule: rgba(202, 164, 92, .55); --rule2: rgba(202, 164, 92, .22); --ember: #e2643c; --blood: #a02a1c; --sky: #a8cde6; --gold: var(--gilt2);
     --T: "IM Fell English SC", "IM Fell English", Georgia, serif; --I: "IM Fell English", Georgia, serif; --B: "Alegreya Sans", "Gill Sans", system-ui, sans-serif;
+    --bar: calc(max(15px, env(safe-area-inset-top)) + 43px);
     --placard: var(--paper); --frame: inset 0 0 0 1px var(--rule), inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--rule2); }
   html, body { height: 100%; margin: 0; }
   body { background: #07050a; color: var(--ink); font: 500 16px/1.35 var(--B); overflow: hidden; -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
@@ -27,7 +28,8 @@
   #flashScreen.ice { background: rgba(220, 240, 255, .55); opacity: 1; transition: none; }
 
   /* ---------- top bar: a strip of black paper with a gilt rule ---------- */
-  #top { position: fixed; top: 0; left: 0; right: 0; height: 50px; padding: max(0px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 0 60px; display: flex; align-items: center; gap: 6px; z-index: 20; pointer-events: none;
+  /* its contents share a centre line with the Toy Box's home button (34px, 15px down or below the notch) */
+  #top { position: fixed; top: 0; left: 0; right: 0; height: 34px; padding: max(15px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 9px 60px; display: flex; align-items: center; gap: 6px; z-index: 20; pointer-events: none;
     background: var(--paper); box-shadow: 0 1px 0 var(--rule), 0 4px 0 var(--paper), 0 5px 0 var(--rule2), 0 10px 24px rgba(0, 0, 0, .45); }
   #top > * { pointer-events: auto; }
   .tb-title { font: 400 21px/1 var(--T); letter-spacing: .1em; color: var(--gilt2); margin-right: 8px; white-space: nowrap; }
@@ -104,7 +106,7 @@
   #endTurn:disabled { background: var(--paper2); color: var(--ink3); box-shadow: inset 0 0 0 1px var(--rule2), 0 0 0 1px var(--paper); cursor: default; }
   #endTurn.ready { animation: breathe 2.4s ease-in-out infinite; }
   @keyframes breathe { 50% { box-shadow: inset 0 0 0 1px var(--paper), inset 0 0 0 3px var(--bone), inset 0 0 0 4px rgba(13, 10, 11, .45), 0 0 0 1px var(--gilt2), 0 0 28px 4px rgba(234, 208, 142, .6); } }
-  #prompt { left: 50% !important; top: 64px !important; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); padding: 11px 20px; background: var(--paper); box-shadow: var(--frame), 0 8px 30px rgba(0, 0, 0, .6); font: 600 16px/1.3 var(--B); text-align: center; }
+  #prompt { left: 50% !important; top: calc(var(--bar) + 12px) !important; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); padding: 11px 20px; background: var(--paper); box-shadow: var(--frame), 0 8px 30px rgba(0, 0, 0, .6); font: 600 16px/1.3 var(--B); text-align: center; }
   #prompt em, #tip em { font-style: normal; font-weight: 800; color: var(--gilt2); }
   #prompt b, #tip b { font-weight: 900; }
   #foreseeDone { left: 50% !important; top: auto !important; bottom: 34%; transform: translateX(-50%); height: 46px; padding: 0 30px; border: 0; cursor: pointer; pointer-events: auto; font: 400 20px/1 var(--T); color: var(--paper); background: var(--bone); box-shadow: inset 0 0 0 1px var(--paper), inset 0 0 0 3px var(--bone), inset 0 0 0 4px rgba(13, 10, 11, .45), 0 0 0 1px var(--gilt), 0 8px 24px -8px #000; }
@@ -118,7 +120,7 @@
   #reticle { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 1.5px dashed rgba(234, 208, 142, .9); opacity: 0; transition: opacity .15s; animation: spin 3s linear infinite; }
   #reticle.on { opacity: 1; }
   @keyframes spin { to { rotate: 360deg; } }
-  #round { left: auto !important; right: max(12px, env(safe-area-inset-right)); top: 60px !important; font: 400 14px/1 var(--T); letter-spacing: .12em; color: var(--ink2); text-shadow: 0 1px 4px #000; }
+  #round { left: auto !important; right: max(12px, env(safe-area-inset-right)); top: calc(var(--bar) + 10px) !important; font: 400 14px/1 var(--T); letter-spacing: .12em; color: var(--ink2); text-shadow: 0 1px 4px #000; }
   #floaters { position: fixed; inset: 0; pointer-events: none; z-index: 12; }
   .floater { position: absolute; transform: translate(-50%, -50%); font: 900 32px/1 var(--B); color: #fff; -webkit-text-stroke: 1px rgba(0, 0, 0, .55); text-shadow: 0 2px 0 #000, 0 0 12px rgba(0, 0, 0, .9); white-space: nowrap; animation: floatUp 1.4s cubic-bezier(.2, .7, .3, 1) forwards; }
   .floater.big { font-size: 48px; } .floater.small { font-size: 18px; font-family: var(--B); font-weight: 800; }
@@ -147,7 +149,7 @@
   /* ---------- screens ---------- */
   #screen { position: fixed; inset: 0; z-index: 15; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   #screen.dim { background: radial-gradient(120% 100% at 50% 30%, rgba(13, 10, 11, .84), rgba(5, 3, 4, .97)); backdrop-filter: blur(3px); }
-  .scr { min-height: 100%; box-sizing: border-box; padding: 70px 16px 30px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .scr { min-height: 100%; box-sizing: border-box; padding: calc(var(--bar) + 18px) 16px 30px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
   .scr h1 { margin: 0; font: 400 clamp(34px, 6.5vw, 58px)/1.02 var(--T); letter-spacing: .06em; color: var(--bone); text-shadow: 0 2px 0 #000, 0 0 30px rgba(0, 0, 0, .7); }
   .scr h2 { margin: 0; font: 400 clamp(24px, 3.8vw, 32px)/1.1 var(--T); color: var(--gilt2); letter-spacing: .05em; text-shadow: 0 2px 10px #000; }
   .scr h1 + .lede, .scr h2 + .lede { position: relative; padding-top: 12px; }
@@ -210,7 +212,7 @@
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font: 400 15px/1 var(--T); color: var(--ink2); }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .legend img { width: 20px; height: 20px; }
-  .x { position: fixed; top: calc(max(0px, env(safe-area-inset-top)) + 62px); right: max(10px, env(safe-area-inset-right)); z-index: 16; }
+  .x { position: fixed; top: calc(var(--bar) + 10px); right: max(10px, env(safe-area-inset-right)); z-index: 16; }
   .titlebox { margin-top: 6vh; display: flex; flex-direction: column; align-items: center; gap: 16px; }
   .inscription { font: 400 clamp(14px, 2.2vw, 18px)/1.5 var(--T); letter-spacing: .22em; color: var(--gilt); text-shadow: 0 2px 10px #000; }
   .inscription small { display: block; font: italic 400 15px/1.4 var(--I); letter-spacing: 0; color: var(--ink2); }
@@ -227,7 +229,7 @@
   .coach .tag { display: block; font: 400 13px/1 var(--T); letter-spacing: .14em; color: var(--gilt); margin-bottom: 6px; }
   .coach button { margin-top: 8px; margin-right: 8px; height: 30px; padding: 0 12px; border: 0; cursor: pointer; font: 800 13px/1 var(--B); background: transparent; box-shadow: inset 0 0 0 1px var(--rule); color: var(--bone); }
   .coach button:hover { background: var(--paper2); }
-  .menu { position: fixed; top: 58px; right: 10px; z-index: 25; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--paper); box-shadow: var(--frame), 0 10px 30px rgba(0, 0, 0, .7); }
+  .menu { position: fixed; top: calc(var(--bar) + 6px); right: 10px; z-index: 25; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--paper); box-shadow: var(--frame), 0 10px 30px rgba(0, 0, 0, .7); }
   .menu .btn { min-height: 40px; font-size: 15px; justify-content: flex-start; }
 
   /* ---------- a card, looked at closely ---------- */
