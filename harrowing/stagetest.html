@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harrowing: stage test</title>
+<style>html, body { margin: 0; height: 100%; background: #000; overflow: hidden; } canvas { display: block; width: 100%; height: 100%; }</style>
+</head>
+<body>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+import * as THREE from 'three';
+import { Stage, Figure } from './stage.js';
+import { ENEMIES } from './enemies.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+document.body.append(renderer.domElement);
+const stage = new Stage();
+stage.setCircle(+(q.get('circle') ?? 0));
+const angel = new Figure('angel', 1.15, { facing: 1 });
+const demons = (q.get('enemies') ?? 'imp,imp').split(',').map(id => new Figure(ENEMIES[id]?.look ?? id, ENEMIES[id]?.size ?? 1, { facing: -1 }));
+stage.setFigures(angel, demons); window.stage = stage;
+const size = () => { renderer.setSize(innerWidth, innerHeight); stage.resize(innerWidth, innerHeight, innerWidth / innerHeight < .9 ? [.04, .6] : [.06, .7]); };
+size(); addEventListener('resize', size);
+let last = performance.now();
+// warm the particles
+for (let i = 0; i < 120; i++) stage.update(1 / 30);
+function frame(t) { const dt = Math.max(0, Math.min(.05, (t - last) / 1000)); last = t; stage.update(dt); renderer.render(stage.scene, stage.camera); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
