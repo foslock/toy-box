@@ -1,8 +1,72 @@
-# October: a game a night
+# A game a night
 
-Thirty-one game prompts, one per night. Each is the 1–2 paragraph spec to paste in. Paste the **house rules** at the bottom after each one so an unattended overnight run finishes the job the same way every time.
+Game prompts for overnight builds. Each one is the 1–2 paragraph spec to paste in. Paste the **house rules** at the bottom after each one so an unattended run finishes the job the same way every time.
 
-Each idea borrows the core of a game you like and adds one twist. The twist is spelled out in the prompt, so the build doesn't turn into a plain clone.
+Each idea borrows the core of a game you like and adds one twist. The twist is spelled out in the prompt, so the build doesn't turn into a plain clone. Ideas 1–31 were the October batch; 32–61 came next. Tick an idea off here once it's been built.
+
+### Checklist
+
+- [ ] 1. Scales
+- [x] 2. Ten of Me — [`tenofme/`](tenofme/)
+- [ ] 3. Moonshot
+- [x] 4. Please Stay on This Page — [`staypage/`](staypage/)
+- [ ] 5. Grip
+- [ ] 6. Horde
+- [ ] 7. Lost Property
+- [ ] 8. Gumball Landlord
+- [ ] 9. Mirror Knight
+- [ ] 10. Draw Ahead
+- [ ] 11. Marco
+- [ ] 12. Spire Keeper
+- [ ] 13. Pop-Up
+- [ ] 14. Hedges
+- [ ] 15. Lantern
+- [ ] 16. Pile-Up
+- [ ] 17. Glyphs
+- [ ] 18. Needle
+- [ ] 19. Ladder
+- [ ] 20. Chat Dungeon
+- [ ] 21. Moving Day
+- [ ] 22. Poker Squares
+- [ ] 23. High Tide
+- [ ] 24. Try Finger
+- [ ] 25. Floodplain
+- [ ] 26. Still Life
+- [ ] 27. Encore
+- [x] 28. Dam Day — [`damday/`](damday/)
+- [ ] 29. Liar's Table
+- [ ] 30. Customs of the Dead
+- [ ] 31. Sonar
+- [ ] 32. Snowball
+- [ ] 33. Invader
+- [ ] 34. Night Bus
+- [ ] 35. Starter
+- [ ] 36. Pinball Over It
+- [ ] 37. Hotline
+- [ ] 38. Regulars
+- [ ] 39. Crossfire
+- [ ] 40. Dollhouse
+- [ ] 41. Shared Deck
+- [ ] 42. Come Bye
+- [ ] 43. Floppy
+- [ ] 44. Conga
+- [ ] 45. Heirloom
+- [ ] 46. Panto Horse
+- [ ] 47. Plonk
+- [ ] 48. Jolly Cooperator
+- [ ] 49. Chairlift
+- [ ] 50. Moonrise Manor
+- [ ] 51. Spaghetti Bridge
+- [ ] 52. Are We There Yet
+- [ ] 53. Puddle
+- [ ] 54. Cube
+- [ ] 55. Last Checkout
+- [ ] 56. Conductor
+- [ ] 57. Poltergeist
+- [ ] 58. Unlocked
+- [ ] 59. Reef
+- [ ] 60. Documentary
+- [ ] 61. Midnight Golf
 
 ---
 
@@ -13,8 +77,10 @@ A Suika-style merge game with no jar. Everything lands on a long plank balanced 
 
 Set it at an autumn farmers' market: crab apples, apples, squash and gourds up to a prize-winning giant pumpkin, on a weathered plank over a hay bale. Slow escalation keeps it interesting: the plank gets shorter as your score climbs, a gust of wind now and then, a crow that lands on one end. Soft, chunky physics that's satisfying to watch, merges that pop with a sound, a big friendly score. One-thumb friendly: drag to aim, release to drop.
 
-## 2. Ten of Me
+## 2. Ten of Me ✅
 *Borrows: Cursor\*10 (flash), Braid · Twist: the guards react to all your past selves, so an old run can be a decoy*
+
+**Built 2026-09-30 as [`tenofme/`](tenofme/).**
 
 A side-view heist in a museum after closing. You get ten runs of 30 seconds each, and every earlier run replays exactly alongside the current one as a faded copy of you doing precisely what you did. Pressure plates hold doors open only while someone stands on them, lasers trip when anyone crosses them, and guards chase whichever of you they spot first. Run three can be a decoy that drags a guard away from where run seven needs to be. If you change things so an old copy can't do what it did (the door it walked through is now shut), it flickers and freezes in place, which can be useful too. The goal is for any one of you to walk out of the loading dock with the jewel before the ten runs are used up.
 
@@ -27,8 +93,10 @@ A turn-based artillery game in the spirit of Worms, set on a cluster of tiny rou
 
 Two teams of four little astronauts, hotseat for two players or against a CPU that shoots believably but not perfectly. A handful of weapons that fly differently: a heavy shell, a light bouncy grenade, a jetpack move, a drill that burrows through a planetoid, a gravity mine that bends nearby shots. Show a faint predicted arc for only the first stretch of the flight. Style: a saturated retro sci-fi paperback cover, grainy starfield, jaunty astronauts with silly names. Aim by dragging back from your trooper, the same on a phone.
 
-## 4. Please Stay on This Page
+## 4. Please Stay on This Page ✅
 *Borrows: The Stanley Parable · Twist: the narrator notices what you do with the browser*
+
+**Built 2026-09-30 as [`staypage/`](staypage/).**
 
 A Stanley Parable-style narrative game about a very simple web page: a single button that says "Continue," and a calm narrator (typed-out on-screen text) who explains, a little too carefully, what you're supposed to do next. The game notices what you do with the browser itself and the narrator reacts, first mildly and then less so: switching tabs and coming back, resizing the window or rotating the phone, sitting idle, trying to close the tab, right-clicking, selecting the text, scrolling past the end, opening it at 3 a.m., coming back tomorrow. Those reactions branch into different paths and endings depending on how you disobey.
 
@@ -195,8 +263,10 @@ A rhythm roguelike where you move on the beat through a small dungeon, like Cryp
 
 Five floors and a final boss that is a whole band. Everything is synthesized with WebAudio so the song changes live, in time, as instruments come and go. Style: neon club lighting on a dark tiled floor that pulses on the beat, with chunky, readable sprites. Arrow keys or swipes to move, a forgiving timing window, and a visible beat bar along the bottom.
 
-## 28. Dam Day
+## 28. Dam Day ✅
 *Borrows: Outer Wilds · Twist: a four-minute loop in one small town, and knowledge is the only thing you keep*
+
+**Built 2026-09-30 as [`damday/`](damday/).**
 
 A tiny Outer Wilds: a time loop of about four minutes in a small valley town on the morning the dam upstream breaks. Every loop starts with you waking on a bench at the station and ends with the wall of water. Nothing you carry or change survives, only what you've learned. Walk around (side view), talk to people, read notices and diaries, notice who's where at what minute. Your notebook fills itself in with threads of clues as rumours ("The engineer's keys are with the mayor's cat," "Why doesn't the siren work?"). The way through isn't an item; it's knowing exactly where to be and what to say.
 
@@ -219,9 +289,225 @@ Spread a small story over ten days: a soul who keeps coming back, a smuggler, a 
 ## 31. Sonar
 *Borrows: Iron Lung · Twist: you can only see by pinging, and something else can hear you*
 
+*Note: [Echo](echo/) (built 2026-10-01) already does seeing by sound pulses. To keep Sonar distinct, lean on the chart navigation, the slow photographs and the thing that hunts your ping.*
+
 A small submarine horror game. You're sealed inside a cramped sub with no window at the bottom of a sea no one has mapped. All you have is a chart with your coordinates and a handful of marked points, dials for heading and thrust, a camera that takes one grainy black-and-white photo at a time (and takes a while to develop), and a sonar ping that shows the shapes around you for a moment, which something else can also hear. Navigate to each point, photograph what's there, and get home.
 
 The fear should come from what you can't see: the hull creaking, the thud of something against it, a sonar return that's too big and not where it was on the last ping. Keep the interior detailed and claustrophobic, and make the photos unsettling but ambiguous. One run is about 20 minutes, with a proper ending. Style: rusted, amber-lit controls in three.js from a fixed seat, CRT fuzz on the monitors, and a deep, humming sound design built in WebAudio. Best with headphones.
+
+---
+
+# More ideas (32–61)
+
+## 32. Snowball
+*Borrows: Katamari Damacy · Twist: you're a snowball, and the only way is down*
+
+A Katamari Damacy game where you're a snowball rolling down a mountain. You start as a handful of snow at the summit and roll down, steering left and right, picking up anything smaller than you: pinecones, then skis, then snowmen, then skiers (who flail comically and stick out of you), then trees, chalets, a snowcat and eventually the ski lodge. The only direction is down, so each run is a race to get big enough, fast enough, before you reach the valley, and your final size decides how much of the town at the bottom you take with you.
+
+The mountain has routes to choose between: forests full of small stuff, a cliff drop with a jump, a busy piste, an ice field where you can't steer. The snowball's handling changes as it grows, heavier and wider in the turns. About ten mountains with size targets, and a tally at the end of everything you picked up. Style: bright, cartoony three.js, the snowball lumpy with things sticking out of it, a chase camera behind, and a frantic, cheerful soundtrack that builds. Drag or tilt to steer on phones.
+
+## 33. Invader
+*Borrows: Elden Ring invasions, Hidden in Plain Sight · Twist: you're disguised as one of the enemies, and the host is watching for whoever acts wrong*
+
+You're an invader in another player's world, disguised as one of the dozens of shambling soldiers who patrol it. The host (an AI player) is working through the area, killing enemies as they go, and watching for the one that doesn't act like the others: walking slightly off its route, standing still too long, turning to look at them. Your goal is to get close enough to backstab the host without being spotted. If they spot you, it's a straight duel you'll probably lose.
+
+The soldiers have readable routines (patrol loops, idle animations, a gesture they all make when a bell rings), and blending in means copying them while edging into position. Each level is a different area with a different crowd (a graveyard of the dead, a market of hunched merchants, a cathedral choir) and a host with different habits of suspicion, shown as a subtle eye icon over their head. Style: top-down, moody dark fantasy, with the host's torchlight cutting through the crowd. On phones, tap to walk and hold to copy whatever the crowd is doing.
+
+## 34. Night Bus
+*Borrows: The Exit 8 · Twist: it's the last bus home, and you ring the bell when something's wrong*
+
+An anomaly-spotting game like The Exit 8, on a night bus. You're riding home on the last bus, in the same seat, and the same stretch of route keeps repeating: the same passengers, the same ads, the same shops sliding past the windows. If nothing is different, stay on and wait for the next stop. If anything has changed (a passenger whose eyes were closed now has them open, an ad with one word altered, a shop sign mirrored, the driver gone, one person too many), ring the bell and get off. Get it right eight times in a row and you reach your stop; one mistake and you're back at the start of the line.
+
+About 30 anomalies, from subtle to deeply wrong, and a few that only show if you look in the right place at the right moment (out the back window, at your reflection in the glass). Eerie rather than gory, with dread built from stillness and sound. Style: realistic three.js interior under sickly bus lighting, rain on the windows, the city passing outside; first person from your seat with no body. Look around by dragging or with the mouse.
+
+## 35. Starter
+*Borrows: Universal Paperclips, Cookie Clicker · Twist: you're a sourdough starter with ambitions*
+
+An incremental game where you are a sourdough starter in a jar on someone's kitchen counter. Click to bubble; bubbling gets the baker to feed you; feeding makes you grow. Soon you're unlocking upgrades like "a pleasing tang," "shared with the neighbours" and "a bakery," then "a sourdough craze," "the town's water supply" and things far stranger. In the spirit of Universal Paperclips, the scope expands absurdly and the interface itself changes with each new phase.
+
+About an hour to an ending, balanced so it never stalls, with three or four distinct phases (the kitchen, the town, the world, beyond) that each add a new resource and a new way of thinking. Funny and slightly unsettling. Save progress and count growth while the tab is closed. Style: a minimal, typographic interface that starts as a small jar drawing on a cream background and grows into increasingly ornate dashboards.
+
+## 36. Pinball Over It
+*Borrows: Getting Over It, Jump King, pinball · Twist: a tower of pinball tables, and draining drops you to the table below*
+
+A Foddian pinball game. Pinball tables are stacked one on top of another, and the only way up is to shoot the ball through the gate at the top of a table into the bottom of the one above. Drain on any table and the game doesn't end: the ball falls into the table below, and keeps falling until a flipper catches it. One ball, no lives, no checkpoints, and a long way up: maybe 15 tables, each with its own theme and its own nasty trick (a narrow ramp to the gate, a spinner that kills your speed, a gate that moves, a table that tilts, a bumper cluster that flings you back down).
+
+Proper pinball feel matters more than anything: weighty flippers with a little give, a nudge with a tilt warning, satisfying lights and sounds. Two flipper keys on desktop; the left and right halves of the screen on a phone. Save the highest table reached and keep a running total of height fallen. Style: each table a distinct 1990s arcade playfield (space, haunted house, circus, deep sea) with glossy art, and a dot-matrix display at the top that taunts you.
+
+## 37. Hotline
+*Borrows: Keep Talking and Nobody Explodes · Twist: the manual is a binder of contradictory memos from engineers who disagreed*
+
+A co-op game for two people and two screens. One player has the machine: a 1970s mainframe in a basement that's about to do something terrible, with panels of switches, dials, punch cards, blinking lights and a teletype printing error codes. The other has the manual, opened at a separate URL on their own device, and can't see the machine, so they have to talk it through. The twist is that the manual is a mess: a binder of memos from engineers who disagreed with each other ("IGNORE BRENDA'S PROCEDURE ON P.4 — it's wrong since the 1974 upgrade"), and working out which instructions apply is part of the puzzle.
+
+Each session comes from a short seed code that both players type in, so the manual and the machine match with no backend. About eight kinds of module, a few minutes on the clock, and harder levels that add modules and more contradictory memos. Style: the machine in chunky, tactile three.js with satisfying clacks; the manual as typewritten pages with coffee rings, margin scribbles and sticky notes.
+
+## 38. Regulars
+*Borrows: Papa's Pizzeria, Coffee Talk · Twist: you serve the same six regulars for twenty years, and their orders tell their lives*
+
+A time-management diner game in the spirit of Papa's Pizzeria: take the order, make it (pour, flip, plate, toast, all tactile little steps) and serve it before the customer gets impatient. The twist is that each day is a year, and the diner has the same six regulars for twenty years. Their orders change with their lives: the kid's chocolate milk becomes black coffee before an exam, a couple's two slices of pie become one, then two again plus a high chair, an old man's order gets simpler until one day he stops coming. You learn who they are from what they ask for and the snatches of conversation at the counter.
+
+Rush hours stay fun as a game, with the regulars mixed in among passing strangers, and remembering a regular's "usual" earns a bonus. The diner changes with the years too (prices, the jukebox, the menu board, a renovation). Twenty short days, about 40 minutes in all, with an ending that might make someone tear up. Style: warm, flat mid-century illustration, the chrome counter seen from behind, and soft jazz that changes with the decades.
+
+## 39. Crossfire
+*Borrows: Worms, Frozen Synapse · Twist: both teams' turns happen at once, and shells can collide in the air*
+
+A Worms-style artillery game where both teams take their turns at the same time. Each round, both sides secretly aim, pick a weapon and plan a move, then everything plays out at once. Shells fly together, can meet and burst in mid-air, and land on ground that the other side's shot blew away a moment earlier. Predicting where the enemy will be when your shell arrives, and where their shot is headed, is the whole game. A short replay shows each turn's collisions from a dramatic angle.
+
+Destructible terrain, wind, two teams of three, a CPU opponent with a few personalities (cautious, reckless, sneaky), and hotseat for two on one device with a pass screen between them. Weapons that make the simultaneity interesting: a shield bubble that pops one incoming shell, a flare that reveals where the enemy aimed last turn, a decoy, a slow mortar that lands next round. Style: a hand-inked newspaper comic, crosshatched and two-colour, with sound-effect lettering (KA-BLAM) for impacts.
+
+## 40. Dollhouse
+*Borrows: Hollow Knight, Metroid · Twist: the whole metroidvania is one screen, and it's a dollhouse*
+
+A metroidvania that fits on a single screen. The whole world is a big Victorian dollhouse seen from its open side, and you're a tiny wind-up tin soldier who starts in the attic. Everything is visible from the start (the kitchen, the nursery, the cellar, the grandfather clock in the hall, the garden out back), but you can't get to most of it yet. Each ability you find opens new ways through the same rooms: a key that winds you up for a dash, a paper umbrella to float, magnet boots for the iron stove, a shrinking spell for mouse holes, a music box that wakes the other toys. Bosses include the jack-in-the-box, the cat and the vacuum cleaner.
+
+The house is one detailed illustration that changes as you explore (lamps coming on, doors swinging open, toys moving to new places), with a camera that follows the soldier closely but can pull back to the whole house at any time. About an hour to 100%. Style: a warm, hand-painted dollhouse with patterned wallpaper, tiny furniture and gaslight, and a ticking clockwork soundtrack. Keys on desktop; a stick and buttons on phones.
+
+## 41. Shared Deck
+*Borrows: Slay the Spire · Twist: you and the monster draw from the same deck*
+
+A Slay the Spire-style roguelite deckbuilder where every fight is played from one shared deck: you and the monster take turns drawing from the same pile. The monster's own cards (fireballs, curses, summons) are shuffled in at the start of each fight, and every card you add to your deck can be drawn and played by any monster you meet later. Deckbuilding becomes double-edged. A big attack card is great until a boss draws it, so the best cards are the ones only you can use well: cards that scale with your relics, your class's keyword or your discard pile.
+
+Climb a three-act map in the usual way (fights, elites, events, rests, shops) to a final boss, with a few characters, around 60 cards and 20 relics, and monsters whose cards make you think about what you've let into the deck. Show clearly whose turn it is and who drew what. Style: hand-inked, two-tone illustration like an old printed card game on a dark blue table, with lots of satisfying card motion. Tap or drag to play.
+
+## 42. Come Bye
+*Borrows: sheepdog trials · Twist: a real flock with real flocking, steered only through your dog*
+
+A sheepdog trial game. You steer the dog by dragging where it should run, and a small flock of sheep with real flocking behaviour (they bunch up, flee the dog, follow each other, a stubborn few break away) has to be gathered and guided around the course. Fetch them down the field, drive them through a pair of gates, split a few off in the shedding ring and pen them at the end, all against the clock. Come in too close and they scatter; hang back and they drift. It's calm, readable and surprisingly tense.
+
+A season of trials across different fields (a hillside, a field with a stream, a windy moor, a foggy morning) with different flocks (nervous lambs, an old ram who won't be hurried), judges who score each phase as at a real trial, and a dog whose trust in you grows. Style: soft, painterly British countryside with drystone walls and long shadows, sheep like funny little cotton balls, and the whistle calls of real commands ("come bye," "away to me").
+
+## 43. Floppy
+*Borrows: The Beginner's Guide, The Stanley Parable · Twist: a big sibling's homemade games from 1992 to 2001, found in a shoebox*
+
+A narrative game told through the little games someone made as a kid. You've found a shoebox of floppy disks in your parents' attic: games your older sibling made between the ages of 10 and 19, from 1992 to 2001. Put a disk in the old PC and you play it: a guess-the-number game in QBasic, a text adventure about the family dog, a maze, a racing game with a broken lap counter, an unfinished RPG, something strange and sad. Between and around the games, your sibling's notes (disk labels, README files, comments in code you can open) tell you what was going on in their life when they made each one.
+
+About eight tiny games, each clearly by the same person getting better and growing up, with flaws you can see, and an ending when you load the last disk. Not a twist ending for its own sake: an honest, kind one. Style: an emulated DOS-to-Windows 98 PC on a desk in an attic, each game in its era's look (text mode, CGA, VGA), with disk-drive clunks and fan hum.
+
+## 44. Conga
+*Borrows: Snake, Super Auto Pets · Twist: your army is a conga line you steer*
+
+Snake meets Super Auto Pets. You steer the head of a dancing conga line around an arena, and every recruit you pick up joins at the tail. Recruits are animals with abilities that depend on their place in the line: a tortoise at the back shields everyone, a bee near the front stings, a parrot copies whoever's ahead of it. When your line touches an enemy conga line, the two dancers who touch fight, and abilities chain down both lines. Cross your own tail and you trip over yourself.
+
+Each round is a short arena with enemy lines, recruits to pick up and coins. Between rounds, a shop lets you buy, swap and combine animals and rearrange the order. Five rounds and a boss line that's an entire carnival parade. Style: bright, flat and festive, with confetti, maracas on every beat and a Latin dance soundtrack that speeds up as your line gets longer. Swipe or drag to steer on phones; keys on desktop.
+
+## 45. Heirloom
+*Borrows: The Room · Twist: the puzzle box was added to by four generations, and holds their secrets*
+
+A tactile three.js puzzle box in the manner of The Room. An old wooden box inherited from a great-grandmother sits on a table under a lamp, and you turn it in your hands, slide panels, press inlays, wind a key and look through a lens, where every mechanism opens onto another. The twist is that each generation of the family that owned it added to it, so each layer comes from a different decade in a different maker's style (Victorian brass and wood, 1940s Bakelite, a 1970s cassette, a 2000s flip phone wedged in a compartment), and each holds part of a family story the box was built to keep.
+
+About five layers and an hour of play, with a hint that gets more specific the longer you're stuck. Everything works with natural gestures (drag to turn the box, pinch to look closer, drag to slide or rotate a part), and every click and grind should sound wonderfully mechanical. Style: photoreal wood, brass and leather under a warm lamp, with a shallow depth of field.
+
+## 46. Panto Horse
+*Borrows: QWOP, Baby Steps · Twist: you're both halves of a pantomime horse*
+
+A QWOP-style physics comedy where you play both halves of a pantomime horse costume: the front person (head and front legs) and the back person (back legs, bent double, can't see a thing). On a phone, each thumb runs one half; on desktop, two sets of keys. Each half walks its own pair of legs, and the costume between them pulls, stretches and tears if they get out of step. Get through a steeplechase, a dressage test, a village parade and finally the big race.
+
+Ragdoll physics that makes failure hilarious: the halves falling in different directions, the costume splitting to show the two people inside, the crowd reacting. Short courses with checkpoints, medals for times, and a replay of the best wipeout on each course. Style: a jolly English country show with bunting, a cheap horse costume with a goofy face, and an over-excited commentator in the captions.
+
+## 47. Plonk
+*Borrows: GeoGuessr · Twist: an invented continent with consistent rules you learn as you play*
+
+GeoGuessr for a world that doesn't exist. Each round drops you somewhere on a procedurally generated continent in a street-level view you can look around, and you place a pin on the map where you think you are. The continent has consistent rules you pick up the way a real GeoGuessr player learns bollards and road lines: three or four countries, each with its own script on signs, road markings, roof shapes, side of the road and style of telegraph pole; biomes that follow latitude and altitude; a foggy coast and a desert in the rain shadow of a mountain range.
+
+You collect a postcard from each country that hints at one or two clues, but most of the learning should be the player noticing things. Five rounds a game, scored by distance, with a daily seed. Style: a soft, sunny, low-poly three.js world that's still richly detailed at street level (signs, cars, washing lines, letterboxes, plants), and a beautiful hand-drawn map to pin.
+
+## 48. Jolly Cooperator
+*Borrows: Elden Ring co-op · Twist: you're the summon, the host is a hapless AI player, and you can only talk in gestures*
+
+You're a summoned spirit in an Elden Ring-style world, and your host is a well-meaning but hopeless AI player. You can fight (top-down: attack, dodge, stamina, a few spells), but a boss only counts if the host survives it. If the host dies, you're dismissed and the attempt ends. The host has a real player's bad habits: heals at the worst moment, rolls off ledges, chases loot into ambushes, spams one attack, gets greedy. You can't talk, only use the game's gestures (point, beckon, wait, bow, a celebratory spin), which the host sometimes heeds, trusting you more each time your advice pays off.
+
+A short run through a few areas and bosses, with a different host each run (the cautious one, the berserker, the one who's only here for fashion). Escort, protect, draw aggro, revive. Funny and warm, with the host's little emotes after a win and their messages on the ground. Style: desaturated, golden-hued dark fantasy with readable silhouettes and a summoning-sign glow on you. Twin-stick on desktop, a virtual stick on phones, and gestures on a radial wheel.
+
+## 49. Chairlift
+*Borrows: Mini Metro, Mini Motorways · Twist: a ski resort, where lifts only go up and runs only go down*
+
+A Mini Metro-style network game on a ski mountain. Lodges, car parks and hotels appear at the base and on the slopes, and skiers rated green, blue or black want to ride up and ski back down runs that suit them. You draw chairlifts, which go up in straight lines, and pistes, which can only go downhill along the terrain, and the network has to let every skier loop round. A beginner who ends up at the top of a black run takes a tumble, queues build at busy lifts, and when one overflows the day is over.
+
+Each week brings new pieces (a longer lift, a gondola, a snowcat to groom a run, a mountain restaurant that holds skiers for a while), and the weather changes the slopes. Several mountains to unlock with different shapes, and floodlit night skiing at the end of each day. Style: clean, minimalist graphics like a classic resort trail map, crisp contour lines, little dots of skiers streaming down the pistes, and a calm ambient soundtrack.
+
+## 50. Moonrise Manor
+*Borrows: Werewolf/Mafia · Twist: you're the werewolf, and every lie you tell has to stay consistent*
+
+A social deduction game where you're the werewolf among eight dinner guests at a remote manor, over five nights. Each night you choose a victim. Each day at dinner, the guests share what they saw ("I heard the stairs creak at midnight"), accuse each other and vote someone out. You join in by choosing what to say from a set of statements: the truth, a careful lie, an alibi, an accusation. The guests are simple but sound reasoners who remember everything said and spot contradictions, so every lie you tell is something you have to keep consistent with.
+
+The guests are distinct characters with their own suspicions, alliances and habits (the bishop believes whatever the colonel says, the twins always vote together), and a few have secrets you can use against them. Survive five nights to win. A notebook shows what everyone has claimed so far. Style: a candlelit Victorian manor, painted portraits of the guests whose expressions change with their suspicion, and creaking, ominous sound.
+
+## 51. Spaghetti Bridge
+*Borrows: Poly Bridge · Twist: a school science fair, and you build with pasta*
+
+A Poly Bridge-style bridge-building physics game at a school science fair, where everything is built from pasta. Spaghetti is light and strong in tension but snaps under compression, rigatoni is stiff but heavy, lasagne sheets make the deck, glue joints take time to dry, and your budget is how much pasta is in the box. Build across gaps between desks, books and lunchboxes, then the judges test it with escalating loads: a toy car, a stack of textbooks, the class hamster in its ball, a full lunch tray and finally the head teacher's bowling ball.
+
+About 20 levels, with stress colouring on each piece under load, slow-motion snapping (pasta bits flying) when it fails, and a judges' score that rewards cheap, elegant bridges. Style: bright, chunky classroom illustration, the pasta looking tasty, a hand-lettered poster board for the menu, and a cheerful soundtrack of crunches and applause. Drag to build on phones and desktop.
+
+## 52. Are We There Yet
+*Borrows: FTL, Oregon Trail · Twist: the ship is a family station wagon on a summer road trip*
+
+FTL meets Oregon Trail in a 1980s station wagon. A family of five is driving across the country to Grandma's, and you run the car like a starship. Assign family members to stations (driving, navigating, snacks, entertainment, keeping the kids apart), manage fuel, snacks, money, morale and the car's health, and choose the route across a map of towns, motels, diners, roadside attractions and tempting shortcuts. Events at each stop are FTL-style choices with consequences ("A hitchhiker with a guitar." "The dog is missing." "Someone wants to see the World's Largest Ball of Twine."). Breakdowns are the boss fights: a real-time scramble under the hood with everyone at a station.
+
+A run is a trip of about 15 stops and 20 minutes, different every time, with a few families to unlock. Very funny and a bit tender. Style: a sun-faded 1980s family-photo palette, a wood-panelled car shown in cutaway with everyone in their seats, a road map with a felt-tip route, and a car radio playing era-flavoured synth tunes.
+
+## 53. Puddle
+*Borrows: cosy fishing games · Twist: you fish in the reflections in puddles, and catch what fell into the reflected world*
+
+A small, dreamy fishing game where you fish in puddles after the rain. A city street at dusk is dotted with puddles, each reflecting the sky, the buildings and the street lamps above it, upside down and slightly wrong. Cast your line into a puddle and you're fishing in the reflection, where you can catch things that fell into the reflected world: a lost balloon, a kite, a paper boat, a pigeon (who's fine), a street lamp's glow, a cloud and eventually the moon. Each catch goes into a little illustrated logbook with a one-line note.
+
+Simple, satisfying fishing: cast, wait, watch the bobber, hook, and reel against something that pulls in its own way. Different puddles reflect different things, and the weather and the hour change what's there, with a quiet rhythm of walking between puddles under an umbrella. About 50 catches, a few of them rare. Style: wet, glossy, soft painterly 2D with gorgeous reflections and lamplight on rain, and a mellow lo-fi soundtrack under the rain.
+
+## 54. Cube
+*Borrows: Zelda dungeons, Rubik's Cube · Twist: the dungeon is a 3×3×3 cube of rooms you rotate*
+
+A Zelda-like dungeon where the whole dungeon is a 3×3×3 cube of rooms, and you can rotate any layer of it like a Rubik's Cube. Rotating a layer turns those nine rooms, and everything in them, so doors that led nowhere now open onto another room, a corridor ends up on its side so its pit becomes a ladder, or a flooded room pours into the one below. Inside the rooms you play top-down: walk, push blocks, pick up keys, fight a few simple enemies. Find the treasure in the centre room and get out.
+
+Three or four dungeons of increasing complexity. A 3D view of the cube shows which room you're in and what's around it, with a clear animation when a layer turns (you included, if you're in it). Layers can only be turned from control rooms inside the dungeon, so rotating is part of the puzzle, not a menu. Style: chunky, colourful low-poly with each layer in a different colour of stone so you can track them, and a little adventurer seen from above.
+
+## 55. Last Checkout
+*Borrows: Supermarket Simulator and other job sims · Twist: the last week of shifts before the meteor hits*
+
+A cashier job sim at a small-town supermarket, and the meteor hits in seven days. Each shift, customers unload their trolleys onto your belt. You scan each item (find the barcode), weigh the produce, bag things so nothing gets crushed (a small physics packing puzzle: eggs on top, cans at the bottom), take the cash and count out change. It's a satisfying, tactile job, and it's also the end of the world, so the shopping changes through the week: panic buyers, a man buying fifty candles, a kid who wants one last ice cream, a couple getting married on Thursday, people buying ingredients for a final dinner, and a manager who still cares about the coupon policy.
+
+Seven shifts of about five minutes, a few customers who come back so you can follow their stories, and choices about what you let slide (do you charge them? take the IOU?). The store gets emptier and stranger, and the sky outside gets brighter. Style: fluorescent-lit, slightly grimy realism in three.js from your seat at the till, with the beep of the scanner as the game's heartbeat. Tap or click and drag to handle items.
+
+## 56. Conductor
+*Borrows: Rhythm Heaven · Twist: you conduct an orchestra with your finger, and it follows you, mistakes and all*
+
+A rhythm game where you conduct a small, chaotic orchestra. Draw the beat pattern with your finger or mouse (down-up for two, a triangle for three, a cross for four), and the orchestra plays at the tempo and volume you conduct: big gestures make them loud, small ones soft. Cue each section when it comes in by pointing at it (the brass, the strings, the lone triangle player). The players' personalities make it hard: the drummer rushes, the violins drag, the tuba falls asleep in the slow movements, and the soloist goes rogue.
+
+Five or six short pieces (a march, a waltz, a lullaby, a tango, a big finale), synthesized with WebAudio so they follow you in real time. Score is based on steadiness and cues, and the audience applauds, coughs or walks out. Style: a theatre seen from the podium, the orchestra as charming, flat caricatures, with stage lights that brighten as the music goes well.
+
+## 57. Poltergeist
+*Borrows: Untitled Goose Game, Ghost Master · Twist: you have to scare the new family out, but they get used to every trick*
+
+A mischief stealth game where you're the ghost of an old house and a new family has just moved in. You can possess objects (rattle the cups, swing a door, switch on the radio, tip a book off a shelf, breathe on a window), but only when nobody's looking right at the object, or the scare is ruined. Each family member has a fear meter, and each gets used to scares: the same trick twice does less, so you have to escalate and combine (the lights flicker while the music box plays while the rocking chair rocks). Fill everyone's meter and they move out.
+
+Several families across a few houses, each with members who react differently (the sceptical teenager, the parent with a torch, the dog who can see you, the toddler who thinks it's all hilarious), and a to-do list of specific scares to discover, in the spirit of Untitled Goose Game. Funny, never gory. Style: a top-down cutaway of the house in a soft storybook style, candlelight, a mischievous harpsichord score and lots of little sound effects.
+
+## 58. Unlocked
+*Borrows: Achievement Unlocked (flash) · Twist: every achievement changes the world, and later ones need earlier ones*
+
+A single-screen game with 100 achievements, like the old flash game Achievement Unlocked. You're a small creature on one screen of platforms, and every achievement (jump ten times, touch every wall, stand still for 30 seconds, die in a silly way, find the secret) pops a satisfying banner and permanently changes the screen: a new platform appears, you get a hat that lets you bounce, gravity flips, the screen shrinks, a new character turns up who wants something. Some achievements only become possible because of earlier ones, and some are about undoing them.
+
+The achievement list is always visible, with ??? for the ones not yet found and a cryptic hint for each. About 30–45 minutes to 100%. Make the banners funny, the unlock sound irresistible and the final achievement a delight. Style: simple, punchy flat vector with lots of juicy little effects, with the list in a side panel on desktop and a pull-up drawer on phones.
+
+## 59. Reef
+*Borrows: Islanders, Dorfromantik · Twist: you're rebuilding a coral reef, and the reward is who moves in*
+
+A calm Islanders-style placement game where you rebuild a coral reef on a bare patch of sea floor. Each turn you're offered a few pieces to place (branching coral, brain coral, sea fans, sponges, anemones, rocks, seagrass), and each scores from its neighbours: anemones near the right coral, sea fans facing the current, seagrass on sand. Reach the score threshold to unlock the next pack. As the reef grows, species arrive when their habitat is right (a school of fish for big branching coral, a turtle for the seagrass, an octopus for rocky crevices), and those arrivals are the real reward.
+
+Mid-game threats keep it from being purely zen: a warm-water bleaching event that drains the colour from corals that aren't shaded, a crown-of-thorns starfish, a storm. A reef log records every species you've attracted. Style: a beautiful, sunlit three.js underwater diorama with caustics, swaying coral and lively fish, viewed from a gentle orbit camera. Tap to place on phones.
+
+## 60. Documentary
+*Borrows: Pokémon Snap · Twist: a narrator writes the nature documentary from your footage*
+
+A Pokémon Snap-style on-rails photography game where you're the camera operator on a nature documentary. A little boat drifts down a river through a strange, lush valley, and you film the creatures: aim, zoom and hold record to capture clips. Throw fruit, play a whistle or blow bubbles to coax out behaviours (feeding, courtship, a squabble, a lullaby). At the end of each trip your best clips are cut into a short documentary, and a calm, Attenborough-ish narrator (on-screen text, perhaps read aloud with the browser's speech) narrates it. The better your footage (rarer behaviours, better framing), the more wonderful the narration.
+
+Five or six routes through different habitats (a misty forest, a reed marsh, a waterfall, a cave of glowing fungi, the river at night), about 30 species with a few behaviours each, and a field guide that fills in. Style: soft, painterly three.js in lush colours, creatures that feel alive and a little silly, and a gentle orchestral score.
+
+## 61. Midnight Golf
+*Borrows: mini golf, Untitled Goose Game · Twist: the course runs through a sleeping house, and noise wakes the family*
+
+A mini golf game played through a house at midnight while the family sleeps. Each hole runs through a different room (down the hall carpet, across the kitchen tiles, through the cat flap, along the banister, past someone asleep on the sofa, around the dog's bowl) and ends in a mug, a slipper or a plughole. Every shot makes noise depending on how hard you hit and what the ball bounces off, and a noise meter fills in each room. Let it get too loud and someone wakes up, and the round is over. A soft putt on carpet is silent; a hard drive off the fridge is not.
+
+Eighteen holes through one house, with par for strokes and a bonus for quiet holes, plus a dog and a cat who wander around and get in the way. The only light is moonlight and night-lights, so you can't always see where the ball went. Style: a cosy, dark-blue three.js house in soft, toy-like shapes with a three-quarter overhead camera. Drag back from the ball to aim and set power, the same on phone and desktop.
 
 ---
 
