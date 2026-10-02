@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harrowing: stage test</title>
+<style>html, body { margin: 0; height: 100%; background: #000; overflow: hidden; } canvas { display: block; width: 100%; height: 100%; }</style>
+</head>
+<body>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }</script>
+<script type="module">
+import * as THREE from 'three';
+import { Stage, Figure } from './stage.js';
+import { ENEMIES } from './enemies.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+document.body.append(renderer.domElement);
+if (q.has('gallery')) {
+  // every look in a grid against a plain glow, to judge the puppets on their own
+  const { LIGHT } = await import('./sprite.js');
+  const { CIRCLE_LOOK } = await import('./paint.js');
+  const L = CIRCLE_LOOK[+(q.get('circle') ?? 5)];
+  LIGHT.uAmb.value.set(L.light).lerp(new THREE.Color(1, 1, 1), .6); LIGHT.uGlow.value.set(L.glow); LIGHT.uKey.value.set(L.rim);
+  const ids = q.get('gallery').split(',');
+  const cols = +(q.get('cols') ?? 6), rows = Math.ceil(ids.length / cols);
+  const scene = new THREE.Scene();
+  const bg = document.createElement('canvas'); bg.width = 4; bg.height = 256; const bgg = bg.getContext('2d');
+  const gr = bgg.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, L.sky[0]); gr.addColorStop(.7, L.sky[2]); gr.addColorStop(1, L.glow); bgg.fillStyle = gr; bgg.fillRect(0, 0, 4, 256);
+  scene.background = new THREE.CanvasTexture(bg); scene.background.colorSpace = THREE.SRGBColorSpace;
+  const cell = 4.2, cam = new THREE.OrthographicCamera(0, cols * cell, rows * cell, 0, -50, 50);
+  const figs = ids.map((id, i) => { const e = ENEMIES[id]; const f = new Figure(e?.look ?? id, Math.min(1.6, e?.size ?? 1), { facing: id === 'angel' ? 1 : -1, lit: .3 }); f.root.position.set((i % cols + .5) * cell, (rows - 1 - Math.floor(i / cols)) * cell + .3, 0); scene.add(f.root); f.root.updateMatrixWorld(true); return f; });
+  const size = () => { renderer.setSize(innerWidth, innerHeight); const a = innerWidth / innerHeight, w = Math.max(cols * cell, rows * cell * a); cam.left = 0; cam.right = w; cam.top = w / a; cam.bottom = 0; cam.updateProjectionMatrix(); };
+  size(); let last = performance.now();
+  (function frame(t) { const dt = Math.max(0, Math.min(.05, ((t ?? last) - last) / 1000)); last = t ?? last; LIGHT.uTime.value += dt; for (const f of figs) f.update(dt); renderer.render(scene, cam); requestAnimationFrame(frame); })();
+  throw 'gallery';
+}
+const stage = new Stage();
+stage.setCircle(+(q.get('circle') ?? 0));
+const angel = new Figure('angel', 1.15, { facing: 1, lit: .3 });
+const demons = (q.get('enemies') ?? 'imp,imp').split(',').map(id => new Figure(ENEMIES[id]?.look ?? id, ENEMIES[id]?.size ?? 1, { facing: -1 }));
+stage.setFigures(angel, demons); window.stage = stage;
+const size = () => { renderer.setSize(innerWidth, innerHeight); stage.resize(innerWidth, innerHeight, innerWidth / innerHeight < .9 ? [.04, .6] : [.06, .7]); };
+size(); addEventListener('resize', size);
+let last = performance.now();
+// warm the particles
+for (let i = 0; i < 120; i++) stage.update(1 / 30);
+function frame(t) { const dt = Math.max(0, Math.min(.05, (t - last) / 1000)); last = t; stage.update(dt); renderer.render(stage.scene, stage.camera); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
