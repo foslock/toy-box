@@ -15,6 +15,7 @@ import { def } from './cards.js';
 import { pickEvent } from './events.js';
 import { Bot } from './bot.js';
 import { $, el, img, icon } from './hud.js';
+import { defaults as inspectDefaults, inspecting } from './inspect.js';
 
 const SAVE = 'harrowing.run.v1', PREFS = 'harrowing.prefs.v1';
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
@@ -32,6 +33,7 @@ class App {
     this.fx = new FX(this.stage);
     this.sound = new Sound();
     this.screens = new Screens(this);
+    inspectDefaults.sfx = this.sound;
     this.prefs = store.get(PREFS) ?? { sound: true, speed: 1, coach: {} };
     this.prefs.coach ??= {};
     this.speed = this.prefs.speed ?? 1;
@@ -90,7 +92,13 @@ class App {
     });
     c.addEventListener('pointerup', e => pt('up', e));
     c.addEventListener('pointercancel', e => pt('up', e));
-    addEventListener('keydown', e => { if (this.bv && !this.screens.open) this.bv.key(e); });
+    addEventListener('keydown', e => {
+      if ((e.key === 'd' || e.key === 'D') && this.run && !e.ctrlKey && !e.metaKey && !inspecting()) { this.peekDeck(); return; }
+      if (e.key === 'Escape' && this.screens.open && this.screens.root.querySelector('.browser')) { this.closePeek(); return; }
+      if (this.bv && !this.screens.open) this.bv.key(e);
+    });
+    // right-click (or a long press, handled by the fight) opens a card up to read both sides
+    c.addEventListener('contextmenu', e => { e.preventDefault(); if (this.bv && !this.screens.open) this.bv.inspectAt(e.clientX, e.clientY); });
     addEventListener('pointerdown', () => this.sound.unlock(), { capture: true });
     addEventListener('keydown', () => this.sound.unlock(), { capture: true });
   }
@@ -162,19 +170,23 @@ class App {
     else this.screens.hide();
     if (!this.bv && !this.mapPeekReturn && !this.screens.open) this.toMap();
   }
+  // your whole deck, over whatever page or fight is showing (D opens and closes it)
   peekDeck() {
     if (!this.run) return;
-    const back = this.screens.open ? [...this.screens.root.childNodes] : null;
-    this.screens.deckView(() => { if (back) { this.screens.root.innerHTML = ''; for (const n of back) this.screens.root.append(n); } else this.screens.hide(); });
+    if (this.screens.open && this.screens.root.querySelector('.browser')) { this.closePeek(); return; }
+    this.peekBack = this.screens.open ? [...this.screens.root.childNodes] : null;
+    this.screens.deckView(() => this.closePeek());
   }
+  closePeek() {
+    const back = this.peekBack; this.peekBack = null;
+    if (back) { this.screens.root.innerHTML = ''; for (const n of back) this.screens.root.append(n); } else this.screens.hide();
+  }
+  // the shared deck or the discard pile, mid-fight
   peekPile(which) {
     const b = this.battle; if (!b) return;
-    const cards = which === 'deck' ? b.deck.slice().sort((x, y) => x.id > y.id ? 1 : -1) : b.discard.slice().reverse();
-    const s = el('div', 'scr');
-    s.innerHTML = `<h2>${which === 'deck' ? 'The shared deck' : 'The discard pile'} <small style="font:600 16px var(--B);color:var(--ink3)">${cards.length} cards</small></h2><p>${which === 'deck' ? 'Shown in no particular order. When it runs out, the discard pile is shuffled back in.' : 'Most recent first.'}</p><div class="deckgrid" id="dg"></div>`;
-    this.screens.show(s);
-    import('./screens.js').then(({ cardEl }) => { const w = innerWidth < 600 ? 100 : 128; $('#dg', s).style.setProperty('--w', w + 'px'); for (const c of cards) $('#dg', s).append(cardEl(c, { w })); });
-    const b2 = el('button', 'btn ghost x', 'Close ✕'); b2.onclick = () => this.screens.hide(); s.append(b2);
+    this.peekBack = null;
+    if (which === 'deck') this.screens.cardBrowser({ title: 'The shared deck', note: 'You and the demons draw from it; its order stays hidden.', cards: b.deck, close: () => this.closePeek() });
+    else this.screens.cardBrowser({ title: 'The discard pile', note: b.banished.length ? `${b.banished.length} more banished.` : 'Shuffled back into the deck when it runs out.', cards: b.discard.slice().reverse(), keepOrder: true, orderName: 'Newest', close: () => this.closePeek() });
   }
   enterNode(n) {
     const run = this.run;

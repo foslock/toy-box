@@ -10,6 +10,7 @@ import { Plate, banner, floater, img, $, el, richHTML, keywordsIn, tipHTML, STAT
 import { TRAITS } from './enemies.js';
 import { CHARMS } from './charms.js';
 import { POWER_TEXT } from './cards.js';
+import { inspect } from './inspect.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -362,6 +363,11 @@ export class BattleView {
     if (this.dead) return;
     const b = this.b, L = this.layer, m = this.m;
     if (!m) return;
+    this.touchy = !!e?.touch;
+    // hold a finger on a card to open it up and read both sides
+    if (type === 'down' && e?.touch) { clearTimeout(this.lpT); this.lpAt = [x, y]; this.lpT = setTimeout(() => { this.lpAt = null; if (this.inspectAt(x, y)) { this.lpFired = true; this.press = null; this.drag = null; this.aim = null; this.sel = null; } }, 500); }
+    if (type === 'move' && this.lpAt && Math.hypot(x - this.lpAt[0], y - this.lpAt[1]) > 12) { clearTimeout(this.lpT); this.lpAt = null; }
+    if (type === 'up') { clearTimeout(this.lpT); this.lpAt = null; if (this.lpFired) { this.lpFired = false; return; } }
     // choosing which cards to keep after Foresee
     if (this.choosing?.kind === 'foresee') {
       if (type !== 'up') return;
@@ -464,6 +470,7 @@ export class BattleView {
   }
   key(e) {
     const b = this.b;
+    if (e.key === 'i' || e.key === 'I') { const v = this.sel?.view ?? this.hover ?? this.inspectHeld; if (v) this.inspectCard(v.card); return; }
     if (this.choosing?.kind === 'foresee' && (e.key === 'Enter' || e.key === ' ')) { this.finishChoose([...this.foreseeDrop]); return; }
     if (!this.inputOn) return;
     if (e.key === 'e' || e.key === 'E') { this.endTurn(); return; }
@@ -548,6 +555,29 @@ export class BattleView {
     $('#arrowHead').setAttribute('transform', `translate(${ex} ${ey}) rotate(${ang})`);
   }
 
+  /* ================= a closer look ================= */
+  // the card in hand, or held over a demon's head, under this point: open it up to read both sides
+  inspectAt(x, y) {
+    const b = this.b, v = this.layer.pick(x, y, v => b.hand.includes(v.card) || this.isHeld(v.card));
+    if (!v) return false;
+    this.inspectCard(v.card);
+    return true;
+  }
+  inspectCard(card) {
+    const b = this.b;
+    const holderOf = c => b.demons.find(d => d.alive && d.held.some(h => h.card === c));
+    const d = holderOf(card), h = d?.held.find(h => h.card === card);
+    if (h?.hidden) { this.app.toast(`The ${d.name} keeps this card face down.`); return; }
+    this.hideTip(); this.sel = null; this.aim = null; this.drag = null; this.hover = null;
+    // a demon's cards step through every card the demons show; yours through your hand
+    const list = d ? b.demons.filter(x => x.alive).flatMap(x => x.held.filter(h => !h.hidden).map(h => h.card)) : b.hand.slice();
+    inspect(list, Math.max(0, list.indexOf(card)), {
+      turned: !!d && h.orient === 'down',
+      text: c => { const hd = holderOf(c); return hd ? { up: uprightText(c, b.modsFor(hd, b.angel)), down: reversedText(c, b.modsFor(hd, b.angel)) } : { up: uprightText(c, b.modsFor(b.angel)), down: reversedText(c) }; },
+      note: c => { const hd = holderOf(c), hh = hd?.held.find(h => h.card === c); if (!hd) return b.canPlay(c) ? '' : def(c).unplayable ? 'You can\'t play this; it waits in your hand.' : ''; return hh.orient === 'up' ? `The ${hd.name} reads this card upright, your side, and will play it against you.` : `The ${hd.name} holds this card turned round, and will play its side when your turn ends.`; },
+    });
+  }
+
   /* ================= tooltips ================= */
   showCardTip(v) {
     const d = def(v.card);
@@ -560,7 +590,7 @@ export class BattleView {
     // beside where the card will rest when lifted, so it never covers it
     const m = this.m, sc = m.cardW * (m.portrait ? 1.55 : 1.42), s = this.layer.toScreen(v.tp);
     const cx = clamp(s.x, sc / 2 + 6, m.W - sc / 2 - 6), top = m.H - sc * RATIO - 8;
-    const html = `<div class="tt-rev"><span>If a demon draws it:</span> ${richHTML(down || 'Nothing happens.')}</div>${tipHTML(keys)}`;
+    const html = `<div class="tt-rev"><span>If a demon draws it:</span> ${richHTML(down || 'Nothing happens.')}</div>${tipHTML(keys)}<div class="kw dim">${this.touchy ? 'Hold' : 'Right-click'} a card to read both sides, large.</div>`;
     if (m.portrait) this.showTip(html, m.W / 2, top - 8, 'above');
     else this.showTip(html, cx + sc / 2 + 12, top + 10, 'right', cx - sc / 2 - 12);
   }
@@ -575,7 +605,7 @@ export class BattleView {
     const keys = keywordsIn(h.orient === 'up' ? uprightText(v.card) : reversedText(v.card));
     if (x.holy && h.orient === 'down') keys.unshift('Holy');
     const s = this.layer.toScreen(v.p);
-    this.showTip(`<div class="tt-held">${text}</div>${tipHTML(keys)}`, s.x, s.y + v.s * RATIO * .55 + 8, 'below');
+    this.showTip(`<div class="tt-held">${text}</div>${tipHTML(keys)}${h.hidden ? '' : `<div class="kw dim">${this.touchy ? 'Hold' : 'Right-click'} it to read both sides, large.</div>`}`, s.x, s.y + v.s * RATIO * .55 + 8, 'below');
   }
   showDemonTip(d) {
     const tr = d.traits.map(t => TRAITS[t.id]).filter(Boolean);
