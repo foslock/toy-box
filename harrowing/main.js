@@ -59,7 +59,7 @@ class App {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
     const portrait = w / h < .9;
-    const band = this.bv ? (portrait ? [.075, .6] : [.08, .72]) : this.titleMode ? (portrait ? [.5, .98] : [.42, 1]) : (portrait ? [.12, .7] : [.12, .9]);
+    const band = this.bv ? (portrait ? [.075, .6] : [.08, .72]) : this.titleMode ? (portrait ? [.52, .99] : [.52, 1.06]) : (portrait ? [.12, .7] : [.12, .9]);
     this.stage.resize(w, h, band);
     this.cards.resize(w, h);
   }

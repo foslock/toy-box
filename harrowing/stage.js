@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { CIRCLE_LOOK, canvas, lin, rad, rgba, mixc, rand, noise2, fbm, TAU } from './paint.js';
 import { lookFor, FW } from './figures.js';
 import { spriteMaterial, glowMaterial, texOf, LIGHT } from './sprite.js';
+import { SETS, propLook } from './props.js';
 
 /* ================= backdrops ================= */
 function ridge(g, w, y, amp, freq, seed, col, rimCol, rim = 2) {
@@ -296,7 +297,8 @@ const FOG_FRAG = `
 const FOG_VERT = `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
 
 const LEDGE = -8.5, BACK_Z = -60;
-const PAINTED = {};   // each circle's paintings, made once   // the far edge of the ledge they fight on; beyond it, the abyss
+const PAINTED = {};
+const FIRE = new THREE.Color('#ffa040');   // each circle's paintings, made once   // the far edge of the ledge they fight on; beyond it, the abyss
 
 export class Stage {
   constructor() {
@@ -321,7 +323,7 @@ export class Stage {
     if (ci === this.circle) return;
     this.circle = ci;
     const L = this.look_ = CIRCLE_LOOK[ci];
-    for (const k of Object.keys(this.layers)) { const m = this.layers[k]; m.removeFromParent(); m.geometry.dispose(); m.material.map?.dispose(); m.material.dispose(); }
+    for (const k of Object.keys(this.layers)) { const m = this.layers[k]; m.removeFromParent(); m.traverse?.(o => { if (o.isMesh) { o.geometry.dispose(); o.material.map?.dispose(); o.material.uniforms?.map?.value?.dispose?.(); o.material.dispose(); } }); }
     this.layers = {};
     const tex = c => { const t = texOf(c); t.anisotropy = 4; return t; };
     const P = PAINTED[ci] ??= { back: paintBackdrop(L, ci), pillars: paintPillars(L, ci), ground: paintGround(L, ci) };
@@ -353,6 +355,25 @@ export class Stage {
       const f = new THREE.Mesh(new THREE.PlaneGeometry(110, 12), new THREE.ShaderMaterial({ vertexShader: FOG_VERT, fragmentShader: FOG_FRAG, transparent: true, depthWrite: false, uniforms: { uTime: LIGHT.uTime, uAlpha: { value: a }, uCol: { value: new THREE.Color(L.fog).multiplyScalar(1.6) } } }));
       f.position.set(0, y, z); f.renderOrder = 1; this.scene.add(f); this.layers[k] = f;
     }
+    // things lying about on the ledge
+    this.fires = [];
+    this.props = [];
+    SETS[ci].forEach(([kind, anchor, dx, z, size], i) => {
+      const x = 0;
+      const look = propLook(kind, L, ci * 31 + i);
+      const grp = new THREE.Group();
+      const k = size / 256;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), spriteMaterial(texOf(look.canvas), { keyDir: x > 0 ? -1 : 1, ink: .6 }));
+      m.position.y = size / 2; m.renderOrder = 5; grp.add(m);
+      if (look.glow) { const gm = new THREE.Mesh(new THREE.PlaneGeometry(size, size), glowMaterial(texOf(look.glow))); gm.position.set(0, size / 2, .01); gm.renderOrder = 6; grp.add(gm); }
+      grp.position.set(x, 0, z);
+      this.scene.add(grp); this.layers['prop' + i] = grp;
+      grp.geometry = { dispose() {} }; grp.material = { dispose() {} };
+      grp.userData.mats = [m.material];
+      const fire = kind === 'brazier' || kind === 'tomb' ? new THREE.Vector3(x, size * .55, z) : null;
+      if (fire) this.fires.push(fire);
+      this.props.push({ grp, anchor, dx, z, fire });
+    });
     // the light the figures stand in
     LIGHT.uAmb.value.set(L.light).lerp(new THREE.Color(1, 1, 1), .6).multiplyScalar(.95);
     LIGHT.uGlow.value.set(L.glow);
@@ -390,6 +411,11 @@ export class Stage {
     const left = solo ? -4 : (this.angel?.home.x ?? 0) - 2.3, right = solo ? 4 : Math.max(left + 6, ...ds.map(d => d.home.x + d.width * .55)) + .4;
     const top = maxH + (tall ? 2.4 : 1.9), bottom = -.3;
     const cx = (left + right) / 2, cy = (top + bottom) / 2;
+    for (const p of this.props ?? []) {
+      const x = (p.anchor === 'L' ? left : p.anchor === 'R' ? right : cx) + p.dx;
+      p.grp.position.set(x, 0, p.z);
+      if (p.fire) p.fire.x = x;
+    }
     const fov = this.camera.fov * Math.PI / 180, region = this.view.battleBottom - this.view.battleTop;
     const dW = (right - left) / 2 / (Math.tan(fov / 2) * aspect * .94), dH = (top - bottom) / 2 / (Math.tan(fov / 2) * region * .94);
     const D = Math.max(dW, dH, 9);
@@ -451,6 +477,7 @@ export class Stage {
       this.spawnAcc -= .03;
       const x = this.look.x + (Math.random() - .5) * 34, z = -14 + Math.random() * 18;
       if (Math.random() < .5) this.embers.spawn({ p: [x, -.2, z], v: [(Math.random() - .5) * .3, .5 + Math.random() * .9, 0], life: 4 + Math.random() * 4, size: 9 + Math.random() * 14, color: this.emberCol, alpha: .55 + Math.random() * .45, kind: 1 });
+      if (this.fires?.length && Math.random() < .5) { const f = this.fires[Math.floor(Math.random() * this.fires.length)]; this.embers.spawn({ p: [f.x + (Math.random() - .5) * .5, f.y, f.z + .1], v: [(Math.random() - .5) * .4, 1 + Math.random() * 1.4, 0], life: 1.2 + Math.random(), size: 10 + Math.random() * 10, color: FIRE, alpha: .9, kind: 1 }); }
       const wth = this.weather;
       if (wth === 'ash' || wth === 'embers') this.dust.spawn({ p: [x, 12, z], v: [(Math.random() - .5) * .3, -.5 - Math.random() * .4, 0], life: 10, size: 7 + Math.random() * 8, color: new THREE.Color(wth === 'ash' ? '#b8bcc8' : '#3a3030'), alpha: .5 });
       else if (wth === 'rain') for (let i = 0; i < 2; i++) this.dust.spawn({ p: [x + Math.random() * 3, 12, z], v: [-1.5, -14, 0], life: 1.2, size: 22, stretch: 6, color: new THREE.Color('#aab0a0'), alpha: .35 });

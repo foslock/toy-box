@@ -21,7 +21,7 @@ const VERT = /* glsl */`
 const FRAG = /* glsl */`
   uniform sampler2D map; uniform vec2 uTexel; uniform vec2 uKeyDir;
   uniform vec3 uAmb, uGlow, uKey, uTint;
-  uniform float uFlash, uDissolve, uAlpha, uHi, uTime, uLit, uFloor;
+  uniform float uFlash, uDissolve, uAlpha, uHi, uTime, uLit, uFloor, uInk;
   varying vec2 vUv; varying float vY;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -37,6 +37,10 @@ const FRAG = /* glsl */`
     vec3 lit = c.rgb * (uAmb + uGlow * nearGround * .55) * uTint;
     lit += uGlow * rimDown * (.55 + nearGround * .6) + uKey * rimKey * .75 + uGlow * rimOther * .25;
     vec3 col = mix(c.rgb * uTint, lit, uLit);
+    // an ink line just inside the silhouette, like a painted card illustration
+    vec2 o = uTexel * 2.6;
+    float mn = min(min(texture2D(map, vUv + vec2(o.x, 0.)).a, texture2D(map, vUv - vec2(o.x, 0.)).a), min(texture2D(map, vUv + vec2(0., o.y)).a, texture2D(map, vUv - vec2(0., o.y)).a));
+    col = mix(col, vec3(.05, .02, .03), smoothstep(.55, .05, mn) * .8 * uInk);
     // hover: a pulsing gold edge and a lift
     float edge = max(max(rimDown, rimKey), rimOther);
     col += uHi * (vec3(1., .82, .4) * edge * (1.2 + .4 * sin(uTime * 6.)) + vec3(.08, .06, .02));
@@ -61,7 +65,7 @@ export function spriteMaterial(tex, o = {}) {
     uniforms: {
       map: { value: tex }, uTexel: { value: new THREE.Vector2(1 / img.width, 1 / img.height) }, uKeyDir: { value: new THREE.Vector2(o.keyDir ?? -1, .6).normalize() },
       uAmb: LIGHT.uAmb, uGlow: LIGHT.uGlow, uKey: LIGHT.uKey, uTime: LIGHT.uTime, uTint: { value: new THREE.Color(1, 1, 1) },
-      uFlash: { value: 0 }, uDissolve: { value: 0 }, uAlpha: { value: 1 }, uHi: { value: 0 }, uLit: { value: o.lit ?? 1 }, uFloor: { value: 0 },
+      uFlash: { value: 0 }, uDissolve: { value: 0 }, uAlpha: { value: 1 }, uHi: { value: 0 }, uLit: { value: o.lit ?? 1 }, uFloor: { value: 0 }, uInk: { value: o.ink ?? 1 },
     },
   });
 }

@@ -78,6 +78,8 @@
   .seen.you { background: rgba(30, 60, 100, .9); color: #d8ecff; }
   .pilelabel { position: absolute; font: 800 12px/1 var(--B); color: var(--ink2); background: rgba(10, 4, 6, .7); padding: 3px 8px; border-radius: 8px; white-space: nowrap; pointer-events: auto; cursor: pointer; }
   .pilelabel b { color: var(--ink); font-size: 13px; }
+  .aiming .pilelabel, .aiming #seenLabels { opacity: 0; }
+  .pilelabel, #seenLabels { transition: opacity .2s; }
   #grace { position: absolute; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; align-content: center;
     background: radial-gradient(circle at 38% 32%, #ffffff, #bfe7ff 30%, #3a84c8 70%, #123a6a); box-shadow: 0 0 0 3px #e2b04a, 0 0 0 5px rgba(0, 0, 0, .6), 0 0 26px 6px rgba(140, 200, 255, .5); }
   #grace b { font: 900 30px/1 var(--T); color: #fff; text-shadow: 0 2px 4px #0a2a50, 0 0 3px #0a2a50; }
@@ -144,6 +146,8 @@
   .btn.gold { color: #2a1600; background: linear-gradient(180deg, #ffe9a0, #e0a83a 60%, #b07a1c); box-shadow: 0 8px 26px -8px rgba(255, 200, 90, .8), inset 0 1px 0 rgba(255, 255, 255, .7); font-family: var(--T); font-weight: 900; letter-spacing: .04em; }
   .btn.ghost { color: var(--ink); background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--line); }
   .btn.ghost:hover, .btn.gold:hover { filter: brightness(1.1); }
+  .btn.glassy { background: rgba(14, 8, 10, .82); }
+  .titlebox { margin-top: 3vh !important; }
   .btn:disabled { opacity: .45; cursor: default; filter: grayscale(.6); }
   .btn small { font-weight: 600; opacity: .8; font-size: 14px; }
   .row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }

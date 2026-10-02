@@ -209,6 +209,7 @@ export class BattleView {
     this.endBtn.style.transform = `translate(${m.end.x}px, ${m.end.y}px) translate(-50%, -50%)`;
     this.updateSeenLabels();
     this.updateAim();
+    this.root.classList.toggle('aiming', !!(this.aim || this.drag));
   }
   updateIntent(d) {
     let e = this.intents.get(d);

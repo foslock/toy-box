@@ -79,7 +79,7 @@ export class Screens {
       <h1>HARROWING</h1>
       <p class="lede">An angel goes down into Hell, circle by circle, to the Devil at the bottom of the pit. You carry one deck — and every demon you meet draws from it too.</p>
       <div class="row" id="tb"></div>
-      <button class="btn ghost" id="how" style="min-height:40px">How it works</button>
+      <button class="btn ghost glassy" id="how" style="min-height:40px">How it works</button>
     </div>`;
     const tb = $('#tb', s);
     if (hasSave) { const c = el('button', 'btn gold', 'Continue'); c.onclick = () => this.app.continueRun(); tb.append(c); }

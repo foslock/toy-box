@@ -109,6 +109,11 @@ function faceMaterial(side) {
   });
 }
 let BACK_MAT = null, EDGE_MAT = null, GLOW_TEX = null;
+function initShared() {
+  if (BACK_MAT) return;
+  BACK_MAT = faceMaterial(-1); BACK_MAT.uniforms.map.value = texFor(paintBack()); BACK_MAT.uniforms.maskMap.value = maskFor({ id: 'smite' });
+  EDGE_MAT = new THREE.MeshBasicMaterial({ color: 0xd8c9a8 });
+}
 function glowTex() {
   if (GLOW_TEX) return GLOW_TEX;
   const c = canvas(160, 210), g = c.getContext('2d');
@@ -122,7 +127,7 @@ const tmpV = new THREE.Vector3();
 export class CardView {
   constructor(layer, card) {
     this.layer = layer; this.card = card;
-    if (!BACK_MAT) { BACK_MAT = faceMaterial(-1); BACK_MAT.uniforms.map.value = texFor(paintBack()); BACK_MAT.uniforms.maskMap.value = maskFor({ id: 'smite' }); EDGE_MAT = new THREE.MeshBasicMaterial({ color: 0xd8c9a8 }); }
+    initShared();
     this.front = faceMaterial(1);
     this.front.uniforms.maskMap.value = maskFor(card);
     this.front.uniforms.uHolo.value = def(card).rarity === 'rare' ? 1 : 0;
@@ -217,6 +222,7 @@ class Pile {
   set(n, at, size) {
     this.n = n; this.at = at; this.size = size;
     const show = Math.min(this.faceUp ? 0 : 14, Math.ceil(n / 2));
+    initShared();
     while (this.slabs.length < show) {
       const m = new THREE.Mesh(cardGeometry(), [BACK_MAT, BACK_MAT, EDGE_MAT]);
       m.rotation.y = Math.PI; this.group.add(m); this.slabs.push(m);
