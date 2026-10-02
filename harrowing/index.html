@@ -33,11 +33,11 @@
     background: var(--paper); box-shadow: 0 1px 0 var(--rule), 0 4px 0 var(--paper), 0 5px 0 var(--rule2), 0 10px 24px rgba(0, 0, 0, .45); }
   #top > * { pointer-events: auto; }
   .tb-title { font: 400 21px/1 var(--T); letter-spacing: .1em; color: var(--gilt2); margin-right: 8px; white-space: nowrap; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px 0 6px; font: 800 16px/1 var(--B); white-space: nowrap; position: relative; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px 0 6px; font: 800 21px/1 var(--B); white-space: nowrap; position: relative; }
   .pill + .pill::before, .pill.hp::before { content: ''; }
   .pill::after { content: ''; position: absolute; right: -4px; top: 50%; width: 5px; height: 5px; background: var(--gilt); transform: translateY(-50%) rotate(45deg); opacity: .7; }
-  .pill .ic { width: 20px; height: 20px; }
-  .pill.depth { font: 400 15px/1 var(--T); letter-spacing: .06em; color: var(--ink2); }
+  .pill .ic { width: 24px; height: 24px; }
+  .pill.depth { font: 400 18px/1 var(--T); letter-spacing: .06em; color: var(--ink2); }
   .pill.depth::after { display: none; }
   #charms { display: flex; gap: 3px; flex-wrap: nowrap; overflow-x: auto; min-width: 0; flex: 1; scrollbar-width: none; padding: 2px 2px 2px 8px; }
   #charms::-webkit-scrollbar { display: none; }
@@ -46,29 +46,43 @@
   .charm b { position: absolute; right: -2px; bottom: -3px; font: 800 11px/1 var(--B); background: var(--paper); box-shadow: inset 0 0 0 1px var(--rule); padding: 1px 3px; }
   .charm.flash { animation: charmFlash .8s; }
   @keyframes charmFlash { 30% { transform: scale(1.35); box-shadow: 0 0 0 2px var(--gilt2), 0 0 18px 4px rgba(234, 208, 142, .8); } }
-  .hbtn { height: 34px; min-width: 34px; padding: 0 9px; border: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--rule2); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font: 800 15px/1 var(--B); flex: none; }
+  .hbtn { height: 34px; min-width: 34px; padding: 0 9px; border: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--rule2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font: 800 20px/1 var(--B); flex: none; }
   .hbtn:hover { box-shadow: inset 0 0 0 1px var(--rule); background: var(--paper2); }
-  .hbtn img { width: 22px; height: 22px; }
-  @media (max-width: 640px) { .tb-title { display: none; } .pill.depth { display: none; } #top { gap: 4px; padding-left: 58px; } .pill { padding: 0 8px 0 4px; font-size: 15px; } .hbtn { padding: 0 6px; } }
+  .hbtn img { width: 24px; height: 24px; }
+  @media (max-width: 640px) { .tb-title { display: none; } .pill.depth { display: none; } #top { gap: 4px; padding-left: 58px; } .pill { padding: 0 7px 0 3px; font-size: 18px; gap: 5px; } .pill .ic { width: 20px; height: 20px; } .hbtn { padding: 0 6px; font-size: 17px; } .hbtn img { width: 21px; height: 21px; } }
+
+  /* a Charm, explained: a small placard hanging from the bar, its emblem on the left */
+  #charmTip { position: fixed; z-index: 31; display: flex; gap: 12px; align-items: flex-start; width: max-content; max-width: min(320px, calc(100vw - 16px)); box-sizing: border-box; padding: 12px 15px 13px 12px; background: var(--paper); box-shadow: var(--frame), 0 12px 34px rgba(0, 0, 0, .75); pointer-events: none; animation: tipIn .14s ease-out; }
+  #charmTip::before { content: ''; position: absolute; top: -7px; left: calc(var(--ax, 50%) - 7px); width: 12px; height: 12px; background: var(--paper); border-left: 1px solid var(--rule); border-top: 1px solid var(--rule); transform: rotate(45deg); }
+  #charmTip img { width: 50px; height: 50px; flex: none; padding: 5px; border-radius: 50%; background: var(--paper2); box-shadow: inset 0 0 0 1px var(--rule); }
+  #charmTip b { display: block; font: 400 21px/1.1 var(--T); color: var(--gilt2); }
+  #charmTip i { display: block; font: italic 400 14px/1.2 var(--I); color: var(--ink3); margin: 2px 0 6px; }
+  #charmTip p { margin: 0; font: 600 15.5px/1.35 var(--B); color: var(--ink); }
+  #charmTip p em { font-style: normal; color: var(--gilt2); font-weight: 800; }
+  #charmTip.boss b { color: #f6b19a; } #charmTip.boss img { box-shadow: inset 0 0 0 1px rgba(226, 100, 60, .7); }
+  @keyframes tipIn { from { opacity: 0; transform: translateY(-4px); } }
+  .charm { cursor: pointer; } .charm:hover, .charm:focus-visible { box-shadow: inset 0 0 0 1px var(--gilt2), 0 0 10px rgba(234, 208, 142, .35); outline: none; }
 
   /* ---------- the battle ---------- */
   #battleHud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
   #battleHud > * { position: absolute; left: 0; top: 0; }
+  #battleHud .under { opacity: .06 !important; transition: opacity .12s !important; pointer-events: none !important; }
+  .plate, .intent, .pilelabel, #grace, #endTurn, #round { transition: opacity .25s; }
   .plate { position: absolute; left: 0; top: 0; min-width: 104px; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity .5s; }
   .plate.gone { opacity: 0; }
   .pname { font: 400 15px/1.05 var(--T); color: var(--bone); text-shadow: 0 1px 2px #000, 0 0 8px #000, 0 0 14px rgba(0, 0, 0, .8); white-space: nowrap; text-align: center; letter-spacing: .03em; }
   .pname .traits { display: block; font: italic 400 13px/1.2 var(--I); color: var(--gilt2); letter-spacing: 0; }
   .pname .draws { font: 900 9px/1 var(--B); color: var(--ember); letter-spacing: 1px; vertical-align: 2px; }
-  .bar { position: relative; width: 112px; height: 13px; background: var(--paper); box-shadow: 0 0 0 1px var(--rule), 0 2px 8px rgba(0, 0, 0, .6); overflow: visible; }
-  .plate.angel .bar { width: 136px; }
+  .bar { position: relative; width: 128px; height: 20px; background: var(--paper); box-shadow: 0 0 0 1px var(--rule), 0 2px 8px rgba(0, 0, 0, .6); overflow: visible; }
+  .plate.angel .bar { width: 156px; }
   .bar .fill, .bar .lag { position: absolute; left: 0; top: 0; bottom: 0; transition: width .25s; }
   .bar .lag { background: var(--bone); opacity: .55; transition: width .6s .1s; }
   .bar .fill { background: var(--blood); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .25); }
   .plate.angel .bar .fill { background: var(--gilt); }
-  .bar .hp { position: absolute; inset: 0; display: grid; place-items: center; font: 800 11.5px/1 var(--B); color: #fff; letter-spacing: .02em; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
-  .bar .ward { position: absolute; left: -19px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
-  .bar .ward img { width: 28px; height: 28px; filter: drop-shadow(0 1px 2px #000); }
-  .bar .ward b { position: absolute; inset: 0; display: grid; place-items: center; font: 900 12px/1 var(--B); color: var(--paper); }
+  .bar .hp { position: absolute; inset: 0; display: grid; place-items: center; font: 900 15.5px/1 var(--B); color: #fff; letter-spacing: .02em; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
+  .bar .ward { position: absolute; left: -22px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
+  .bar .ward img { width: 34px; height: 34px; filter: drop-shadow(0 1px 2px #000); }
+  .bar .ward b { position: absolute; inset: 0; display: grid; place-items: center; font: 900 15px/1 var(--B); color: var(--paper); }
   .plate.warded .bar { box-shadow: 0 0 0 1px var(--sky), 0 0 10px rgba(168, 205, 230, .5); }
   .plate.warded .bar .fill { background: #5f8fb4; }
   .sts { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 160px; }
@@ -85,16 +99,19 @@
   #seenLabels > div { position: absolute; left: 0; top: 0; font: 400 12px/1 var(--T); letter-spacing: .03em; padding: 4px 7px 3px; white-space: nowrap; }
   .seen.demon { background: var(--paper); color: #f6b19a; box-shadow: inset 0 0 0 1px rgba(226, 100, 60, .7); }
   .seen.you { background: var(--paper); color: var(--sky); box-shadow: inset 0 0 0 1px rgba(168, 205, 230, .7); }
-  .pilelabel { position: absolute; font: 400 13px/1 var(--T); letter-spacing: .03em; color: var(--ink2); background: var(--paper); box-shadow: inset 0 0 0 1px var(--rule2); padding: 5px 9px 4px; white-space: nowrap; pointer-events: auto; cursor: pointer; }
-  .pilelabel b { color: var(--bone); font: 800 13px/1 var(--B); }
+  .pilelabel { position: absolute; font: 400 15px/1 var(--T); letter-spacing: .03em; color: var(--ink2); background: var(--paper); box-shadow: inset 0 0 0 1px var(--rule2); padding: 5px 9px 4px; white-space: nowrap; pointer-events: auto; cursor: pointer; }
+  .pilelabel b { color: var(--bone); font: 900 17px/1 var(--B); vertical-align: -1px; }
+  .pilelabel.ban { color: var(--ink3); }
+  .pilelabel.ban b { color: #f6b19a; }
+  .pilelabel.ban.none { opacity: .5; }
   .aiming .pilelabel, .aiming #seenLabels { opacity: 0; }
   .pilelabel, #seenLabels { transition: opacity .2s; }
   /* grace: a gilt sunburst around an ivory disc */
   #grace { position: absolute; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; align-content: center; background: var(--bone); box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--gilt), 0 0 30px 6px rgba(234, 208, 142, .35); }
   #grace::before { content: ''; position: absolute; inset: -17px; border-radius: 50%; z-index: -1; background: repeating-conic-gradient(var(--gilt) 0 4deg, transparent 4deg 15deg); -webkit-mask: radial-gradient(circle, transparent 52%, #000 53%, #000 70%, transparent 71%); mask: radial-gradient(circle, transparent 52%, #000 53%, #000 70%, transparent 71%); animation: spin 40s linear infinite; }
-  #grace b { font: 900 32px/1 var(--B); color: var(--paper); margin-top: -1px; }
-  #grace small { position: absolute; right: 12px; bottom: 15px; font: 800 12px/1 var(--B); color: rgba(13, 10, 11, .65); }
-  #grace span { position: absolute; bottom: -27px; left: 50%; transform: translateX(-50%); font: 400 14px/1 var(--T); letter-spacing: .14em; color: var(--gilt2); text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+  #grace b { font: 900 44px/1 var(--B); color: var(--paper); margin: -2px 8px 0 0; }
+  #grace small { position: absolute; right: 10px; bottom: 15px; font: 800 16px/1 var(--B); color: rgba(13, 10, 11, .6); }
+  #grace span { position: absolute; bottom: -42px; left: 50%; transform: translateX(-50%); font: 400 14px/1 var(--T); letter-spacing: .14em; color: var(--gilt2); text-shadow: 0 1px 3px #000, 0 0 8px #000; }
   #grace.empty { background: var(--paper2); box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--rule2); }
   #grace.empty b { color: var(--ink3); } #grace.empty small { color: var(--ink3); } #grace.empty::before { opacity: .25; }
   #grace.pop { animation: pop .45s; }
@@ -105,6 +122,7 @@
   #endTurn:hover:not(:disabled) { background: #fff8e6; }
   #endTurn:disabled { background: var(--paper2); color: var(--ink3); box-shadow: inset 0 0 0 1px var(--rule2), 0 0 0 1px var(--paper); cursor: default; }
   #endTurn.ready { animation: breathe 2.4s ease-in-out infinite; }
+  #endTurn.queued { background: var(--paper2); color: var(--gilt2); box-shadow: inset 0 0 0 1px var(--gilt2), 0 0 0 1px var(--paper); }
   @keyframes breathe { 50% { box-shadow: inset 0 0 0 1px var(--paper), inset 0 0 0 3px var(--bone), inset 0 0 0 4px rgba(13, 10, 11, .45), 0 0 0 1px var(--gilt2), 0 0 28px 4px rgba(234, 208, 142, .6); } }
   #prompt { left: 50% !important; top: calc(var(--bar) + 12px) !important; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px)); padding: 11px 20px; background: var(--paper); box-shadow: var(--frame), 0 8px 30px rgba(0, 0, 0, .6); font: 600 16px/1.3 var(--B); text-align: center; }
   #prompt em, #tip em { font-style: normal; font-weight: 800; color: var(--gilt2); }
@@ -117,10 +135,13 @@
   #arrow.hot #arrowPath { stroke: #fff4d6; stroke-width: 9; filter: drop-shadow(0 0 8px rgba(255, 200, 120, .9)); }
   #arrow #arrowHead { fill: var(--bone); stroke: var(--paper); stroke-width: 2; filter: drop-shadow(0 0 4px rgba(0, 0, 0, .8)); }
   @keyframes dash { to { stroke-dashoffset: -15; } }
-  #reticle { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 1.5px dashed rgba(234, 208, 142, .9); opacity: 0; transition: opacity .15s; animation: spin 3s linear infinite; }
+  /* the ring spins on its own; the element itself only moves (a spin on it would orbit the page's corner) */
+  #reticle { position: absolute; width: 120px; height: 120px; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  #reticle::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1.5px dashed rgba(234, 208, 142, .9); animation: spin 3s linear infinite; }
   #reticle.on { opacity: 1; }
   @keyframes spin { to { rotate: 360deg; } }
-  #round { left: auto !important; right: max(12px, env(safe-area-inset-right)); top: calc(var(--bar) + 10px) !important; font: 400 14px/1 var(--T); letter-spacing: .12em; color: var(--ink2); text-shadow: 0 1px 4px #000; }
+  #round { left: auto !important; right: max(14px, env(safe-area-inset-right)); top: calc(var(--bar) + 10px) !important; font: 400 17px/1 var(--T); letter-spacing: .1em; color: var(--ink2); text-shadow: 0 1px 4px #000, 0 0 10px #000; display: flex; align-items: baseline; gap: 7px; }
+  #round b { font: 900 30px/1 var(--B); color: var(--bone); letter-spacing: 0; }
   #floaters { position: fixed; inset: 0; pointer-events: none; z-index: 12; }
   .floater { position: absolute; transform: translate(-50%, -50%); font: 900 32px/1 var(--B); color: #fff; -webkit-text-stroke: 1px rgba(0, 0, 0, .55); text-shadow: 0 2px 0 #000, 0 0 12px rgba(0, 0, 0, .9); white-space: nowrap; animation: floatUp 1.4s cubic-bezier(.2, .7, .3, 1) forwards; }
   .floater.big { font-size: 48px; } .floater.small { font-size: 18px; font-family: var(--B); font-weight: 800; }
@@ -197,10 +218,17 @@
   .charmcard span { color: var(--ink2); font-size: 15px; }
   .charmcard.buy { cursor: pointer; }
   .charmcard.buy:hover { background: var(--paper2); }
-  .reward { display: flex; align-items: center; gap: 12px; width: min(420px, 100%); padding: 12px 16px; background: var(--paper); box-shadow: var(--frame); cursor: pointer; font: 700 18px/1.2 var(--B); text-align: left; border: 0; color: var(--ink); }
-  .reward img { width: 36px; height: 36px; }
-  .reward:hover { background: var(--paper2); }
-  .reward.taken { opacity: .35; pointer-events: none; }
+  .col.rewards { align-items: center; }
+  .reward { display: flex; align-items: center; gap: 14px; width: min(480px, 100%); padding: 12px 14px 12px 16px; background: var(--paper); box-shadow: var(--frame); cursor: pointer; font: 700 18px/1.2 var(--B); text-align: left; border: 0; color: var(--ink); transition: background .15s, transform .1s; }
+  .reward img { width: 38px; height: 38px; flex: none; }
+  .reward .rw-t { flex: 1; min-width: 0; }
+  .reward .rw-t small { display: block; font: 500 14.5px/1.25 var(--B); color: var(--ink2); margin-top: 3px; }
+  .reward .take { flex: none; font: 400 17px/1 var(--T); letter-spacing: .04em; color: var(--paper); background: var(--bone); padding: 9px 13px 8px; box-shadow: inset 0 0 0 1px var(--paper), inset 0 0 0 3px var(--bone), inset 0 0 0 4px rgba(13, 10, 11, .4); }
+  .reward:hover { background: var(--paper2); box-shadow: inset 0 0 0 1px var(--gilt), inset 0 0 0 4px var(--paper2), inset 0 0 0 5px var(--rule); }
+  .reward:hover .take { background: #fff8e6; }
+  .reward:active { transform: translateY(1px); }
+  .reward.taken { opacity: .5; pointer-events: none; }
+  .reward.taken .take { background: transparent; color: var(--gilt2); box-shadow: none; }
   .choice { text-align: left; padding: 13px 17px; border: 0; cursor: pointer; background: var(--paper); box-shadow: var(--frame); color: var(--ink); font: 800 17px/1.25 var(--B); }
   .choice small { display: block; font: 500 15px/1.3 var(--B); color: var(--ink2); margin-top: 3px; }
   .choice:hover { background: var(--paper2); box-shadow: inset 0 0 0 1px var(--gilt), inset 0 0 0 4px var(--paper2), inset 0 0 0 5px var(--rule); }
@@ -287,6 +315,7 @@
   .pcard.capd { margin-bottom: 70px; } .pcard.capd.priced { margin-bottom: 100px; }
   .pcard .cap { position: absolute; left: -4px; right: -4px; top: calc(100% + 10px); font: 600 13.5px/1.3 var(--B); color: var(--ink2); text-align: center; }
   .pcard.priced .cap { top: calc(100% + 40px); }
+  .pcard .cap.after b { color: var(--gilt2); } .pcard .cap.after { color: var(--ink); }
   .pcard .cap img { width: 15px; height: 15px; vertical-align: -3px; margin-right: 3px; }
   .pcard .cap b { color: #f6b19a; font-weight: 800; } .pcard .cap em { font-style: normal; color: #ffa66a; font-weight: 800; } .pcard .cap b.up { color: #f6866a; }
   @media (max-width: 640px) {
@@ -294,10 +323,10 @@
     .browser, .scr:has(> .x) { padding-bottom: 90px; }
   }
   @media (max-width: 560px) {
-    .bar { width: 78px; height: 12px; } .plate.angel .bar { width: 104px; } .bar .hp { font-size: 10.5px; }
+    .bar { width: 88px; height: 17px; } .plate.angel .bar { width: 112px; } .bar .hp { font-size: 13.5px; } .bar .ward img { width: 28px; height: 28px; } .bar .ward b { font-size: 13px; }
     .pname { font-size: 12.5px; white-space: normal; max-width: 96px; line-height: 1; } .pname .traits { font-size: 11px; } .plate { min-width: 80px; }
     .st img { width: 18px; height: 18px; } .chip { font-size: 12px; } .chip img { width: 14px; height: 14px; } .chips { padding: 2px 4px; }
-    #grace { width: 60px; height: 60px; } #grace b { font-size: 27px; } #grace small { right: 9px; bottom: 12px; } #grace::before { inset: -13px; }
+    #grace { width: 62px; height: 62px; } #grace b { font-size: 36px; } #grace small { right: 8px; bottom: 12px; font-size: 13px; } #grace::before { inset: -13px; } #grace span { bottom: -34px; font-size: 12px; }
     #endTurn { height: 46px; padding: 0 14px; font-size: 18px; }
     .floater.big { font-size: 38px; }
   }
@@ -322,18 +351,20 @@
   <div id="intents"></div>
   <div id="seenLabels"></div>
   <div id="deckPile" class="pilelabel" title="The shared deck: you and the demons draw from it">Deck <b id="deckCount">0</b></div>
-  <div id="discPile" class="pilelabel" title="Discard pile · Banished">Discard <b id="discCount">0</b> · Banished <b id="banCount">0</b></div>
+  <div id="discPile" class="pilelabel" title="The discard pile">Discard <b id="discCount">0</b></div>
+  <div id="banPile" class="pilelabel ban" title="Banished: gone for this fight">Banished <b id="banCount">0</b></div>
   <div id="grace" title="Grace: spend it to play cards"><b>3</b><small>/3</small><span>GRACE</span></div>
   <button id="endTurn" disabled>End Turn</button>
   <div id="prompt" hidden></div>
   <button id="foreseeDone" hidden>Done</button>
   <svg id="arrow" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="arrowGrad" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#ff8a3a"/></linearGradient></defs><path id="arrowPath" d=""/><path id="arrowCore" d=""/><path id="arrowHead" d="M-10 -20 L28 0 L-10 20 L0 0 Z"/></svg>
   <div id="reticle"></div>
-  <div id="round">ROUND <b id="roundNo">1</b></div>
+  <div id="round">Round <b id="roundNo">1</b></div>
 </div>
 <div id="floaters"></div>
 <div id="banner"></div>
 <div id="tip" hidden></div>
+<div id="charmTip" hidden></div>
 <div id="screen" hidden></div>
 <div id="toast"></div>
 <script type="importmap">{ "imports": {

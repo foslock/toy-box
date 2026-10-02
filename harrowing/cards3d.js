@@ -107,18 +107,23 @@ function faceMaterial(side) {
   return new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG,
     uniforms: { map: { value: null }, maskMap: { value: null }, uTime: UTIME, uHolo: { value: 0 }, uDim: { value: 1 }, uFlash: { value: 0 }, uSide: { value: side }, uBurn: { value: 0 }, uAlpha: { value: 1 }, uTint: { value: new THREE.Color(1, 1, 1) } },
+    // cards are drawn strictly in order (see CardView.order), never by depth, so they can't cut through each other
+    transparent: true, depthTest: false, depthWrite: false,
   });
 }
 let BACK_MAT = null, EDGE_MAT = null, GLOW_TEX = null;
 function initShared() {
   if (BACK_MAT) return;
   BACK_MAT = faceMaterial(-1); BACK_MAT.uniforms.map.value = texFor(paintBack()); BACK_MAT.uniforms.maskMap.value = maskFor({ id: 'smite' });
-  EDGE_MAT = new THREE.MeshBasicMaterial({ color: 0xd8c9a8 });
+  EDGE_MAT = new THREE.MeshBasicMaterial({ color: 0xd8c9a8, transparent: true, depthTest: false, depthWrite: false });
 }
+// a soft glow in the card's own outline (same proportions and corners), a little larger than the card
+const GM = .085;
 function glowTex() {
   if (GLOW_TEX) return GLOW_TEX;
-  const c = canvas(160, 210), g = c.getContext('2d');
-  g.filter = 'blur(14px)'; g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect(30, 30, 100, 150, 12); g.fill();
+  const k = 220, c = canvas(Math.round(k * (1 + GM * 2)), Math.round(k * (RATIO + GM * 2))), g = c.getContext('2d');
+  g.filter = `blur(${k * .035}px)`; g.fillStyle = '#ffffff';
+  g.beginPath(); g.roundRect(k * GM * .55, k * GM * .55, k * (1 + GM * .9), k * (RATIO + GM * .9), k * (R1 + GM * .45)); g.fill();
   GLOW_TEX = new THREE.CanvasTexture(c);
   return GLOW_TEX;
 }
@@ -135,8 +140,9 @@ export class CardView {
     this.back = BACK_MAT;
     this.mesh = new THREE.Mesh(cardGeometry(), [this.front, this.back, EDGE_MAT]);
     this.mesh.userData.view = this;
-    this.glow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6 * 210 / 160 * 1.0), new THREE.MeshBasicMaterial({ map: glowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffd36a, opacity: 0 }));
-    this.glow.position.z = -.02; this.glow.renderOrder = -1;
+    this.glow = new THREE.Mesh(new THREE.PlaneGeometry(1 + GM * 2, RATIO + GM * 2), new THREE.MeshBasicMaterial({ map: glowTex(), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, color: 0xffd36a, opacity: 0 }));
+    this.glow.position.z = -.02;
+    this.order = 0;
     this.obj = new THREE.Group(); this.obj.add(this.glow, this.mesh);
     layer.scene.add(this.obj);
     // pose: position (px), rotation (radians), scale (px wide)
@@ -192,6 +198,9 @@ export class CardView {
     // lean into the motion, like a card flicked across a table
     const lx = THREE.MathUtils.clamp(-this.v.y * .0009, -.5, .5), ly = THREE.MathUtils.clamp(this.v.x * .0011, -.6, .6);
     this.lean.x += (lx - this.lean.x) * Math.min(1, dt * 12); this.lean.y += (ly - this.lean.y) * Math.min(1, dt * 12);
+    // draw order: whatever the layout asked for; a card in flight passes over the others
+    const ord = this.flight ? Math.max(this.order, 140) : this.order;
+    this.mesh.renderOrder = ord; this.glow.renderOrder = ord - .5;
     this.obj.position.copy(this.p);
     this.obj.rotation.set(this.r.x + this.lean.x + this.hoverTilt.x, this.r.y + this.lean.y + this.hoverTilt.y, this.r.z, 'ZXY');
     this.obj.scale.setScalar(this.s);
@@ -207,38 +216,46 @@ export class CardView {
   dispose() { this.dead = true; this.obj.removeFromParent(); this.front.dispose(); this.glow.geometry.dispose(); this.glow.material.dispose(); }
 }
 
-/* ---------- the deck pile: a stack of backs, as tall as the deck ---------- */
+/* ---------- a pile: a stack of cards lying back on the ground, as thick as the pile is big ---------- */
+// Lying back at an angle the piles take little height, and you can see at a glance which is the bigger.
+export const TILT = -1.02;                  // how far a lying card leans back
+const THICK = .0125;                        // one card's thickness, as a share of its width
+const tiltE = new THREE.Euler(TILT, 0, 0);
 class Pile {
   constructor(layer, faceUp) {
     this.layer = layer; this.group = new THREE.Group(); layer.scene.add(this.group);
+    this.stack = new THREE.Group(); this.stack.rotation.x = TILT; this.group.add(this.stack);
     this.slabs = [];
     this.faceUp = faceUp;
-    this.n = 0;
-    // a pool of light under the deck
+    this.n = 0; this.size = 80; this.at = new THREE.Vector3();
+    // a pool of light under it
     const c = canvas(128, 128), g = c.getContext('2d');
-    g.fillStyle = rad(g, 64, 64, 4, 64, [[0, 'rgba(255,214,140,.55)'], [.5, 'rgba(255,150,80,.18)'], [1, 'rgba(255,120,60,0)']]); g.fillRect(0, 0, 128, 128);
-    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: faceUp ? .35 : .8 }));
-    this.pool.position.z = -6; this.pool.renderOrder = -2; this.group.add(this.pool);
+    g.fillStyle = rad(g, 64, 64, 4, 64, [[0, 'rgba(255,214,140,.5)'], [.5, 'rgba(255,150,80,.16)'], [1, 'rgba(255,120,60,0)']]); g.fillRect(0, 0, 128, 128);
+    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, opacity: faceUp ? .3 : .6 }));
+    this.pool.renderOrder = -60; this.pool.rotation.x = TILT; this.group.add(this.pool);
   }
   set(n, at, size) {
-    this.n = n; this.at = at; this.size = size;
-    const show = Math.min(this.faceUp ? 0 : 14, Math.ceil(n / 2));
+    this.n = n; this.at.copy(at); this.size = size;
+    const show = Math.min(n, 48);
     initShared();
     while (this.slabs.length < show) {
       const m = new THREE.Mesh(cardGeometry(), [BACK_MAT, BACK_MAT, EDGE_MAT]);
-      m.rotation.y = Math.PI; this.group.add(m); this.slabs.push(m);
+      m.rotation.y = Math.PI; this.stack.add(m); this.slabs.push(m);
     }
     this.slabs.forEach((m, i) => {
       m.visible = i < show;
-      m.position.set(Math.sin(i * 2.1) * 1.5, Math.cos(i * 1.7) * 1.5 + i * .9, i * 2.4);
-      m.rotation.z = Math.sin(i * 3.3) * .03;
+      m.position.set(Math.sin(i * 2.1) * .012 * size, Math.cos(i * 1.7) * .01 * size, (i + .5) * THICK * size);
+      m.rotation.z = Math.sin(i * 3.3) * .025;
       m.scale.setScalar(size);
+      m.renderOrder = -50 + i * .01;
     });
     this.group.position.copy(at);
-    this.pool.scale.set(size * 2.6, size * 2.6, 1);
+    this.pool.scale.set(size * 2.2, size * 2.2 * 1.4, 1);
   }
-  // where the next card leaves from / lands on
-  topPos(v = new THREE.Vector3()) { const show = this.slabs.filter(m => m.visible).length; return v.copy(this.at).add(new THREE.Vector3(0, show * .9, show * 2.4 + 4)); }
+  // where the next card leaves from / lands on: just above the top of the stack
+  topPos(v = new THREE.Vector3(), extra = 0) {
+    return v.set(0, 0, (Math.min(this.n, 48) + 1 + extra) * THICK * this.size + 1).applyEuler(tiltE).add(this.at);
+  }
 }
 
 /* ---------- the layer ---------- */
@@ -250,6 +267,7 @@ export class CardLayer {
     this.ray = new THREE.Raycaster();
     this.w = 1; this.h = 1;
     this.deck = new Pile(this, false);
+    this.disc = new Pile(this, true);
     this.time = 0;
   }
   resize(w, h) {

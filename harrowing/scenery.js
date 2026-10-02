@@ -205,19 +205,21 @@ const SCENES = {
 
 /* ---------- painting ---------- */
 // the top edge of a layer's silhouettes catches the light; the foot of it sinks into fog
-function edgeLight(c, L, a) {
+function edgeLight(c, L, a, px = 4) {
   const g = c.getContext('2d'), e = canvas(c.width, c.height), eg = e.getContext('2d');
-  eg.drawImage(c, 0, 0); eg.globalCompositeOperation = 'destination-out'; eg.drawImage(c, 0, 4);
+  eg.drawImage(c, 0, 0); eg.globalCompositeOperation = 'destination-out'; eg.drawImage(c, 0, px);
   eg.globalCompositeOperation = 'source-in'; eg.fillStyle = rgba(L.rim, a); eg.fillRect(0, 0, c.width, c.height);
   g.drawImage(e, 0, 0);
 }
 export function paintLayer(L, key, li) {
-  const D = LAYERS[li], H = D.h, c = canvas(LW, H), g = c.getContext('2d'), b = H - BASE, r = rand(key.length * 97 + li * 13 + 5);
+  // painted at 1.5× so the nearest layers stay sharp on big and high-density screens
+  const K = 1.5, D = LAYERS[li], H = D.h, c = canvas(LW * K, H * K), g = c.getContext('2d'), b = H - BASE, r = rand(key.length * 97 + li * 13 + 5);
+  g.setTransform(K, 0, 0, K, 0, 0);
   const col = mixc(L.ink, L.haze, D.haze);
   g.fillStyle = col;
   SCENES[key](g, li, LW, b, r, col, L);
   g.fillStyle = col; g.fillRect(0, b + 4, LW, BASE);
-  edgeLight(c, L, .22 + (2 - li) * .1);
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); edgeLight(c, L, .22 + (2 - li) * .1, 4 * K); g.restore();
   // fog rising at the foot
   g.globalCompositeOperation = 'source-atop';
   g.fillStyle = lin(g, 0, b - 160, 0, H, [[0, rgba(L.fog, 0)], [.5, rgba(L.fog, .28 + li * .05)], [.75, rgba(L.fog, .5)], [1, rgba(L.fog, .6)]]);
@@ -280,12 +282,17 @@ export function paintFloor(L, key) {
   grain(g, W, H, .08);
   return c;
 }
-// the broken far edge of the ledge, seen against the haze: a ragged black line with light along its top
+// the broken far edge of the ledge, seen against the haze: a ragged black line with light along its top. One tile
+// that repeats seamlessly (its outline is a sum of whole waves across the tile), painted at a resolution that stays
+// crisp however wide the stage gets.
+export const LIP = { w: 1024, h: 256, tile: 11, height: 3 };   // px, and world units per tile / tall
 export function paintLip(L, key) {
-  const W = 2048, H = 128, c = canvas(W, H), g = c.getContext('2d'), n = noise2(key.length * 5 + 1);
+  const W = LIP.w, H = LIP.h, c = canvas(W, H), g = c.getContext('2d'), r = rand(key.length * 5 + 1);
+  const waves = [[2, 34], [3, 22], [5, 14], [9, 8], [17, 5], [31, 3]].map(([k, a]) => [k, a * (.7 + r() * .6), r() * TAU]);
+  const y = x => 150 - waves.reduce((s, [k, a, ph]) => s + a * Math.sin(x / W * TAU * k + ph), 0);
   g.fillStyle = L.ink; g.beginPath(); g.moveTo(0, H);
-  for (let x = 0; x <= W; x += 8) g.lineTo(x, 34 + fbm(n, x * .01, 0, 4) * 50);
+  for (let x = 0; x <= W; x += 2) g.lineTo(x, y(x));
   g.lineTo(W, H); g.closePath(); g.fill();
-  edgeLight(c, L, .55);
+  edgeLight(c, L, .5);
   return c;
 }

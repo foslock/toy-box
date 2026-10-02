@@ -14,7 +14,7 @@ import { CIRCLES } from './enemies.js';
 import { def } from './cards.js';
 import { pickEvent } from './events.js';
 import { Bot } from './bot.js';
-import { $, el, img, icon } from './hud.js';
+import { $, el, img, icon, richHTML } from './hud.js';
 import { defaults as inspectDefaults, inspecting } from './inspect.js';
 
 const SAVE = 'harrowing.run.v1', PREFS = 'harrowing.prefs.v1';
@@ -49,6 +49,7 @@ class App {
     $('#menuBtn').onclick = () => this.screens.menu();
     $('#deckPile').onclick = () => this.peekPile('deck');
     $('#discPile').onclick = () => this.peekPile('discard');
+    $('#banPile').onclick = () => this.peekPile('banished');
   }
   savePrefs() { store.set(PREFS, this.prefs); }
   save() { if (this.run) store.set(SAVE, this.run); }
@@ -83,6 +84,8 @@ class App {
     const c = this.canvas;
     const pt = (type, e) => {
       if (!this.bv || this.screens.open) return;
+      // only the main button plays cards; the right button inspects them (see contextmenu)
+      if (type !== 'move' && e.pointerType === 'mouse' && e.button !== 0) return;
       this.bv.pointer(type, e.clientX, e.clientY, { touch: e.pointerType === 'touch' || e.pointerType === 'pen' });
     };
     c.addEventListener('pointerdown', e => { c.setPointerCapture?.(e.pointerId); pt('down', e); });
@@ -100,6 +103,7 @@ class App {
     // right-click (or a long press, handled by the fight) opens a card up to read both sides
     c.addEventListener('contextmenu', e => { e.preventDefault(); if (this.bv && !this.screens.open) this.bv.inspectAt(e.clientX, e.clientY); });
     addEventListener('pointerdown', () => this.sound.unlock(), { capture: true });
+    addEventListener('pointerdown', e => { if (this.charmTipFor && !e.target.closest?.('.charm')) this.charmTip(null); });
     addEventListener('keydown', () => this.sound.unlock(), { capture: true });
   }
 
@@ -116,9 +120,29 @@ class App {
     const key = r.charms.join();
     if ($('#charms')._k !== key) {
       $('#charms')._k = key;
-      $('#charms').innerHTML = r.charms.map(id => { const c = CHARMS[id]; return `<div class="charm" data-id="${id}" title="${c.name}: ${c.text}"><img src="${icon(c.glyph, c.rarity === 'boss' ? 'red' : 'gold')}" alt="${c.name}"></div>`; }).join('');
-      for (const e of $('#charms').children) e.onclick = () => this.toast(e.title);
+      $('#charms').innerHTML = r.charms.map(id => { const c = CHARMS[id]; return `<div class="charm" data-id="${id}" tabindex="0" aria-label="${c.name}: ${c.text}"><img src="${icon(c.glyph, c.rarity === 'boss' ? 'red' : 'gold')}" alt=""></div>`; }).join('');
+      for (const e of $('#charms').children) {
+        e.onpointerenter = ev => { if (ev.pointerType === 'mouse') this.charmTip(e); };
+        e.onpointerleave = ev => { if (ev.pointerType === 'mouse') this.charmTip(null); };
+        e.onfocus = () => this.charmTip(e); e.onblur = () => this.charmTip(null);
+        e.onclick = () => this.charmTip(this.charmTipFor === e ? null : e);   // a tap toggles it on touch screens
+      }
     }
+  }
+  // a Charm's card: its emblem, name, kind and what it does, hanging under it in the top bar
+  charmTip(e) {
+    const t = $('#charmTip');
+    this.charmTipFor = e;
+    if (!e) { t.hidden = true; return; }
+    const c = CHARMS[e.dataset.id];
+    const kind = { starter: 'Your first Charm', common: 'Common Charm', uncommon: 'Uncommon Charm', rare: 'Rare Charm', boss: 'Boss Charm', shop: 'The Ferryman\'s Charm' }[c.rarity] ?? 'Charm';
+    t.className = c.rarity === 'boss' ? 'boss' : '';
+    t.innerHTML = `<img src="${icon(c.glyph, c.rarity === 'boss' ? 'red' : 'gold', 96)}" alt=""><div><b>${c.name}</b><i>${kind}</i><p>${richHTML(c.text)}</p></div>`;
+    t.hidden = false;
+    const r = e.getBoundingClientRect(), w = t.offsetWidth;
+    t.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    t.style.top = (r.bottom + 12) + 'px';
+    t.style.setProperty('--ax', (r.left + r.width / 2 - parseFloat(t.style.left)) + 'px');
   }
   // the angel alone on the ledge, behind the map and the other pages
   idleScene(title = false) {
@@ -186,7 +210,8 @@ class App {
     const b = this.battle; if (!b) return;
     this.peekBack = null;
     if (which === 'deck') this.screens.cardBrowser({ title: 'The shared deck', note: 'You and the demons draw from it; its order stays hidden.', cards: b.deck, close: () => this.closePeek() });
-    else this.screens.cardBrowser({ title: 'The discard pile', note: b.banished.length ? `${b.banished.length} more banished.` : 'Shuffled back into the deck when it runs out.', cards: b.discard.slice().reverse(), keepOrder: true, orderName: 'Newest', close: () => this.closePeek() });
+    else if (which === 'banished') this.screens.cardBrowser({ title: 'Banished', note: 'Gone until the fight is over.', cards: b.banished.slice().reverse(), keepOrder: true, orderName: 'Newest', close: () => this.closePeek() });
+    else this.screens.cardBrowser({ title: 'The discard pile', note: 'Shuffled back into the deck when it runs out.', cards: b.discard.slice().reverse(), keepOrder: true, orderName: 'Newest', close: () => this.closePeek() });
   }
   enterNode(n) {
     const run = this.run;

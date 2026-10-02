@@ -54,7 +54,7 @@ export const CARDS = {
   holyWater: { name: 'Holy Water', rname: 'Scald', cost: 1, type: 'attack', rarity: 'starter', glyph: 'vial', target: 'enemy',
     up: [D(5), S('burn', 2)], down: [L(7)], plus: { up: [D(6), S('burn', 4)], down: [L(9)] } },
   offering: { name: 'Offering', rname: 'Empty Hands', cost: 0, type: 'skill', rarity: 'starter', glyph: 'bowl',
-    up: [S('offer', 1), S('draw', 1)], down: [S('nothing')], plus: { up: [S('offer', 1), S('draw', 2)] } },
+    up: [S('draw', 1), S('offer', 1)], down: [S('nothing')], plus: { up: [S('draw', 2), S('offer', 1)] } },
 
   /* --- common attacks --- */
   searingLight: { name: 'Searing Light', rname: 'Smoulder', cost: 1, type: 'attack', rarity: 'common', glyph: 'sun', target: 'enemy',

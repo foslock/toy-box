@@ -3,9 +3,9 @@
 // flinch, numbers float up. It also is the engine's io: your turn ends when you press End Turn, and choices (which
 // card to Offer, what to keep after Foresee) are asked for here.
 import * as THREE from 'three';
-import { def, cardCost, uprightText, reversedText, CARDS } from './cards.js';
+import { def, cardCost, uprightText, reversedText, CARDS, KEYWORDS } from './cards.js';
 import { Figure } from './stage.js';
-import { RATIO } from './cards3d.js';
+import { RATIO, TILT } from './cards3d.js';
 import { Plate, banner, floater, img, $, el, richHTML, keywordsIn, tipHTML, STATUS, POWER_ICON } from './hud.js';
 import { TRAITS } from './enemies.js';
 import { CHARMS } from './charms.js';
@@ -29,6 +29,7 @@ export class BattleView {
     this.sel = null; this.drag = null; this.hover = null; this.aim = null;
     this.choosing = null;
     this.pending = [];
+    this.queue = [];            // cards played while another is still resolving, in order
     this.dead = false;
     this.root = $('#battleHud');
     this.root.hidden = false;
@@ -57,23 +58,29 @@ export class BattleView {
     if (portrait) {
       const py = Math.min(H * .675, m.handTop - m.pileW * RATIO * .5 - 26);
       m.deck = { x: W * .4, y: py }; m.disc = { x: W * .62, y: py };
-      m.grace = { x: Math.max(44, W * .13), y: py }; m.end = { x: W - 62, y: py };
+      m.grace = { x: Math.max(44, W * .13), y: py - 6 }; m.end = { x: W - 62, y: py };
       m.play = { x: W * .5, y: H * .42 }; m.playW = m.cardW * 1.55;
     } else {
-      // the shared deck sits in the gap between you and the demons
-      let gx = W * .39 + m.pileW * .65;
+      // the piles lie on the ground in the gap between you and the demons
+      let gx = W * .45, gy = H * .66;
       const af = this.figs.get(this.b.angel), ds = this.b.living().map(d => this.figs.get(d)).filter(Boolean);
       if (af && ds.length) {
         const a = this.stage.project(af.feet(this.tmp)), at = this.stage.project(af.top(new THREE.Vector3()));
-        const right = a.x + (a.y - at.y) * .3;
-        const left = Math.min(...ds.map(f => { const p = this.stage.project(f.feet(new THREE.Vector3())), t = this.stage.project(f.top(new THREE.Vector3())); return p.x - (p.y - t.y) * .32; }));
-        gx = clamp((right + left) / 2, W * .3, W * .6);
-        if (left - right < m.pileW * 2.8) gx = clamp(Math.max(gx, right + m.pileW * 1.6), W * .3, W * .62);
+        const right = a.x + (a.y - at.y) * .2;
+        const feet = ds.map(f => { const p = this.stage.project(f.feet(new THREE.Vector3())), t = this.stage.project(f.top(new THREE.Vector3())); return { x: p.x - (p.y - t.y) * .22, y: p.y }; });
+        const left = Math.min(...feet.map(p => p.x));
+        // room between the angel's nameplate and the nearest demon's for both piles? if not (a huge boss), they
+        // lie behind her instead
+        const pr = a.x + 84, pl = Math.min(...feet.map((p, i) => p.x + (this.stage.project(ds[i].feet(new THREE.Vector3())).x - p.x) - 70));
+        if (pl - pr > m.pileW * 2.15) gx = (pr + pl) / 2;
+        else gx = clamp(a.x - 84 - m.pileW * 1.45, W * .1, W * .5);
+        gy = clamp((a.y + feet[0].y) / 2 + m.pileW * .12, H * .5, H - m.cardH * .95 - m.pileW * .6);
       }
-      m.deck = { x: gx - m.pileW * .65, y: H * .695 }; m.disc = { x: gx + m.pileW * .65, y: H * .695 };
-      m.grace = { x: Math.max(70, W * .075), y: H - m.cardH * .55 }; m.end = { x: W - Math.max(90, W * .08), y: H - m.cardH * .55 };
+      m.deck = { x: gx - m.pileW * .66, y: gy }; m.disc = { x: gx + m.pileW * .66, y: gy };
+      m.grace = { x: Math.max(70, W * .075), y: H - m.cardH * .62 }; m.end = { x: W - Math.max(90, W * .08), y: H - m.cardH * .55 };
       m.play = { x: W * .5, y: H * .42 }; m.playW = m.cardW * 1.5;
     }
+    m.ban = { x: m.end.x, y: m.portrait ? m.end.y + 44 : m.end.y - 48 };
     return m;
   }
   // where each hand card rests
@@ -88,65 +95,103 @@ export class BattleView {
     }
     return out;
   }
-  heldSlots(d, m) {
-    const f = this.figs.get(d); if (!f) return [];
+  // a demon's intent chips sit just over its head; the cards it holds open out above them when you look
+  intentAt0(d) {
+    const f = this.figs.get(d); if (!f) return null;
     const top = this.stage.project(f.top(this.tmp));
-    const n = d.held.length, out = [];
-    const step = m.heldW * (m.portrait ? .7 : .82);
-    for (let i = 0; i < n; i++) out.push({ x: top.x + (i - (n - 1) / 2) * step, y: top.y - m.heldW * RATIO * .5 - 18, rz: (i - (n - 1) / 2) * -.05 });
+    return { x: top.x, y: top.y + 4 };
+  }
+  heldSlots(d, m) {
+    const at = this.intentAt0(d); if (!at) return [];
+    const n = d.held.length, out = [], w = m.heldW * 1.2;
+    const step = w * (m.portrait ? .72 : .86);
+    const y = at.y - 34 - w * RATIO * .5;
+    for (let i = 0; i < n; i++) out.push({ x: at.x + (i - (n - 1) / 2) * step, y, rz: (i - (n - 1) / 2) * -.05, w });
     return out;
   }
+  // whose held cards are opened out right now
+  shownDemons() {
+    const set = new Set([this.hoveredDemon, this.hoverIntent, this.aimTarget, this.touchPeek, this.holderOf(this.inspectHeld?.card)]);
+    for (const d of this.b.demons) if ((d._peek ?? 0) > this.stage.time) set.add(d);
+    return set;
+  }
+  holderOf(card) { return card ? this.b.demons.find(d => d.alive && d.held.some(h => h.card === card)) : null; }
   // set every card's resting place for this frame
   layout(dt) {
     const b = this.b, m = this.metrics(), L = this.layer;
     this.m = m;
-    // hand
-    const slots = this.handSlots(b.hand.length, m);
-    let hoverI = this.hover && b.hand.includes(this.hover.card) ? b.hand.indexOf(this.hover.card) : -1;
-    if (this.sel && this.sel.mode !== 'aim') hoverI = b.hand.indexOf(this.sel.card);
-    b.hand.forEach((c, i) => {
-      const v = this.views.get(c.uid); if (!v || v.flight) return;
-      if (this.drag?.view === v) return;
+    // hand (cards already queued to play wait by the play spot instead)
+    const queued = this.queue.map(q => q.card);
+    const hand = b.hand.filter(c => !queued.includes(c));
+    const slots = this.handSlots(hand.length, m);
+    let hoverI = this.hover && hand.includes(this.hover.card) ? hand.indexOf(this.hover.card) : -1;
+    if (this.sel && this.sel.mode !== 'aim') hoverI = hand.indexOf(this.sel.card);
+    const left = b.grace - this.reserved();
+    hand.forEach((c, i) => {
+      const v = this.views.get(c.uid); if (!v) return;
+      v.order = i * 2;
+      if (v.flight) return;
+      if (this.drag?.view === v) { v.order = 130; return; }
       const s = slots[i];
       let x = s.x, y = s.y, rz = s.rz, z = s.z, sc = m.cardW;
       if (hoverI >= 0 && i !== hoverI) x += (i < hoverI ? -1 : 1) * m.cardW * .28 * Math.max(0, 1 - Math.abs(i - hoverI) * .25);
       if (i === hoverI) {
-        sc = m.cardW * (m.portrait ? 1.55 : 1.42); rz = 0; z = 80;
+        sc = m.cardW * (m.portrait ? 1.55 : 1.42); rz = 0; z = 80; v.order = 100;
         y = m.H - sc * RATIO * .5 - 8;
         x = clamp(x, sc / 2 + 6, m.W - sc / 2 - 6);
       }
-      if (this.aim?.view === v) { x = m.W / 2; y = m.H - m.cardH * 1.05; sc = m.cardW * 1.25; rz = 0; z = 90; }
+      if (this.aim?.view === v) { x = m.W / 2; y = m.H - m.cardH * 1.05; sc = m.cardW * 1.25; rz = 0; z = 90; v.order = 110; }
       if (i !== hoverI || this.drag) v.hoverTilt.multiplyScalar(Math.exp(-dt * 10));
       v.target(L.at(x, y, z), V(0, 0, rz), sc);
-      const playable = this.inputOn && b.canPlay(c) && !this.choosing;
+      const playable = this.inputOn && this.affordable(c) && !this.choosing;
       const choosable = this.choosing?.kind === 'hand' && this.choosing.cards.includes(c);
       v.glowTarget = choosable ? 1 : playable ? .8 : 0;
       v.glowColor.set(choosable ? '#7fe0ff' : '#ffd36a');
       v.dim = this.inputOn && !playable && !choosable && !def(c).unplayable ? .72 : 1;
+      v.obj.visible = true;
     });
-    // held cards
+    // queued cards wait in line beside the play spot
+    queued.forEach((c, i) => {
+      const v = this.views.get(c.uid); if (!v) return;
+      v.order = 146 - i;
+      if (v.flight || !b.hand.includes(c)) return;
+      const x = m.portrait ? m.play.x + (i - (queued.length - 1) / 2) * m.cardW * .5 : m.play.x - m.playW * .78 - i * m.cardW * .4;
+      const y = m.portrait ? m.play.y + m.cardH * .9 : m.play.y + m.cardH * .12;
+      v.target(L.at(x, y, 100 - i), V(0, 0, .06 + i * .05), m.cardW * .78);
+      v.glowTarget = .7; v.glowColor.set('#ffd36a'); v.dim = .9;
+    });
+    // held cards: tucked into the intent chips, opened out above them when you look (or aim) at that demon
+    const shown = this.shownDemons();
     for (const d of b.demons) {
-      const hs = this.heldSlots(d, m);
+      const hs = this.heldSlots(d, m), at = this.intentAt0(d), open = shown.has(d);
       d.held.forEach((h, i) => {
-        const v = this.views.get(h.card.uid); if (!v || v.flight) return;
-        const s = hs[i]; if (!s) return;
-        const big = this.inspectHeld === v;
-        const sc = big ? m.heldW * 2.3 : m.heldW;
+        const v = this.views.get(h.card.uid); if (!v) return;
+        v.order = 60 + i;
+        if (v.flight) { v.obj.visible = true; return; }
+        const s = hs[i]; if (!s || !at) return;
+        const big = this.inspectHeld === v && open;
+        const sc = big ? m.heldW * 2.3 : open ? s.w : m.heldW * .22;
         const rz = (h.orient === 'down' ? PI : 0) + (big ? 0 : s.rz);
-        v.target(L.at(s.x, big ? s.y + m.heldW * .4 : s.y + Math.sin(this.stage.time * 2 + i + d.uid) * 3, big ? 120 : 30 + i), V(0, h.hidden ? PI : 0, rz), sc);
+        const x = open ? s.x : at.x, y = open ? (big ? s.y - m.heldW * .3 : s.y + Math.sin(this.stage.time * 2 + i + d.uid) * 2) : at.y - 14;
+        v.target(L.at(x, y, big ? 120 : 30 + i), V(0, h.hidden ? PI : 0, rz), sc);
+        if (big) v.order = 120;
+        v.obj.visible = open || v.s > m.heldW * .4;
         const aimed = this.aim && this.aimHeld === h;
-        v.glowTarget = aimed ? 1 : .5; v.glowColor.set(aimed ? '#ffffff' : h.orient === 'up' ? '#c8a8ff' : '#ff4a2a');
+        v.glowTarget = open ? (aimed ? 1 : .45) : 0; v.glowColor.set(aimed ? '#ffffff' : h.orient === 'up' ? '#c8a8ff' : '#ff4a2a');
         v.dim = 1;
       });
     }
-    // the discard pile: the last few cards, scattered a little
-    const top = b.discard.slice(-4);
+    // the discard pile: a stack lying on the ground, its top few cards face up on it
+    const top = b.discard.slice(-3);
     for (const c of b.discard) { const v = this.views.get(c.uid); if (v && !top.includes(c) && !v.flight) { this.layer.remove(v); this.views.delete(c.uid); } }
+    L.disc.set(b.discard.length - top.length, L.at(m.disc.x, m.disc.y, 0), m.pileW);
     top.forEach((c, i) => {
-      const v = this.views.get(c.uid); if (!v || v.flight) return;
-      const r = Math.sin(c.uid * 12.9) * .2;
-      v.target(L.at(m.disc.x + Math.sin(c.uid * 7.1) * 4, m.disc.y + Math.cos(c.uid * 3.3) * 4, i * 2), V(0, 0, r), m.pileW);
-      v.glowTarget = 0; v.dim = .92;
+      let v = this.views.get(c.uid);
+      if (!v) { v = this.spawn(c, L.disc.topPos(new THREE.Vector3(), i * 1.5), false); v.r.x = v.tr.x = TILT; }
+      v.order = -30 + i;
+      if (v.flight) return;
+      v.target(L.disc.topPos(new THREE.Vector3(), i * 1.5).add(V(Math.sin(c.uid * 7.1) * 3, Math.cos(c.uid * 3.3) * 2, 0)), V(TILT, 0, Math.sin(c.uid * 12.9) * .18), m.pileW);
+      v.glowTarget = 0; v.dim = .95; v.obj.visible = true;
     });
     // the deck: a stack of backs, with what you know of its top laid face up on it
     const eye = b.charmRule('eye');
@@ -159,17 +204,21 @@ export class BattleView {
     known.forEach((c, i) => {
       let v = this.views.get(c.uid);
       if (!v) { v = this.spawn(c, L.deck.topPos(), true); }
+      v.order = foreseeing?.includes(c) ? 200 + i : -20 + (known.length - i);
       if (v.flight || foreseeing?.includes(c)) return;
-      const n = known.length;
-      v.target(L.at(m.deck.x - (n - 1 - i) * m.pileW * .2 + (n - 1) * m.pileW * .1, m.deck.y - (n - 1 - i) * 6 + 4, 40 + (n - i) * 3), V(0, 0, -.04 * (n - 1 - i)), m.pileW);
-      v.glowTarget = .35; v.glowColor.set('#9fd6ff'); v.dim = 1;
+      const n = known.length, k = n - 1 - i;
+      v.target(L.deck.topPos(new THREE.Vector3(), (n - k) * 1.5).add(V(-k * m.pileW * .18 + (n - 1) * m.pileW * .09, 0, 0)), V(TILT, 0, -.04 * k), m.pileW);
+      v.glowTarget = .35; v.glowColor.set('#9fd6ff'); v.dim = 1; v.obj.visible = true;
     });
     // played cards hang in the middle while they resolve
     b.inPlay.forEach(c => {
-      const v = this.views.get(c.uid); if (!v || v.flight || this.demonPlaying?.includes(v)) return;
+      const v = this.views.get(c.uid); if (!v) return;
+      v.order = 150;
+      if (v.flight || this.demonPlaying?.includes(v)) return;
       if (this.choosing) v.target(L.at(m.portrait ? m.W * .16 : m.W * .1, m.portrait ? m.H * .3 : m.H * .32, 150), V(0, 0, -.1), m.cardW * .8);
       else v.target(L.at(m.play.x, m.play.y, 150), V(0, 0, 0), m.playW);
     });
+    for (const v of this.demonPlaying ?? []) v.order = 155;
   }
   spawn(card, pos, faceDown, rz = 0) {
     const v = this.layer.add(card);
@@ -182,8 +231,9 @@ export class BattleView {
     let v = this.views.get(card.uid);
     if (v) return v;
     const m = this.m ?? this.metrics();
-    const pos = fallback === 'discard' ? this.layer.at(m.disc.x, m.disc.y, 10) : this.layer.deck.topPos();
-    return this.spawn(card, pos, fallback !== 'discard');
+    const pos = fallback === 'discard' ? this.layer.disc.topPos() : this.layer.deck.topPos();
+    const nv = this.spawn(card, pos, fallback !== 'discard'); nv.r.x = nv.tr.x = TILT;
+    return nv;
   }
   // the numbers printed on a card: yours on top; on the bottom, the demon's that holds it
   paintFor(v) {
@@ -221,25 +271,50 @@ export class BattleView {
     // pile counts and positions
     const deckN = b.deck.length, discN = b.discard.length;
     this.deckBadge.textContent = deckN; this.discBadge.textContent = discN; this.banBadge.textContent = b.banished.length;
-    $('#deckPile').style.transform = `translate(${m.deck.x}px, ${m.deck.y + m.pileW * RATIO * .5 + 4}px) translate(-50%, 0)`;
-    $('#discPile').style.transform = `translate(${m.disc.x}px, ${m.disc.y + m.pileW * RATIO * .5 + 4}px) translate(-50%, 0)`;
+    const under = m.pileW * RATIO * .3 + 8;
+    $('#deckPile').style.transform = `translate(${m.deck.x}px, ${m.deck.y + under}px) translate(-50%, 0)`;
+    $('#discPile').style.transform = `translate(${m.disc.x}px, ${m.disc.y + under}px) translate(-50%, 0)`;
+    $('#banPile').style.transform = `translate(${m.ban.x}px, ${m.ban.y}px) translate(-50%, -50%)`;
+    $('#banPile').classList.toggle('none', !b.banished.length);
     this.graceEl.style.transform = `translate(${m.grace.x}px, ${m.grace.y}px) translate(-50%, -50%)`;
     this.endBtn.style.transform = `translate(${m.end.x}px, ${m.end.y}px) translate(-50%, -50%)`;
     this.updateSeenLabels();
+    this.clearUnderCards();
     this.updateAim();
     this.root.classList.toggle('aiming', !!(this.aim || this.drag));
   }
+  // A raised card (hovered, aimed, played, zoomed) lies over the page's own furniture: anything under it fades away
+  // while it's there, so the card reads as being on top of the health bars and labels.
+  clearUnderCards() {
+    const b = this.b, big = [];
+    const add = v => { if (!v || v.dead || !v.obj.visible) return; const p = this.layer.toScreen(v.p), w = v.s / 2, h = v.s * RATIO / 2; big.push([p.x - w, p.y - h, p.x + w, p.y + h]); };
+    if (this.hover && this.inHand(this.hover.card)) add(this.hover);
+    if (this.sel) add(this.sel.view);
+    add(this.aim?.view); add(this.drag?.view);
+    for (const c of b.inPlay) add(this.views.get(c.uid));
+    for (const q of this.queue) add(this.views.get(q.card.uid));
+    for (const v of this.demonPlaying ?? []) add(v);
+    if (this.inspectHeld && this.inspectHeld.s > this.m.heldW * 1.6) add(this.inspectHeld);
+    for (const v of this.views.values()) if (v.foreseeSlot || (v.flight && v.order >= 140)) add(v);
+    const els = this._underEls ??= [...this.root.querySelectorAll('#deckPile, #discPile, #banPile, #grace, #endTurn, #round')];
+    const all = [...els, ...this.plateLayer.children, ...this.intentLayer.children, ...this.seenLayer.children];
+    for (const e of all) {
+      let hit = false;
+      if (big.length && !e.hidden) { const r = e.getBoundingClientRect(); hit = big.some(([x0, y0, x1, y1]) => r.right > x0 && r.left < x1 && r.bottom > y0 && r.top < y1); }
+      if (e._under !== hit) { e._under = hit; e.classList.toggle('under', hit); }
+    }
+  }
   updateIntent(d) {
     let e = this.intents.get(d);
-    if (!d.alive || !d.held.length) { if (e) e.hidden = true; return; }
+    const shown = d.held.filter(h => !h.pending);
+    if (!d.alive || !shown.length) { if (e) e.hidden = true; return; }
     if (!e) { e = el('div', 'intent'); this.intentLayer.append(e); this.intents.set(d, e); }
     e.hidden = false;
-    const html = d.held.map(h => this.intentChip(d, h)).join('');
+    const html = shown.map(h => this.intentChip(d, h)).join('');
     if (e._h !== html) { e.innerHTML = html; e._h = html; }
-    const slots = this.heldSlots(d, this.m);
-    if (!slots.length) return;
-    const y = slots[0].y + this.m.heldW * RATIO * .5 + 4;
-    e.style.transform = `translate(${slots.reduce((s, x) => s + x.x, 0) / slots.length}px, ${y}px) translate(-50%, 0)`;
+    const at = this.intentAt0(d); if (!at) return;
+    e.style.transform = `translate(${at.x}px, ${at.y}px) translate(-50%, -100%)`;
+    e.classList.toggle('open', this.shownDemons().has(d));
   }
   intentChip(d, h) {
     const f = this.b.forecast(d, h);
@@ -300,24 +375,55 @@ export class BattleView {
     this.endBtn.disabled = !on;
     this.endBtn.classList.toggle('ready', on);
     if (!on) { this.sel = null; this.aim = null; this.drag = null; this.hideTip(); }
+    if (on) { this.endAfter = false; this.endBtn.classList.remove('queued'); this.endBtn.textContent = 'End Turn'; }
   }
   endTurn() {
-    if (!this.inputOn || this.b.busy || this.choosing) return;
+    if (!this.inputOn || this.choosing) return;
+    // still playing out queued cards: end the turn as soon as they're done
+    if (this.resolving || this.b.busy) { this.endAfter = !this.endAfter; this.endBtn.classList.toggle('queued', this.endAfter); this.endBtn.classList.toggle('ready', !this.endAfter); this.endBtn.textContent = this.endAfter ? 'Ending…' : 'End Turn'; this.sfx.click(); return; }
     this.sfx.click();
     this.setInput(false);
     const r = this.turnRes; this.turnRes = null; r?.();
   }
-  async playCard(card, target, held) {
-    const b = this.b;
-    if (!this.inputOn || b.busy || !b.canPlay(card)) return false;
-    this.inputOn = false;
+  // Grace already promised to cards waiting in the queue
+  reserved() { return this.queue.slice(this.resolving ? 1 : 0).reduce((s, q) => s + Math.max(0, cardCost(q.card, this.b)), 0); }
+  affordable(card) {
+    const b = this.b; if (!b.canPlay(card) || this.queue.some(q => q.card === card)) return false;
+    const cost = cardCost(card, b);
+    return cost < 0 ? this.reserved() === 0 : cost <= b.grace - this.reserved();
+  }
+  // Play a card. While another is still resolving it joins a queue and plays as soon as its turn comes, like
+  // laying cards down one after another; the promise settles when this one has resolved.
+  playCard(card, target, held) {
+    if (!this.inputOn || this.choosing || !this.affordable(card)) return Promise.resolve(false);
     this.sel = null; this.aim = null; this.hideTip();
-    await b.play(card, target, held);
-    await Promise.all(this.pending); this.pending = [];
-    if (b.result) { this.setInput(false); const r = this.turnRes; this.turnRes = null; r?.(); return true; }
-    this.inputOn = true;
-    this.app.onPlayed?.(this, card);
-    return true;
+    return new Promise(res => {
+      this.queue.push({ card, target, held, res });
+      if (!this.resolving) this.drainQueue();
+    });
+  }
+  async drainQueue() {
+    const b = this.b;
+    this.resolving = true;
+    while (this.queue.length && !b.result) {
+      const q = this.queue[0];
+      let { card, target, held } = q;
+      // its target may have died while it waited
+      if (target && !target.alive) { target = b.needsTarget(card) ? b.living()[0] : null; held = null; }
+      if (held && !target?.held.includes(held)) held = null;
+      let ok = false;
+      if (b.hand.includes(card) && b.canPlay(card) && !b.busy) {
+        ok = await b.play(card, target, held) !== false;
+        await Promise.all(this.pending); this.pending = [];
+      }
+      this.queue.shift();
+      q.res(ok);
+      if (ok && !b.result) this.app.onPlayed?.(this, card);
+    }
+    this.resolving = false;
+    for (const q of this.queue.splice(0)) q.res(false);
+    if (b.result) { this.setInput(false); const r = this.turnRes; this.turnRes = null; r?.(); return; }
+    if (this.endAfter) { this.endAfter = false; this.endBtn.classList.remove('queued'); this.endBtn.textContent = 'End Turn'; this.endTurn(); }
   }
   choose(req, b) {
     if (this.auto) return this.auto.choose(req, b);
@@ -386,31 +492,42 @@ export class BattleView {
       return;
     }
     if (type === 'move' && !this.drag && !e?.touch) {
-      // hover: lift the card under the pointer; show what held cards do
-      const v = L.pick(x, y, v => b.hand.includes(v.card));
+      // hover: lift the card under the pointer, open out a demon's cards, and explain whatever is under it
+      const v = L.pick(x, y, v => this.inHand(v.card));
       if (v !== this.hover) { this.hover = v; if (v) this.sfx.tick(); }
-      if (v && !this.sel) this.showCardTip(v); else if (!this.sel) this.hideTip();
-      const hv = L.pick(x, y, v => this.isHeld(v.card));
-      if (hv !== this.inspectHeld) { this.inspectHeld = hv; if (hv) this.showHeldTip(hv); }
+      const hv = v ? null : L.pick(x, y, v => this.isHeld(v.card));
+      this.inspectHeld = hv;
+      const st = v || hv ? null : this.statusAt(x, y);
+      const iD = v || hv ? null : this.intentAtPoint(x, y);
+      const dPlate = v || hv || st ? null : this.demonAt(x, y);
+      this.hoverIntent = iD;
       if (v) this.tiltToward(v, x, y);
-      const dPlate = this.demonAt(x, y);
-      this.hoverDemon(dPlate && !v && !hv ? dPlate : null);
+      this.hoverDemon(iD ?? dPlate);
+      // one tooltip at a time, for the thing under the pointer (a selected card keeps its own)
+      if (this.aim) this.tipFor(null);
+      else if (!this.sel) {
+        if (v) this.tipFor('c' + v.card.uid, () => this.showCardTip(v));
+        else if (hv) this.tipFor('h' + hv.card.uid, () => this.showHeldTip(hv));
+        else if (st) this.tipFor('s' + st.key + st.who.uid, () => this.showStatusTip(st));
+        else if (iD ?? dPlate) this.tipFor('d' + (iD ?? dPlate).uid, () => this.showDemonTip(iD ?? dPlate));
+        else this.tipFor(null);
+      }
     }
     if (!this.inputOn) {
       if (type === 'down' || type === 'up') {
         const hv = L.pick(x, y, v => this.isHeld(v.card));
-        if (type === 'up' && e?.touch) { this.inspectHeld = this.inspectHeld === hv ? null : hv; if (hv) this.showHeldTip(hv); else this.hideTip(); }
+        if (type === 'up' && e?.touch) { if (hv) { this.inspectHeld = this.inspectHeld === hv ? null : hv; if (this.inspectHeld) this.showHeldTip(hv); else this.hideTip(); } else this.tapPeek(x, y); }
       }
       return;
     }
     if (type === 'down') {
-      const v = L.pick(x, y, v => b.hand.includes(v.card));
+      const v = L.pick(x, y, v => this.inHand(v.card));
       this.press = { x, y, t: performance.now(), view: v, moved: false };
       return;
     }
     if (type === 'move' && this.press) {
       const p = this.press;
-      if (!p.moved && Math.hypot(x - p.x, y - p.y) > 10 && p.view && b.canPlay(p.view.card)) {
+      if (!p.moved && Math.hypot(x - p.x, y - p.y) > 10 && p.view && this.affordable(p.view.card)) {
         p.moved = true;
         this.drag = { view: p.view };
         this.sel = null; this.hover = null;
@@ -450,7 +567,7 @@ export class BattleView {
         if (this.sel?.card === c) {
           // a second tap plays it (or, if it needs a demon, starts aiming)
           if (!b.needsTarget(c)) this.playCard(c, null);
-        } else if (b.canPlay(c)) {
+        } else if (this.affordable(c)) {
           this.sel = { card: c, view: p.view };
           this.sfx.pick();
           this.showCardTip(p.view);
@@ -466,6 +583,7 @@ export class BattleView {
       const hv = L.pick(x, y, v => this.isHeld(v.card));
       if (hv) { this.inspectHeld = this.inspectHeld === hv ? null : hv; if (this.inspectHeld) this.showHeldTip(hv); return; }
       this.sel = null; this.aim = null; this.inspectHeld = null; this.hideTip();
+      if (e?.touch) this.tapPeek(x, y);
     }
   }
   key(e) {
@@ -476,8 +594,9 @@ export class BattleView {
     if (e.key === 'e' || e.key === 'E') { this.endTurn(); return; }
     if (e.key === 'Escape') { this.sel = null; this.aim = null; this.hideTip(); return; }
     const n = e.key === '0' ? 10 : +e.key;
-    if (n >= 1 && n <= b.hand.length) {
-      const c = b.hand[n - 1];
+    const hand = b.hand.filter(c => this.inHand(c));
+    if (n >= 1 && n <= hand.length) {
+      const c = hand[n - 1];
       if (this.choosing?.kind === 'hand') { if (this.choosing.cards.includes(c)) this.finishChoose([c]); return; }
       if (this.sel?.card === c && !b.needsTarget(c)) { this.playCard(c, null); return; }
       const v = this.views.get(c.uid);
@@ -521,8 +640,26 @@ export class BattleView {
     v.hoverTilt.set(clamp((y - s.y) / (v.s * RATIO) * .5, -.35, .35), clamp((x - s.x) / v.s * .6, -.4, .4));
   }
   hoverDemon(d) {
-    for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = who === d ? .6 : 0;
-    if (d !== this.hoveredDemon) { this.hoveredDemon = d; if (d) this.showDemonTip(d); else if (!this.hover && !this.inspectHeld) this.hideTip(); }
+    if (!this.aim) for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = who === d ? .6 : 0;
+    this.hoveredDemon = d;
+  }
+  inHand(card) { return this.b.hand.includes(card) && !this.queue.some(q => q.card === card); }
+  // show a tooltip unless it's already the one showing (key null: none)
+  tipFor(key, show) { if (key === this.tipKey) return; if (!key) { this.hideTip(); return; } show(); this.tipKey = key; }
+  // a tap on a demon (or its intent) on a touch screen opens its cards out and says what it is; tap again to close
+  tapPeek(x, y) {
+    const d = this.intentAtPoint(x, y) ?? this.demonAt(x, y);
+    this.touchPeek = d && this.touchPeek !== d ? d : null;
+    if (this.touchPeek) this.showDemonTip(d); else this.hideTip();
+  }
+  intentAtPoint(x, y) {
+    for (const [d, e] of this.intents) { if (e.hidden || !d.alive) continue; const r = e.getBoundingClientRect(); if (x > r.left - 6 && x < r.right + 6 && y > r.top - 6 && y < r.bottom + 6) return d; }
+    return null;
+  }
+  // a status icon under a nameplate
+  statusAt(x, y) {
+    for (const [who, p] of this.plates) for (const e of p.sts.children) { const r = e.getBoundingClientRect(); if (x > r.left - 2 && x < r.right + 2 && y > r.top - 2 && y < r.bottom + 2) return { who, key: e.dataset.tip, el: e }; }
+    return null;
   }
   updateAim() {
     const a = this.aim, svg = this.arrow;
@@ -535,11 +672,12 @@ export class BattleView {
       return;
     }
     if (this.promptEl._aim) { this.promptEl._aim = false; if (!this.choosing) this.hidePrompt(); }
-    if (!a || !this.inputOn) { svg.classList.remove('on'); this.reticle.classList.remove('on'); this.aimHeld = null; if (!this.hoveredDemon) for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = 0; return; }
+    if (!a || !this.inputOn) { svg.classList.remove('on'); this.reticle.classList.remove('on'); this.aimHeld = null; this.aimTarget = null; if (!this.hoveredDemon) for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = 0; return; }
     const v = a.view, s = this.layer.toScreen(v.p);
     const sx = s.x, sy = s.y - v.s * RATIO * .5;
     const t = this.targetAt(a.x, a.y);
     this.aimHeld = t?.held ?? null;
+    this.aimTarget = t?.demon ?? null;
     let ex = a.x, ey = a.y;
     for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = t?.demon === who ? 1 : 0;
     if (t) {
@@ -558,7 +696,7 @@ export class BattleView {
   /* ================= a closer look ================= */
   // the card in hand, or held over a demon's head, under this point: open it up to read both sides
   inspectAt(x, y) {
-    const b = this.b, v = this.layer.pick(x, y, v => b.hand.includes(v.card) || this.isHeld(v.card));
+    const b = this.b, v = this.layer.pick(x, y, v => this.inHand(v.card) || this.isHeld(v.card));
     if (!v) return false;
     this.inspectCard(v.card);
     return true;
@@ -607,6 +745,19 @@ export class BattleView {
     const s = this.layer.toScreen(v.p);
     this.showTip(`<div class="tt-held">${text}</div>${tipHTML(keys)}${h.hidden ? '' : `<div class="kw dim">${this.touchy ? 'Hold' : 'Right-click'} it to read both sides, large.</div>`}`, s.x, s.y + v.s * RATIO * .55 + 8, 'below');
   }
+  // what a status (or one of your Powers) under a nameplate does
+  showStatusTip(st) {
+    const b = this.b, r = st.el.getBoundingClientRect();
+    let html;
+    if (st.key.startsWith('power:')) {
+      const k = st.key.slice(6), n = b.powers[k] ?? 1, c = Object.values(CARDS).find(c => c.up?.some(e => e.id === k));
+      html = `<div class="tt-name">${c?.name ?? 'Power'}<small>A Power: it lasts the whole fight</small></div><div class="kw">${richHTML(POWER_TEXT[k]?.(n) ?? '')}</div>`;
+    } else {
+      const S = STATUS[st.key], n = st.who.st[st.key];
+      html = `<div class="tt-name">${S.name} ${n}<small>${st.who === b.angel ? 'On you' : 'On the ' + st.who.name}</small></div><div class="kw">${KEYWORDS[S.name] ?? ''}</div>`;
+    }
+    this.showTip(html, r.left + r.width / 2, r.bottom + 8, 'below');
+  }
   showDemonTip(d) {
     const tr = d.traits.map(t => TRAITS[t.id]).filter(Boolean);
     const f = this.figs.get(d); const c = this.stage.project(f.feet(this.tmp));
@@ -626,7 +777,7 @@ export class BattleView {
     top = clamp(top, barB, innerHeight - r.height - 8);
     t.style.transform = `translate(${left}px, ${top}px)`;
   }
-  hideTip() { this.tip.hidden = true; }
+  hideTip() { this.tip.hidden = true; this.tipKey = null; }
 
   /* ================= events from the engine ================= */
   async ev(type, d, b) {
@@ -644,7 +795,7 @@ export class BattleView {
         this.plates.set(b.angel, new Plate(this.plateLayer, b.angel, { angel: true }));
         for (const dm of b.demons) this.plates.set(dm, new Plate(this.plateLayer, dm));
         this.m = this.metrics();
-        L.deck.set(b.deck.length, L.at(this.m.deck.x, this.m.deck.y, 0), this.m.pileW);
+        L.deck.set(b.deck.length, L.at(this.m.deck.x, this.m.deck.y, 0), this.m.pileW); L.disc.set(0, L.at(this.m.disc.x, this.m.disc.y, 0), this.m.pileW);
         sfx.rumble();
         for (let t = 0; t <= 1; t += .05) { for (const f of ds) f.dissolve = 1 - t; await this.wait(28); }
         for (const f of ds) f.dissolve = 0;
@@ -663,7 +814,9 @@ export class BattleView {
         const s = slots[i >= 0 ? i : 0] ?? { x: m.W * .7, y: m.H * .2, rz: 0 };
         this.paintFor(v);
         sfx.draw(); setTimeout(() => sfx.turn(), 200 / this.spd);
-        await v.fly(L.at(s.x, s.y, 40), V(0, d.hidden ? PI : 0, (d.orient === 'down' ? PI : 0) + (s.rz ?? 0)), m.heldW, { dur: .5 / this.spd, arc: 90, lift: 160, spin: d.orient === 'down' ? PI * 2 : 0 });
+        d.demon._peek = this.stage.time + 9;   // stays open while it lands, then tucks into its intent
+        await v.fly(L.at(s.x, s.y, 40), V(0, d.hidden ? PI : 0, (d.orient === 'down' ? PI : 0) + (s.rz ?? 0)), s.w ?? m.heldW, { dur: .5 / this.spd, arc: 90, lift: 160, spin: d.orient === 'down' ? PI * 2 : 0 });
+        d.demon._peek = this.stage.time + 1.1 / this.spd;
         if (d.peek) { await this.burnCard(v, d.demon); }
         else { fx.ring(this.figs.get(d.demon).top(new THREE.Vector3()), d.orient === 'up' ? '#c8a8ff' : '#ff6a3a', 1.6); await this.wait(90); }
         break;
@@ -684,7 +837,7 @@ export class BattleView {
         let k = 0;
         for (const v of [...this.views.values()]) {
           if (!b.deck.includes(v.card) || v.flight) continue;
-          flights.push(v.fly(L.deck.topPos(), V(0, PI, 0), m.pileW, { dur: (.35 + k * .03) / this.spd, arc: 40 }).then(() => { this.layer.remove(v); this.views.delete(v.card.uid); }));
+          flights.push(v.fly(L.deck.topPos(), V(TILT, PI, 0), m.pileW, { dur: (.35 + k * .03) / this.spd, arc: 40 }).then(() => { this.layer.remove(v); this.views.delete(v.card.uid); }));
           k++;
         }
         await Promise.all(flights);
@@ -780,10 +933,10 @@ export class BattleView {
           v = this.spawn(d.card, L.at(p.x, p.y, 60), false);
         }
         v ??= this.viewOf(d.card, 'deck');
-        const top = L.at(m.disc.x, m.disc.y, 20);
-        const r = Math.sin(d.card.uid * 12.9) * .2;
+        const top = L.disc.topPos(new THREE.Vector3(), 4);
+        const r = Math.sin(d.card.uid * 12.9) * .18;
         const dur = d.from === 'hand' ? .32 : .38;
-        const p = v.fly(top, V(0, 0, r), m.pileW, { dur: dur / this.spd, arc: 60, spin: d.from === 'held' ? PI * 2 : 0 });
+        const p = v.fly(top, V(TILT, 0, r), m.pileW, { dur: dur / this.spd, arc: 60, spin: d.from === 'held' ? PI * 2 : 0 });
         if (d.from === 'hand') { this.pending.push(p); await this.wait(45); }
         else { sfx.discard(); await p; }
         break;
@@ -814,8 +967,8 @@ export class BattleView {
       case 'offer': case 'recall': {
         const v = this.viewOf(d.card, type === 'recall' ? 'discard' : 'deck');
         sfx.offer();
-        const p = L.deck.topPos(); p.z += 60;
-        await v.fly(p, V(0, 0, 0), m.pileW, { dur: .4 / this.spd, arc: 80 });
+        const p = L.deck.topPos(new THREE.Vector3(), 3);
+        await v.fly(p, V(TILT, 0, 0), m.pileW, { dur: .4 / this.spd, arc: 80 });
         floater(this.floatLayer, m.deck.x, m.deck.y - 60, type === 'offer' ? 'Offered' : 'On top', 'small holy');
         break;
       }
@@ -825,7 +978,7 @@ export class BattleView {
         const v = this.viewOf(d.card); const sc = screenOf(d.demon);
         sfx.disarm(); fig(d.demon).hit(1);
         floater(this.floatLayer, sc.x, sc.y - 40, 'Disarmed!', 'holy');
-        await v.fly(L.at(m.disc.x, m.disc.y, 20), V(0, 0, Math.sin(d.card.uid) * .2), m.pileW, { dur: .5 / this.spd, arc: 160, spin: PI * 3 });
+        await v.fly(L.disc.topPos(new THREE.Vector3(), 4), V(TILT, 0, Math.sin(d.card.uid) * .18), m.pileW, { dur: .5 / this.spd, arc: 160, spin: PI * 3 });
         break;
       }
       case 'redeem': {
@@ -844,7 +997,7 @@ export class BattleView {
         const hs = this.handSlots(b.hand.length, m), j = b.hand.indexOf(d.taken), t = hs[j];
         this.paintFor(vg); this.paintFor(vt);
         await Promise.all([
-          vg.fly(L.at(s.x, s.y, 40), V(0, 0, d.orient === 'down' ? PI : 0), m.heldW, { dur: .55 / this.spd, arc: 120, spin: d.orient === 'down' ? PI * 2 : 0 }),
+          vg.fly(L.at(s.x, s.y, 40), V(0, 0, d.orient === 'down' ? PI : 0), s.w, { dur: .55 / this.spd, arc: 120, spin: d.orient === 'down' ? PI * 2 : 0 }),
           vt.fly(L.at(t.x, t.y, 60), V(0, 0, t.rz), m.cardW, { dur: .55 / this.spd, arc: -60 }),
         ]);
         break;
@@ -903,7 +1056,7 @@ export class BattleView {
         for (let i = 0; i < d.n; i++) {
           const c = { uid: -1e6 - Math.random() * 1e6 | 0, id: d.id, plus: false };
           const v = this.layer.add(c); v.place(L.at(from.x, from.y, 80), V(0, 0, 0), m.heldW); v.setFace({});
-          flights.push(this.wait(i * 120).then(() => v.fly(L.deck.topPos(), V(0, PI, 0), m.pileW, { dur: .5 / this.spd, arc: 80 })).then(() => this.layer.remove(v)));
+          flights.push(this.wait(i * 120).then(() => v.fly(L.deck.topPos(), V(TILT, PI, 0), m.pileW, { dur: .5 / this.spd, arc: 80 })).then(() => this.layer.remove(v)));
         }
         floater(this.floatLayer, from.x, from.y - 40, `+${d.n} ${CARDS[d.id].name}`, 'small demon');
         await Promise.all(flights);
@@ -939,7 +1092,7 @@ export class BattleView {
     this.views.clear();
     for (const p of this.plates.values()) p.el.remove();
     for (const e of this.intents.values()) e.remove();
-    this.layer.deck.set(0, this.layer.at(0, 0, 0), 1);
+    this.layer.deck.set(0, this.layer.at(0, 0, 0), 1); this.layer.disc.set(0, this.layer.at(0, 0, 0), 1);
     this.root.hidden = true;
     this.hideTip(); this.hidePrompt();
     this.arrow.classList.remove('on'); this.reticle.classList.remove('on');

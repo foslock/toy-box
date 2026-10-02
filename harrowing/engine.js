@@ -233,14 +233,15 @@ export class Battle {
       }
       if (!p) break;
       const c = p.card; delete c.seen;
-      const h = { card: c, orient: this.orientFor(d, c), hidden: !!this.trait(d, 'lurker') };
+      // pending: it may yet be set aside (a Knucklebone, a hoard), so its intent isn't shown until that's settled
+      const h = { card: c, orient: this.orientFor(d, c), hidden: !!this.trait(d, 'lurker'), pending: !!(finger || hoard) };
       d.held.push(h);
       await this.ev('demonDraw', { demon: d, card: c, orient: h.orient, hidden: h.hidden, from: p.from });
       if (finger) {
         // a second card: the demon must keep whichever hurts you less
         const q = await this.pullFor(d);
         if (q) {
-          const h2 = { card: q.card, orient: this.orientFor(d, q.card), hidden: h.hidden };
+          const h2 = { card: q.card, orient: this.orientFor(d, q.card), hidden: h.hidden, pending: true };
           d.held.push(h2);
           await this.ev('demonDraw', { demon: d, card: q.card, orient: h2.orient, hidden: h2.hidden, from: q.from });
           const worse = this.heldThreat(d, h2) > this.heldThreat(d, h) ? h2 : h;
@@ -249,6 +250,7 @@ export class Battle {
           this.flash(this.hasCharm('saintFinger') ? 'saintFinger' : 'knucklebone');
           await this.ev('discard', { card: worse.card, from: 'held', demon: d });
         }
+        if (!hoard) for (const x of d.held) delete x.pending;
       }
     }
     if (hoard && d.held.length > 1) {
@@ -258,6 +260,7 @@ export class Battle {
       d.hoard.push(h.card);
       await this.ev('hoard', { demon: d, card: h.card });
     }
+    for (const x of d.held) delete x.pending;
   }
 
   /* ---------- the angel plays a card ---------- */

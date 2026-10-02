@@ -37,6 +37,7 @@ export function cardEl(card, o = {}) {
   if (o.price != null) { const p = el('div', 'price' + (o.sale ? ' sale' : '') + (o.poor ? ' poor' : ''), `${img('coin', 'gold')}${o.price}`); e.append(p); }
   if (o.count > 1) e.append(el('div', 'count', '×' + o.count));
   // the demon's reading, the right way up, under the card
+  if (o.after) { e.classList.add('capd'); e.append(el('div', 'cap after', `<b>✦ Blessed:</b> ${o.after}`)); }
   if (o.caption) { e.classList.add('capd'); if (o.price != null) e.classList.add('priced'); e.append(el('div', 'cap', `${img('horned', 'red')}<b>${esc(d.rtitle)}:</b> ${richHTML(reversedText(card) || 'Nothing happens.')}`)); }
   // where clicking the card does something else, a small medallion opens it up to read both sides
   const look = () => { const list = o.list ?? [card]; inspect(list, Math.max(0, list.indexOf(card))); };
@@ -165,33 +166,36 @@ export class Screens {
   rewards(rw, kind, done) {
     const run = this.app.run;
     const s = el('div', 'scr');
-    s.innerHTML = `<h1>${kind === 'boss' ? 'The master falls' : 'Victory'}</h1><p class="lede">${kind === 'boss' ? 'The way down opens before you.' : 'The demons are ash. What do you take?'}</p><div class="col" id="rws"></div>`;
+    s.innerHTML = `<h1>${kind === 'boss' ? 'The master falls' : 'Victory'}</h1><p class="lede">${kind === 'boss' ? 'The way down opens before you.' : 'The demons are ash.'} Tap a reward to take it.</p><div class="col rewards" id="rws"></div>`;
     const list = $('#rws', s);
+    // a reward row: what it is, and a plain label saying what tapping it does
+    const row = (icon, title, sub, verb) => el('button', 'reward', `${icon}<span class="rw-t">${title}${sub ? `<small>${sub}</small>` : ''}</span><span class="take">${verb}</span>`);
+    const taken = e => { e.classList.add('taken'); e.querySelector('.take').textContent = 'Taken ✓'; };
     const items = [];
-    const ob = el('button', 'reward', `${img('coin', 'gold', '')} ${rw.obols} obols`);
-    ob.onclick = () => { run.obols += rw.obols; ob.classList.add('taken'); this.app.sound.coin(); this.app.updateTop(); };
+    const ob = row(img('coin', 'gold', ''), `${rw.obols} obols`, 'Coin for the Ferryman', 'Take');
+    ob.onclick = () => { run.obols += rw.obols; rw.obolsTaken = true; taken(ob); this.app.sound.coin(); this.app.updateTop(); };
     items.push(ob);
     if (rw.cards?.length) {
-      const cb = el('button', 'reward', `${img('scroll', 'gold', '')} Add a card to your deck`);
+      const cb = row(img('scroll', 'gold', ''), 'A card for your deck', `Choose one of ${rw.cards.length}, or none`, 'Choose ›');
       cb.onclick = () => this.cardReward(rw.cards, picked => { if (picked) rw.cardsTaken = true; this.rewards(rw, kind, done); }, { title: 'Choose a card', skip: true });
       cb.dataset.k = 'cards';
       items.push(cb);
     }
     if (rw.charm) {
       const ch = CHARMS[rw.charm];
-      const cc = el('button', 'reward', `${img(ch.glyph, 'gold', '')} ${esc(ch.name)} <small style="font-weight:500;color:var(--ink2)">— ${esc(ch.text)}</small>`);
-      cc.onclick = () => { run.addCharm(rw.charm); cc.classList.add('taken'); rw.charmTaken = true; this.app.sound.redeem(); this.app.updateTop(); };
+      const cc = row(img(ch.glyph, 'gold', ''), esc(ch.name), esc(ch.text), 'Take');
+      cc.onclick = () => { run.addCharm(rw.charm); taken(cc); rw.charmTaken = true; this.app.sound.redeem(); this.app.updateTop(); };
       cc.dataset.k = 'charm';
       items.push(cc);
     }
     for (const it of items) list.append(it);
-    if (rw.obolsTaken) ob.classList.add('taken');
-    ob.addEventListener('click', () => { rw.obolsTaken = true; });
-    if (rw.cardsTaken) items.find(i => i.dataset.k === 'cards')?.classList.add('taken');
-    if (rw.charmTaken) items.find(i => i.dataset.k === 'charm')?.classList.add('taken');
+    if (rw.obolsTaken) taken(ob);
+    if (rw.cardsTaken) taken(items.find(i => i.dataset.k === 'cards'));
+    if (rw.charmTaken) taken(items.find(i => i.dataset.k === 'charm'));
     const go = el('button', 'btn gold', 'Continue');
     go.onclick = () => { if (!rw.obolsTaken) { run.obols += rw.obols; rw.obolsTaken = true; } this.app.updateTop(); done(); };
     s.append(go);
+    if (!rw.obolsTaken) s.append(el('p', 'hint', 'Obols you leave are picked up on the way out; cards and charms are not.'));
     this.show(s);
   }
   cardReward(cards, done, o = {}) {
@@ -382,15 +386,15 @@ export class Screens {
     let left = n;
     const s = el('div', 'scr');
     const draw = () => {
-      s.innerHTML = `<h2>${verbs[mode]} ${left > 1 ? left + ' cards' : 'a card'}</h2><p>${mode === 'bless' ? 'A Blessed card is stronger. Tap to Bless it.' : mode === 'remove' ? 'Tap a card to remove it from your deck for good.' : mode === 'transform' ? 'Tap a card to turn it into a random card of the same rarity.' : 'Tap a card to add a copy of it.'}</p><div class="deckgrid" id="dg"></div>`;
+      s.innerHTML = `<h2>${verbs[mode]} ${left > 1 ? left + ' cards' : 'a card'}</h2><p>${mode === 'bless' ? 'A Blessed card is stronger. Only cards not yet Blessed are shown; under each is what it becomes. Tap one to Bless it.' : mode === 'remove' ? 'Tap a card to remove it from your deck for good.' : mode === 'transform' ? 'Tap a card to turn it into a random card of the same rarity.' : 'Tap a card to add a copy of it.'}</p><div class="deckgrid" id="dg"></div>`;
       const w = innerWidth < 600 ? 104 : 140;
       $('#dg', s).style.setProperty('--w', w + 'px');
       let options = run.deck.slice();
       if (mode === 'bless') options = options.filter(c => CARDS[c.id].plus && !c.plus);
       if (mode === 'transform' || mode === 'copy') options = options.filter(c => CARDS[c.id].type !== 'curse' || mode === 'transform');
       for (const c of options) {
-        const shown = mode === 'bless' ? { ...c, plus: true } : c;
-        const e = cardEl(shown, { w, list: options.map(x => mode === 'bless' ? { ...x, plus: true } : x), onClick: () => {
+        // a card to bless is shown as it is now, with what Blessing would make of it written underneath
+        const e = cardEl(c, { w, list: options, after: mode === 'bless' ? richHTML(uprightText({ ...c, plus: true })) : null, onClick: () => {
           if (mode === 'remove') run.removeCard(c);
           else if (mode === 'bless') run.bless(c);
           else if (mode === 'transform') run.transform(c);

@@ -7,7 +7,7 @@ import { CIRCLE_LOOK, canvas, rad, TAU } from './paint.js';
 import { lookFor, FW } from './figures.js';
 import { spriteMaterial, glowMaterial, texOf, LIGHT } from './sprite.js';
 import { SETS, propLook } from './props.js';
-import { LAYERS, LW, BASE, HZ, paintSky, paintLayer, paintFloor, paintLip } from './scenery.js';
+import { LAYERS, LW, BASE, HZ, LIP, paintSky, paintLayer, paintFloor, paintLip } from './scenery.js';
 
 /* ================= particles: embers, ash, rain, snow ================= */
 const PVERT = `
@@ -204,8 +204,9 @@ export class Stage {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 90), new THREE.MeshBasicMaterial({ map: texOf(P.floor) }));
     ground.rotation.x = -Math.PI / 2; ground.position.set(0, 0, LEDGE + 45); ground.renderOrder = 1; this.scene.add(ground); this.layers.ground = ground;
     // its broken far edge, standing a little proud of the floor
-    const lip = new THREE.Mesh(new THREE.PlaneGeometry(200, 200 * 128 / 2048), new THREE.MeshBasicMaterial({ map: texOf(P.lip), transparent: true, depthWrite: false }));
-    lip.position.set(0, .25, LEDGE); lip.renderOrder = 1.1; this.scene.add(lip); this.layers.lip = lip;
+    const lt = texOf(P.lip); lt.wrapS = THREE.RepeatWrapping; lt.repeat.x = 240 / LIP.tile; lt.anisotropy = 8;
+    const lip = new THREE.Mesh(new THREE.PlaneGeometry(240, LIP.height), new THREE.MeshBasicMaterial({ map: lt, transparent: true, depthWrite: false }));
+    lip.position.set(0, LIP.height / 2 - 1.15, LEDGE); lip.renderOrder = 1.1; this.scene.add(lip); this.layers.lip = lip;
     // things standing about on the ledge
     this.fires = [];
     this.props = [];
