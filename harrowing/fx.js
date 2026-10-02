@@ -10,30 +10,34 @@ function tex(name, draw, w = 256, h = 256) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return (TEX[name] = t);
 }
+// crisp shapes of cut light, to sit with the paper: a crescent blade, three tapered tears, a thin ring
+function crescent(g, r, w, a0, a1) {
+  g.beginPath(); g.arc(0, 0, r, a0, a1);
+  const m = (a0 + a1) / 2;
+  g.quadraticCurveTo(Math.cos(m) * (r - w * 2), Math.sin(m) * (r - w * 2), Math.cos(a0) * r, Math.sin(a0) * r);
+  g.fill();
+}
 const slashTex = () => tex('slash', (g, w, h) => {
-  g.translate(w / 2, h / 2);
-  for (let i = 0; i < 3; i++) {
-    g.beginPath(); g.arc(0, 40, 100 - i * 6, Math.PI * 1.1, Math.PI * 1.9);
-    g.strokeStyle = `rgba(255,255,255,${.9 - i * .3})`; g.lineWidth = 14 - i * 4; g.lineCap = 'round'; g.shadowColor = '#fff'; g.shadowBlur = 20; g.stroke();
-  }
+  g.translate(w / 2, h / 2 + 40); g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = 6;
+  crescent(g, 100, 16, Math.PI * 1.08, Math.PI * 1.92);
+  g.globalAlpha = .45; crescent(g, 82, 7, Math.PI * 1.18, Math.PI * 1.8);
 });
 const clawTex = () => tex('claw', (g, w, h) => {
-  g.translate(w / 2, h / 2); g.rotate(-.5);
-  for (let i = -1; i <= 1; i++) {
-    g.beginPath(); g.moveTo(i * 34 - 10, -90); g.quadraticCurveTo(i * 34 + 14, 0, i * 34 - 4, 90);
-    g.strokeStyle = '#fff'; g.lineWidth = 12; g.lineCap = 'round'; g.shadowColor = '#fff'; g.shadowBlur = 16; g.stroke();
-  }
+  g.translate(w / 2, h / 2); g.rotate(-.5); g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = 5;
+  for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 34 - 12, -96); g.quadraticCurveTo(i * 34 + 22, 0, i * 34 - 2, 96); g.quadraticCurveTo(i * 34 + 6, 0, i * 34 - 12, -96); g.fill(); }
 });
 const ringTex = () => tex('ring', (g, w, h) => {
-  g.fillStyle = rad(g, w / 2, h / 2, w * .3, w * .5, [[0, 'rgba(255,255,255,0)'], [.6, 'rgba(255,255,255,.9)'], [.8, 'rgba(255,255,255,.3)'], [1, 'rgba(255,255,255,0)']]);
-  g.fillRect(0, 0, w, h);
+  g.fillStyle = rad(g, w / 2, h / 2, w * .2, w * .48, [[0, 'rgba(255,255,255,0)'], [.85, 'rgba(255,255,255,.18)'], [1, 'rgba(255,255,255,0)']]); g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#fff'; g.lineWidth = 6; g.shadowColor = '#fff'; g.shadowBlur = 6; g.beginPath(); g.arc(w / 2, h / 2, w * .44, 0, TAU); g.stroke();
+  g.lineWidth = 2; g.globalAlpha = .6; g.beginPath(); g.arc(w / 2, h / 2, w * .38, 0, TAU); g.stroke();
 });
 const glowTex = () => tex('glow', (g, w, h) => { g.fillStyle = rad(g, w / 2, h / 2, 0, w / 2, [[0, 'rgba(255,255,255,1)'], [.3, 'rgba(255,255,255,.5)'], [1, 'rgba(255,255,255,0)']]); g.fillRect(0, 0, w, h); });
 const shieldTex = () => tex('shield', (g, w, h) => {
   g.translate(w / 2, h / 2);
   const p = new Path2D('M0 -100 C40 -84 70 -84 90 -88 C90 -10 60 60 0 104 C-60 60 -90 -10 -90 -88 C-70 -84 -40 -84 0 -100 Z');
-  g.fillStyle = 'rgba(255,255,255,.18)'; g.fill(p);
-  g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 7; g.shadowColor = '#fff'; g.shadowBlur = 18; g.stroke(p);
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.fill(p);
+  g.strokeStyle = '#fff'; g.lineWidth = 5; g.shadowColor = '#fff'; g.shadowBlur = 6; g.stroke(p);
+  g.scale(.82, .82); g.lineWidth = 2; g.globalAlpha = .6; g.stroke(p);
 });
 const beamTex = () => tex('beam', (g, w, h) => { g.fillStyle = lin(g, 0, 0, w, 0, [[0, 'rgba(255,255,255,0)'], [.5, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]); g.fillRect(0, 0, w, h); const v = lin(g, 0, 0, 0, h, [[0, 'rgba(0,0,0,1)'], [.15, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0)']]); g.globalCompositeOperation = 'destination-out'; g.fillStyle = v; g.fillRect(0, 0, w, h); }, 64, 256);
 

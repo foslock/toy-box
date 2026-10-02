@@ -203,10 +203,17 @@ export class BattleView {
     this.faceTick = (this.faceTick ?? 0) + dt;
     if (this.faceTick > .2) { this.faceTick = 0; for (const v of this.views.values()) if (!v.dead) this.paintFor(v); }
     // plates and intents
+    const spots = [];
     for (const [who, p] of this.plates) {
       const f = this.figs.get(who); if (!f) continue;
       const ft = this.stage.project(f.feet(this.tmp));
-      p.update(ft.x, ft.y + 6, who === b.angel ? { powers: b.powers } : {});
+      spots.push({ who, p, x: ft.x, y: ft.y + 6 });
+    }
+    // demons standing close together: every other plate drops below its neighbour's
+    const row = spots.filter(q => q.who !== b.angel).sort((a, c) => a.x - c.x), gap = innerWidth < 560 ? 92 : 122;
+    for (let i = 1; i < row.length; i++) if (row[i].x - row[i - 1].x < gap && !row[i - 1].dropped) { row[i].y = Math.max(row[i].y, row[i - 1].y + 62); row[i].dropped = true; }
+    for (const { who, p, x, y } of spots) {
+      p.update(x, y, who === b.angel ? { powers: b.powers } : {});
       if (who !== b.angel) p.el.classList.toggle('hoarding', who.hoard?.length > 0), p.el.dataset.hoard = who.hoard?.length ? `Hoard ${who.hoard.length}/4` : '';
     }
     for (const d of b.demons) this.updateIntent(d);

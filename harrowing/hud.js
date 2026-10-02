@@ -10,13 +10,15 @@ export const el = (tag, cls, html) => { const e = document.createElement(tag); i
 
 /* ---------- icons: emblems drawn small, as image URLs ---------- */
 const ICON_CACHE = new Map();
+// flat, like a printer's stamp: one colour, inked over in black
+const INKED = { outline: '#120c0a', detail: '#120c0a', hole: '#120c0a' };
 const ICON_COLORS = {
-  gold: { body: '#fff6d8', body2: '#f0b93a', outline: '#6a4206', accent: '#ffffff', detail: '#7a4e0a', hole: '#5a3604' },
-  red: { body: '#ffb59a', body2: '#e2401c', outline: '#3a0604', accent: '#ffe0a0', detail: '#4a0806', hole: '#3a0604' },
-  blue: { body: '#e8f6ff', body2: '#6fb4ea', outline: '#123a5e', accent: '#ffffff', detail: '#1a4a74', hole: '#0e2a44' },
-  green: { body: '#e6ffe0', body2: '#5ccf6a', outline: '#0e3a14', accent: '#ffffff', detail: '#16481c', hole: '#0e3a14' },
-  violet: { body: '#f0e4ff', body2: '#a07ae0', outline: '#2a1450', accent: '#ffffff', detail: '#341a60', hole: '#2a1450' },
-  grey: { body: '#f2f0ec', body2: '#a8a29a', outline: '#2a2826', accent: '#ffffff', detail: '#3a3836', hole: '#2a2826' },
+  gold: { body: '#e8c983', accent: '#f6ecd4', ...INKED },
+  red: { body: '#e46a42', accent: '#f6c8a8', ...INKED },
+  blue: { body: '#a8cde6', accent: '#eef6fb', ...INKED },
+  green: { body: '#a2d496', accent: '#eef8e8', ...INKED },
+  violet: { body: '#bca6ea', accent: '#f2ecfb', ...INKED },
+  grey: { body: '#d2cabc', accent: '#f6f2ea', ...INKED },
 };
 export function icon(glyph, color = 'gold', size = 64) {
   const key = glyph + color + size;
@@ -24,7 +26,7 @@ export function icon(glyph, color = 'gold', size = 64) {
   if (!u) {
     const c = document.createElement('canvas'); c.width = c.height = size;
     const g = c.getContext('2d');
-    drawGlyph(g, glyph, size * .06, size * .06, size * .88, { ...ICON_COLORS[color], glow: 'rgba(0,0,0,.6)', glowBlur: 3 });
+    drawGlyph(g, glyph, size * .06, size * .06, size * .88, { ...ICON_COLORS[color], glow: 'rgba(0,0,0,.5)', glowBlur: 2 });
     u = c.toDataURL();
     ICON_CACHE.set(key, u);
   }

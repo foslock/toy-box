@@ -26,15 +26,17 @@ export function hex(c) { c = c.replace('#', ''); return [parseInt(c.slice(0, 2),
 export const rgba = (c, a) => { const [r, g, b] = hex(c); return `rgba(${r},${g},${b},${a})`; };
 export function mixc(a, b, t) { const A = hex(a), B = hex(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
 
-// Each circle's light: the sky, the glow from below, the rock, the rim light, the fog, and its weather.
+// Each circle's light, for a shadow theatre: the sky from its top down to the glowing horizon, the glow itself,
+// the haze far scenery fades into, the near-black ink of the nearest cut-outs, the rim light that catches every
+// cut edge, the fog, the light paper takes on, the embers, and the weather.
 export const CIRCLE_LOOK = [
-  { name: 'limbo', sky: ['#07080e', '#1c2030', '#4a5670'], glow: '#a8c4e0', rock: '#22252f', rock2: '#3a3e4c', rim: '#cfe0f4', fog: '#56607a', light: '#9fb8d8', weather: 'ash', lava: '#8fb4d8' },
-  { name: 'lust', sky: ['#0a0310', '#2c0c34', '#7a1a62'], glow: '#ff5fa8', rock: '#241020', rock2: '#3e1a36', rim: '#ff9ccc', fog: '#6a2058', light: '#ff7ab8', weather: 'wind', lava: '#ff3f8a' },
-  { name: 'gluttony', sky: ['#070806', '#1c1e12', '#4a4626'], glow: '#c8b04a', rock: '#211f14', rock2: '#36321e', rim: '#e8d488', fog: '#4a4a2c', light: '#d8c070', weather: 'rain', lava: '#a89430' },
-  { name: 'greed', sky: ['#0c0703', '#2e1a06', '#7a4a10'], glow: '#ffb83a', rock: '#2e1e0c', rock2: '#4a3214', rim: '#ffd88a', fog: '#6a4614', light: '#ffc45a', weather: 'gold', lava: '#ffbe3a' },
-  { name: 'wrath', sky: ['#050404', '#1a0a08', '#4a1408'], glow: '#ff4a1a', rock: '#181010', rock2: '#2a1814', rim: '#ff7a4a', fog: '#3a1a12', light: '#ff6a3a', weather: 'embers', lava: '#ff3a0a' },
-  { name: 'heresy', sky: ['#0a0303', '#3a0a05', '#9a2a08'], glow: '#ff7a1a', rock: '#260c08', rock2: '#3e1a10', rim: '#ffaa5a', fog: '#6a200c', light: '#ff8a3a', weather: 'embers', lava: '#ff6a10' },
-  { name: 'violence', sky: ['#080101', '#3a0404', '#8a1006'], glow: '#ff3a2a', rock: '#260808', rock2: '#401010', rim: '#ff6a5a', fog: '#6a0a0a', light: '#ff5a3a', weather: 'fire', lava: '#d81010' },
-  { name: 'fraud', sky: ['#020605', '#08201a', '#1a5a44'], glow: '#4affc0', rock: '#0a1814', rock2: '#142a24', rim: '#8affdc', fog: '#14463a', light: '#5affc8', weather: 'spores', lava: '#2ad8a0' },
-  { name: 'treachery', sky: ['#02050a', '#0a1a2c', '#2a5070'], glow: '#9ad8ff', rock: '#1a2838', rock2: '#2c4258', rim: '#e0f6ff', fog: '#2e4a66', light: '#bfe8ff', weather: 'snow', lava: '#cfeeff' },
+  { name: 'limbo', sky: ['#0b0e16', '#2a3448', '#9aaec4'], glow: '#e4edf4', haze: '#6c7e96', ink: '#0b0e14', rim: '#e2ecf7', fog: '#8a9ab0', light: '#c8d6e6', weather: 'ash', lava: '#b8cce0' },
+  { name: 'lust', sky: ['#13040f', '#420f38', '#d0508a'], glow: '#ffa6cc', haze: '#8e2c66', ink: '#13050f', rim: '#ffbad8', fog: '#a83e7a', light: '#ff9cc8', weather: 'wind', lava: '#ff5c9c' },
+  { name: 'gluttony', sky: ['#0b0c07', '#2c2c15', '#9a9650'], glow: '#e6e090', haze: '#62602f', ink: '#0d0d07', rim: '#f0eaa8', fog: '#7e7c44', light: '#dcd690', weather: 'rain', lava: '#c8bc4a' },
+  { name: 'greed', sky: ['#130a03', '#45290a', '#e09a30'], glow: '#ffdc8c', haze: '#94621e', ink: '#120a04', rim: '#ffe6aa', fog: '#a87a30', light: '#ffd890', weather: 'gold', lava: '#ffc44a' },
+  { name: 'wrath', sky: ['#0c0404', '#360e09', '#c23a1e'], glow: '#ff8050', haze: '#741c12', ink: '#0e0505', rim: '#ff9a6c', fog: '#842a18', light: '#ff8a62', weather: 'embers', lava: '#ff4a14' },
+  { name: 'heresy', sky: ['#130503', '#4c1507', '#ec6c20'], glow: '#ffb050', haze: '#8e300e', ink: '#120604', rim: '#ffc27e', fog: '#a8441a', light: '#ffaa5e', weather: 'embers', lava: '#ff7a1a' },
+  { name: 'violence', sky: ['#110203', '#46070a', '#d42820'], glow: '#ff7058', haze: '#7e1012', ink: '#110304', rim: '#ff8c7a', fog: '#901a18', light: '#ff7a64', weather: 'fire', lava: '#ff3a1a' },
+  { name: 'fraud', sky: ['#020807', '#0c2e27', '#3a9c80'], glow: '#9affda', haze: '#18584a', ink: '#030908', rim: '#acffe6', fog: '#247260', light: '#8ef0cc', weather: 'spores', lava: '#40e0b0' },
+  { name: 'treachery', sky: ['#04080e', '#183652', '#a0d0ec'], glow: '#f0faff', haze: '#5a86a4', ink: '#070d16', rim: '#f0faff', fog: '#7ea8c4', light: '#d8eefa', weather: 'snow', lava: '#d4f0ff' },
 ];

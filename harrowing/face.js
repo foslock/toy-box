@@ -22,33 +22,40 @@ const BAN = [16, 70];               // name banner (and the demon's, turned roun
 const TXT_A = [76, 222], TXT_D = [516 - 0, 624];
 const ART = { x: 26, y: 228, w: 448, h: 282 };
 const HZ = ART.y + ART.h / 2;       // the horizon
-export const FONT_T = '"Cinzel", "Trajan Pro", Georgia, serif';
+export const FONT_T = '"IM Fell English SC", "IM Fell English", Georgia, serif';
 export const FONT_B = '"Alegreya Sans", "Gill Sans", "Segoe UI", system-ui, sans-serif';
 const TAU = Math.PI * 2;
 
 /* ---------- palettes ---------- */
+// The angel's half is printed on ivory (tinted by rarity), the demon's on black; rules and type in ink or ember.
 const FRAMES = {
-  starter: { top: ['#efe6d2', '#cbbb98', '#a8946c'], ban: ['#fbf3df', '#e4d3ac'], ink: '#2a1d0e', trim: '#8a6d3b', text: ['#fbf5e6', '#efe2c4'] },
-  common: { top: ['#f4e7c8', '#d6b77a', '#a8823e'], ban: ['#fdf4dc', '#ead39c'], ink: '#2a1a08', trim: '#9a7432', text: ['#fdf7e8', '#f1e1bd'] },
-  uncommon: { top: ['#eef4fb', '#b7c8dc', '#7d93ad'], ban: ['#f6fbff', '#cfdeee'], ink: '#14202e', trim: '#5f7a98', text: ['#fbfdff', '#e3ecf5'] },
-  rare: { top: ['#fff6cf', '#f2c64e', '#c08a1c'], ban: ['#fff8d8', '#f6d779'], ink: '#3a2400', trim: '#b07a12', text: ['#fffbea', '#f8ebc4'] },
-  infernal: { top: ['#5b4a52', '#33262c', '#1b1216'], ban: ['#6e5442', '#4a3324'], ink: '#f6dcc4', trim: '#d0582c', text: ['#4a3a34', '#33261f'], dark: true },
-  curse: { top: ['#5a4a6e', '#3a2c4c', '#1e1428'], ban: ['#77668e', '#4e4064'], ink: '#f1e8ff', trim: '#9b7fc4', text: ['#3e3350', '#2c2238'], dark: true },
-  status: { top: ['#8a8784', '#5e5b58', '#3a3836'], ban: ['#a19d98', '#77736e'], ink: '#191716', trim: '#4a4744', text: ['#d4d0ca', '#b9b4ad'] },
-  special: { top: ['#8a8784', '#5e5b58', '#3a3836'], ban: ['#a19d98', '#77736e'], ink: '#191716', trim: '#4a4744', text: ['#d4d0ca', '#b9b4ad'] },
+  starter: { paper: '#ece2cb', rule: '#5c4a34', ink: '#1e160e', kw: '#7a4a12' },
+  common: { paper: '#efe3c4', rule: '#7a5a28', ink: '#1e150a', kw: '#8a4c0c' },
+  uncommon: { paper: '#e4e9ea', rule: '#3c5d7a', ink: '#0f1a26', kw: '#2a5a86' },
+  rare: { paper: '#f1dfa8', rule: '#8a6014', ink: '#2a1a02', kw: '#8a4a00', gilt: true },
+  infernal: { paper: '#2a1816', rule: '#c8582c', ink: '#f6dcc4', kw: '#ffa66a', dark: true },
+  curse: { paper: '#28202f', rule: '#9b7fc4', ink: '#efe6ff', kw: '#c8b0f0', dark: true },
+  status: { paper: '#cbc5bc', rule: '#4a4642', ink: '#191716', kw: '#3a3634' },
+  special: { paper: '#cbc5bc', rule: '#4a4642', ink: '#191716', kw: '#3a3634' },
 };
-const HELL = { frame: ['#2a0a0c', '#4a1012', '#140405'], ban: ['#4a1416', '#260709'], ink: '#ffd9c2', trim: '#c4471f', text: ['#2c0c0e', '#180506'] };
-// the sky behind the emblem, by card type
+const HELL = { paper: '#140c0c', rule: '#b8482a', ink: '#f6d8c4', kw: '#ff9a5c' };
+// the sky behind the emblem, by card type: top, middle, the horizon
 const SKY = {
-  attack: ['#2a2457', '#b45a3c', '#ffd98a'],
-  skill: ['#16305a', '#3f86b5', '#cdf0ff'],
-  power: ['#2a1650', '#8b5cc8', '#ffe1f3'],
-  infernal: ['#1a0608', '#5a1410', '#e0572c'],
-  curse: ['#120c1c', '#3e2e58', '#9d88c0'],
-  status: ['#1c1a1a', '#4a4644', '#a8a29c'],
+  attack: ['#3a2442', '#d08a5c', '#fff0d2'],
+  skill: ['#1e3456', '#7aa6c4', '#f0f6f4'],
+  power: ['#2c2048', '#a487c4', '#fbeef6'],
+  infernal: ['#140406', '#5a1410', '#e0582c'],
+  curse: ['#120c1c', '#3e2e58', '#a090c4'],
+  status: ['#1c1a1a', '#5a5654', '#d0cac2'],
 };
 const frameOf = d => FRAMES[d.rarity === 'infernal' ? 'infernal' : d.type === 'curse' ? 'curse' : d.type === 'status' ? 'status' : d.rarity] ?? FRAMES.common;
 const skyOf = d => d.rarity === 'infernal' ? SKY.infernal : d.type === 'curse' ? SKY.curse : d.type === 'status' ? SKY.status : SKY[d.type] ?? SKY.skill;
+const rgbaHex = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
+let GRAIN = null;
+function grain(g, x, y, w, h, a) {
+  if (!GRAIN) { const c = document.createElement('canvas'); c.width = c.height = 96; const gg = c.getContext('2d'), im = gg.createImageData(96, 96); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } gg.putImageData(im, 0, 0); GRAIN = c; }
+  g.save(); g.globalAlpha = a; g.globalCompositeOperation = 'overlay'; g.fillStyle = g.createPattern(GRAIN, 'repeat'); g.fillRect(x, y, w, h); g.restore();
+}
 
 /* ---------- helpers ---------- */
 const lin = (g, x0, y0, x1, y1, cols) => { const gr = g.createLinearGradient(x0, y0, x1, y1); cols.forEach((c, i) => gr.addColorStop(Array.isArray(c) ? c[0] : i / (cols.length - 1), Array.isArray(c) ? c[1] : c)); return gr; };
@@ -159,229 +166,170 @@ export function paintFace(card, o = {}) {
 }
 
 function drawCard(g, card, upText, downText, o) {
-  const d = def(card), F = frameOf(d), dark = !!F.dark;
-  // the whole card, clipped to its rounded outline
+  const d = def(card), F = frameOf(d);
   rr(g, 0, 0, CW, CH, R); g.save(); g.clip();
-  // frame: heaven's metal above the horizon, hell's below
-  g.fillStyle = lin(g, 0, 0, 0, HZ, [F.top[0], F.top[1], F.top[2]]); g.fillRect(0, 0, CW, HZ);
-  g.fillStyle = lin(g, 0, HZ, 0, CH, [HELL.frame[1], HELL.frame[0], HELL.frame[2]]); g.fillRect(0, HZ, CW, CH - HZ);
-  // a fine engraved lattice on both halves
-  g.save(); g.globalAlpha = .07; g.strokeStyle = dark ? '#fff' : '#000'; g.lineWidth = 1.5;
-  for (let x = -CH; x < CW; x += 18) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + HZ, HZ); g.stroke(); g.beginPath(); g.moveTo(x + HZ, 0); g.lineTo(x, HZ); g.stroke(); }
-  g.strokeStyle = '#ff6a3a'; g.globalAlpha = .06;
-  for (let x = -CH; x < CW; x += 18) { g.beginPath(); g.moveTo(x, HZ); g.lineTo(x + CH - HZ, CH); g.stroke(); g.beginPath(); g.moveTo(x + CH - HZ, HZ); g.lineTo(x, CH); g.stroke(); }
-  g.restore();
-  // inner edge
-  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 3; rr(g, 7, 7, CW - 14, CH - 14, R - 6); g.stroke();
-  g.strokeStyle = dark ? 'rgba(255,190,140,.25)' : 'rgba(255,255,255,.5)'; g.lineWidth = 1.5; rr(g, 9.5, 9.5, CW - 19, CH - 19, R - 8); g.stroke();
-
+  // ivory above the horizon, black below
+  g.fillStyle = F.paper; g.fillRect(0, 0, CW, HZ);
+  g.fillStyle = HELL.paper; g.fillRect(0, HZ, CW, CH - HZ);
+  grain(g, 0, 0, CW, CH, .1);
+  // rules round each half: a heavy one and a fine one inside it
+  const rule = (y0, y1, col, gilt) => {
+    g.strokeStyle = col; g.lineWidth = gilt ? 5 : 2.5; g.strokeRect(12, y0 + 12, CW - 24, y1 - y0 - 24);
+    g.lineWidth = 1.2; g.strokeRect(19, y0 + 19, CW - 38, y1 - y0 - 38);
+  };
+  g.save(); g.beginPath(); g.rect(0, 0, CW, HZ); g.clip(); rule(0, CH, F.gilt ? '#b88a2c' : F.rule, F.gilt); g.restore();
+  g.save(); g.beginPath(); g.rect(0, HZ, CW, CH - HZ); g.clip(); rule(0, CH, HELL.rule, false); g.restore();
   drawArt(g, d);
-  // the angel's half
   drawHalf(g, d, upText, F, false, o);
-  // the demon's half, turned round
   g.save(); g.translate(CW, CH); g.rotate(Math.PI);
   drawHalf(g, d, downText, HELL, true, o);
   g.restore();
-  // the type plaque on the art's top edge
   plaque(g, d, F);
   g.restore();
-  // outer rim
-  rr(g, 1.5, 1.5, CW - 3, CH - 3, R - 1); g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
+  rr(g, 1, 1, CW - 2, CH - 2, R - 1); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
 }
 
 function drawHalf(g, d, text, F, demon, o) {
-  // name banner
-  const [b0, b1] = BAN, bx = 92, bw = CW - bx - 20;
-  g.save();
-  g.beginPath();
-  g.moveTo(bx - 10, b0 + 4); g.lineTo(bx + bw - 14, b0 + 4); g.quadraticCurveTo(bx + bw + 6, (b0 + b1) / 2, bx + bw - 14, b1 - 4); g.lineTo(bx - 10, b1 - 4); g.closePath();
-  g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 8; g.shadowOffsetY = 2;
-  g.fillStyle = lin(g, 0, b0, 0, b1, demon ? HELL.ban : F.ban); g.fill();
-  g.shadowColor = 'transparent';
-  g.lineWidth = 2.5; g.strokeStyle = demon ? HELL.trim : F.trim; g.stroke();
-  g.restore();
+  const [b0, b1] = BAN, bx = 92, bw = CW - bx - 26;
+  // the name, between two rules
+  g.strokeStyle = F.rule; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(bx, b1 + 2); g.lineTo(bx + bw, b1 + 2); g.stroke();
+  g.beginPath(); g.moveTo(bx + 30, b1 + 6); g.lineTo(bx + bw - 30, b1 + 6); g.stroke();
   const title = demon ? d.rtitle : d.title;
-  g.fillStyle = demon ? HELL.ink : F.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-  fitFont(g, title, 700, 33, FONT_T, bw - 24);
-  g.fillText(title, bx + (bw - 14) / 2 + 2, (b0 + b1) / 2 + 2);
-  // text panel
+  g.fillStyle = F.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+  fitFont(g, title, 400, 42, FONT_T, bw - 10);
+  g.fillText(title, bx + bw / 2, (b0 + b1) / 2 + 6);
   const [t0, t1] = demon ? [CH - TXT_D[1], CH - TXT_D[0]] : TXT_A;
-  const px = 30, pw = CW - 60;
-  g.save();
-  rr(g, px, t0, pw, t1 - t0, 12);
-  g.fillStyle = lin(g, 0, t0, 0, t1, demon ? HELL.text : F.text); g.fill();
-  g.lineWidth = 2; g.strokeStyle = demon ? 'rgba(255,120,70,.35)' : (F.dark ? 'rgba(255,160,110,.35)' : 'rgba(120,80,20,.35)'); g.stroke();
-  // a soft inner shade
-  g.clip();
-  const vg = g.createRadialGradient(CW / 2, (t0 + t1) / 2, 20, CW / 2, (t0 + t1) / 2, pw * .62);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, demon ? 'rgba(0,0,0,.35)' : 'rgba(80,50,10,.12)');
-  g.fillStyle = vg; g.fillRect(px, t0, pw, t1 - t0);
-  g.restore();
-  const box = { x: px + 16, y: t0 + 8, w: pw - 32, h: t1 - t0 - 16 };
+  const px = 34, pw = CW - 68;
+  const box = { x: px + 10, y: t0 + 6, w: pw - 20, h: t1 - t0 - 12 };
   if (demon) {
     if (!text) text = 'Nothing happens.';
-    richText(g, text, box, { size: 34, min: 18, lh: 1.14, ink: HELL.ink, kw: '#ffae5c', num: '#ffffff', up: '#ff6b5b', down: '#9df0a8' });
+    richText(g, text, box, { size: 34, min: 18, lh: 1.14, ink: HELL.ink, kw: HELL.kw, num: '#ffffff', up: '#ff7a64', down: '#a8eab0' });
   } else if (text) {
-    const darkText = !!F.dark;
-    richText(g, text, box, { size: 35, min: 18, lh: 1.14, ink: darkText ? '#f6e3cf' : '#2b2116', kw: darkText ? '#ffb877' : '#94530a', num: darkText ? '#ffffff' : '#140c04', up: darkText ? '#9df0a8' : '#1f7a2c', down: darkText ? '#ff8f80' : '#b3261e' });
+    const dk = !!F.dark;
+    richText(g, text, box, { size: 35, min: 18, lh: 1.14, ink: F.ink, kw: F.kw, num: dk ? '#ffffff' : '#000000', up: dk ? '#a8eab0' : '#1f6a2a', down: dk ? '#ff8f80' : '#a8241c' });
   }
-  // the corner orb: Grace cost for the angel, a horned mark for the demon
-  if (demon) orbDemon(g, 52, 43);
-  else if (!d.unplayable) orbCost(g, 52, 43, d, o);
+  if (demon) orbDemon(g, 54, 46);
+  else if (!d.unplayable) orbCost(g, 54, 46, d, o);
 }
+// the cost: an ivory sun ringed with gilt rays (an ember one for infernal cards)
 function orbCost(g, x, y, d, o) {
-  const cost = o.cost ?? d.cost;
+  const cost = o.cost ?? d.cost, inf = d.rarity === 'infernal';
   g.save();
-  g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
-  const rg = g.createRadialGradient(x - 10, y - 12, 4, x, y, 38);
-  if (d.rarity === 'infernal') { rg.addColorStop(0, '#ffb08a'); rg.addColorStop(.5, '#c43a1a'); rg.addColorStop(1, '#3a0806'); }
-  else { rg.addColorStop(0, '#ffffff'); rg.addColorStop(.45, '#bfe7ff'); rg.addColorStop(1, '#2c6fb0'); }
-  g.fillStyle = rg; g.beginPath(); g.arc(x, y, 33, 0, TAU); g.fill();
-  g.shadowColor = 'transparent';
-  g.lineWidth = 5; g.strokeStyle = lin(g, x - 30, y - 30, x + 30, y + 30, ['#fff4c2', '#d9a43a', '#fff0b0', '#a8741a']); g.stroke();
-  // a little halo arc over it
-  g.lineWidth = 2.5; g.strokeStyle = 'rgba(255,240,180,.9)'; g.beginPath(); g.ellipse(x, y - 34, 16, 4.5, 0, 0, TAU); g.stroke();
+  g.fillStyle = inf ? '#e0703c' : '#b88a2c';
+  for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; g.beginPath(); g.moveTo(x + Math.cos(a - .1) * 30, y + Math.sin(a - .1) * 30); g.lineTo(x + Math.cos(a) * 42, y + Math.sin(a) * 42); g.lineTo(x + Math.cos(a + .1) * 30, y + Math.sin(a + .1) * 30); g.fill(); }
+  g.beginPath(); g.arc(x, y, 31, 0, TAU); g.fillStyle = '#141010'; g.fill();
+  g.beginPath(); g.arc(x, y, 28, 0, TAU); g.fillStyle = inf ? '#3a1410' : '#f6eedb'; g.fill();
   const txt = cost < 0 ? 'X' : String(cost);
-  g.font = `900 40px ${FONT_T}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 6; g.strokeStyle = 'rgba(10,20,50,.85)'; g.strokeText(txt, x, y + 3);
-  g.fillStyle = o.cost != null && o.cost < d.cost ? '#9dffb0' : '#ffffff'; g.fillText(txt, x, y + 3);
+  g.font = `800 40px ${FONT_B}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = o.cost != null && o.cost < d.cost ? '#1f7a2c' : inf ? '#ffd8c0' : '#141010'; g.fillText(txt, x, y + 2);
   g.restore();
 }
 function orbDemon(g, x, y) {
   g.save();
-  g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
-  const rg = g.createRadialGradient(x - 8, y - 10, 3, x, y, 34);
-  rg.addColorStop(0, '#ff8a5a'); rg.addColorStop(.5, '#8a1410'); rg.addColorStop(1, '#1c0304');
-  g.fillStyle = rg; g.beginPath(); g.arc(x, y, 30, 0, TAU); g.fill();
-  g.shadowColor = 'transparent';
-  g.lineWidth = 4; g.strokeStyle = '#3a0a08'; g.stroke();
+  g.beginPath(); g.arc(x, y, 31, 0, TAU); g.fillStyle = '#000'; g.fill();
+  g.lineWidth = 2; g.strokeStyle = HELL.rule; g.stroke();
   g.restore();
-  drawGlyph(g, 'horned', x - 24, y - 25, 48, { body: '#fff0e4', body2: '#ffb08a', outline: '#3a0606', hole: '#5a0a08' });
+  drawGlyph(g, 'horned', x - 22, y - 23, 44, { body: '#e8643a', outline: '#000000', hole: '#000000', detail: '#000000' });
 }
 function plaque(g, d, F) {
   const label = (d.holy ? 'Holy ' : '') + ({ attack: 'Attack', skill: 'Skill', power: 'Power', curse: 'Curse', status: 'Status' }[d.type] ?? '') + (d.rarity === 'infernal' ? ' · Infernal' : '');
-  g.font = `700 17px ${FONT_T}`;
-  const w = g.measureText(label.toUpperCase()).width * 1.12 + 34, x = CW / 2 - w / 2, y = ART.y - 12;
-  g.save();
-  g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 6; g.shadowOffsetY = 2;
-  rr(g, x, y, w, 26, 13); g.fillStyle = lin(g, 0, y, 0, y + 26, F.ban); g.fill();
-  g.shadowColor = 'transparent'; g.lineWidth = 2; g.strokeStyle = F.trim; g.stroke();
-  g.fillStyle = F.dark ? F.ink : F.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `400 21px ${FONT_T}`;
   g.letterSpacing = '2px';
-  g.fillText(label.toUpperCase(), CW / 2 + 1, y + 14);
-  g.letterSpacing = '0px';
-  if (d.holy) { g.fillStyle = '#e9b83a'; g.beginPath(); g.ellipse(x + 15, y + 13, 7, 3, 0, 0, TAU); g.lineWidth = 2; g.strokeStyle = '#c8901c'; g.stroke(); }
+  const w = g.measureText(label).width + 36, x = CW / 2 - w / 2, y = ART.y - 14;
+  g.save();
+  g.fillStyle = '#141010'; g.fillRect(x, y, w, 28);
+  g.strokeStyle = F.gilt ? '#d9b66a' : 'rgba(241,231,208,.55)'; g.lineWidth = 1; g.strokeRect(x + 3, y + 3, w - 6, 22);
+  g.fillStyle = d.holy ? '#ead08e' : '#f1e7d0'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(label, CW / 2 + 1, y + 15);
   g.restore();
+  g.letterSpacing = '0px';
 }
 
-/* ---------- the picture: an emblem in heaven, mirrored in hell ---------- */
+/* ---------- the picture: an ivory emblem in a dawn sky, its black shadow standing in hellfire ---------- */
 function drawArt(g, d) {
   const { x, y, w, h } = ART, sky = skyOf(d);
+  const seed = [...d.id].reduce((s, c) => s * 31 + c.charCodeAt(0) >>> 0, 7);
+  const rnd = i => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
   g.save();
   artShape(g, d.type, x, y, w, h); g.save(); g.clip();
   // heaven
-  g.fillStyle = lin(g, 0, y, 0, HZ, [sky[0], sky[1], sky[2]]); g.fillRect(x, y, w, HZ - y);
-  const seed = [...d.id].reduce((s, c) => s * 31 + c.charCodeAt(0) >>> 0, 7);
-  const rnd = (i) => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
-  // rays from behind the emblem
-  g.save(); g.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 14; i++) {
-    const a = -Math.PI / 2 + (i - 6.5) * .2 + (rnd(i) - .5) * .1;
-    g.fillStyle = `rgba(255,240,200,${.05 + rnd(i + 20) * .07})`;
-    g.beginPath(); g.moveTo(CW / 2, HZ - 40); g.lineTo(CW / 2 + Math.cos(a - .05) * 400, HZ - 40 + Math.sin(a - .05) * 400); g.lineTo(CW / 2 + Math.cos(a + .05) * 400, HZ - 40 + Math.sin(a + .05) * 400); g.fill();
+  g.fillStyle = lin(g, 0, y, 0, HZ, [sky[0], [.55, sky[1]], [1, sky[2]]]); g.fillRect(x, y, w, HZ - y);
+  // flat rays from the horizon
+  g.fillStyle = 'rgba(255,250,235,.12)';
+  for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * .3; g.beginPath(); g.moveTo(CW / 2, HZ); g.lineTo(CW / 2 + Math.cos(a - .06) * 420, HZ + Math.sin(a - .06) * 420); g.lineTo(CW / 2 + Math.cos(a + .06) * 420, HZ + Math.sin(a + .06) * 420); g.fill(); }
+  // paper clouds: two long flat bands, scalloped along the top
+  const dim = d.rarity === 'infernal' || d.type === 'curse';
+  for (const [cy, a, n] of [[HZ - 64, .2, 5], [HZ - 20, .42, 7]]) {
+    g.fillStyle = dim ? `rgba(20,8,12,${a})` : `rgba(255,252,244,${a})`; g.beginPath();
+    for (let i = 0; i < n; i++) { const cx = x + (i + rnd(i + cy)) / n * w, r = 12 + rnd(i * 3 + cy) * 14; g.moveTo(cx + r * 2.4, cy); g.ellipse(cx, cy, r * 2.4, r, 0, 0, TAU); }
+    g.fill(); g.fillRect(x, cy, w, HZ - cy);
   }
-  g.restore();
-  // clouds along the horizon
-  for (let i = 0; i < 9; i++) {
-    const cx = x + rnd(i + 3) * w, cy = HZ - 8 - rnd(i + 40) * 40, r = 26 + rnd(i + 9) * 34;
-    const cg = g.createRadialGradient(cx, cy, 2, cx, cy, r);
-    cg.addColorStop(0, d.rarity === 'infernal' || d.type === 'curse' ? 'rgba(40,20,30,.5)' : 'rgba(255,250,240,.55)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = cg; g.beginPath(); g.ellipse(cx, cy, r * 1.6, r * .6, 0, 0, TAU); g.fill();
-  }
-  // hell: a glow at the horizon sinking into black, with embers
-  g.fillStyle = lin(g, 0, HZ, 0, y + h, [[0, '#ff9a3c'], [.12, '#d2361a'], [.5, '#5a0a0a'], [1, '#120203']]); g.fillRect(x, HZ, w, y + h - HZ);
-  // spires of rock standing "up" from the horizon on hell's side (they hang down here)
-  g.fillStyle = 'rgba(20,3,4,.85)';
+  // hell: the fire's glow at the horizon sinking into black
+  g.fillStyle = lin(g, 0, HZ, 0, y + h, [[0, '#ffc070'], [.1, '#e0582c'], [.45, '#5a0e0a'], [1, '#100303']]); g.fillRect(x, HZ, w, y + h - HZ);
+  g.fillStyle = '#0c0303';
   g.beginPath(); g.moveTo(x, y + h);
-  for (let i = 0; i <= 12; i++) { const px = x + i / 12 * w, tall = (i === 0 || i === 12 ? .1 : .25 + rnd(i + 60) * .45) * (y + h - HZ); g.lineTo(px - 10, y + h); g.lineTo(px, y + h - tall); g.lineTo(px + 10, y + h); }
+  for (let i = 0; i <= 12; i++) { const px = x + i / 12 * w, tall = (i === 0 || i === 12 ? .1 : .22 + rnd(i + 60) * .42) * (y + h - HZ); g.lineTo(px - 11, y + h); g.lineTo(px + (rnd(i + 90) - .5) * 8, y + h - tall); g.lineTo(px + 11, y + h); }
   g.lineTo(x + w, y + h); g.closePath(); g.fill();
-  g.save(); g.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 22; i++) { const ex = x + rnd(i + 80) * w, ey = HZ + 6 + rnd(i + 120) * (y + h - HZ - 10), er = 1 + rnd(i + 160) * 2.2; g.fillStyle = `rgba(255,${120 + rnd(i) * 100 | 0},40,${.5 + rnd(i + 7) * .5})`; g.beginPath(); g.arc(ex, ey, er, 0, TAU); g.fill(); }
-  g.restore();
-  // the emblem, standing on the horizon…
+  // the emblem, standing on the horizon, cut from ivory…
   const S = 150, gx = CW / 2 - S / 2, gy = HZ - S + 4;
   const infernal = d.rarity === 'infernal';
-  const heavenly = infernal ? { body: '#3a1010', body2: '#120404', outline: '#ff7a3a', accent: '#ffb35a', detail: '#ff8a4a', hole: '#0a0202', glow: 'rgba(255,90,40,.9)', glowBlur: 10 }
-    : d.type === 'curse' ? { body: '#d8ccf0', body2: '#7e6aa8', outline: '#2e2244', accent: '#f4eaff', detail: '#3a2c54', hole: '#241a34', glow: 'rgba(190,160,255,.6)', glowBlur: 10 }
-    : d.type === 'status' ? { body: '#e8e4de', body2: '#9a958e', outline: '#3a3836', accent: '#ffffff', detail: '#4a4744', hole: '#2a2826', glow: 'rgba(255,255,255,.35)', glowBlur: 8 }
-    : { body: '#fffdf2', body2: '#f2c14e', outline: '#8a5a08', accent: '#ffffff', detail: '#a06a10', hole: '#7a4a06', glow: 'rgba(255,236,170,.95)', glowBlur: 12 };
+  const heavenly = infernal ? { body: '#140606', outline: '#ff7a3a', accent: '#3a0e08', detail: '#ff8a4a', hole: '#000000', glow: 'rgba(255,90,40,.7)', glowBlur: 8 }
+    : d.type === 'curse' ? { body: '#d8ccf0', outline: '#1e1428', accent: '#f4eaff', detail: '#3a2c54', hole: '#1e1428', glow: 'rgba(0,0,0,.35)', glowBlur: 6 }
+    : d.type === 'status' ? { body: '#ebe6de', outline: '#1c1a18', accent: '#ffffff', detail: '#4a4744', hole: '#1c1a18', glow: 'rgba(0,0,0,.35)', glowBlur: 6 }
+    : { body: '#f8f1de', outline: '#2a1d0e', accent: '#ffffff', detail: '#7a5420', hole: '#2a1d0e', glow: 'rgba(60,30,0,.35)', glowBlur: 6 };
   drawGlyph(g, d.glyph, gx, gy, S, heavenly);
-  // …and its reflection in hell
+  // …and its shadow in hell, black paper rimmed with fire
   g.save(); g.translate(0, HZ * 2); g.scale(1, -1);
-  drawGlyph(g, d.glyph, gx, gy, S, { body: '#3a0606', body2: '#0c0101', outline: '#ff6a2a', accent: '#ff5a24', detail: '#ff7a3a', hole: '#000000', glow: 'rgba(255,60,20,.9)', glowBlur: 10 });
+  drawGlyph(g, d.glyph, gx, gy, S, { body: '#0c0303', outline: '#ff7a3a', accent: '#200606', detail: '#ff6a2a', hole: '#000000', glow: 'rgba(255,80,30,.75)', glowBlur: 8 });
   g.restore();
-  // the horizon line
-  g.fillStyle = lin(g, x, 0, x + w, 0, [[0, 'rgba(255,220,150,0)'], [.5, 'rgba(255,240,200,.95)'], [1, 'rgba(255,220,150,0)']]);
-  g.fillRect(x, HZ - 1.5, w, 3);
+  g.fillStyle = 'rgba(255,246,226,.95)'; g.fillRect(x, HZ - 1, w, 2);
   g.restore();
-  // its frame
+  // its frame: an ink line, a gilt one inside
   artShape(g, d.type, x, y, w, h);
-  g.lineWidth = 7; g.strokeStyle = lin(g, 0, y, 0, y + h, [[0, '#fff3c4'], [.48, '#c99a3e'], [.52, '#7a2410'], [1, '#2a0606']]); g.stroke();
-  g.lineWidth = 1.5; g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
+  g.lineWidth = 5; g.strokeStyle = '#141010'; g.stroke();
+  artShape(g, d.type, x + 5, y + 5, w - 10, h - 10);
+  g.lineWidth = 1.2; g.strokeStyle = 'rgba(234,208,142,.75)'; g.stroke();
   g.restore();
 }
 
-/* ---------- the back every card shares: heaven and hell wound round each other ---------- */
+/* ---------- the back every card shares: a sun above, its black twin below ---------- */
 let BACK = null;
 export function paintBack() {
   if (BACK) return BACK;
   const c = document.createElement('canvas'); c.width = CW; c.height = CH;
   const g = c.getContext('2d');
   rr(g, 0, 0, CW, CH, R); g.save(); g.clip();
-  g.fillStyle = lin(g, 0, 0, CW, CH, ['#141a3a', '#0b0d1f', '#1d0a10']); g.fillRect(0, 0, CW, CH);
-  // a lattice of tiny stars
-  g.fillStyle = 'rgba(255,230,170,.18)';
-  for (let y = 30; y < CH; y += 34) for (let x = (y / 34 % 2) * 17 + 20; x < CW; x += 34) { g.beginPath(); g.arc(x, y, 1.6, 0, TAU); g.fill(); }
-  // gold border
-  g.strokeStyle = '#d9b25a'; g.lineWidth = 6; rr(g, 18, 18, CW - 36, CH - 36, 20); g.stroke();
-  g.strokeStyle = 'rgba(217,178,90,.5)'; g.lineWidth = 2; rr(g, 30, 30, CW - 60, CH - 60, 14); g.stroke();
-  // corner flourishes (point-symmetric, so the back looks the same either way up)
-  for (const [cx, cy, r] of [[30, 30, 0], [CW - 30, CH - 30, Math.PI], [CW - 30, 30, Math.PI / 2], [30, CH - 30, -Math.PI / 2]]) {
-    g.save(); g.translate(cx, cy); g.rotate(r);
-    g.strokeStyle = '#d9b25a'; g.lineWidth = 3; g.beginPath(); g.moveTo(10, 50); g.quadraticCurveTo(10, 10, 50, 10); g.stroke();
-    g.beginPath(); g.arc(18, 18, 5, 0, TAU); g.fillStyle = '#d9b25a'; g.fill();
-    g.restore();
+  g.fillStyle = '#120d0d'; g.fillRect(0, 0, CW, CH);
+  grain(g, 0, 0, CW, CH, .12);
+  // a lattice of small diamonds
+  g.fillStyle = 'rgba(202,164,92,.16)';
+  for (let y = 40; y < CH - 20; y += 30) for (let x = (Math.round(y / 30) % 2) * 15 + 30; x < CW - 20; x += 30) { g.beginPath(); g.moveTo(x, y - 3); g.lineTo(x + 3, y); g.lineTo(x, y + 3); g.lineTo(x - 3, y); g.fill(); }
+  g.strokeStyle = '#caa45c'; g.lineWidth = 3; g.strokeRect(16, 16, CW - 32, CH - 32);
+  g.lineWidth = 1.2; g.strokeRect(24, 24, CW - 48, CH - 48);
+  // the medallion: a gilt sun, and below it, turned round, a black one burning
+  const mx = CW / 2, my = CH / 2, mr = 120;
+  g.beginPath(); g.arc(mx, my, mr + 30, 0, TAU); g.fillStyle = '#120d0d'; g.fill();
+  g.lineWidth = 1.2; g.strokeStyle = 'rgba(202,164,92,.7)'; g.stroke();
+  for (let i = 0; i < 32; i++) {
+    const a = i / 32 * TAU, up = Math.sin(a) < 0, long = i % 2 ? 1 : .8;
+    g.fillStyle = up ? '#caa45c' : '#d8582c';
+    g.beginPath(); g.moveTo(mx + Math.cos(a - .06) * (mr * .62), my + Math.sin(a - .06) * (mr * .62)); g.lineTo(mx + Math.cos(a) * (mr + 22) * long, my + Math.sin(a) * (mr + 22) * long); g.lineTo(mx + Math.cos(a + .06) * (mr * .62), my + Math.sin(a + .06) * (mr * .62)); g.fill();
   }
-  // the medallion: a gold and crimson swirl, like the two halves of every card
-  const mx = CW / 2, my = CH / 2, mr = 150;
-  g.save();
-  g.shadowColor = 'rgba(255,200,120,.5)'; g.shadowBlur = 40;
-  g.beginPath(); g.arc(mx, my, mr + 14, 0, TAU); g.fillStyle = '#0a0a14'; g.fill();
+  g.save(); g.beginPath(); g.arc(mx, my, mr * .62, Math.PI, 0); g.closePath(); g.fillStyle = '#f1e7d0'; g.fill(); g.restore();
+  g.save(); g.beginPath(); g.arc(mx, my, mr * .62, 0, Math.PI); g.closePath(); g.fillStyle = '#000'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#d8582c'; g.stroke(); g.restore();
+  g.fillStyle = '#f1e7d0'; g.fillRect(mx - mr - 26, my - 1, (mr + 26) * 2, 2);
+  drawGlyph(g, 'feather', mx - 30, my - 66, 60, { body: '#141010', outline: '#141010', detail: '#f1e7d0' });
+  g.save(); g.translate(mx, my + 36); g.rotate(Math.PI);
+  drawGlyph(g, 'flame', -30, -30, 60, { body: '#e0582c', outline: '#000', accent: '#ffb070' });
   g.restore();
-  g.lineWidth = 6; g.strokeStyle = '#d9b25a'; g.beginPath(); g.arc(mx, my, mr + 12, 0, TAU); g.stroke();
-  // heaven's half
-  g.save(); g.beginPath();
-  g.arc(mx, my, mr, -Math.PI / 2, Math.PI / 2, true); g.arc(mx, my + mr / 2, mr / 2, Math.PI / 2, -Math.PI / 2, true); g.arc(mx, my - mr / 2, mr / 2, Math.PI / 2, -Math.PI / 2, false); g.closePath();
-  g.fillStyle = lin(g, mx - mr, my - mr, mx, my + mr, ['#fff8dc', '#f2c84e', '#b47a14']); g.fill();
-  g.restore();
-  // hell's half
-  g.save(); g.beginPath();
-  g.arc(mx, my, mr, -Math.PI / 2, Math.PI / 2, false); g.arc(mx, my + mr / 2, mr / 2, Math.PI / 2, -Math.PI / 2, true); g.arc(mx, my - mr / 2, mr / 2, Math.PI / 2, -Math.PI / 2, false); g.closePath();
-  g.fillStyle = lin(g, mx + mr, my + mr, mx, my - mr, ['#2a0303', '#a01a10', '#ff6a2a']); g.fill();
-  g.restore();
-  drawGlyph(g, 'feather', mx - 34, my - mr / 2 - 36, 68, { body: '#ffffff', body2: '#ffe9a8', outline: '#8a5a08', detail: '#a06a10' });
-  g.save(); g.translate(mx, my + mr / 2); g.rotate(Math.PI);
-  drawGlyph(g, 'flame', -34, -34, 68, { body: '#ffb35a', body2: '#ff4a1a', accent: '#fff0a0', outline: '#3a0606' });
-  g.restore();
-  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.arc(mx, my, mr, 0, TAU); g.stroke();
-  // the title, top and (upside down) bottom
-  g.fillStyle = '#d9b25a'; g.font = `700 30px ${FONT_T}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#caa45c'; g.font = `400 36px ${FONT_T}`; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.letterSpacing = '8px';
-  g.fillText('HARROWING', mx + 4, 92);
-  g.save(); g.translate(mx, CH - 92); g.rotate(Math.PI); g.fillText('HARROWING', 4, 0); g.restore();
+  g.fillText('Harrowing', mx + 4, 88);
+  g.save(); g.translate(mx, CH - 88); g.rotate(Math.PI); g.fillText('Harrowing', 4, 0); g.restore();
   g.letterSpacing = '0px';
   g.restore();
-  rr(g, 1.5, 1.5, CW - 3, CH - 3, R - 1); g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
+  rr(g, 1, 1, CW - 2, CH - 2, R - 1); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
   return (BACK = c);
 }
 

@@ -1,104 +1,105 @@
-// Things on the ledge around the fight, different in each circle: braziers, boulders, broken columns, skulls,
-// burning tombs, heaps of gold, ice. Painted once like the figures, lit the same way.
-import { canvas, lin, rad, rgba, mixc, rand, TAU } from './paint.js';
+// Things standing about on the ledge, different in each circle: braziers, broken columns, burning tombs, heaps of
+// coin, dead trees, shards of ice. Cut from the same black paper as the demons (ice from pale paper), with their
+// flames painted on a glow layer.
+import { canvas, lin, rad, rgba, rand, TAU } from './paint.js';
 
-const W = 256, H = 256;
-function paint(draw, glowDraw) {
+const W = 256, H = 256, INK = '#0b0809';
+function paint(draw, glowDraw, o = {}) {
   const c = canvas(W, H), g = c.getContext('2d');
+  g.fillStyle = INK; g.strokeStyle = INK; g.lineCap = 'round'; g.lineJoin = 'round';
   draw(g);
   let gc = null;
   if (glowDraw) { gc = canvas(W, H); glowDraw(gc.getContext('2d')); }
-  return { canvas: c, glow: gc };
+  return { canvas: c, glow: gc, fire: o.fire ?? null };
 }
-const P = d => new Path2D(d);
+function poly(g, pts) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) g.lineTo(p[0], p[1]); g.closePath(); g.fill(); }
+function flameGlow(g, x, y, w, h, L) {
+  g.fillStyle = rad(g, x, y - h * .4, 2, h * 1.3, [[0, rgba(L.glow, .55)], [.4, rgba(L.lava, .22)], [1, rgba(L.lava, 0)]]); g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 3; i++) {
+    const fx = x + (i - 1) * w * .3, fh = h * (i === 1 ? 1 : .7);
+    g.fillStyle = lin(g, 0, y - fh, 0, y, [[0, rgba(L.lava, 0)], [.35, rgba(L.lava, .85)], [1, '#fff2c8']]);
+    g.beginPath(); g.moveTo(fx - w * .22, y); g.bezierCurveTo(fx - w * .24, y - fh * .5, fx - w * .02, y - fh * .6, fx + w * .04, y - fh); g.bezierCurveTo(fx + w * .1, y - fh * .5, fx + w * .26, y - fh * .45, fx + w * .22, y); g.closePath(); g.fill();
+  }
+}
 
 export const PROPS = {
   rock: (L, r) => paint(g => {
-    const p = new Path2D(); const n = 12, cx = 128, cy = 200;
-    for (let i = 0; i <= n; i++) { const a = Math.PI + i / n * Math.PI, rr = (70 + r() * 30) * (i === 0 || i === n ? 1.1 : 1); p.lineTo(cx + Math.cos(a) * rr * 1.3, cy + Math.sin(a) * rr * .9); }
-    p.closePath();
-    g.fillStyle = lin(g, 0, 110, 0, 210, [[0, mixc(L.rock2, L.rim, .15)], [1, mixc(L.rock, '#000000', .3)]]); g.fill(p);
-    g.strokeStyle = rgba('#000000', .35); g.lineWidth = 3; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(60 + r() * 140, 140 + r() * 40); g.lineTo(60 + r() * 140, 160 + r() * 40); g.stroke(); }
+    const pts = []; const n = 11, cx = 128, cy = 252;
+    for (let i = 0; i <= n; i++) { const a = Math.PI + i / n * Math.PI; pts.push([cx + Math.cos(a) * (84 + r() * 26), cy + Math.sin(a) * (70 + r() * 40)]); }
+    poly(g, pts);
   }),
   skulls: (L, r) => paint(g => {
-    for (let i = 0; i < 6; i++) {
-      const x = 60 + r() * 136, y = 190 + r() * 26 - (i > 3 ? 30 : 0), s = .7 + r() * .4;
-      g.save(); g.translate(x, y); g.scale(s, s); g.rotate((r() - .5) * .6);
-      g.fillStyle = lin(g, 0, -30, 0, 26, [[0, '#efe6d0'], [1, '#8a7a60']]);
-      g.beginPath(); g.ellipse(0, -8, 24, 22, 0, 0, TAU); g.fill(); g.fillRect(-14, 6, 28, 16);
-      g.fillStyle = '#140808'; g.beginPath(); g.ellipse(-9, -6, 7, 8, 0, 0, TAU); g.fill(); g.beginPath(); g.ellipse(9, -6, 7, 8, 0, 0, TAU); g.fill();
+    for (let i = 0; i < 7; i++) {
+      const x = 56 + r() * 144, y = 236 + r() * 14 - (i > 4 ? 30 : 0), s = .7 + r() * .4;
+      g.save(); g.translate(x, y); g.scale(s, s); g.rotate((r() - .5) * .7);
+      g.fillStyle = INK; g.beginPath(); g.ellipse(0, -10, 22, 20, 0, 0, TAU); g.fill(); g.fillRect(-12, 2, 24, 14);
+      g.globalCompositeOperation = 'destination-out';
+      g.beginPath(); g.ellipse(-8, -8, 6, 7, 0, 0, TAU); g.fill(); g.beginPath(); g.ellipse(8, -8, 6, 7, 0, 0, TAU); g.fill();
       g.restore();
     }
   }),
   brazier: (L, r) => paint(g => {
-    g.strokeStyle = '#1a1210'; g.lineWidth = 7; g.lineCap = 'round';
-    for (const dx of [-38, 0, 38]) { g.beginPath(); g.moveTo(128 + dx * .3, 150); g.lineTo(128 + dx, 246); g.stroke(); }
-    g.fillStyle = lin(g, 0, 120, 0, 160, [[0, '#4a3a30'], [1, '#120a08']]);
-    g.beginPath(); g.moveTo(78, 124); g.lineTo(178, 124); g.quadraticCurveTo(170, 162, 128, 164); g.quadraticCurveTo(86, 162, 78, 124); g.fill();
-    g.fillStyle = '#2a1a14'; g.fillRect(74, 118, 108, 9);
-    // flames
-    g.fillStyle = lin(g, 0, 40, 0, 124, [[0, 'rgba(255,220,120,0)'], [.4, '#ff9a2a'], [1, '#ff4a0a']]);
-    for (const [x, h] of [[100, 60], [128, 86], [154, 64]]) { g.beginPath(); g.moveTo(x - 20, 124); g.quadraticCurveTo(x - 16, 124 - h * .6, x, 124 - h); g.quadraticCurveTo(x + 16, 124 - h * .6, x + 20, 124); g.fill(); }
-  }, g => { g.fillStyle = rad(g, 128, 96, 4, 120, [[0, 'rgba(255,190,90,.8)'], [.4, 'rgba(255,120,40,.3)'], [1, 'rgba(255,90,20,0)']]); g.fillRect(0, 0, W, H); }),
+    g.lineWidth = 6;
+    for (const dx of [-34, 0, 34]) { g.beginPath(); g.moveTo(128 + dx * .3, 160); g.quadraticCurveTo(128 + dx * .9, 210, 128 + dx * 1.1, 250); g.stroke(); }
+    g.beginPath(); g.moveTo(82, 136); g.lineTo(174, 136); g.quadraticCurveTo(168, 170, 128, 172); g.quadraticCurveTo(88, 170, 82, 136); g.fill();
+    g.fillRect(76, 128, 104, 10);
+    for (let i = 0; i < 6; i++) poly(g, [[80 + i * 19, 130], [86 + i * 19, 118], [92 + i * 19, 130]]);
+  }, g => flameGlow(g, 128, 130, 70, 100, L), { fire: .5 }),
   column: (L, r) => paint(g => {
-    const x = 92, w = 72, top = 70 + r() * 50;
-    g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#8a8478'], [.4, '#e0dacd'], [1, '#6a645a']]);
-    g.beginPath(); g.moveTo(x, 240); g.lineTo(x, top + 14); g.lineTo(x + w * .3, top); g.lineTo(x + w * .55, top + 22); g.lineTo(x + w * .8, top + 6); g.lineTo(x + w, top + 18); g.lineTo(x + w, 240); g.fill();
-    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 3; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(x + i * w / 4, top + 24); g.lineTo(x + i * w / 4, 240); g.stroke(); }
-    g.fillStyle = lin(g, 0, 236, 0, 252, [[0, '#a8a296'], [1, '#4a463e']]); g.fillRect(x - 12, 236, w + 24, 16);
-    g.fillStyle = 'rgba(30,20,20,.25)'; g.fillRect(x, 140, w, 100);
+    const x = 128, w = 64, top = 60 + r() * 50;
+    g.fillRect(x - w * .8, 236, w * 1.6, 18); g.fillRect(x - w * .62, 222, w * 1.24, 16);
+    poly(g, [[x - w / 2, 224], [x - w / 2, top + 16], [x - w * .2, top], [x, top + 26], [x + w * .22, top + 4], [x + w / 2, top + 20], [x + w / 2, 224]]);
+    g.globalCompositeOperation = 'destination-out'; g.lineWidth = 1.4;
+    for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(x - w / 2 + i * w / 4, top + 34); g.lineTo(x - w / 2 + i * w / 4, 216); g.stroke(); }
   }),
   tomb: (L, r) => paint(g => {
-    g.fillStyle = lin(g, 0, 150, 0, 250, [[0, '#6a5a50'], [1, '#2a201c']]); g.fillRect(40, 160, 176, 90);
-    g.fillStyle = lin(g, 0, 130, 0, 160, [[0, '#7a6a5e'], [1, '#3a2e28']]);
-    g.save(); g.translate(128, 150); g.rotate(-.18); g.fillRect(-96, -14, 192, 20); g.restore();
-    g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 3; g.strokeRect(56, 176, 144, 60);
-    g.fillStyle = lin(g, 0, 70, 0, 164, [[0, 'rgba(255,200,90,0)'], [.5, '#ff8a2a'], [1, '#ff3a0a']]);
-    for (const [x, h] of [[80, 70], [120, 96], [168, 80]]) { g.beginPath(); g.moveTo(x - 22, 164); g.quadraticCurveTo(x - 10, 164 - h * .7, x, 164 - h); g.quadraticCurveTo(x + 10, 164 - h * .7, x + 22, 164); g.fill(); }
-  }, g => { g.fillStyle = rad(g, 128, 120, 4, 130, [[0, 'rgba(255,170,70,.7)'], [1, 'rgba(255,90,20,0)']]); g.fillRect(0, 0, W, H); }),
+    g.fillRect(36, 170, 184, 86);
+    g.save(); g.translate(140, 160); g.rotate(-.2); g.fillRect(-100, -14, 200, 20); g.restore();
+    g.globalCompositeOperation = 'destination-out'; g.lineWidth = 1.4; g.strokeRect(52, 186, 152, 54);
+  }, g => flameGlow(g, 128, 170, 120, 110, L), { fire: .62 }),
   gold: (L, r) => paint(g => {
-    g.fillStyle = lin(g, 0, 160, 0, 250, [[0, '#ffe38a'], [1, '#8a5a10']]);
-    g.beginPath(); g.moveTo(10, 250); g.quadraticCurveTo(128, 110, 246, 250); g.fill();
-    for (let i = 0; i < 60; i++) { const x = 30 + r() * 196, y = 170 + r() * 76; if (y < 250 - Math.abs(x - 128) * .9 - 10) continue; g.fillStyle = r() < .5 ? '#fff0b0' : '#c8902a'; g.beginPath(); g.ellipse(x, y, 7, 3, r(), 0, TAU); g.fill(); }
-    g.fillStyle = '#5a3a1a'; g.beginPath(); g.moveTo(150, 200); g.lineTo(160, 120); g.lineTo(176, 122); g.lineTo(168, 204); g.fill();
-  }, g => { for (let i = 0; i < 8; i++) { const x = 60 + Math.random() * 140, y = 170 + Math.random() * 60; g.fillStyle = rad(g, x, y, 0, 10, [[0, 'rgba(255,240,180,.9)'], [1, 'rgba(255,240,180,0)']]); g.fillRect(x - 10, y - 10, 20, 20); } }),
-  ice: (L, r) => paint(g => {
-    for (let i = 0; i < 4; i++) {
-      const x = 60 + i * 44 + r() * 20, h = 90 + r() * 120, w = 22 + r() * 18;
-      g.fillStyle = lin(g, x - w, 0, x + w, 0, [[0, 'rgba(170,215,240,.95)'], [.5, 'rgba(240,252,255,.95)'], [1, 'rgba(110,170,210,.95)']]);
-      g.beginPath(); g.moveTo(x - w, 250); g.lineTo(x + (r() - .5) * 20, 250 - h); g.lineTo(x + w, 250); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - w * .3, 246); g.lineTo(x, 250 - h * .8); g.stroke();
-    }
-  }),
+    g.beginPath(); g.moveTo(8, 256); g.quadraticCurveTo(128, 120, 248, 256); g.fill();
+    for (let i = 0; i < 30; i++) { const t = r(), x = 20 + t * 216, y = 256 - Math.sin(t * Math.PI) * 66 - r() * 8; g.beginPath(); g.ellipse(x, y, 9, 4, (r() - .5) * .8, 0, TAU); g.fill(); }
+    g.save(); g.translate(170, 168); g.rotate(.3); g.fillRect(-4, -60, 8, 70); g.beginPath(); g.ellipse(0, -60, 20, 9, 0, 0, Math.PI); g.fill(); g.restore();
+  }, g => { for (let i = 0; i < 9; i++) { const x = 40 + Math.random() * 176, y = 210 + Math.random() * 40; g.fillStyle = rad(g, x, y, 0, 9, [[0, rgba('#fff2c0', .95)], [1, rgba('#ffd060', 0)]]); g.fillRect(x - 9, y - 9, 18, 18); } }),
+  ice: (L, r) => {
+    const o = paint(g => {
+      for (let i = 0; i < 4; i++) {
+        const x = 60 + i * 44 + r() * 20, h = 90 + r() * 120, w = 22 + r() * 18;
+        g.fillStyle = 'rgba(190,222,240,.92)'; poly(g, [[x - w, 256], [x + (r() - .5) * 20, 256 - h], [x + w, 256]]);
+        g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - w * .3, 252); g.lineTo(x, 256 - h * .8); g.stroke();
+      }
+    });
+    o.paper = true; return o;
+  },
   tree: (L, r) => paint(g => {
-    g.strokeStyle = '#1a0c0a'; g.lineCap = 'round';
-    const branch = (x, y, a, len, w, d) => { if (d > 5 || len < 8) return; const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke(); branch(x2, y2, a - .4 - r() * .3, len * .72, w * .7, d + 1); branch(x2, y2, a + .3 + r() * .3, len * .66, w * .7, d + 1); };
-    branch(128, 252, -Math.PI / 2 + (r() - .5) * .3, 70, 16, 0);
+    const branch = (x, y, a, len, w, d) => { if (d > 5 || len < 6) return; const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo((x + x2) / 2 + (r() - .5) * len * .4, (y + y2) / 2, x2, y2); g.stroke(); branch(x2, y2, a - .35 - r() * .35, len * .74, w * .68, d + 1); branch(x2, y2, a + .25 + r() * .35, len * .66, w * .68, d + 1); };
+    branch(128, 256, -Math.PI / 2 + (r() - .5) * .3, 72, 18, 0);
   }),
   stalagmite: (L, r) => paint(g => {
-    for (let i = 0; i < 3; i++) {
-      const x = 80 + i * 48 + r() * 20, h = 80 + r() * 140, w = 24 + r() * 20;
-      g.fillStyle = lin(g, x - w, 0, x + w, 0, [[0, mixc(L.rock, '#000000', .3)], [.6, L.rock2], [1, mixc(L.rock2, L.rim, .2)]]);
-      g.beginPath(); g.moveTo(x - w, 252); g.quadraticCurveTo(x - w * .3, 252 - h * .6, x, 252 - h); g.quadraticCurveTo(x + w * .3, 252 - h * .6, x + w, 252); g.fill();
-    }
+    for (let i = 0; i < 3; i++) { const x = 70 + i * 54 + r() * 20, h = 90 + r() * 140, w = 22 + r() * 20; g.beginPath(); g.moveTo(x - w, 256); g.quadraticCurveTo(x - w * .3, 256 - h * .6, x + (r() - .5) * 10, 256 - h); g.quadraticCurveTo(x + w * .3, 256 - h * .6, x + w, 256); g.fill(); }
   }),
-  chains: (L, r) => paint(g => {
-    g.strokeStyle = '#3a3438'; g.lineWidth = 5;
-    for (const x of [70, 128, 186]) { const len = 120 + r() * 100; for (let y = 0; y < len; y += 16) { g.beginPath(); g.ellipse(x + Math.sin(y * .02) * 4, y + 8, 5, 9, 0, 0, TAU); g.stroke(); } }
+  gibbet: (L, r) => paint(g => {
+    // a post with chains hanging from its arm
+    g.fillRect(80, 30, 12, 226); g.fillRect(80, 30, 110, 10); g.lineWidth = 5; g.beginPath(); g.moveTo(92, 70); g.lineTo(130, 40); g.stroke();
+    g.lineWidth = 3;
+    for (const x of [150, 176]) { const len = 80 + r() * 70; for (let y = 40; y < 40 + len; y += 12) { g.beginPath(); g.ellipse(x, y + 6, 4, 7, 0, 0, TAU); g.stroke(); } }
+    g.fillRect(70, 244, 32, 12);
   }),
 };
 
-// which things lie about in each circle: [kind, anchor (L: the left edge of the fight, R: the right, C: the middle),
-// offset from it, depth, size]
-export const SETS = [
-  [['column', 'L', -.4, -3.6, 2.8], ['brazier', 'R', .2, -4.2, 2.1], ['stalagmite', 'L', 2.2, -7.5, 3.2], ['rock', 'C', 3, -8, 2.2]],
-  [['rock', 'L', -.3, -3.4, 2.6], ['brazier', 'R', .2, -4.6, 2.1], ['chains', 'C', -2, -8, 3], ['stalagmite', 'R', -2, -8, 3.2]],
-  [['rock', 'L', -.3, -3.4, 2.6], ['skulls', 'R', .3, -3.6, 2], ['brazier', 'C', -3, -7.5, 2], ['stalagmite', 'R', -1.5, -8, 3.2]],
-  [['gold', 'L', -.4, -3.4, 2.8], ['gold', 'R', .4, -4, 3], ['brazier', 'C', -2.5, -7.5, 2.1], ['skulls', 'C', 3.5, -7.8, 1.8]],
-  [['rock', 'L', -.3, -3.4, 2.6], ['skulls', 'R', .3, -3.6, 2], ['chains', 'C', -3, -8, 3.2], ['brazier', 'C', 3, -7.6, 2.1]],
-  [['tomb', 'L', -.5, -3.8, 2.6], ['tomb', 'R', .4, -4.4, 2.6], ['column', 'C', -3, -8, 2.8], ['brazier', 'C', 3, -7.6, 2.1]],
-  [['tree', 'L', -.4, -3.6, 3.2], ['tree', 'R', .4, -4.4, 3.4], ['skulls', 'C', -2.5, -7.6, 1.8], ['brazier', 'C', 3, -7.8, 2.1]],
-  [['rock', 'L', -.3, -3.4, 2.6], ['chains', 'R', .2, -5, 3.2], ['brazier', 'C', -2.8, -7.6, 2.1], ['stalagmite', 'C', 3, -8, 3.2]],
-  [['ice', 'L', -.4, -3.6, 3], ['ice', 'R', .4, -4.4, 3.2], ['ice', 'C', -3, -8, 2.6], ['ice', 'C', 3.4, -8.2, 2.8]],
-];
+// which things stand about in each scene: [kind, anchor (L: the left edge of the fight, R: the right, C: the
+// middle), offset from it, depth, size]
+export const SETS = {
+  limbo: [['column', 'L', -.4, -3.6, 2.8], ['brazier', 'R', .2, -4.2, 2], ['stalagmite', 'C', 2.4, -7.5, 3], ['rock', 'C', -3, -8, 2.2]],
+  lust: [['rock', 'L', -.3, -3.4, 2.4], ['brazier', 'R', .2, -4.6, 2], ['gibbet', 'C', -2, -8, 3.2], ['stalagmite', 'R', -2, -8, 3]],
+  gluttony: [['rock', 'L', -.3, -3.4, 2.4], ['skulls', 'R', .3, -3.6, 2], ['brazier', 'C', -3, -7.5, 2], ['stalagmite', 'R', -1.5, -8, 3]],
+  greed: [['gold', 'L', -.4, -3.4, 2.6], ['gold', 'R', .4, -4, 2.8], ['brazier', 'C', -2.5, -7.5, 2], ['skulls', 'C', 3.5, -7.8, 1.8]],
+  wrath: [['rock', 'L', -.3, -3.4, 2.4], ['skulls', 'R', .3, -3.6, 2], ['gibbet', 'C', -3, -8, 3.2], ['brazier', 'C', 3, -7.6, 2]],
+  heresy: [['tomb', 'L', -.5, -3.8, 2.6], ['tomb', 'R', .4, -4.4, 2.6], ['column', 'C', -3, -8, 2.8], ['brazier', 'C', 3, -7.6, 2]],
+  violence: [['tree', 'L', -.4, -3.6, 3.2], ['tree', 'R', .4, -4.4, 3.4], ['skulls', 'C', -2.5, -7.6, 1.8], ['brazier', 'C', 3, -7.8, 2]],
+  fraud: [['rock', 'L', -.3, -3.4, 2.4], ['gibbet', 'R', .2, -5, 3.2], ['brazier', 'C', -2.8, -7.6, 2], ['stalagmite', 'C', 3, -8, 3]],
+  treachery: [['ice', 'L', -.4, -3.6, 3], ['ice', 'R', .4, -4.4, 3.2], ['ice', 'C', -3, -8, 2.6], ['ice', 'C', 3.4, -8.2, 2.8]],
+  gate: [['brazier', 'C', -3.1, -1.6, 2.2], ['brazier', 'C', 3.1, -1.6, 2.2]],
+};
 export const propLook = (kind, L, seed) => PROPS[kind](L, rand(seed));

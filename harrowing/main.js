@@ -115,7 +115,7 @@ class App {
   // the angel alone on the ledge, behind the map and the other pages
   idleScene(title = false) {
     this.titleMode = title;
-    this.stage.setCircle(this.run ? this.run.circle : title ? 5 : 0);
+    if (title) this.stage.setCircle(5, 'gate'); else this.stage.setCircle(this.run ? this.run.circle : 0);
     if (!this.angelFig) this.angelFig = new Figure('angel', 1.15, { facing: 1, lit: .3 });
     this.angelFig.placed = false; this.angelFig.alpha = 1; this.angelFig.dissolve = 0; this.angelFig.speed = 1;
     this.stage.setFigures(this.angelFig, []);
@@ -240,8 +240,9 @@ class App {
     const ci = this.run.circle;
     s.innerHTML = `<div style="margin-top:20vh"></div><h2>Deeper</h2><h1>Circle ${ROMAN[ci]}</h1><p class="lede">${CIRCLES[ci].name}, where ${CIRCLES[ci].sin.replace(/^the /, 'the ')} are kept.</p>`;
     const b = el('button', 'btn gold', 'Go down'); b.onclick = () => this.toMap(); s.append(b);
+    s.classList.add('veil');
     this.idleScene();
-    this.screens.show(s);
+    this.screens.show(s, { dim: false });
   }
   gameOver(win) {
     store.del(SAVE);
@@ -306,7 +307,7 @@ class App {
 }
 
 const app = new App();
-await Promise.all([document.fonts.load('700 20px Cinzel'), document.fonts.load('900 20px Cinzel'), document.fonts.load('600 20px "Alegreya Sans"'), document.fonts.load('800 20px "Alegreya Sans"')]).catch(() => {});
+await Promise.all([document.fonts.load('400 20px "IM Fell English SC"'), document.fonts.load('400 20px "IM Fell English"'), document.fonts.load('italic 400 20px "IM Fell English"'), document.fonts.load('600 20px "Alegreya Sans"'), document.fonts.load('800 20px "Alegreya Sans"')]).catch(() => {});
 app.start();
 app.boot();
 window.app = app;

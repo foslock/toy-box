@@ -63,11 +63,12 @@ const FRAG = `
     vec3 m = texture2D(maskMap, uv).rgb;
     vec2 tilt = V.xy / max(V.z, .25);
     vec3 col = base;
+    // rare cards are gilded: a glint of gold leaf runs across them as they tilt
     if (uHolo > .5 && m.r > .01) {
       float ph = (uv.x * .8 + uv.y * 1.3) + tilt.x * 2. - tilt.y * 1.6 + uTime * .03;
-      vec3 rb = spectrum(ph);
-      float band = pow(.5 + .5 * sin(ph * 9.4), 4.);
-      col = mix(col, col * mix(vec3(1.), rb * 1.3 + .1, .5) + rb * band * .3, m.r * (.45 + .55 * smoothstep(.0, .4, length(tilt))));
+      float band = pow(.5 + .5 * sin(ph * 7.), 6.);
+      float fleck = step(.86, vnoise(uv * 140.)) * .5;
+      col = mix(col, col * vec3(1.08, 1.0, .82) + vec3(1., .82, .45) * (band * .32 + fleck * band), m.r * (.5 + .5 * smoothstep(.0, .4, length(tilt))));
     }
     // a soft sheen sweeping over the frame as it turns
     float sweep = pow(max(0., 1. - abs((uv.x + uv.y) * .7 - .9 - tilt.x * 1.4 + tilt.y)), 6.);

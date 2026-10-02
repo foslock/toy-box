@@ -1,12 +1,13 @@
-// The material every painted figure part uses: lit by the circle's ambient light, a glow from the fire below
-// (stronger near the ground and on edges that face down), a rim from the key light, plus hit flashes, a hover
-// highlight and a burn-away dissolve for deaths.
+// The material every puppet and prop is cut from. Hell is a shadow theatre: the demons are black paper held up
+// in front of the fire, so the light catches their cut edges (brightest on the side facing up, toward the glow
+// behind them) and leaks through thin places like wing membranes. The angel is ivory paper lit from the front,
+// with a fine ink line just inside its edge. Hits flash, hovered demons get a gold edge, and the dead burn away.
 import * as THREE from 'three';
 
 export const LIGHT = {
-  uAmb: { value: new THREE.Color(.7, .7, .75) },
-  uGlow: { value: new THREE.Color(1, .4, .15) },
-  uKey: { value: new THREE.Color(1, .85, .6) },
+  uAmb: { value: new THREE.Color(.7, .7, .75) },    // the ambient colour paper takes on
+  uGlow: { value: new THREE.Color(1, .4, .15) },    // the fire below
+  uKey: { value: new THREE.Color(1, .85, .6) },     // the light behind, which rims every cut edge
   uTime: { value: 0 },
 };
 
@@ -20,33 +21,37 @@ const VERT = /* glsl */`
   }`;
 const FRAG = /* glsl */`
   uniform sampler2D map; uniform vec2 uTexel; uniform vec2 uKeyDir;
-  uniform vec3 uAmb, uGlow, uKey, uTint;
-  uniform float uFlash, uDissolve, uAlpha, uHi, uTime, uLit, uFloor, uInk;
+  uniform vec3 uAmb, uGlow, uKey, uTint, uLine;
+  uniform float uFlash, uDissolve, uAlpha, uHi, uTime, uLit, uFloor, uInk, uRim;
   varying vec2 vUv; varying float vY;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
     return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+  float A(vec2 o) { return texture2D(map, vUv + o * uTexel).a; }
   void main() {
     vec4 c = texture2D(map, vUv);
     if (c.a < .03) discard;
-    float down = texture2D(map, vUv - vec2(0., uTexel.y * 7.)).a;
-    float key = texture2D(map, vUv + uKeyDir * uTexel * 7.).a;
-    float side = texture2D(map, vUv - uKeyDir * uTexel * 5.).a;
-    float rimDown = clamp(c.a - down, 0., 1.), rimKey = clamp(c.a - key, 0., 1.), rimOther = clamp(c.a - side, 0., 1.);
+    // how close the paper's edge is: the least paper found a few texels away in eight directions
+    float r = 2.2, d = r * .72;
+    float nearMin = min(min(min(A(vec2(r, 0.)), A(vec2(-r, 0.))), min(A(vec2(0., r)), A(vec2(0., -r)))),
+                        min(min(A(vec2(d, d)), A(vec2(-d, d))), min(A(vec2(d, -d)), A(vec2(-d, -d)))));
+    float edge = clamp(c.a - nearMin, 0., 1.);
+    float rimKey = clamp(c.a - A(uKeyDir * 6.), 0., 1.);
+    float rimDown = clamp(c.a - A(vec2(0., -8.)), 0., 1.);
     float nearGround = smoothstep(2.6, -.2, vY - uFloor);
-    vec3 lit = c.rgb * (uAmb + uGlow * nearGround * .55) * uTint;
-    lit += uGlow * rimDown * (.55 + nearGround * .6) + uKey * rimKey * .75 + uGlow * rimOther * .25;
-    vec3 col = mix(c.rgb * uTint, lit, uLit);
-    // an ink line just inside the silhouette, like a painted card illustration
-    vec2 o = uTexel * 2.6;
-    float mn = min(min(texture2D(map, vUv + vec2(o.x, 0.)).a, texture2D(map, vUv - vec2(o.x, 0.)).a), min(texture2D(map, vUv + vec2(0., o.y)).a, texture2D(map, vUv - vec2(0., o.y)).a));
-    col = mix(col, vec3(.05, .02, .03), smoothstep(.55, .05, mn) * .8 * uInk);
-    // hover: a pulsing gold edge and a lift
-    float edge = max(max(rimDown, rimKey), rimOther);
-    col += uHi * (vec3(1., .82, .4) * edge * (1.2 + .4 * sin(uTime * 6.)) + vec3(.08, .06, .02));
-    col = mix(col, vec3(1., .97, .9), uFlash);
+    // the paper itself, with a little grain
+    float grain = vnoise(vUv * vec2(170., 230.)) * .5 + vnoise(vUv * vec2(40., 60.)) * .5;
+    vec3 paper = c.rgb * (1. - grain * .07) * uTint;
+    vec3 col = mix(paper, paper * uAmb * 1.25, uLit);
+    // an ink line just inside the edge (the angel), or light catching the cut edge (everyone else)
+    col = mix(col, uLine, smoothstep(.15, .7, edge) * uInk);
+    col += uKey * (smoothstep(.1, .8, edge) * .42 + rimKey * .5) * uRim;
+    col += uGlow * rimDown * (.12 + nearGround * .5) * uRim;
+    // hover: a pulsing gold edge
+    col += uHi * vec3(1., .8, .38) * (smoothstep(.05, .5, edge) * 1.6 + rimKey) * (1. + .35 * sin(uTime * 6.));
+    col = mix(col, vec3(1., .96, .86), uFlash);
     float a = c.a * uAlpha;
-    // burning away: an ember edge eats through the figure
+    // burning away: an ember edge eats through the paper from the bottom up
     if (uDissolve > 0.) {
       float n = vnoise(vUv * 9.) * .65 + vnoise(vUv * 23.) * .35 + (1. - vUv.y) * .25;
       float t = uDissolve * 1.35 - .1;
@@ -58,14 +63,17 @@ const FRAG = /* glsl */`
     #include <colorspace_fragment>
   }`;
 
+// o.paper: lit from the front like the angel (an ink line inside the edge, a softer rim); otherwise black paper
 export function spriteMaterial(tex, o = {}) {
   const img = tex.image;
   return new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false,
     uniforms: {
-      map: { value: tex }, uTexel: { value: new THREE.Vector2(1 / img.width, 1 / img.height) }, uKeyDir: { value: new THREE.Vector2(o.keyDir ?? -1, .6).normalize() },
+      map: { value: tex }, uTexel: { value: new THREE.Vector2(1 / img.width, 1 / img.height) }, uKeyDir: { value: new THREE.Vector2((o.keyDir ?? -1) * .35, 1).normalize() },
       uAmb: LIGHT.uAmb, uGlow: LIGHT.uGlow, uKey: LIGHT.uKey, uTime: LIGHT.uTime, uTint: { value: new THREE.Color(1, 1, 1) },
-      uFlash: { value: 0 }, uDissolve: { value: 0 }, uAlpha: { value: 1 }, uHi: { value: 0 }, uLit: { value: o.lit ?? 1 }, uFloor: { value: 0 }, uInk: { value: o.ink ?? 1 },
+      uLine: { value: new THREE.Color(o.line ?? '#5a3a14') },
+      uFlash: { value: 0 }, uDissolve: { value: 0 }, uAlpha: { value: 1 }, uHi: { value: 0 }, uFloor: { value: 0 },
+      uLit: { value: o.lit ?? (o.paper ? .25 : 1) }, uInk: { value: o.ink ?? (o.paper ? .85 : 0) }, uRim: { value: o.rim ?? (o.paper ? .3 : 1) },
     },
   });
 }

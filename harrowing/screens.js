@@ -49,13 +49,15 @@ function charmCard(id, o = {}) {
   if (o.buy) e.style.border = '0';
   return e;
 }
+// an event's picture: a little shadow theatre, the emblem cut from black paper against the glow
 function artCanvas(glyph, mood = 'gold') {
   const c = canvas(560, 400), g = c.getContext('2d');
-  const sky = mood === 'red' ? ['#1a0406', '#6a140c', '#ff7a3a'] : mood === 'blue' ? ['#06101e', '#1a3a5a', '#a8d8ff'] : ['#140a06', '#5a2a10', '#ffcf7a'];
-  g.fillStyle = lin(g, 0, 0, 0, 400, [[0, sky[0]], [.6, sky[1]], [1, sky[2]]]); g.fillRect(0, 0, 560, 400);
-  g.fillStyle = rad(g, 280, 250, 10, 260, [[0, 'rgba(255,230,170,.45)'], [1, 'rgba(255,230,170,0)']]); g.fillRect(0, 0, 560, 400);
-  g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.moveTo(0, 400); for (let x = 0; x <= 560; x += 20) g.lineTo(x, 340 + Math.sin(x * .05) * 14 + Math.sin(x * .13) * 8); g.lineTo(560, 400); g.fill();
-  drawGlyph(g, glyph, 160, 80, 240, { body: '#fffdf2', body2: '#e8b448', outline: '#5a3406', accent: '#ffffff', detail: '#7a4a0a', hole: '#3a1a04', glow: 'rgba(255,220,140,.8)', glowBlur: 12 });
+  const sky = mood === 'red' ? ['#160406', '#7a1a0e', '#ffb070'] : mood === 'blue' ? ['#06101e', '#2a4a6a', '#e4f2fa'] : ['#160c06', '#7a4416', '#ffe2a6'];
+  g.fillStyle = lin(g, 0, 0, 0, 400, [[0, sky[0]], [.55, sky[1]], [.86, sky[2]], [1, sky[2]]]); g.fillRect(0, 0, 560, 400);
+  g.fillStyle = rad(g, 280, 330, 10, 300, [[0, 'rgba(255,246,220,.55)'], [1, 'rgba(255,246,220,0)']]); g.fillRect(0, 0, 560, 400);
+  const ridge = (y, amp, col, f) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, 400); for (let x = 0; x <= 560; x += 10) g.lineTo(x, y + Math.sin(x * f) * amp + Math.sin(x * f * 2.7 + 1) * amp * .5); g.lineTo(560, 400); g.fill(); };
+  ridge(300, 18, 'rgba(20,12,12,.45)', .02); ridge(338, 10, '#0d0a0b', .045);
+  drawGlyph(g, glyph, 170, 96, 220, { body: '#0d0a0b', outline: '#0d0a0b', accent: '#2a1c18', detail: sky[2], hole: sky[2], glow: 'rgba(0,0,0,.35)', glowBlur: 4 });
   c.className = 'art';
   return c;
 }

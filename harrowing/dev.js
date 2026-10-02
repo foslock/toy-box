@@ -5,7 +5,7 @@ import { GLYPHS, drawGlyph } from './art.js';
 
 const q = new URLSearchParams(location.search);
 const W = +(q.get('w') ?? 220), only = q.get('only')?.split(','), plus = q.has('plus');
-await document.fonts.load(`700 20px Cinzel`); await document.fonts.load(`600 20px "Alegreya Sans"`); await document.fonts.load(`800 20px "Alegreya Sans"`);
+await document.fonts.load(`400 20px "IM Fell English SC"`); await document.fonts.load(`600 20px "Alegreya Sans"`); await document.fonts.load(`800 20px "Alegreya Sans"`);
 const out = document.getElementById('out');
 const add = (src, label, rot) => {
   const fig = document.createElement('figure');
