@@ -1,0 +1,19 @@
+{
+  "title": "Rigged Racer",
+  "blurb": "A desert kart race where you don't drive: you fix it. Put oil, barrels, mines and boost pads on the road and set off the track's traps so the right racer wins (or loses). Pause any time; every lap brings new stock.",
+  "added": "2026-10-01",
+  "category": "games",
+  "tags": [
+    "three.js",
+    "puzzle",
+    "racing"
+  ],
+  "tape": "orange",
+  "loader": true,
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 7000,
+    "query": "?demo&level=10&at=24.95&hold&who=count&d=12.5"
+  }
+}
