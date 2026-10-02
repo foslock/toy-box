@@ -269,7 +269,7 @@ export function bake(group, keep = new Set()) {
   group.add(m);
   return m;
 }
-const CHROME = toon('#e8eef5', { emissive: '#9ab0c8', glow: .55, unique: true });
+export const CHROME = toon('#66778e', { emissive: '#40587a', glow: .6, unique: true, line: .006 });
 export function setChrome(k, on) {
   if (k.userData.chromed === on) return;
   k.userData.chromed = on;
@@ -281,8 +281,9 @@ export function makeThing(kind, seed = 1) {
   const g = new THREE.Group(), R = rand(seed);
   g.userData.kind = kind;
   if (kind === 'oil') {
-    const sh = new THREE.Shape();
-    for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, r = .36 + .07 * Math.sin(a * 3 + R() * 6) + .04 * Math.sin(a * 5); i ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r * 1.15) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r * 1.15); }
+    // a lumpy round puddle: a few slow wobbles round its edge, the same all the way round (not a new one per point)
+    const sh = new THREE.Shape(), ph = R() * 6, ph2 = R() * 6;
+    for (let i = 0; i <= 40; i++) { const a = i / 40 * Math.PI * 2, r = .31 + .045 * Math.sin(a * 3 + ph) + .025 * Math.sin(a * 5 + ph2); i ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r * 1.2) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r * 1.2); }
     const pool = new THREE.Mesh(new THREE.ShapeGeometry(sh), toon('#231d2c', { line: 0, params: { polygonOffset: true, polygonOffsetFactor: -2 } }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = .035; pool.receiveShadow = true; g.add(pool);
     const sheen = new THREE.Mesh(new THREE.RingGeometry(.12, .2, 20, 1, .3, 2.2), flat('#b48cff', { opacity: .45 }));
@@ -291,9 +292,10 @@ export function makeThing(kind, seed = 1) {
     glint.rotation.x = -Math.PI / 2; glint.position.set(.12, .041, -.12); glint.scale.set(1.6, 1, 1); g.add(glint);
     g.userData.sheen = sheen;
   } else if (kind === 'spikes') {
-    g.add(part(G.box, toon('#6b4a2c'), [0, .03, 0], [.8, .04, .2]));
-    const steel = toon('#b8bec6');
-    for (let i = 0; i < 7; i++) g.add(part(G.cone4, steel, [-.33 + i * .11, .1, (i % 2 - .5) * .08], [.035, .12, .035], [0, R(), 0]));
+    g.add(part(G.box, toon('#6b4a2c'), [0, .03, 0], [.86, .05, .3]));
+    g.add(part(G.box, toon('#d24a2e', { line: 0 }), [0, .058, 0], [.88, .01, .06]));
+    const steel = toon('#c8ced6');
+    for (let i = 0; i < 8; i++) for (const z of [-.08, .08]) g.add(part(G.cone4, steel, [-.36 + i * .103 + (z > 0 ? .05 : 0), .14, z], [.05, .17, .05], [0, R(), 0]));
   } else if (kind === 'barrel' || kind === 'rubble') {
     if (kind === 'barrel') {
       const red = toon('#d24a2e'), band = toon('#2a2522'), stripe = toon('#f2c230');
@@ -343,13 +345,16 @@ export function makeThing(kind, seed = 1) {
     for (const x of [-1, 1]) for (const y of [-1, 1]) box.add(part(G.box, toon('#5a5a5a', { line: 0 }), [x * .18, y * .18, 0], [.05, .05, .38]));
     g.userData.box = box;
   } else if (kind === 'skull') {
-    const sk = new THREE.Group(); sk.position.y = .32; g.add(sk);
-    const ch = toon('#e8eef5', { emissive: '#8aa0b8', glow: .6 });
-    sk.add(part(G.bead, ch, [0, .03, 0], [.15, .13, .15]));
-    sk.add(part(G.rbox, ch, [0, -.08, -.04], [.16, .08, .14]));
+    // it floats tipped back, grinning up at the sky (and the camera)
+    const sk = new THREE.Group(); sk.position.y = .36; sk.scale.setScalar(1.25); g.add(sk);
+    const face = new THREE.Group(); face.rotation.x = 1.7; sk.add(face);
+    const ch = toon('#dfe6ee', { emissive: '#6a8098', glow: .45 });
+    face.add(part(G.bead, ch, [0, .03, 0], [.15, .13, .15]));
+    face.add(part(G.rbox, ch, [0, -.08, -.04], [.16, .08, .14]));
     const hole = toon('#1a1a22', { line: 0 });
-    for (const sd of [-1, 1]) sk.add(part(G.bead, hole, [sd * .055, .02, -.125], [.04, .035, .02]));
-    sk.add(part(G.cone4, hole, [0, -.035, -.135], [.02, .03, .01], [Math.PI, 0, 0]));
+    for (const sd of [-1, 1]) face.add(part(G.bead, hole, [sd * .056, .02, -.128], [.048, .042, .022]));
+    face.add(part(G.cone4, hole, [0, -.035, -.138], [.024, .035, .012], [Math.PI, 0, 0]));
+    for (let i = 0; i < 4; i++) face.add(part(G.box, hole, [-.045 + i * .03, -.09, -.112], [.012, .03, .01]));
     g.userData.box = sk;
   }
   if (g.userData.box) bake(g.userData.box);

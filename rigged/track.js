@@ -132,7 +132,9 @@ export function buildTrack(def) {
     // it peels away along the road's own direction, and comes back in along it
     const h = b.h ?? 3.5;
     const pts = [pt(sFrom - 3), pt(sFrom), pt(sFrom + h, .7), ...b.pts, pt(sTo - h, .7), pt(sTo), pt(sTo + 3)];
-    const p = makePath(spline(pts, false, 20), false, b.lanes || [[0, 1]], bi + 1);
+    // a two-lane mouth lines up with the loop's outside lane and the one next to it
+    const lanes = (b.lanes || [[0, 1]]).map(l => l[1] % 2 || l[2] != null ? l : [l[0], l[1], -side * .5]);
+    const p = makePath(spline(pts, false, 20), false, lanes, bi + 1);
     Object.assign(p, { from: sFrom, to: sTo, side, gate: b.gate ?? null, outerFrom: outer(sFrom), outerTo: outer(sTo) });
     paths.push(p);
   }

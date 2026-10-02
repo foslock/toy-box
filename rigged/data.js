@@ -7,11 +7,11 @@
 export const RACERS = {
   duke: { name: 'Duke Dieselbottom', short: 'Duke', color: '#d23a2c', speed: 10.9, acc: 3.0, grip: .15, sight: 7, lat: 1.5, weight: 3, traits: ['reckless', 'bully'],
     blurb: 'Drives a monster truck called Mother. Never brakes, and never steers round anything smaller than a barrel.' },
-  pip: { name: 'Pip', short: 'Pip', color: '#27a7b8', speed: 9.5, acc: 7.0, grip: .92, sight: 10, lat: 3.0, weight: 1, traits: ['greedy'],
+  pip: { name: 'Pip', short: 'Pip', color: '#27a7b8', speed: 9.6, acc: 7.0, grip: .92, sight: 10, lat: 3.0, weight: 1, traits: ['greedy'],
     blurb: 'Nine years old, in a bathtub with an engine. Quick through the bends, and can’t resist anything shiny.' },
   granny: { name: 'Granny Gasket', short: 'Granny', color: '#9a5cc8', speed: 10.0, acc: 4.4, grip: .6, sight: 15, lat: 2.0, weight: 1.6, traits: ['cautious', 'hoarder'],
     blurb: 'Ninety-one, in an armchair with a jet engine on the back. Sees trouble coming a mile off.' },
-  mutt: { name: 'Mutt', short: 'Mutt', color: '#e7a92a', speed: 10.2, acc: 5.6, grip: .7, sight: 9, lat: 2.6, weight: 1.2, traits: ['trigger'],
+  mutt: { name: 'Mutt', short: 'Mutt', color: '#e7a92a', speed: 10.05, acc: 5.6, grip: .62, sight: 9, lat: 2.6, weight: 1.2, traits: ['trigger'],
     blurb: 'A very good boy in a dune buggy. Uses whatever he picks up, straight away.' },
   sprocket: { name: 'Sprocket', short: 'Sprocket', color: '#3d72b8', speed: 10.1, acc: 5.0, grip: .55, sight: 12, lat: 2.3, weight: 1.8, traits: ['sweeper'],
     blurb: 'A robot on a motorbike with a sidecar full of spanners. Shoots at anything you leave in its lane.' },

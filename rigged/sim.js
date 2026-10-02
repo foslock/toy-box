@@ -55,9 +55,10 @@ export function newRace(T, level) {
     const p = T.paths[f.path || 0];
     S.fx.push({ id: f.id, kind: f.kind, path: f.path || 0, s0: f.at * p.L, len: f.len || 2.5, armed: false, at: -9, victim: -1 });
   }
-  // the track's own crates, a row across the road, that come back a few seconds after they're taken
-  for (const c of T.def.crates || []) {
-    const s = c.at * main.L;
+  // rows of crates across the road that the race puts out itself (a level can ask for them), back a few seconds
+  // after they're taken
+  for (const at of level.crates || []) {
+    const s = at * main.L;
     for (const x of lanesAt(main, s)) S.objs.push({ id: S.nextId++, kind: 'crate', by: 'track', path: 0, s, x, hp: 1, off: 0, ci: -1 });
   }
   rank(S, T);
@@ -143,7 +144,7 @@ function drive(S, T, k) {
   // onto a shortcut, off it, and over the line
   if (k.path === 0) {
     for (const b of T.paths.slice(1)) {
-      if (k.fork !== b.id || S.gates[b.gate] === false || Math.abs(k.x - b.outerFrom) > .4 || !crossed(p, s0, k.s, b.from)) continue;
+      if (k.fork !== b.id || S.gates[b.gate] === false || Math.abs(k.x - b.outerFrom) > 1.4 || !crossed(p, s0, k.s, b.from)) continue;
       k.path = b.id; k.s = ahead(p, b.from, ((k.s % p.L) + p.L) % p.L); k.x -= b.outerFrom; k.tx = snapLane(b, k.s, k.x); k.fork = 0;
       S.ev.push({ type: 'fork', k: k.i, path: b.id });
       p = b;
@@ -240,7 +241,8 @@ function decide(S, T, k) {
       const [lo, hi] = edgesAt(p, k.s + d);
       if (o < lo + .45 || o > hi - .45) { c += 200 * (1.5 - d / (sight + 2)); break; }
     }
-    if (fork?.want) c += Math.abs(o - fork.b.outerFrom) * 30;
+    // a shortcut wanted: its mouth is the outside lane and the one beside it
+    if (fork?.want) { const off = Math.abs(o - fork.b.outerFrom); c += off * 4 + Math.max(0, off - 1.1) * 40; }
     // what's on the road in it
     for (const ob of S.objs) {
       if (ob.off > S.t || ob.path !== k.path || ob.dead || Math.abs(ob.x - o) > WIDE) continue;

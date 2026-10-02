@@ -292,7 +292,7 @@ function crackingTower(B, meshes, anim, x, z, r, world) {
 function flareDecor(B, meshes, anim, x, z, world) {
   for (let i = 0; i < 5; i++) B.add(G.cyl, i % 2 ? '#c8352b' : '#efe9dc', at(x, .35 + i * .7, z, 0, 0, .2, .7, .2));
   const f = makeFlame(3); f.position.set(x, 3.6, z); meshes.push(f);
-  anim.push((dt, time) => { const s = 1 + Math.sin(time * 13 + x) * .12 + Math.random() * .12; f.scale.set(s, s * (1 + Math.random() * .25), s); if (Math.random() < .05) world.puff(x, 4.6, z, { color: '#3a3030', n: 1, up: 1.4, life: 1.6, s0: 1.4, s1: 3.5, a: .5, drag: .4 }); });
+  anim.push((dt, time) => { const s = 1 + Math.sin(time * 13 + x) * .12 + Math.random() * .12; f.scale.set(s, s * (1 + Math.random() * .25), s); if (dt > 0 && Math.random() < .05) world.puff(x, 4.6, z, { color: '#3a3030', n: 1, up: 1.4, life: 1.6, s0: 1.4, s1: 3.5, a: .5, drag: .4 }); });
 }
 function barrier(B, theme, x, z, yaw, R, s, sd) {
   if (theme === 'dust' || theme === 'scrap') {
@@ -332,7 +332,9 @@ function grandstand(B, meshes, anim, main, startOut, claim, R) {
       // a striped parasol now and then, over the top tier
       const q = startOut(ss, 4.9);
       B.add(G.cyl6, '#5a5a5a', at(q.x, 1.9, q.z, 0, 0, .04, 2.2, .04));
-      B.add(G.cone, Math.round((s - s0) / 1.2) % 8 ? '#d23a2c' : '#f2c230', at(q.x, 3.05, q.z, R() * 6, 0, .75, .3, .75));
+      const col = Math.round((s - s0) / 1.2) % 8 ? '#d23a2c' : '#f2c230';
+      B.add(G.cone, col, at(q.x, 3.02, q.z, R() * 6, 0, .48, .32, .48));
+      B.add(G.bead, '#efe6cf', at(q.x, 3.2, q.z, 0, 0, .06));
     }
     claim(startOut(ss, 4).x, startOut(ss, 4).z, 1.6);
   }
@@ -440,7 +442,7 @@ function tumbleweeds(meshes, anim, T, R, n) {
     const st = { x: x0 - 10 + R() * (x1 - x0 + 20), z: z0 + R() * (z1 - z0), v: 1.5 + R() * 1.5, ph: R() * 10 };
     anim.push((dt, time) => {
       st.x += st.v * dt; st.z += Math.sin(time * .7 + st.ph) * .3 * dt;
-      if (st.x > x1 + 14) st.x = x0 - 14;
+      if (st.x > x1 + 14) st.x = x0 - 14; else if (st.x < x0 - 14) st.x = x1 + 14;
       g.position.set(st.x, .3 + Math.abs(Math.sin(time * 3 + st.ph)) * .4, st.z);
       g.rotation.z -= st.v * dt / .3;
     });
@@ -496,7 +498,7 @@ function shack(B, meshes, anim, x, z, R, world) {
   const yaw = R() * 6.28;
   // someone's welding round the back
   const wx = x + Math.cos(yaw) * 1.3, wz = z - Math.sin(yaw) * 1.3, st = { t: R() * 3 };
-  anim.push(dt => { st.t += dt; if (st.t % 3 < 1.2 && Math.random() < .5) world.sparks(wx, .4, wz, 2); });
+  anim.push(dt => { st.t += dt; if (dt > 0 && st.t % 3 < 1.2 && Math.random() < .5) world.sparks(wx, .4, wz, 2); });
   B.add(G.box, '#8a8a90', at(x, .7, z, yaw, 0, 2, 1.4, 1.6));
   B.add(G.box, '#a85a2a', at(x, 1.5, z, yaw, 0, 2.3, .1, 1.9, .12));
   B.add(G.box, '#3a2a22', at(x + Math.sin(yaw) * -.81, .55, z + Math.cos(yaw) * -.81, yaw, 0, .5, 1, .04));
@@ -505,7 +507,7 @@ function fireBarrel(B, meshes, anim, x, z, world) {
   B.add(G.cyl, '#5a3a2a', at(x, .3, z, 0, 0, .2, .6, .2));
   B.add(G.torus, '#3a2a22', at(x, .45, z, 0, Math.PI / 2, .21, .21, .1));
   const f = makeFlame(1.6); f.position.set(x, .6, z); meshes.push(f);
-  anim.push((dt, time) => { const s = 1 + Math.sin(time * 17 + x) * .15 + Math.random() * .1; f.scale.set(s, s * (1 + Math.random() * .2), s); if (Math.random() < .04) world.puff(x, 1.2, z, { color: '#4a4040', n: 1, up: 1.2, life: 1.2, s0: 1, s1: 2.5, a: .5 }); });
+  anim.push((dt, time) => { const s = 1 + Math.sin(time * 17 + x) * .15 + Math.random() * .1; f.scale.set(s, s * (1 + Math.random() * .2), s); if (dt > 0 && Math.random() < .04) world.puff(x, 1.2, z, { color: '#4a4040', n: 1, up: 1.2, life: 1.2, s0: 1, s1: 2.5, a: .5 }); });
 }
 function dog(B, meshes, anim, x, z) {
   // a doghouse and a guard dog that won't stop barking

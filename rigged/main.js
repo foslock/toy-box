@@ -38,6 +38,7 @@ sound.setEnabled(saved.sound !== false);
 window.rigged = {   // for poking at from the console: rigged.hold = true stops the clock, rigged.tick(secs) runs it by hand
   world, get G() { return G; }, step, copy,
   tick(secs) { const n = Math.round(secs / DT); for (let i = 0; i < n && G.mode === 'run'; i++) stepOnce(); world.sync(G.S, secs); },
+  frames(n, dt = 1 / 60) { for (let i = 0; i < n; i++) everyFrame(dt); },   // with rigged.manual = true, frames by hand
   sound,
 };
 
@@ -46,10 +47,14 @@ let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (!window.rigged.manual) everyFrame(dt);
+}
+function everyFrame(dt) {
   try {
     if (G && G.mode === 'run' && !window.rigged.hold) advance(dt);
-    if (G) world.sync(G.S, dt);
-    world.frame(dt);
+    if (G?.scrub) scrubStep(dt);
+    if (G) world.sync(G.S, dt, false, G.scrub ? -1 : 1);
+    world.frame(G?.scrub ? -dt * G.scrub.ambient : dt);
     if (G) { tags(); traps(); status(); }
     const moving = G && G.mode === 'run' ? G.S.karts.reduce((a, k) => a + k.v, 0) / G.S.karts.length : 0;
     sound.engine(moving, clamp(1 - (world.cam.d - 12) / 60, 0, 1));
@@ -65,7 +70,9 @@ function advance(dt) {
 // one tick of the race: the solution's timed steps first (in ?demo and ?auto), then the race, then what it says happened
 function stepOnce() {
   while (G.timed?.length && G.S.t >= G.timed[0].t - 1e-9) doStep(G.S, G.T, G.timed.shift());
-  step(G.S, G.T); events();
+  step(G.S, G.T);
+  if (G.S.tick % 6 === 0) G.tape.push(copy(G.S));   // the race so far, ten times a second, to rewind through
+  events();
 }
 
 /* ---------- a race ---------- */
@@ -73,7 +80,7 @@ function begin(n, { intro = true } = {}) {
   const def = LEVELS[n], T = trackOf(def.track);
   if (world.T !== T) world.load(T);
   const S = newRace(T, def);
-  G = { n, def, T, S, mode: 'plan', snaps: [{ lap: 1, S: copy(S) }], placed: new Set(), sel: null, acc: 0, dirty: true, lapsSeen: 1 };
+  G = { n, def, T, S, mode: 'plan', snaps: [{ lap: 1, S: copy(S) }], tape: [], placed: new Set(), sel: null, acc: 0, dirty: true, lapsSeen: 1 };
   world.setRace(S);
   world.fit();
   lamps(0);
@@ -152,20 +159,60 @@ function pauseRace() {
 }
 // Back to the start of this lap (or, if that's where it already is, the lap before), with the stock as it was.
 function rewind() {
-  if (!G || G.mode === 'count') return;
+  if (!G || G.mode === 'count' || G.scrub) return;
   let i = G.snaps.length - 1;
   const at = G.snaps[i];
   if (G.S.t <= at.S.t + 1e-6 && !G.placed.size && G.mode !== 'done' && i > 0) i--;
-  restore(i);
+  scrub(i);
+}
+// Rewinding is a record pulled back under the needle: the race runs backwards through its tape, slow to catch,
+// whipping through the middle and easing into the lap's start, with the scenery spinning back too.
+function scrub(i) {
+  if (!G || G.scrub || G.mode === 'count') return;
+  const snap = G.snaps[i], from = G.S.t, to = snap.S.t;
+  const frames = [G.S, ...G.tape.filter(f => f.t < from - 1e-6 && f.t > to + 1e-6).reverse(), snap.S];
+  closeSheet(); toast(null); banner(null); tip(null); setSel(null);
+  G.mode = 'rewind';
+  G.scrub = { i, from, to, span: from - to, frames, fi: 0, t: 0, tau: from, dur: clamp(.5 + (from - to) * .014, .55, 1.6), spin: 0, ambient: 2 };
+  scrubLook(true, snap.lap === 1 && to === 0 ? 'Start' : `Lap ${snap.lap}`);
+  sound.unlock(); sound.scrub(true);
+  render();
+}
+function scrubStep(dt) {
+  const sc = G.scrub;
+  sc.t += dt;
+  const u = clamp(sc.t / sc.dur, 0, 1), e = u < .5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2;
+  const tau = sc.from - sc.span * e, rate = (sc.tau - tau) / Math.max(dt, 1e-3);
+  sc.tau = tau;
+  // the newest moment of the tape at or after where the needle is
+  while (sc.fi < sc.frames.length - 1 && sc.frames[sc.fi + 1].t >= tau - 1e-6) sc.fi++;
+  G.S = sc.frames[sc.fi];
+  sc.ambient = clamp(rate * .22, 1.5, 9);
+  sc.spin -= (8 + rate * 9) * dt * 6;
+  $('disc').style.transform = `rotate(${sc.spin}deg)`;
+  sound.scrubSpeed(rate);
+  if (u >= 1) {
+    G.scrub = null;
+    sound.scrub(false);
+    scrubLook(false);
+    restore(sc.i);
+  }
+}
+function scrubLook(on, label) {
+  document.body.classList.toggle('scrubbing', on);
+  if (on) $('scrubLbl').textContent = label;
+  $('scrub').classList.toggle('on', on);
+  // the needle drops: the picture gives a little jolt
+  if (!on) { document.body.classList.remove('dropped'); void document.body.offsetWidth; document.body.classList.add('dropped'); setTimeout(() => document.body.classList.remove('dropped'), 400); }
 }
 function restore(i) {
   const snap = G.snaps[i];
   G.snaps = G.snaps.slice(0, i + 1);
+  G.tape = G.tape.filter(f => f.t <= snap.S.t + 1e-6);
   G.S = copy(snap.S); G.mode = 'plan'; G.placed.clear(); G.acc = 0;
   world.setRace(G.S);
   lamps(G.S.t > 0 ? 5 : 0);
   closeSheet(); toast(null); banner(null);
-  sound.play('unplace');
   toast({ title: snap.lap === 1 && snap.S.t === 0 ? 'Back to the start' : `Back to the start of lap ${snap.lap}`, timeout: 1600 });
   render();
 }
@@ -182,7 +229,7 @@ function setSel(kind) {
   if (!kind) { world.showCell(null); $('why').hidden = true; }
 }
 function placeAt(kind, cell, x, y) {
-  if (!G || G.mode === 'done' || G.mode === 'count') return false;
+  if (!G || G.mode === 'done' || G.mode === 'count' || G.mode === 'rewind') return false;
   if (G.mode === 'run') pauseRace();
   const why = whyNot(G.S, G.T, kind, cell);
   if (why) { nope(why === 'none left' ? `No ${PLACE[kind].name.toLowerCase()} left` : why[0].toUpperCase() + why.slice(1), x, y); return false; }
@@ -274,7 +321,7 @@ function hoverCell(x, y) {
   world.showCell(cell, cell && !whyNot(G.S, G.T, G.sel, cell));
 }
 function tapAt(x, y) {
-  if (!G) return;
+  if (!G || G.mode === 'rewind') return;
   // a kart?
   let best = -1, bd = 26;
   G.S.karts.forEach((k, i) => {
@@ -305,7 +352,7 @@ function followKart(i) {
 let drag = null;
 $('tray').addEventListener('pointerdown', e => {
   const c = e.target.closest('.card');
-  if (!c || !G || c.classList.contains('out')) return;
+  if (!c || !G || c.classList.contains('out') || G.mode === 'rewind') return;
   e.preventDefault();
   sound.unlock();
   drag = { el: c, k: c.dataset.k, trap: c.dataset.trap, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false };
@@ -380,7 +427,7 @@ function buildTraps() {
   }
 }
 function armTrap(idOrKind, fromCard) {
-  if (!G || G.mode === 'done' || G.mode === 'count') return;
+  if (!G || G.mode === 'done' || G.mode === 'count' || G.mode === 'rewind') return;
   const f = G.S.fx.find(f => f.id === idOrKind) || G.S.fx.find(f => f.kind === idOrKind);
   if (!f) return;
   if (fromCard) { const a = world.fixtureAnchor(f.id); if (a) { world.glide = { x: a.x + Math.sin(world.cam.yaw) * 2, z: a.z + Math.cos(world.cam.yaw) * 2, d: Math.min(world.cam.d, 34) }; world.follow = -1; } }
@@ -390,7 +437,7 @@ function armTrap(idOrKind, fromCard) {
   render();
 }
 function toggleGate(id) {
-  if (!G || G.mode === 'done') return;
+  if (!G || G.mode === 'done' || G.mode === 'rewind') return;
   setGate(G.S, id, G.S.gates[id] === false);
   sound.play('gate');
   toast({ title: G.S.gates[id] ? 'Shortcut open' : 'Shortcut shut', timeout: 1400 });
@@ -460,17 +507,17 @@ function board() {
 function controls() {
   const m = G.mode;
   $('goIcon').innerHTML = m === 'run' ? ICONS.pause : m === 'done' ? ICONS.flag : ICONS.play;
-  $('goLbl').textContent = m === 'run' ? 'Pause' : m === 'done' ? 'Results' : m === 'count' ? '…' : G.S.t === 0 ? 'Race!' : 'Go';
-  $('bGo').disabled = m === 'count';
+  $('goLbl').textContent = m === 'run' ? 'Pause' : m === 'done' ? 'Results' : m === 'count' || m === 'rewind' ? '…' : G.S.t === 0 ? 'Race!' : 'Go';
+  $('bGo').disabled = m === 'count' || m === 'rewind';
   $('bGo').classList.toggle('ready', m === 'plan');
-  $('bRewind').disabled = m === 'count' || (G.snaps.length < 2 && G.S.t === 0 && !G.placed.size);
+  $('bRewind').disabled = m === 'count' || m === 'rewind' || (G.snaps.length < 2 && G.S.t === 0 && !G.placed.size);
   $('bSpeed').textContent = SPEEDS[saved.speed || 0] + '×';
 }
 function status() {
   const S = G.S, lead = S.karts[S.order[0]], lap = clamp(Math.max(1, lead.lap), 1, S.laps);
   const t = `Lap ${lap}/${S.laps}`;
   if ($('lap').textContent !== t) $('lap').textContent = t;
-  const what = G.mode === 'run' ? 'Racing' : G.mode === 'count' ? 'Get ready…' : G.mode === 'done' ? 'Finished' : S.t === 0 ? 'Rig the road, then race' : 'Paused · rig away';
+  const what = G.mode === 'run' ? 'Racing' : G.mode === 'rewind' ? 'Rewinding…' : G.mode === 'count' ? 'Get ready…' : G.mode === 'done' ? 'Finished' : S.t === 0 ? 'Rig the road, then race' : 'Paused · rig away';
   if ($('what').textContent !== what) $('what').textContent = what;
   $('clock').textContent = S.t.toFixed(1) + 's';
   if (G.mode === 'run' && (S.tick % 15) === 0) { board(); goal(); }
@@ -627,8 +674,8 @@ function results() {
       <button class="btn${win || laps.length ? '' : ' go'}" id="sAgain" type="button">${ICONS.restart} From the start</button>
       <button class="btn" id="sAll" type="button">All races</button></div>`);
   $('sNext') && ($('sNext').onclick = () => through(() => begin(G.n + 1)));
-  $('sLap') && ($('sLap').onclick = () => restore(G.snaps.length - 1));
-  $('sAgain').onclick = () => restore(0);
+  $('sLap') && ($('sLap').onclick = () => scrub(G.snaps.length - 1));
+  $('sAgain').onclick = () => scrub(0);
   $('sAll').onclick = () => events_();
   $('live').textContent = win ? 'Rigged! The race went your way.' : 'Not quite. Try again.';
 }
@@ -683,7 +730,7 @@ const soundIcon = () => { $('bSound').classList.toggle('muted', saved.sound === 
 $('bSound').onclick = () => { saved.sound = saved.sound === false; save(); sound.setEnabled(saved.sound); sound.unlock(); soundIcon(); };
 soundIcon();
 document.addEventListener('keydown', e => {
-  if (!G || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!G || G.mode === 'rewind' || e.metaKey || e.ctrlKey || e.altKey) return;
   if (!$('veil').hidden) { if (e.key === 'Escape' && $('sheet').dataset.soft) closeSheet(); return; }
   const k = e.key;
   if (k === ' ' || (k === 'Enter' && document.activeElement?.tagName !== 'BUTTON')) { go(); e.preventDefault(); }

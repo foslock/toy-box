@@ -15,7 +15,7 @@ import { playThrough, goalState, copy, step, doStep, newRace, place, cellAt, why
 
 const args = process.argv.slice(2), V = args.includes('-v');
 const ri = args.indexOf('--rand'), RAND = ri >= 0 ? +args[ri + 1] || 500 : 0;
-const only = args.filter((a, i) => /^\d+$/.test(a) && i !== ri + 1).map(Number);
+const only = args.filter((a, i) => /^\d+$/.test(a) && (ri < 0 || i !== ri + 1)).map(Number);
 
 // Random plans: each lap, some of what's in stock goes down somewhere it's allowed, at the lap's start or at some
 // moment in it; traps get armed and gates flipped now and then.
@@ -57,8 +57,9 @@ for (const [i, L] of LEVELS.entries()) {
   if (only.length && !only.includes(i + 1)) continue;
   const T = tracks[L.track] ||= buildTrack(TRACKS[L.track]);
   const problems = [];
-  for (const g of L.goal) for (const w of [g.who, g.ahead, g.behind]) if (w && !L.racers.includes(w)) problems.push(`goal names ${w}, who isn't racing`);
-  for (const w of L.racers) if (!RACERS[w]) problems.push(`no racer called ${w}`);
+  const racing = L.racers.map(r => typeof r === 'string' ? r : r.who);
+  for (const g of L.goal) for (const w of [g.who, g.ahead, g.behind]) if (w && !racing.includes(w)) problems.push(`goal names ${w}, who isn't racing`);
+  for (const w of racing) if (!RACERS[w]) problems.push(`no racer called ${w}`);
   if (L.stock.length !== L.laps) problems.push(`stock for ${L.stock.length} laps, race is ${L.laps}`);
   const base = playThrough(T, L, []);
   if (goalState(base, L).every(Boolean)) problems.push('already won with nothing done');

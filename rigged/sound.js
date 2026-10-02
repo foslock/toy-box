@@ -63,6 +63,46 @@ export class Sound {
     this.env(g, t, .01, vol, dur);
     s.connect(f).connect(g).connect(this.out); s.start(t, Math.random() * .5); s.stop(t + dur + .1);
   }
+  // Rewinding: the needle catches with a scratch, then a whir that climbs and falls with how fast the race is
+  // running back, and a soft drop and crackle when it lands.
+  scrub(on) {
+    if (!this.ok) { this.sc = null; return; }
+    const ac = this.ac, t = ac.currentTime;
+    if (on) {
+      if (this.sc) return;
+      this.scratch();
+      const o = ac.createOscillator(), o2 = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = 'sawtooth'; o2.type = 'square'; o.frequency.value = 70; o2.frequency.value = 140; o2.detune.value = 14;
+      f.type = 'bandpass'; f.Q.value = 2.5; f.frequency.value = 500;
+      g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.09, t + .08);
+      const n = ac.createBufferSource(), nf = ac.createBiquadFilter(), ng = ac.createGain();
+      n.buffer = this.white; n.loop = true; nf.type = 'highpass'; nf.frequency.value = 2500; ng.gain.value = .25;
+      o.connect(f); o2.connect(f); f.connect(g); n.connect(nf).connect(ng).connect(g); g.connect(this.out);
+      o.start(t); o2.start(t); n.start(t);
+      this.sc = { o, o2, f, g, n };
+    } else if (this.sc) {
+      const { o, o2, g, n } = this.sc;
+      g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(.0001, t, .025);
+      for (const x of [o, o2, n]) x.stop(t + .2);
+      this.sc = null;
+      this.play('needle');
+    }
+  }
+  scrubSpeed(rate) {
+    if (!this.sc) return;
+    const t = this.ac.currentTime, x = Math.min(1, Math.max(0, rate) / 45);
+    this.sc.o.frequency.setTargetAtTime(55 + x * 480, t, .03);
+    this.sc.o2.frequency.setTargetAtTime(110 + x * 820, t, .03);
+    this.sc.f.frequency.setTargetAtTime(350 + x * 2400, t, .03);
+  }
+  // a turntable scratch: noise through a tight filter swept down and back up, with a squeak riding it
+  scratch() {
+    if (!this.ok) return;
+    this.noise(.09, .3, 'bandpass', 3200, 380, 0, 7);
+    this.noise(.11, .26, 'bandpass', 420, 2600, .09, 7);
+    this.tone(900, .09, .07, 'triangle', 0, .35);
+    this.tone(320, .11, .06, 'triangle', .09, 2.6);
+  }
   // the same sound many times in one frame (a pile-up) only plays once
   once(name, gap = .06) { const t = performance.now() / 1000; if (t - (this.last[name] || 0) < gap) return false; this.last[name] = t; return true; }
 
@@ -103,6 +143,7 @@ export class Sound {
       case 'win': [[67, 0], [71, .12], [74, .24], [79, .36], [74, .6], [79, .72], [83, .9]].forEach(([n, a]) => { this.tone(note(n), .3, .1, 'sawtooth', a, 1.005); this.tone(note(n - 12), .3, .06, 'triangle', a); }); this.noise(1.6, .06, 'bandpass', 1400, 2400, .3, .5); break;
       case 'lose': [[62, 0], [61, .3], [60, .6], [59, .9]].forEach(([n, a], i) => this.tone(note(n), i === 3 ? .8 : .3, .1, 'sawtooth', a, i === 3 ? .94 : 1)); break;
       case 'meh': this.tone(440, .15, .07, 'triangle'); this.tone(370, .25, .07, 'triangle', .14); break;
+      case 'needle': this.tone(75, .16, .3, 'sine', 0, .6); this.noise(.06, .14, 'lowpass', 1400, 300); for (let i = 0; i < 4; i++) this.noise(.012, .09, 'highpass', 5000, 7000, .05 + i * .07 + Math.random() * .04, 1); break;
       case 'talk': [0, .06, .12].forEach((a, i) => this.tone([520, 640, 580][i], .05, .05, 'triangle', a)); break;
     }
   }

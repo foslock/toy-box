@@ -8,7 +8,7 @@ import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 import { point, sampleAt } from './track.js';
 import { NEAR } from './sim.js';
 import { RACERS } from './data.js';
-import { toon, flat, part, G, makeKart, setChrome, makeThing, makeRocket, makeVulture, makeWorm, makeMound, makeCrane, makeBoulderLedge, makeFlareStack, makeGate, makeFlame, INK } from './models.js';
+import { toon, flat, part, G, makeKart, setChrome, CHROME, makeThing, makeRocket, makeVulture, makeWorm, makeMound, makeCrane, makeBoulderLedge, makeFlareStack, makeGate, makeFlame, INK } from './models.js';
 import { buildDecor, LOOKS } from './decor.js';
 
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -217,14 +217,24 @@ export class World {
 
   buildRoad(T, p, L) {
     const rows = p.closed ? p.count + 1 : p.count, def = T.def;
-    const pos = [], lat = [], sd = [], lane = [], edge = [], idx = [];
+    const pos = [], lat = [], sd = [], lane = [], edge = [], junc = [], idx = [];
     const bridge = p.id === 0 && def.bridge ? [def.bridge[0] * p.L, def.bridge[1] * p.L] : null;
+    // where a shortcut leaves or joins, no kerb is painted on that side (of the loop, and of the shortcut)
+    const open = s => {
+      let l = 0, r = 0;
+      const near = (a, b) => p.closed ? Math.abs(((a - b) % p.L + p.L * 1.5) % p.L - p.L / 2) : Math.abs(a - b);
+      for (const b of T.paths.slice(1)) {
+        if (p.id === 0) { if ((near(s, b.from + 3) < 4.5) || near(s, b.to - 3) < 4.5) b.side < 0 ? l = 1 : r = 1; }
+        else if (p.id === b.id && (s < 7.5 || s > p.L - 7.5)) b.side < 0 ? r = 1 : l = 1;
+      }
+      return [l, r];
+    };
     for (let r = 0; r < rows; r++) {
-      const i = r % p.count, s = r * p.step;
+      const i = r % p.count, s = r * p.step, jn = open(s);
       for (const x of [p.lo[i], p.hi[i]]) {
         const q = point(p, i * p.step, x);
         pos.push(q.x, p.id ? .012 : .02, q.z);
-        lat.push(x); sd.push(s); lane.push(p.n[i], p.c[i]); edge.push(p.lo[i], p.hi[i], bridge && s > bridge[0] && s < bridge[1] ? 1 : 0, p.id);
+        lat.push(x); sd.push(s); lane.push(p.n[i], p.c[i]); edge.push(p.lo[i], p.hi[i], bridge && s > bridge[0] && s < bridge[1] ? 1 : 0, p.id); junc.push(...jn);
       }
       if (r < rows - 1) { const a = r * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, b, c, b, d, c); }
     }
@@ -235,15 +245,16 @@ export class World {
     geo.setAttribute('sd', new THREE.Float32BufferAttribute(sd, 1));
     geo.setAttribute('lane', new THREE.Float32BufferAttribute(lane, 2));
     geo.setAttribute('edge', new THREE.Float32BufferAttribute(edge, 4));
+    geo.setAttribute('junc', new THREE.Float32BufferAttribute(junc, 2));
     geo.setIndex(idx);
     const u = {
       uRoad: { value: new THREE.Color(L.road) }, uRoad2: { value: new THREE.Color(L.road2) }, uPaint: { value: new THREE.Color(L.paint) },
       uCurbA: { value: new THREE.Color(L.curbA) }, uCurbB: { value: new THREE.Color(L.curbB) }, uWood: { value: new THREE.Color('#a8703e') }, uWood2: { value: new THREE.Color('#8a5630') },
       uL: { value: p.L },
     };
-    const mat = shaded(u, 'attribute float lat, sd; attribute vec2 lane; attribute vec4 edge; varying float vLat, vS; varying vec2 vLane; varying vec4 vEdge;',
-      'vLat = lat; vS = sd; vLane = lane; vEdge = edge;',
-      'uniform vec3 uRoad, uRoad2, uPaint, uCurbA, uCurbB, uWood, uWood2; uniform float uL; varying float vLat, vS; varying vec2 vLane; varying vec4 vEdge;', `
+    const mat = shaded(u, 'attribute float lat, sd; attribute vec2 lane, junc; attribute vec4 edge; varying float vLat, vS; varying vec2 vLane, vJunc; varying vec4 vEdge;',
+      'vLat = lat; vS = sd; vLane = lane; vEdge = edge; vJunc = junc;',
+      'uniform vec3 uRoad, uRoad2, uPaint, uCurbA, uCurbB, uWood, uWood2; uniform float uL; varying float vLat, vS; varying vec2 vLane, vJunc; varying vec4 vEdge;', `
       float n = vLane.x, c = vLane.y, lo = vEdge.x, hi = vEdge.y;
       float lf = vLat - (c - n * .5);            // lanes from the left
       float il = fract(lf);
@@ -261,7 +272,7 @@ export class World {
       } else {
         float div = (1. - smoothstep(.035, .06, min(il, 1. - il))) * step(.5, lf) * step(lf, n - .5) * step(.45, fract(vS * .55));
         col = mix(col, uPaint, div * .85 * step(.25, m2 + .3));
-        float curb = 1. - smoothstep(.13, .15, de);
+        float curb = (1. - smoothstep(.13, .15, de)) * (1. - (vLat - lo < hi - vLat ? vJunc.x : vJunc.y));
         col = mix(col, mod(floor(vS * 1.4), 2.) < 1. ? uCurbA : uCurbB, curb);
         if (vEdge.w < .5 && (vS < .55 || vS > uL - .02)) {
           float ck = mod(floor(vLat * 4.) + floor(vS * 4.), 2.);
@@ -393,7 +404,7 @@ export class World {
     for (const b of T.paths.slice(1)) {
       if (!b.gate) continue;
       // a little way up the shortcut, where it's left the loop, with its arm swinging down across it
-      const q = point(b, 4.6, .85), gm = makeGate();
+      const q = point(b, 8, .85), gm = makeGate();
       gm.position.set(q.x, 0, q.z); gm.rotation.y = headingOf(q.tx, q.tz);
       this.root.add(gm);
       this.gates.push({ id: b.gate, model: gm, path: b.id, open: 1 });
@@ -418,6 +429,8 @@ export class World {
     this.bits = [];
     for (const m of this.skids || []) this.root.remove(m);
     this.skids = [];
+    for (const g of this.ghosts || []) this.root.remove(g.m);
+    this.ghosts = [];
     this.karts = S.karts.map(k => {
       const model = makeKart(k.who, RACERS[k.who].color);
       model.scale.setScalar(1.22);
@@ -432,10 +445,14 @@ export class World {
     this.sync(S, 0, true);
   }
 
-  // shows the race as it stands
-  sync(S, dt, snap = false) {
-    const T = this.T;
+  // Shows the race as it stands. dir is -1 while it's being rewound: the karts then move backwards, so they're
+  // turned by where they came from, wheels turn back, and nothing new is thrown up behind them.
+  sync(S, dt, snap = false, dir = 1) {
+    const T = this.T, back = dir < 0, adt = Math.abs(dt);
     this.S = S;
+    // the traps first: they say where the karts they've got hold of are (in the worm's mouth, under the magnet)
+    this.override = {};
+    for (const fx of this.fixtures) this.fixture(fx, S, dt, back);
     // karts
     S.karts.forEach((k, i) => {
       const v = this.karts[i]; if (!v) return;
@@ -444,10 +461,10 @@ export class World {
       // heading: along the road, turned toward where it's steering
       let yaw = headingOf(q.tx, q.tz);
       if (v.px != null && !snap) {
-        const dx = q.x - v.px, dz = q.z - v.pz;
-        if (dx * dx + dz * dz > 1e-6 && k.spin <= 0) yaw = headingOf(dx, dz);
+        const dx = (q.x - v.px) * dir, dz = (q.z - v.pz) * dir;
+        if (dx * dx + dz * dz > 1e-6 && k.spin <= 0 && dx * q.tx + dz * q.tz > 0) yaw = headingOf(dx, dz);
       }
-      v.yaw = snap ? yaw : v.yaw + wrapAng(yaw - v.yaw) * Math.min(1, dt * 14);
+      v.yaw = snap ? yaw : v.yaw + wrapAng(yaw - v.yaw) * Math.min(1, adt * (back ? 30 : 14));
       const moved = v.px == null ? 0 : Math.hypot(q.x - v.px, q.z - v.pz);
       v.px = q.x; v.pz = q.z;
       m.position.set(q.x, 0, q.z);
@@ -461,30 +478,33 @@ export class World {
       if (k.stun > 0) { rz = Math.sin(this.t * 40) * .06 * (k.stun / .75); }
       if (k.flat > 0) { rz += .1 + Math.sin(this.t * 22) * .03; }
       if (k.lift > 0) { const t = 2.2 - k.lift; y = t < .35 ? easeOut(t / .35) * 1.3 : 1.3 + Math.sin(this.t * 3) * .05; rz = Math.sin(this.t * 2.6) * .15; }
-      if (k.lift <= 0 && v.wasLift) { v.drop = .35; }
+      if (k.lift <= 0 && v.wasLift && !back) { v.drop = .35; }
       v.wasLift = k.lift > 0;
-      if (v.drop > 0) { v.drop -= dt; y = Math.max(0, v.drop / .35) ** 2 * 1.3; }
+      if (v.drop > 0) { v.drop -= adt; y = Math.max(0, v.drop / .35) ** 2 * 1.3; }
       // leaning into lane changes, and bobbing along
       const lean = clamp((k.tx - k.x) * .25, -.18, .18);
-      v.roll = lerp(v.roll, lean, Math.min(1, dt * 8));
+      v.roll = lerp(v.roll, lean, Math.min(1, adt * 8));
       body.position.y = y + (k.v > .5 ? Math.abs(Math.sin(this.t * 17 + i)) * .015 : 0);
       body.rotation.set(rx, ry, rz - v.roll);
       body.scale.set(sxz, sy, sxz);
       m.visible = k.gone <= 0;
       if (o) { if (o.visible != null) m.visible = o.visible; if (o.y != null) body.position.y = o.y; if (o.x != null) { m.position.x = o.x; m.position.z = o.z; } }
       m.userData.blob.visible = body.position.y < .6;
-      for (const w of m.userData.wheels) w.rotation.x -= moved / .1;
+      for (const w of m.userData.wheels) w.rotation.x -= moved / .1 * dir;
       for (const e of m.userData.parts) e.rotation.x = Math.sin(this.t * 14 + i) * .4;
       setChrome(m, k.chrome > 0);
+      if (k.chrome > 0 && !snap && !back && m.visible && Math.random() < adt * 9) this.sparkle(q.x + (Math.random() - .5) * .6, .5 + Math.random() * .4, q.z + (Math.random() - .5) * .6, '#ffffff', 2);
       const fire = k.boost > 0 || k.chrome > 0;
       for (const f of v.flames) { f.visible = fire; if (fire) { const s = .8 + Math.random() * .5; f.scale.set(s, s * (k.boost > 0 ? 1.4 : 1), s); } }
       // dust behind it, and marks where it spins
-      if (!snap && k.v > 3 && body.position.y < .1 && m.visible) {
+      if (!snap && !back && k.v > 3 && body.position.y < .1 && m.visible) {
         v.dust += dt * k.v;
         if (v.dust > 1.6) { v.dust = 0; this.dust(q.x - q.tx * .45, q.z - q.tz * .45, this.look.dust, .7); }
       }
-      if (!snap && k.spin > 0 && m.visible) { v.skid = (v.skid || 0) + dt; if (v.skid > .05) { v.skid = 0; this.skid(q.x, q.z, v.yaw + ry); } }
-      if (!snap && k.scrape > 0 && Math.random() < .5) this.sparks(q.x, .1, q.z, 2);
+      if (!snap && !back && k.spin > 0 && m.visible) { v.skid = (v.skid || 0) + dt; if (v.skid > .05) { v.skid = 0; this.skid(q.x, q.z, v.yaw + ry); } }
+      if (!snap && !back && k.scrape > 0 && Math.random() < .5) this.sparks(q.x, .1, q.z, 2);
+      // rewinding: an after-image in the driver's colour wherever it's just been
+      if (back && moved > .25 && m.visible) this.ghost(q.x, q.z, RACERS[k.who].color, v.yaw);
     });
     // what's on the road
     const seen = new Set();
@@ -496,10 +516,10 @@ export class World {
         const p = T.paths[o.path], q = point(p, o.s, o.x);
         m.position.set(q.x, 0, q.z); m.rotation.y = headingOf(q.tx, q.tz);
         this.root.add(m); this.things.set(o.id, m);
-        if (!snap && o.by === 'you') { m.userData.pop = 0; }
+        if (!snap && !back && o.by === 'you') { m.userData.pop = 0; }
       }
       m.visible = !(o.off > S.t);
-      if (m.userData.pop != null) { m.userData.pop += dt; const t = clamp(m.userData.pop / .25, 0, 1); m.scale.setScalar(.4 + .6 * easeOut(t) + Math.sin(t * Math.PI) * .15); if (t >= 1) { m.userData.pop = null; m.scale.setScalar(1); } }
+      if (m.userData.pop != null) { m.userData.pop += adt; const t = clamp(m.userData.pop / .25, 0, 1); m.scale.setScalar(.4 + .6 * easeOut(t) + Math.sin(t * Math.PI) * .15); if (t >= 1) { m.userData.pop = null; m.scale.setScalar(1); } }
       if (o.kind === 'oil' && o.hp === 1 && o.by === 'you') m.scale.setScalar(.75);
     }
     for (const [id, m] of this.things) if (!seen.has(id)) { this.root.remove(m); this.things.delete(id); }
@@ -524,21 +544,20 @@ export class World {
       } else {
         const p = T.paths[sh.path], q = point(p, sh.s, sh.x);
         m.position.set(q.x, .38, q.z); m.rotation.y = headingOf(q.tx, q.tz);
-        if (!snap && Math.random() < .7) this.dust(q.x - q.tx * .3, q.z - q.tz * .3, '#d8d0c8', .45, .35);
+        if (!snap && !back && Math.random() < .7) this.dust(q.x - q.tx * .3, q.z - q.tz * .3, '#d8d0c8', .45, .35);
       }
     }
     for (const [id, m] of this.shotMeshes) if (!live.has(id)) { this.root.remove(m); this.shotMeshes.delete(id); }
-    // the traps
-    for (const fx of this.fixtures) this.fixture(fx, S, dt);
+    // the gates
     for (const g of this.gates || []) {
       const open = S.gates[g.id] !== false;
-      g.open = lerp(g.open, open ? 1 : 0, Math.min(1, dt * 6) || (snap ? 1 : 0));
+      g.open = lerp(g.open, open ? 1 : 0, Math.min(1, adt * (back ? 20 : 6)));
       if (snap) g.open = open ? 1 : 0;
       g.model.userData.arm.rotation.z = -g.open * 1.35;
     }
   }
 
-  fixture(fx, S, dt) {
+  fixture(fx, S, dt, back) {
     const f = S.fx.find(f => f.id === fx.def.id); if (!f) return;
     const t = S.t - f.at, k = f.victim >= 0 ? S.karts[f.victim] : null, kv = k ? this.karts[k.i] : null;
     const T = this.T;
@@ -547,7 +566,7 @@ export class World {
       const w = fx.worm, segs = w.userData.segs;
       fx.mound.userData.flag.rotation.y = Math.sin(this.t * 3) * .4;
       fx.mound.position.y = f.armed ? Math.sin(this.t * 30) * .03 : 0;
-      if (f.armed && Math.random() < .1) this.dust(fx.base.x + (Math.random() - .5), fx.base.z + (Math.random() - .5), this.look.dust, .8);
+      if (f.armed && !back && Math.random() < .1) this.dust(fx.base.x + (Math.random() - .5), fx.base.z + (Math.random() - .5), this.look.dust, .8);
       const showing = k && t >= 0 && (t < .9 || (t > 2.0 && t < 2.9));
       w.visible = !!showing;
       if (showing) {
@@ -559,8 +578,8 @@ export class World {
         // up it comes with the kart in its mouth, and down it goes; later it comes back up and spits it out
         if (t < .9) this.override[k.i] = { visible: t < .3, y: Math.max(0, h - .3) };
         else this.override[k.i] = { visible: t > 2.35, y: t > 2.35 ? Math.max(0, h + .3) : 0 };
-        if (!fx.burst || fx.burst !== f.at + (t < 1 ? 0 : 2)) { fx.burst = f.at + (t < 1 ? 0 : 2); this.ring(q.x, q.z, this.look.dust, 1.6); this.debris(q.x, q.z, this.look.shoulder, 14); }
-      } else if (k) delete this.override[k.i];
+        if (!back && fx.burst !== f.at + (t < 1 ? 0 : 2)) { fx.burst = f.at + (t < 1 ? 0 : 2); this.ring(q.x, q.z, this.look.dust, 1.6); this.debris(q.x, q.z, this.look.shoulder, 14); }
+      }
     } else if (fx.kind === 'magnet') {
       const cr = fx.crane.userData;
       const busy = k && t >= 0 && t < 2.8;
@@ -582,7 +601,7 @@ export class World {
       const ball = fx.ledge.userData.ball, rock = fx.rock;
       ball.visible = !(k && t >= 0 && t < 6);
       fx.ledge.userData.log.rotation.x = f.armed ? Math.sin(this.t * 25) * .08 : 0;
-      if (f.armed && Math.random() < .05) this.debris(fx.base.x, fx.base.z, '#b0603a', 2);
+      if (f.armed && !back && Math.random() < .05) this.debris(fx.base.x, fx.base.z, '#b0603a', 2);
       if (k && t >= 0 && t < 1.4) {
         const p = T.paths[f.path], q0 = point(p, f.s0 + .3, (fx.side > 0 ? p.hi[sampleAt(p, f.s0)[0]] + 1 : p.lo[sampleAt(p, f.s0)[0]] - 1));
         const q1 = point(p, f.s0 + .3, (fx.side > 0 ? p.lo[sampleAt(p, f.s0)[0]] - 6 : p.hi[sampleAt(p, f.s0)[0]] + 6));
@@ -590,14 +609,14 @@ export class World {
         rock.visible = true;
         rock.position.set(lerp(q0.x, q1.x, u), .62 + Math.abs(Math.sin(u * 9)) * .15 * (1 - u), lerp(q0.z, q1.z, u));
         rock.rotation.z -= dt * 9; rock.rotation.y = Math.atan2(q1.x - q0.x, q1.z - q0.z);
-        if (Math.random() < .5) this.dust(rock.position.x, rock.position.z, this.look.dust, 1);
+        if (!back && Math.random() < .5) this.dust(rock.position.x, rock.position.z, this.look.dust, 1);
       } else rock.visible = false;
     } else if (fx.kind === 'flare') {
       const lit = k && t >= 0 && t < .7;
       for (const [j, jet] of fx.jets.entries()) { jet.visible = lit; if (lit) { const s = 1 + Math.random() * .3; jet.scale.set(s, s * (1 + j * .1), s); } }
       const ps = f.armed ? 1.6 + Math.random() * .6 : .9 + Math.random() * .2;
       fx.pilot.scale.set(ps, ps, ps);
-      if (lit && Math.random() < .8) { const p = T.paths[f.path], q = point(p, f.s0 + Math.random() * fx.len, (Math.random() - .5) * 3); this.puff(q.x, .3, q.z, { color: Math.random() < .5 ? '#ff8a1a' : '#ffd23a', n: 1, up: 1.5, life: .4, s0: 1.5, s1: .4 }); }
+      if (lit && !back && Math.random() < .8) { const p = T.paths[f.path], q = point(p, f.s0 + Math.random() * fx.len, (Math.random() - .5) * 3); this.puff(q.x, .3, q.z, { color: Math.random() < .5 ? '#ff8a1a' : '#ffd23a', n: 1, up: 1.5, life: .4, s0: 1.5, s1: .4 }); }
     }
   }
 
@@ -700,7 +719,14 @@ export class World {
     for (let k = 0; k < 3; k++) { const s = new THREE.Mesh(this.starGeo ||= starGeo(), flat('#ffe24a', { opacity: 1, side: THREE.DoubleSide })); s.position.set(Math.cos(k * 2.1) * .25, 0, Math.sin(k * 2.1) * .25); s.rotation.x = -Math.PI / 2; g.add(s); }
     g.position.y = .8; v.model.add(g);
     const b = { t: 0 };
-    this.anim.push(dt => { b.t += dt; g.rotation.y += dt * 6; if (b.t > 1.1) { v.model.remove(g); return false; } });
+    this.anim.push(dt => { b.t += Math.abs(dt); g.rotation.y += dt * 6; if (b.t > 1.1) { v.model.remove(g); return false; } });
+  }
+  // a flat after-image of a kart, fading on real time (it's not run backwards with the rest while rewinding)
+  ghost(x, z, color, yaw) {
+    const m = new THREE.Mesh(this.ghostGeo ||= new THREE.PlaneGeometry(.62, 1.05), flat(color, { opacity: .55 }));
+    m.rotation.set(-Math.PI / 2, 0, yaw); m.position.set(x, .06, z); m.renderOrder = 2;
+    this.root.add(m);
+    (this.ghosts ||= []).push({ m, age: 0, life: .45 });
   }
   skid(x, z, yaw) {
     const m = new THREE.Mesh(this.skidGeo ||= new THREE.PlaneGeometry(.5, .12), flat('#2a1a10', { opacity: .4 }));
@@ -711,25 +737,28 @@ export class World {
 
   /* ---------- every frame ---------- */
   frame(dt) {
-    this.t += dt;
+    this.t = Math.max(0, this.t + dt);
+    const adt = Math.abs(dt);
     if (this.glide) {
-      const g = this.glide, k = Math.min(1, dt * 4);
+      const g = this.glide, k = Math.min(1, adt * 4);
       if (this.follow < 0) { this.cam.x = lerp(this.cam.x, g.x, k); this.cam.z = lerp(this.cam.z, g.z, k); } else g.x = this.cam.x;
       this.cam.d = lerp(this.cam.d, g.d, k);
       if (Math.abs(this.cam.d - g.d) < .05 && Math.abs(this.cam.x - g.x) < .02) this.glide = null;
       this.applyCam();
     }
     if (this.follow >= 0 && this.karts[this.follow]) {
-      const p = this.karts[this.follow].model.position, k = Math.min(1, dt * 3);
+      const p = this.karts[this.follow].model.position, k = Math.min(1, adt * 3);
       this.cam.x = lerp(this.cam.x, p.x + Math.sin(this.cam.yaw), k); this.cam.z = lerp(this.cam.z, p.z + Math.cos(this.cam.yaw), k);
       this.applyCam();
     }
+    // particles: run backwards too, while rewinding, back into whatever threw them (and gone when they get there)
     for (let i = this.bits.length - 1; i >= 0; i--) {
       const b = this.bits[i], o = b.obj;
       b.age += dt;
       const k = b.age / b.life;
-      if (k >= 1) { this.scene.remove(o); if (!b.keepMat) o.material.dispose(); this.bits.splice(i, 1); continue; }
-      b.v.y -= b.g * dt; b.v.multiplyScalar(Math.max(0, 1 - b.drag * dt));
+      if (k >= 1 || b.age < 0) { this.scene.remove(o); if (!b.keepMat) o.material.dispose(); this.bits.splice(i, 1); continue; }
+      if (dt >= 0) { b.v.y -= b.g * dt; b.v.multiplyScalar(Math.max(0, 1 - b.drag * dt)); }
+      else { b.v.multiplyScalar(1 / Math.max(.2, 1 + b.drag * dt)); b.v.y -= b.g * dt; }
       o.position.addScaledVector(b.v, dt);
       if (b.sink && o.position.y < .03) { o.position.y = .03; b.v.set(0, 0, 0); b.spin = 0; }
       o.scale.setScalar(b.base * lerp(b.s0, b.s1, k));
@@ -737,11 +766,21 @@ export class World {
       if (b.spin) { o.rotation.x += b.spin * dt; o.rotation.y += b.spin * .7 * dt; }
     }
     this.anim = this.anim.filter(f => f(dt, this.t) !== false);
+    // chrome glints: the whole shared material flashes from steel blue to near white
+    const glint = .5 + .5 * Math.sin(this.t * 13);
+    CHROME.emissive.setRGB(.08 + .42 * glint ** 4, .12 + .45 * glint ** 4, .2 + .5 * glint ** 4);
+    if (this.ghosts) this.ghosts = this.ghosts.filter(g => {
+      g.age += adt;
+      const k = g.age / g.life;
+      if (k >= 1) { this.root?.remove(g.m); g.m.material.dispose(); return false; }
+      g.m.material.opacity = .55 * (1 - k); g.m.scale.setScalar(1 + k * .4);
+      return true;
+    });
     for (const m of this.things.values()) {
       const u = m.userData;
       if (u.kind === 'mine') u.led.visible = Math.sin(this.t * 8) > 0;
       if (u.kind === 'boost') u.tex.offset.y = -this.t * 1.6;
-      if (u.box) { u.box.rotation.y += dt * (u.kind === 'skull' ? 2.4 : .8); u.box.position.y = (u.kind === 'skull' ? .32 : .25) + Math.sin(this.t * 3 + m.id) * .04; }
+      if (u.box) { if (u.kind === 'skull') u.box.rotation.y = Math.sin(this.t * 2.2 + m.id) * .6; else u.box.rotation.y += dt * .8; u.box.position.y = (u.kind === 'skull' ? .36 : .25) + Math.sin(this.t * 3 + m.id) * .04; }
       if (u.sheen) u.sheen.rotation.z += dt * .4;
     }
     this.outline.render(this.scene, this.camera);
