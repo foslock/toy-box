@@ -299,7 +299,8 @@ class App {
     if (q.has('circle')) { const c = +q.get('circle'); run.act = Math.floor(c / 3); run.pos = { row: (c % 3) * 3, col: 3 }; }
     run.hp = 58;
     this.updateTop();
-    const enc = { enemies: (q.get('enemies') ?? 'imp,heretic,cleric').split(','), kind: 'fight' };
+    const enc = { enemies: (q.get('enemies') ?? 'imp,heretic,cleric').split(','), kind: q.get('kind') ?? 'fight' };
+    if (q.has('hp')) run.hp = +q.get('hp');
     this.startFight(enc);
   }
 }

@@ -409,7 +409,15 @@ export class Stage {
     if (this.angel) { this.angel.home = solo ? new THREE.Vector3(0, 0, 0) : new THREE.Vector3(tall ? -2.4 - (ds.length > 2 ? .4 : 0) : -4.6 - Math.max(0, rowW - 9) * .3, 0, tall ? 1.4 : .6); if (!this.angel.placed) { this.angel.root.position.copy(this.angel.home); this.angel.placed = true; } }
     // frame them: the whole group plus room above for the held cards
     const left = solo ? -4 : (this.angel?.home.x ?? 0) - 2.3, right = solo ? 4 : Math.max(left + 6, ...ds.map(d => d.home.x + d.width * .55)) + .4;
-    const top = maxH + (tall ? 2.4 : 1.9), bottom = -.3;
+    // room above the tallest head for the cards the demons hold, which are a fixed size on screen
+    const fovR = this.camera.fov * Math.PI / 180, regionH = (this.view.battleBottom - this.view.battleTop) * h;
+    const cardPx = (tall ? Math.min(64, Math.max(40, w * .115)) : Math.min(92, Math.max(56, h * .09))) * 1.4 + 70;
+    let top = maxH + 1.6, bottom = -.3;
+    for (let k = 0; k < 2; k++) {
+      const span = top - bottom, D0 = Math.max((right - left) / 2 / (Math.tan(fovR / 2) * aspect * .94), span / 2 / (Math.tan(fovR / 2) * (regionH / h) * .94), 9);
+      const pxPerUnit = h / (2 * D0 * Math.tan(fovR / 2));
+      top = maxH + cardPx / pxPerUnit;
+    }
     const cx = (left + right) / 2, cy = (top + bottom) / 2;
     for (const p of this.props ?? []) {
       const x = (p.anchor === 'L' ? left : p.anchor === 'R' ? right : cx) + p.dx;

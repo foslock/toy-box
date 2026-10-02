@@ -59,7 +59,17 @@ export class BattleView {
       m.grace = { x: Math.max(44, W * .13), y: py }; m.end = { x: W - 62, y: py };
       m.play = { x: W * .5, y: H * .42 }; m.playW = m.cardW * 1.55;
     } else {
-      m.deck = { x: W * .39, y: H * .695 }; m.disc = { x: W * .39 + m.pileW * 1.3, y: H * .695 };
+      // the shared deck sits in the gap between you and the demons
+      let gx = W * .39 + m.pileW * .65;
+      const af = this.figs.get(this.b.angel), ds = this.b.living().map(d => this.figs.get(d)).filter(Boolean);
+      if (af && ds.length) {
+        const a = this.stage.project(af.feet(this.tmp)), at = this.stage.project(af.top(new THREE.Vector3()));
+        const right = a.x + (a.y - at.y) * .3;
+        const left = Math.min(...ds.map(f => { const p = this.stage.project(f.feet(new THREE.Vector3())), t = this.stage.project(f.top(new THREE.Vector3())); return p.x - (p.y - t.y) * .32; }));
+        gx = clamp((right + left) / 2, W * .3, W * .6);
+        if (left - right < m.pileW * 2.8) gx = clamp(Math.max(gx, right + m.pileW * 1.6), W * .3, W * .62);
+      }
+      m.deck = { x: gx - m.pileW * .65, y: H * .695 }; m.disc = { x: gx + m.pileW * .65, y: H * .695 };
       m.grace = { x: Math.max(70, W * .075), y: H - m.cardH * .55 }; m.end = { x: W - Math.max(90, W * .08), y: H - m.cardH * .55 };
       m.play = { x: W * .5, y: H * .42 }; m.playW = m.cardW * 1.5;
     }
@@ -405,7 +415,7 @@ export class BattleView {
       } else if (this.aim) { this.aim.x = x; this.aim.y = y; if (y > m.handTop + 20) { this.drag = { view: this.aim.view }; this.aim = null; } }
       return;
     }
-    if (type === 'move' && this.aim) { this.aim.x = x; this.aim.y = y; return; }
+    if (type === 'move' && this.aim) { this.aim.x = x; this.aim.y = y; this.aim.moved = true; return; }
     if (type === 'up') {
       const p = this.press; this.press = null;
       if (this.aim) {
@@ -502,6 +512,15 @@ export class BattleView {
   }
   updateAim() {
     const a = this.aim, svg = this.arrow;
+    // aiming by tap: no arrow yet, every demon glows and waits to be tapped
+    if (a && this.inputOn && a.fromTap && !a.moved && a.keyTarget == null) {
+      svg.classList.remove('on'); this.reticle.classList.remove('on');
+      const pulse = .35 + .3 * Math.sin(this.stage.time * 5);
+      for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = who.alive ? pulse : 0;
+      if (this.promptEl.hidden || !this.promptEl._aim) { this.showPrompt(`Tap a demon${this.b.living().length > 1 ? ' (or the card it holds)' : ''} to play <em>${def(a.view.card).title}</em> on it.`); this.promptEl._aim = true; }
+      return;
+    }
+    if (this.promptEl._aim) { this.promptEl._aim = false; if (!this.choosing) this.hidePrompt(); }
     if (!a || !this.inputOn) { svg.classList.remove('on'); this.reticle.classList.remove('on'); this.aimHeld = null; if (!this.hoveredDemon) for (const [who, f] of this.figs) if (who !== this.b.angel) f.hi = 0; return; }
     const v = a.view, s = this.layer.toScreen(v.p);
     const sx = s.x, sy = s.y - v.s * RATIO * .5;
@@ -717,7 +736,12 @@ export class BattleView {
       case 'grace': this.setGrace(d.value, d.gained); break;
       case 'next': break;
       case 'discard': {
-        const v = this.viewOf(d.card, d.from === 'deck' ? 'deck' : 'deck');
+        let v = this.views.get(d.card.uid);
+        if (!v && (d.from === 'belly' || d.from === 'hoard') && d.demon && this.figs.get(d.demon)) {
+          const p = S.project(this.figs.get(d.demon).center(new THREE.Vector3()));
+          v = this.spawn(d.card, L.at(p.x, p.y, 60), false);
+        }
+        v ??= this.viewOf(d.card, 'deck');
         const top = L.at(m.disc.x, m.disc.y, 20);
         const r = Math.sin(d.card.uid * 12.9) * .2;
         const dur = d.from === 'hand' ? .32 : .38;
