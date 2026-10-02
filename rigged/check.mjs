@@ -5,13 +5,51 @@
 //   node rigged/check.mjs            → every race
 //   node rigged/check.mjs 3 7        → just these
 //   node rigged/check.mjs 3 -v       → and what happened in the solution's race
-import { buildTrack } from './track.js';
+//   node rigged/check.mjs --rand 500 → and how hard each is: how many of 500 plans made at random win, and the
+//                                      fewest things one of them used (for tuning levels.js)
+import { buildTrack, lanesAt } from './track.js';
 import { TRACKS } from './tracks.js';
 import { LEVELS } from './levels.js';
-import { RACERS } from './data.js';
-import { playThrough, goalState, copy, step, doStep } from './sim.js';
+import { RACERS, TRAP_IDS } from './data.js';
+import { playThrough, goalState, copy, step, doStep, newRace, place, cellAt, whyNot, arm, setGate } from './sim.js';
 
-const args = process.argv.slice(2), V = args.includes('-v'), only = args.filter(a => /^\d+$/.test(a)).map(Number);
+const args = process.argv.slice(2), V = args.includes('-v');
+const ri = args.indexOf('--rand'), RAND = ri >= 0 ? +args[ri + 1] || 500 : 0;
+const only = args.filter((a, i) => /^\d+$/.test(a) && i !== ri + 1).map(Number);
+
+// Random plans: each lap, some of what's in stock goes down somewhere it's allowed, at the lap's start or at some
+// moment in it; traps get armed and gates flipped now and then.
+function randomPlans(T, L, N) {
+  let seed = 12345, wins = 0, fewest = Infinity;
+  const R = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let trial = 0; trial < N; trial++) {
+    const S = newRace(T, L), plan = [], idle = .2 + R() * .6;
+    let lapT = 0;
+    const schedule = () => {
+      for (const k of Object.keys(S.stock)) for (let i = 0; i < (S.stock[k] || 0); i++) if (R() > idle) plan.push({ at: lapT + (R() < .35 ? 0 : R() * 15), kind: k });
+      for (const g of Object.keys(S.gates)) if (R() < .3) plan.push({ at: lapT + R() * 15, gate: g });
+      plan.sort((a, b) => a.at - b.at);
+    };
+    schedule();
+    while (!S.over) {
+      while (plan.length && plan[0].at <= S.t + 1e-9) {
+        const a = plan.shift();
+        if (a.gate) { setGate(S, a.gate, S.gates[a.gate] === false); continue; }
+        if (TRAP_IDS.includes(a.kind)) { const f = S.fx.find(f => f.kind === a.kind); if (f && !f.armed) arm(S, f.id, true); continue; }
+        for (let tries = 0; tries < 40; tries++) {
+          const p = T.paths[R() < .8 || T.paths.length === 1 ? 0 : 1 + Math.floor(R() * (T.paths.length - 1))], s = R() * p.L, ls = lanesAt(p, s);
+          const cell = cellAt(T, p.id, s, ls[Math.floor(R() * ls.length)]);
+          if (cell && !whyNot(S, T, a.kind, cell)) { place(S, T, a.kind, cell); break; }
+        }
+      }
+      step(S, T);
+      for (const e of S.ev) if (e.type === 'lap') { lapT = S.t; schedule(); }
+      S.ev.length = 0;
+    }
+    if (goalState(S, L).every(Boolean)) { wins++; fewest = Math.min(fewest, S.used); }
+  }
+  return { wins, fewest };
+}
 const tracks = {};
 let bad = 0;
 const order = S => S.karts.slice().sort((a, b) => a.place - b.place).map(k => `${k.who} ${k.finT.toFixed(2)}`).join(', ');
@@ -50,6 +88,7 @@ for (const [i, L] of LEVELS.entries()) {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${String(i + 1).padStart(2)} ${L.name.padEnd(18)} ${L.track.padEnd(8)} par ${L.par}  base: ${order(base).split(', ').map(s => s.split(' ')[0]).join(' ')}`);
   for (const p of problems) console.log('      ' + p);
   if (V) { console.log('    solution: ' + order(sol)); for (const l of log) console.log(l); }
+  if (RAND) { const r = randomPlans(T, L, RAND); console.log(`      ${r.wins} of ${RAND} random plans win (${(r.wins / RAND * 100).toFixed(1)}%)${r.wins ? `, the leanest with ${r.fewest}` : ''}`); }
 }
 console.log(bad ? `${bad} race${bad === 1 ? '' : 's'} with problems` : 'All races check out.');
 process.exit(bad ? 1 : 0);
