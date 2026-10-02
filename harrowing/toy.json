@@ -1,0 +1,10 @@
+{
+  "title": "Harrowing",
+  "blurb": "An angel digs down through the nine circles of Hell to the Devil at the bottom, building a deck the demons draw from too. Every card is printed like a tarot card: your reading upright, the demon's upside down, so every card you add is a gift to someone.",
+  "added": "2026-10-02",
+  "category": "games",
+  "tags": ["three.js", "cards", "roguelite", "game"],
+  "tape": "red",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 9000, "query": "?demo" }
+}

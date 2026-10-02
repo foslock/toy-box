@@ -98,10 +98,11 @@
   #foreseeDone { left: 50% !important; top: auto !important; bottom: 34%; transform: translateX(-50%); height: 46px; padding: 0 30px; border: 0; border-radius: 12px; cursor: pointer; pointer-events: auto; font: 900 16px/1 var(--T); color: #102030; background: linear-gradient(180deg, #e8f6ff, #8fc8f0); box-shadow: 0 8px 24px -8px rgba(140, 200, 255, .9); }
   #arrow { position: fixed; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .12s; overflow: visible; }
   #arrow.on { opacity: 1; }
-  #arrow path { fill: none; stroke: url(#arrowGrad); stroke-width: 7; stroke-linecap: round; stroke-dasharray: 2 13; animation: dash .5s linear infinite; filter: drop-shadow(0 0 6px rgba(255, 210, 120, .9)); }
-  #arrow.hot path { stroke-width: 9; }
+  #arrow #arrowPath { fill: none; stroke: #ffc65a; stroke-width: 11; stroke-linecap: round; stroke-dasharray: 16 10; animation: dash .45s linear infinite; filter: drop-shadow(0 0 8px rgba(255, 200, 100, .95)); }
+  #arrow #arrowCore { fill: none; stroke: rgba(255, 255, 255, .85); stroke-width: 3; stroke-linecap: round; }
+  #arrow.hot #arrowPath { stroke-width: 13; filter: drop-shadow(0 0 12px rgba(255, 120, 60, 1)); }
   #arrow #arrowHead { fill: #fff3c4; filter: drop-shadow(0 0 6px rgba(255, 210, 120, 1)); }
-  @keyframes dash { to { stroke-dashoffset: -15; } }
+  @keyframes dash { to { stroke-dashoffset: -26; } }
   #reticle { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px dashed rgba(255, 230, 160, .9); opacity: 0; transition: opacity .15s; animation: spin 3s linear infinite; }
   #reticle.on { opacity: 1; }
   @keyframes spin { to { rotate: 360deg; } }
@@ -156,9 +157,10 @@
   .pcard:hover .sheen { opacity: 1; }
   .pcard:hover { transform: translateY(-6px) scale(1.04); z-index: 2; }
   .pcard.picked .in { box-shadow: 0 0 0 3px var(--gold), 0 0 30px rgba(255, 210, 110, .8); }
-  .pcard .flip { position: absolute; right: 4%; bottom: -26px; font: 700 12px/1 var(--B); color: var(--ink3); cursor: pointer; background: none; border: 0; }
+  .pcard .flip { position: absolute; right: -8px; top: -8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 900 16px/1 var(--B); color: #ffd8c8; cursor: pointer; border: 0; background: radial-gradient(circle at 40% 35%, #8a1a10, #2a0404); box-shadow: 0 0 0 1.5px rgba(255, 140, 100, .7), 0 4px 10px rgba(0, 0, 0, .6); z-index: 3; }
+  .pcard .flip:hover { filter: brightness(1.3); }
   .pcard.turned .in { transform: rotateZ(180deg); }
-  .pcard .price { position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%); font: 900 17px/1 var(--B); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .pcard .price { position: absolute; left: 50%; bottom: -28px; transform: translateX(-50%); font: 900 17px/1 var(--B); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
   .pcard .price.sale { color: #8fffa8; }
   .pcard .price.poor { color: #ff7a6a; }
   .pcard.sold { opacity: .25; pointer-events: none; }
@@ -166,7 +168,10 @@
   .deckgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--w, 130px), 1fr)); gap: 14px 10px; width: min(1100px, 100%); justify-items: center; }
   .notice { font: italic 600 15px/1.3 var(--B); color: #ffb49a; }
   .charmcard { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 14px; background: rgba(30, 16, 12, .8); box-shadow: inset 0 0 0 1px var(--line); max-width: 460px; }
-  .charmcard img { width: 56px; height: 56px; flex: none; filter: drop-shadow(0 0 10px rgba(255, 210, 120, .5)); }
+  .charmcard > img { width: 56px; height: 56px; flex: none; filter: drop-shadow(0 0 10px rgba(255, 210, 120, .5)); }
+  .charmcard .price img { width: 18px; height: 18px; vertical-align: -3px; }
+  .charmrow { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; width: min(980px, 100%); }
+  .charmrow .charmcard { flex: 1 1 280px; max-width: 320px; }
   .charmcard b { font: 700 18px/1.1 var(--T); color: var(--gold); display: block; margin-bottom: 3px; }
   .charmcard span { color: var(--ink2); font-size: 15px; }
   .charmcard.buy { cursor: pointer; }
@@ -237,7 +242,7 @@
   <button id="endTurn" disabled>End Turn</button>
   <div id="prompt" hidden></div>
   <button id="foreseeDone" hidden>Done</button>
-  <svg id="arrow" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="arrowGrad" x1="0" x2="1"><stop offset="0" stop-color="#fff3c4" stop-opacity=".2"/><stop offset="1" stop-color="#ffe08a"/></linearGradient></defs><path id="arrowPath" d=""/><path id="arrowHead" d="M-4 -14 L22 0 L-4 14 L4 0 Z"/></svg>
+  <svg id="arrow" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="arrowGrad" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#ff8a3a"/></linearGradient></defs><path id="arrowPath" d=""/><path id="arrowCore" d=""/><path id="arrowHead" d="M-10 -20 L28 0 L-10 20 L0 0 Z"/></svg>
   <div id="reticle"></div>
   <div id="round">ROUND <b id="roundNo">1</b></div>
 </div>

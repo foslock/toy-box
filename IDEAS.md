@@ -46,7 +46,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 38. Regulars
 - [ ] 39. Crossfire
 - [ ] 40. Dollhouse
-- [ ] 41. Shared Deck
+- [x] 41. Shared Deck — [`harrowing/`](harrowing/)
 - [ ] 42. Come Bye
 - [ ] 43. Floppy
 - [ ] 44. Conga
@@ -362,7 +362,7 @@ A metroidvania that fits on a single screen. The whole world is a big Victorian 
 
 The house is one detailed illustration that changes as you explore (lamps coming on, doors swinging open, toys moving to new places), with a camera that follows the soldier closely but can pull back to the whole house at any time. About an hour to 100%. Style: a warm, hand-painted dollhouse with patterned wallpaper, tiny furniture and gaslight, and a ticking clockwork soundtrack. Keys on desktop; a stick and buttons on phones.
 
-## 41. Shared Deck
+## 41. Shared Deck ✅
 *Borrows: Slay the Spire · Twist: you and the monster draw from the same deck*
 
 A Slay the Spire-style roguelite deckbuilder where every fight is played from one shared deck: you and the monster take turns drawing from the same pile. The monster's own cards (fireballs, curses, summons) are shuffled in at the start of each fight, and every card you add to your deck can be drawn and played by any monster you meet later. Deckbuilding becomes double-edged. A big attack card is great until a boss draws it, so the best cards are the ones only you can use well: cards that scale with your relics, your class's keyword or your discard pile.

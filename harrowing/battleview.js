@@ -105,6 +105,7 @@ export class BattleView {
         x = clamp(x, sc / 2 + 6, m.W - sc / 2 - 6);
       }
       if (this.aim?.view === v) { x = m.W / 2; y = m.H - m.cardH * 1.05; sc = m.cardW * 1.25; rz = 0; z = 90; }
+      if (i !== hoverI || this.drag) v.hoverTilt.multiplyScalar(Math.exp(-dt * 10));
       v.target(L.at(x, y, z), V(0, 0, rz), sc);
       const playable = this.inputOn && b.canPlay(c) && !this.choosing;
       const choosable = this.choosing?.kind === 'hand' && this.choosing.cards.includes(c);
@@ -143,16 +144,21 @@ export class BattleView {
     this.known = known;
     L.deck.set(b.deck.length - known.length, L.at(m.deck.x, m.deck.y, 0), m.pileW);
     for (const c of b.deck) { const v = this.views.get(c.uid); if (v && !known.includes(c) && !v.flight) { this.layer.remove(v); this.views.delete(c.uid); } }
+    const foreseeing = this.choosing?.kind === 'foresee' ? this.choosing.cards : null;
     known.forEach((c, i) => {
       let v = this.views.get(c.uid);
       if (!v) { v = this.spawn(c, L.deck.topPos(), true); }
-      if (v.flight) return;
+      if (v.flight || foreseeing?.includes(c)) return;
       const n = known.length;
       v.target(L.at(m.deck.x - (n - 1 - i) * m.pileW * .2 + (n - 1) * m.pileW * .1, m.deck.y - (n - 1 - i) * 6 + 4, 40 + (n - i) * 3), V(0, 0, -.04 * (n - 1 - i)), m.pileW);
       v.glowTarget = .35; v.glowColor.set('#9fd6ff'); v.dim = 1;
     });
     // played cards hang in the middle while they resolve
-    b.inPlay.forEach(c => { const v = this.views.get(c.uid); if (v && !v.flight && !this.demonPlaying?.includes(v)) v.target(L.at(m.play.x, m.play.y, 150), V(0, 0, 0), m.playW); });
+    b.inPlay.forEach(c => {
+      const v = this.views.get(c.uid); if (!v || v.flight || this.demonPlaying?.includes(v)) return;
+      if (this.choosing) v.target(L.at(m.portrait ? m.W * .16 : m.W * .1, m.portrait ? m.H * .3 : m.H * .32, 150), V(0, 0, -.1), m.cardW * .8);
+      else v.target(L.at(m.play.x, m.play.y, 150), V(0, 0, 0), m.playW);
+    });
   }
   spawn(card, pos, faceDown, rz = 0) {
     const v = this.layer.add(card);
@@ -510,6 +516,7 @@ export class BattleView {
     const mx = (sx + ex) / 2, my = Math.min(sy, ey) - 80;
     svg.classList.add('on'); svg.classList.toggle('hot', !!t);
     $('#arrowPath').setAttribute('d', `M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}`);
+    $('#arrowCore').setAttribute('d', `M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}`);
     const ang = Math.atan2(ey - my, ex - mx) * 180 / PI;
     $('#arrowHead').setAttribute('transform', `translate(${ex} ${ey}) rotate(${ang})`);
   }
@@ -523,8 +530,12 @@ export class BattleView {
     if (d.rarity === 'infernal') keys.push('Infernal');
     if (d.type === 'curse') keys.push('Curse');
     if (d.type === 'power') keys.push('Power');
-    const s = this.layer.toScreen(v.p);
-    this.showTip(`<div class="tt-rev"><span>If a demon draws it:</span> ${richHTML(down || 'Nothing happens.')}</div>${tipHTML(keys)}`, s.x, s.y - v.s * RATIO * .55 - 6, 'above');
+    // beside where the card will rest when lifted, so it never covers it
+    const m = this.m, sc = m.cardW * (m.portrait ? 1.55 : 1.42), s = this.layer.toScreen(v.tp);
+    const cx = clamp(s.x, sc / 2 + 6, m.W - sc / 2 - 6), top = m.H - sc * RATIO - 8;
+    const html = `<div class="tt-rev"><span>If a demon draws it:</span> ${richHTML(down || 'Nothing happens.')}</div>${tipHTML(keys)}`;
+    if (m.portrait) this.showTip(html, m.W / 2, top - 8, 'above');
+    else this.showTip(html, cx + sc / 2 + 12, top + 10, 'right', cx - sc / 2 - 12);
   }
   showHeldTip(v) {
     const b = this.b, d = b.demons.find(d => d.held.some(h => h.card === v.card)); if (!d) return;
@@ -548,11 +559,12 @@ export class BattleView {
     for (const [k, s] of Object.entries(STATUS)) if (d.st[k] > 0 && k !== 'might') lines.push(`<div class="kw"><b>${s.name} ${d.st[k]}</b></div>`);
     this.showTip(lines.join(''), c.x, c.y + 70, 'below');
   }
-  showTip(html, x, y, where) {
+  showTip(html, x, y, where, altX) {
     const t = this.tip; t.innerHTML = html; t.hidden = false;
     const r = t.getBoundingClientRect();
     const W = innerWidth;
     let left = clamp(x - r.width / 2, 8, W - r.width - 8), top = where === 'above' ? y - r.height : y;
+    if (where === 'right') { left = x + r.width < W - 8 ? x : altX - r.width; top = y; }
     top = clamp(top, 56, innerHeight - r.height - 8);
     t.style.transform = `translate(${left}px, ${top}px)`;
   }
@@ -567,7 +579,7 @@ export class BattleView {
     const screenOf = c => S.project(centerOf(c) ?? new THREE.Vector3());
     switch (type) {
       case 'setup': {
-        const angel = new Figure('angel', 1.15, { facing: 1 });
+        const angel = new Figure('angel', 1.15, { facing: 1, lit: .3 });
         this.figs.set(b.angel, angel);
         const ds = b.demons.map(dm => { const f = new Figure(dm.def.look, dm.def.size ?? 1, { facing: -1 }); this.figs.set(dm, f); f.dissolve = 1; return f; });
         S.setFigures(angel, ds);

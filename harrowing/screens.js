@@ -12,6 +12,7 @@ import { canvas, rad, lin } from './paint.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+const ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth'];
 
 // a card on the page: a copy of its painted face that tilts toward the pointer
 export function cardEl(card, o = {}) {
@@ -34,7 +35,7 @@ export function cardEl(card, o = {}) {
   e.addEventListener('pointerleave', () => { e.style.setProperty('--ry', '0deg'); e.style.setProperty('--rx', '0deg'); });
   if (o.price != null) { const p = el('div', 'price' + (o.sale ? ' sale' : '') + (o.poor ? ' poor' : ''), `${img('coin', 'gold')}${o.price}`); e.append(p); }
   if (o.turn !== false) {
-    const f = el('button', 'flip', '↻ demon side');
+    const f = el('button', 'flip', '↻'); f.title = 'Turn it round: the demon\'s side';
     f.onclick = ev => { ev.stopPropagation(); e.classList.toggle('turned'); };
     e.append(f);
   }
@@ -213,7 +214,7 @@ export class Screens {
     const run = this.app.run;
     const s = el('div', 'scr');
     const draw = () => {
-      s.innerHTML = `<h2>The Ferryman</h2><p class="lede">"Coin for the crossing," says Charon, and lifts the lid of a chest of things the dead left behind.</p><div class="cards-row" id="sc"></div><div class="col" id="sh"></div><div class="row" id="sx"></div>`;
+      s.innerHTML = `<h2>The Ferryman</h2><p class="lede">"Coin for the crossing," says Charon, and lifts the lid of a chest of things the dead left behind.</p><div class="cards-row" id="sc"></div><div class="charmrow" id="sh"></div><div class="row" id="sx"></div>`;
       const w = Math.min(160, (Math.min(innerWidth, 1000) - 70) / 5);
       for (const it of stock.cards) {
         const poor = run.obols < it.price;
@@ -374,7 +375,7 @@ export class Screens {
     const ci = run.circle, C = CIRCLES[ci];
     s.innerHTML = win
       ? `<div style="margin-top:6vh"></div><h1>To see the stars</h1><p class="lede">The Devil is broken in his ice. You climb past him, out of the pit and up through the far side of the world, and come out under the open sky — and thence you come forth, to see again the stars.</p>`
-      : `<div style="margin-top:6vh"></div><h1>Your light goes out</h1><p class="lede">In the ${ROMAN[ci]} circle, among ${C.sin}, the angel falls. The demons shuffle your cards back into the dark.</p>`;
+      : `<div style="margin-top:6vh"></div><h1>Your light goes out</h1><p class="lede">In the ${ORDINAL[ci]} circle, among ${C.sin}, the angel falls. The demons shuffle your cards back into the dark.</p>`;
     const st = el('div', 'stats', [
       ['Reached', `Circle ${ROMAN[ci]}, ${C.name}`],
       ['Floors dug', run.floor],

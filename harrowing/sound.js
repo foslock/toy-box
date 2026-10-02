@@ -2,8 +2,10 @@
 // hell, and a low drone under each circle that shifts as you go deeper.
 export class Sound {
   constructor() { this.ctx = null; this.enabled = true; this.musicOn = true; this.droneNode = null; this.last = {}; }
+  // the page may only start sound after a tap or key press
+  unlock() { if (this.unlocked) return; this.unlocked = true; this.ensure(); if (this.wantDrone != null) this.setDrone(this.wantDrone); }
   ensure() {
-    if (!this.enabled) return null;
+    if (!this.enabled || !this.unlocked) return null;
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
@@ -60,6 +62,7 @@ export class Sound {
   tick() { if (this.gate('tick', 60)) this.tone(2400, { dur: .025, gain: .025, type: 'triangle' }); }
   click() { this.tone(1600, { dur: .04, gain: .05, type: 'square', lp: 4000 }); }
   nope() { this.tone(180, { dur: .12, gain: .12, type: 'square', lp: 900 }); }
+  flip() { this.noise({ f: 2400, to: 900, q: 1, dur: .18, gain: .14, attack: .02 }); this.tone(900, { at: .04, dur: .06, gain: .04, type: 'triangle' }); }
   pick() { this.noise({ f: 3200, q: 1.4, dur: .08, gain: .12 }); this.tone(880, { dur: .06, gain: .03, type: 'triangle' }); }
   draw() { if (this.gate('draw', 50)) this.noise({ f: 1800, to: 3800, q: 1, dur: .16, gain: .13, attack: .02 }); }
   turn() { this.tone(110, { to: 70, dur: .35, gain: .14, type: 'triangle' }); this.noise({ f: 600, to: 200, q: 2, dur: .3, gain: .08 }); }
@@ -99,6 +102,7 @@ export class Sound {
   step() { this.noise({ type: 'lowpass', f: 300, dur: .1, gain: .15 }); }
   // a low drone for each circle: deeper and rougher as you go down
   setDrone(ci) {
+    this.wantDrone = ci;
     const c = this.ensure(); if (!c || !this.musicOn) return;
     if (this.droneNode?.ci === ci) return;
     this.stopDrone();

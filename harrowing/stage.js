@@ -219,7 +219,7 @@ export class Figure {
       for (const [crop, glow] of [[p.base, false], [p.glow, true]]) {
         if (!crop) continue;
         const tex = texOf(crop.canvas);
-        const mat = glow ? glowMaterial(tex) : spriteMaterial(tex, { keyDir: -this.facing });
+        const mat = glow ? glowMaterial(tex) : spriteMaterial(tex, { keyDir: -this.facing, lit: o.lit ?? 1 });
         const geo = new THREE.PlaneGeometry(crop.canvas.width * k, crop.canvas.height * k);
         const m = new THREE.Mesh(geo, mat);
         const cx = crop.x + crop.canvas.width / 2, cy = crop.y + crop.canvas.height / 2;
@@ -354,7 +354,7 @@ export class Stage {
       f.position.set(0, y, z); f.renderOrder = 1; this.scene.add(f); this.layers[k] = f;
     }
     // the light the figures stand in
-    LIGHT.uAmb.value.set(L.light).lerp(new THREE.Color(1, 1, 1), .55).multiplyScalar(.82);
+    LIGHT.uAmb.value.set(L.light).lerp(new THREE.Color(1, 1, 1), .6).multiplyScalar(.95);
     LIGHT.uGlow.value.set(L.glow);
     LIGHT.uKey.value.set(L.rim);
     this.scene.background = new THREE.Color(L.sky[0]);

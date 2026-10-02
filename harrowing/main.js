@@ -83,7 +83,7 @@ class App {
       if (!this.bv || this.screens.open) return;
       this.bv.pointer(type, e.clientX, e.clientY, { touch: e.pointerType === 'touch' || e.pointerType === 'pen' });
     };
-    c.addEventListener('pointerdown', e => { this.sound.ensure(); c.setPointerCapture?.(e.pointerId); pt('down', e); });
+    c.addEventListener('pointerdown', e => { c.setPointerCapture?.(e.pointerId); pt('down', e); });
     c.addEventListener('pointermove', e => {
       pt('move', e);
       this.stage.pointer.set((e.clientX / innerWidth - .5) * 2, -(e.clientY / innerHeight - .5) * 2);
@@ -91,7 +91,8 @@ class App {
     c.addEventListener('pointerup', e => pt('up', e));
     c.addEventListener('pointercancel', e => pt('up', e));
     addEventListener('keydown', e => { if (this.bv && !this.screens.open) this.bv.key(e); });
-    addEventListener('pointerdown', () => this.sound.ensure(), { once: true });
+    addEventListener('pointerdown', () => this.sound.unlock(), { capture: true });
+    addEventListener('keydown', () => this.sound.unlock(), { capture: true });
   }
 
   /* ---------- the top bar ---------- */
@@ -115,7 +116,7 @@ class App {
   idleScene(title = false) {
     this.titleMode = title;
     this.stage.setCircle(this.run ? this.run.circle : title ? 5 : 0);
-    if (!this.angelFig) this.angelFig = new Figure('angel', 1.15, { facing: 1 });
+    if (!this.angelFig) this.angelFig = new Figure('angel', 1.15, { facing: 1, lit: .3 });
     this.angelFig.placed = false; this.angelFig.alpha = 1; this.angelFig.dissolve = 0; this.angelFig.speed = 1;
     this.stage.setFigures(this.angelFig, []);
     this.resize();
@@ -294,6 +295,8 @@ class App {
     run.pos = { row: 6, col: 3 };
     run.addCharm('thurible'); run.addCharm('eye'); run.addCharm('lambWool');
     for (const id of ['searingLight', 'rebuke', 'consecrate', 'pillarFire', 'redemption']) run.deck.push({ uid: 9000 + run.deck.length, id, plus: id === 'pillarFire' });
+    if (q.has('deck')) run.deck = q.get('deck').split(',').map((id, i) => ({ uid: 9100 + i, id, plus: false }));
+    if (q.has('circle')) { const c = +q.get('circle'); run.act = Math.floor(c / 3); run.pos = { row: (c % 3) * 3, col: 3 }; }
     run.hp = 58;
     this.updateTop();
     const enc = { enemies: (q.get('enemies') ?? 'imp,heretic,cleric').split(','), kind: 'fight' };

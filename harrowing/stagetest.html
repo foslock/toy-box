@@ -21,7 +21,7 @@ renderer.setPixelRatio(Math.min(2, devicePixelRatio));
 document.body.append(renderer.domElement);
 const stage = new Stage();
 stage.setCircle(+(q.get('circle') ?? 0));
-const angel = new Figure('angel', 1.15, { facing: 1 });
+const angel = new Figure('angel', 1.15, { facing: 1, lit: .3 });
 const demons = (q.get('enemies') ?? 'imp,imp').split(',').map(id => new Figure(ENEMIES[id]?.look ?? id, ENEMIES[id]?.size ?? 1, { facing: -1 }));
 stage.setFigures(angel, demons); window.stage = stage;
 const size = () => { renderer.setSize(innerWidth, innerHeight); stage.resize(innerWidth, innerHeight, innerWidth / innerHeight < .9 ? [.04, .6] : [.06, .7]); };
