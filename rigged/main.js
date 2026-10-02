@@ -82,7 +82,7 @@ function begin(n, { intro = true } = {}) {
   const S = newRace(T, def);
   G = { n, def, T, S, mode: 'plan', snaps: [{ lap: 1, S: copy(S) }], tape: [], placed: new Set(), sel: null, acc: 0, dirty: true, lapsSeen: 1 };
   world.setRace(S);
-  world.fit();
+  world.fit(); letGo();
   lamps(0);
   saved.last = n; save();
   $('lvName').textContent = `${n + 1} · ${def.name}`;
@@ -338,15 +338,18 @@ function tapAt(x, y) {
   }
   if (G.sel && cell && best < 0) { placeAt(G.sel, cell, x, y); return; }
   if (G.sel && !cell) { setSel(null); return; }
-  if (best >= 0) followKart(best);
+  if (best >= 0) { if (world.focus === best) letGo(); else followKart(best); }
+  else letGo();
 }
 // the camera follows a kart (closer in, if it's far out) until the view's dragged
 function followKart(i) {
-  world.follow = i;
+  world.follow = i; world.focus = i;
   if (world.cam.d > 26) world.glide = { x: world.cam.x, z: world.cam.z, d: 22 };
   sound.play('tap');
-  toast({ title: `Following ${RACERS[G.S.karts[i].who].short}`, text: 'Drag to look around. F shows the whole track.', timeout: 1800 });
+  toast({ title: `Following ${RACERS[G.S.karts[i].who].short}`, text: 'Their dots stay lit while you look around. Tap them again to let go.', timeout: 2200 });
 }
+// no kart in focus: the camera stays where it is, and every kart's dots come back up
+function letGo() { world.follow = -1; world.focus = -1; }
 
 // Cards: drag one onto the road, or tap it to choose it and then tap the road. A trap's card arms the trap.
 let drag = null;
@@ -554,7 +557,7 @@ function forecast() {
     if (i % 5) continue;
     C.karts.forEach((k, j) => { if (k.gone > 0 || k.fin) return; const q = point(G.T.paths[k.path], k.s, k.x); pts[j].push([q.x, q.z, 1 - i / N]); });
   }
-  world.showTrails(C.karts.map((k, j) => ({ color: RACERS[k.who].color, pts: pts[j] })));
+  world.showTrails(C.karts.map((k, j) => ({ color: RACERS[k.who].color, pts: pts[j], i: j })));
 }
 
 /* ---------- words ---------- */
@@ -735,8 +738,8 @@ document.addEventListener('keydown', e => {
   const k = e.key;
   if (k === ' ' || (k === 'Enter' && document.activeElement?.tagName !== 'BUTTON')) { go(); e.preventDefault(); }
   else if (k === 'r' || k === 'R') rewind();
-  else if (k === 'Escape') setSel(null);
-  else if (k === 'f' || k === 'F') world.fit(false);
+  else if (k === 'Escape') { setSel(null); letGo(); }
+  else if (k === 'f' || k === 'F') { world.fit(false); letGo(); }
   else if (k === 's' || k === 'S') $('bSpeed').click();
   else if (/^[1-9]$/.test(k)) { const c = document.querySelectorAll('#tray .card')[+k - 1]; if (c && !c.classList.contains('out')) { if (c.dataset.trap) armTrap(c.dataset.k, true); else setSel(G.sel === c.dataset.k ? null : c.dataset.k); } }
   else if (k === 'Backspace') { const id = [...G.placed].pop(); if (id != null) { unplace(G.S, id); G.placed.delete(id); sound.play('unplace'); render(); } e.preventDefault(); }

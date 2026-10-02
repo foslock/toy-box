@@ -304,12 +304,48 @@ export class World {
     this.cellMesh.visible = false; this.cellMesh.renderOrder = 4; this.overlay.add(this.cellMesh);
     this.nearGroup = new THREE.Group(); this.overlay.add(this.nearGroup);
     this.nearPool = [];
-    const fg = new THREE.BufferGeometry();
-    fg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * 3000), 3));
-    fg.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(3 * 3000), 3));
-    this.trails = new THREE.Points(fg, new THREE.PointsMaterial({ size: 7, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: .95, depthTest: false }));
+    // the forecast: round dots in each driver's colour, inked round the edge, smaller and fainter further ahead.
+    // With a kart in focus, everyone else's dots fade right back and its own swell gently, a wave running along them.
+    const fg = new THREE.BufferGeometry(), N = 3000;
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * N), 3));
+    fg.setAttribute('tint', new THREE.Float32BufferAttribute(new Float32Array(3 * N), 3));
+    fg.setAttribute('ahead', new THREE.Float32BufferAttribute(new Float32Array(N), 1));
+    fg.setAttribute('kart', new THREE.Float32BufferAttribute(new Float32Array(N), 1));
+    const tm = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uFocus: { value: -1 }, uDim: { value: 0 }, uSize: { value: 12 * this.renderer.getPixelRatio() } },
+      vertexShader: `
+        attribute vec3 tint; attribute float ahead, kart;
+        uniform float uTime, uFocus, uDim, uSize;
+        varying vec3 vCol; varying float vAlpha, vGlow;
+        void main() {
+          float mine = step(abs(kart - uFocus), .5);
+          // the wave: a swell that runs out along the line toward where the kart is going
+          float wave = .5 + .5 * sin(uTime * 4.2 - ahead * 7.);
+          float near = 1. - ahead;
+          vGlow = mine * uDim * wave;
+          vAlpha = mix(.38 + .62 * near, .75 + .25 * near, mine * uDim) * mix(1., .22, uDim * (1. - mine));
+          vCol = tint;
+          gl_PointSize = uSize * (.62 + .38 * near) * (1. + .45 * vGlow);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+        }`,
+      fragmentShader: `
+        varying vec3 vCol; varying float vAlpha, vGlow;
+        void main() {
+          float d = length(gl_PointCoord - .5) * 2.;
+          float aa = fwidth(d) * 1.2;
+          float disc = 1. - smoothstep(1. - aa, 1., d);
+          if (disc <= 0.) discard;
+          vec3 col = mix(vCol, vec3(1.), .1 * vGlow);
+          col = mix(col, vec3(.09, .05, .03), smoothstep(.78 - aa, .78, d));   // the ink ring
+          gl_FragColor = vec4(col, disc * vAlpha);
+          #include <colorspace_fragment>
+        }`,
+      transparent: true, depthTest: false, depthWrite: false,
+    });
+    this.trails = new THREE.Points(fg, tm);
     this.trails.renderOrder = 6; this.trails.frustumCulled = false; this.trails.visible = false;
     this.overlay.add(this.trails);
+    this.focus = -1;
   }
   showGrid(on) { for (const g of this.grids || []) g.visible = on; }
   // a square, green where it can go and red where it can't
@@ -347,19 +383,19 @@ export class World {
   showTrails(list) {
     const t = this.trails;
     if (!list) { t.visible = false; return; }
-    const pa = t.geometry.attributes.position, ca = t.geometry.attributes.color, c = new THREE.Color();
+    const at = t.geometry.attributes, c = new THREE.Color();
     let n = 0;
     for (const tr of list) {
       c.set(tr.color);
       for (const [x, z, a] of tr.pts) {
-        if (n >= 3000) break;
-        pa.setXYZ(n, x, .12, z);
-        const f = .45 + .55 * a; ca.setXYZ(n, c.r * f + (1 - f), c.g * f + (1 - f), c.b * f + (1 - f));
+        if (n >= at.position.count) break;
+        at.position.setXYZ(n, x, .12, z); at.tint.setXYZ(n, c.r, c.g, c.b);
+        at.ahead.setX(n, 1 - a); at.kart.setX(n, tr.i);
         n++;
       }
     }
     t.geometry.setDrawRange(0, n);
-    pa.needsUpdate = true; ca.needsUpdate = true;
+    for (const k of ['position', 'tint', 'ahead', 'kart']) at[k].needsUpdate = true;
     t.visible = true;
   }
 
@@ -766,6 +802,12 @@ export class World {
       if (b.spin) { o.rotation.x += b.spin * dt; o.rotation.y += b.spin * .7 * dt; }
     }
     this.anim = this.anim.filter(f => f(dt, this.t) !== false);
+    if (this.trails) {
+      const u = this.trails.material.uniforms, on = this.focus >= 0;
+      u.uTime.value = this.t;
+      if (on) u.uFocus.value = this.focus;
+      u.uDim.value += ((on ? 1 : 0) - u.uDim.value) * Math.min(1, adt * 8);
+    }
     // chrome glints: the whole shared material flashes from steel blue to near white
     const glint = .5 + .5 * Math.sin(this.t * 13);
     CHROME.emissive.setRGB(.08 + .42 * glint ** 4, .12 + .45 * glint ** 4, .2 + .5 * glint ** 4);
