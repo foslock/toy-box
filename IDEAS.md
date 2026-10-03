@@ -40,7 +40,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 32. Snowball
 - [ ] 33. Invader
 - [ ] 34. Night Bus
-- [ ] 35. Starter
+- [x] 35. Starter — [`starter/`](starter/)
 - [ ] 36. Pinball Over It
 - [ ] 37. Hotline
 - [ ] 38. Regulars
@@ -320,7 +320,7 @@ An anomaly-spotting game like The Exit 8, on a night bus. You're riding home on 
 
 About 30 anomalies, from subtle to deeply wrong, and a few that only show if you look in the right place at the right moment (out the back window, at your reflection in the glass). Eerie rather than gory, with dread built from stillness and sound. Style: realistic three.js interior under sickly bus lighting, rain on the windows, the city passing outside; first person from your seat with no body. Look around by dragging or with the mouse.
 
-## 35. Starter
+## 35. Starter ✅
 *Borrows: Universal Paperclips, Cookie Clicker · Twist: you're a sourdough starter with ambitions*
 
 An incremental game where you are a sourdough starter in a jar on someone's kitchen counter. Click to bubble; bubbling gets the baker to feed you; feeding makes you grow. Soon you're unlocking upgrades like "a pleasing tang," "shared with the neighbours" and "a bakery," then "a sourdough craze," "the town's water supply" and things far stranger. In the spirit of Universal Paperclips, the scope expands absurdly and the interface itself changes with each new phase.
