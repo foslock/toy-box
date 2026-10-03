@@ -78,6 +78,8 @@
   }
   .tape-text span { display: inline-block; transform: translateY(calc(var(--j) * .35px)) rotate(calc(var(--j) * .7deg)); }
   .tape--xl { --tape: #c8323c; font-size: clamp(26px, 6vw, 44px); font-weight: 800; transform: rotate(-2.2deg); padding: .34em .55em .3em calc(.55em + .14em); }
+  .intro h1 .tape { cursor: pointer; }
+  .intro h1 .tape:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
   /* ---- header ---- */
@@ -174,6 +176,34 @@
     <ul class="board"><!--TOYS-->
     </ul>
     <script>
+      // Click (or Enter/Space on) the title and its letters pop off the red label, then bounce back on one by one.
+      (() => {
+        const tape = document.querySelector('.intro h1 .tape');
+        if (!tape || !tape.animate) return;
+        const letters = [...tape.querySelectorAll('.tape-text span')];
+        let busy = false;
+        tape.tabIndex = 0; tape.setAttribute('role', 'button');
+        tape.setAttribute('aria-label', 'Toy Box (press to bounce the letters)');
+        function bounce() {
+          if (busy || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          busy = true;
+          const anims = letters.map((el, i) => {
+            const rest = getComputedStyle(el).transform, dir = i % 2 ? 1 : -1;
+            const dx = dir * (20 + (i * 37) % 50), up = 130 + (i * 53) % 90, spin = dir * (120 + (i * 29) % 200);
+            return el.animate([
+              { transform: rest, offset: 0, easing: 'cubic-bezier(.2,.7,.4,1)' },
+              { transform: `translate(${dx}px, ${-up}px) rotate(${spin}deg)`, offset: .35, easing: 'cubic-bezier(.6,0,.9,.5)' },
+              { transform: `translate(${dx * .3}px, 14px) rotate(${spin * .2}deg)`, offset: .68, easing: 'ease-out' },
+              { transform: `translate(0, -16px) rotate(${-dir * 6}deg)`, offset: .82, easing: 'ease-in' },
+              { transform: `translate(0, 4px)`, offset: .92, easing: 'ease-out' },
+              { transform: rest, offset: 1 }
+            ], { duration: 1500, delay: i * 55 });
+          });
+          Promise.all(anims.map(a => a.finished.catch(() => {}))).then(() => { busy = false; });
+        }
+        tape.addEventListener('click', bounce);
+        tape.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bounce(); } });
+      })();
       // The category pills: one at a time, and pressing the lit one again shows everything. The choice rides in the
       // address (?category=games), so it's still there coming back from a toy, and a link can open on it.
       (() => {
