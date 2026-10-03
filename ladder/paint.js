@@ -70,5 +70,8 @@ export function text(ctx, s, x, y, size, c, a = 1, opt = {}) {
   ctx.scale(0.01, 0.01); ctx.font = `${opt.weight || 700} ${Math.round(size * 100)}px ${opt.font || 'Oswald, "Arial Narrow", sans-serif'}`;
   ctx.textAlign = opt.align || 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = rgba(c, a);
   if (opt.spacing) ctx.letterSpacing = (opt.spacing * 10) + 'px';
+  // never wider than the board it's painted on (opt.max, in metres): squeeze it down to fit
+  const wide = ctx.measureText(s).width / 100;
+  if (opt.max && wide > opt.max) ctx.scale(opt.max / wide, opt.max / wide);
   ctx.fillText(s, 0, 0); ctx.restore();
 }

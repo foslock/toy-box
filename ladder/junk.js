@@ -106,7 +106,7 @@ export const KINDS = {
       for (let i = 0; i < 20; i++) { const x = -0.68 + i * 0.07; if (i % 7 !== 2 && i % 7 !== 6) flat(ctx, box(x + 0.045, 0.67, 0.04, 0.09), [40, 34, 34]); line(ctx, x, 0.6, x, 0.76, 0.006, [120, 110, 100], 0.6); }
       rect(ctx, -0.7, 0.76, 1.4, 0.06, shade(o.col, -0.15), R, { outline: 0 });
       rect(ctx, -0.55, 0.9, 1.1, 0.3, shade(o.col, 0.08), R, { outline: 0.25 });
-      text(ctx, 'STEINWALD', 0, 0.84, 0.05, [210, 180, 110], 0.8, { spacing: 1 });
+      text(ctx, 'STEINWALD', 0, 0.84, 0.05, [210, 180, 110], 0.8, { spacing: 0.2, max: 0.5 });
       rect(ctx, -0.74, 0.06, 0.1, 0.54, shade(o.col, -0.1), R, { outline: 0.2 }); rect(ctx, 0.64, 0.06, 0.1, 0.54, shade(o.col, -0.1), R, { outline: 0.2 });
       spot(ctx, -0.69, 0.05, 0.05, [170, 150, 90]); spot(ctx, 0.69, 0.05, 0.05, [170, 150, 90]);
       line(ctx, 0.3, 1.25, 0.1, 0.95, 0.025, [255, 250, 235], 0.25);
@@ -152,8 +152,8 @@ export const KINDS = {
       for (let y = h / 4; y < h - 0.05; y += h / 4) line(ctx, -w / 2, y, w / 2, y, 0.015, shade(o.col, -0.4), 0.5);
       line(ctx, -w / 2 + 0.06, 0.06, w / 2 - 0.06, h - 0.06, 0.07, shade(o.col, -0.12), 0.9);
       for (const [x, y] of [[-w / 2 + 0.06, 0.06], [w / 2 - 0.06, 0.06], [-w / 2 + 0.06, h - 0.06], [w / 2 - 0.06, h - 0.06]]) spot(ctx, x, y, 0.02, [80, 60, 50]);
-      if (o.seed % 3 === 0) text(ctx, 'FRAGILE', 0, h * 0.5, Math.min(0.16, w * 0.15), [160, 60, 50], 0.55, { rot: -0.1 });
-      else if (o.seed % 3 === 1) text(ctx, 'THIS WAY UP ↑', 0, h * 0.62, Math.min(0.1, w * 0.09), [60, 50, 50], 0.5);
+      if (o.seed % 3 === 0) text(ctx, 'FRAGILE', 0, h * 0.5, Math.min(0.16, w * 0.15), [160, 60, 50], 0.55, { rot: -0.1, max: w - 0.2 });
+      else if (o.seed % 3 === 1) text(ctx, 'THIS WAY UP ↑', 0, h * 0.62, Math.min(0.1, w * 0.09), [60, 50, 50], 0.5, { max: w - 0.2 });
     },
   },
   tires: {
@@ -241,7 +241,7 @@ export const KINDS = {
       rect(ctx, -w / 2, 0, w, 2.6, o.col, R, { n: 22, dir: Math.PI / 2 });
       for (let x = -w / 2 + 0.2; x < w / 2 - 0.1; x += 0.28) line(ctx, x, 0.12, x, 2.48, 0.05, shade(o.col, -0.14), 0.7);
       rect(ctx, -w / 2, 2.46, w, 0.14, shade(o.col, -0.1), R, { outline: 0.3 }); rect(ctx, -w / 2, 0, w, 0.14, shade(o.col, -0.15), R, { outline: 0.3 });
-      text(ctx, 'SOL LINES', 0, 1.5, 0.5, [246, 238, 222], 0.6, { spacing: 4 });
+      text(ctx, 'SOL LINES', 0, 1.5, 0.5, [246, 238, 222], 0.6, { spacing: 2.5, max: w - 0.8 });
       for (let i = 0; i < 6; i++) stain(ctx, -w / 2 + R() * w, R() * 2.4, 0.3, R, [130, 70, 40], 0.4);
     },
   },
@@ -254,7 +254,7 @@ export const KINDS = {
       blob(ctx, [[4.2, 0.4], [5.3, 0.4], [5.3, 1.45], [4.2, 1.75]], o.col, R);
       for (let i = 0; i < 9; i++) rect(ctx, -3.9 + i * 0.86, 1.75, 0.7, 0.85, fade('#93abb3', 0.25), R, { outline: 0.3, n: 10 });
       line(ctx, -4.2, 1.5, 4.2, 1.5, 0.06, [40, 34, 30], 0.8); line(ctx, -4.2, 1.1, 5.3, 1.1, 0.06, [40, 34, 30], 0.8);
-      text(ctx, 'SCHOOL BUS', -0.4, 1.3, 0.24, [40, 34, 30], 0.75, { spacing: 2 });
+      text(ctx, 'SCHOOL BUS', -0.4, 1.3, 0.24, [40, 34, 30], 0.75, { spacing: 1, max: 4 });
       line(ctx, -4.3, 0.55, -3.9, 0.55, 0.12, [60, 56, 52]); line(ctx, 5.0, 0.55, 5.4, 0.55, 0.12, [60, 56, 52]);
       spot(ctx, 5.22, 1.25, 0.09, [250, 236, 190]);
       for (let i = 0; i < 8; i++) stain(ctx, -4 + R() * 9, 0.5 + R() * 2.2, 0.25, R, [150, 92, 50], 0.3);
@@ -290,7 +290,7 @@ export const KINDS = {
       rect(ctx, -0.5, 0, 1.0, 2.4, o.col, R, { dir: Math.PI / 2 });
       rect(ctx, -0.54, 2.3, 1.08, 0.14, shade(o.col, 0.05), R, { r: 0.05 });
       rect(ctx, -0.36, 2.06, 0.72, 0.16, [235, 228, 210], R, { outline: 0.25 });
-      text(ctx, 'TELEPHONE', 0, 2.14, 0.08, [40, 40, 44], 0.85, { spacing: 1 });
+      text(ctx, 'TELEPHONE', 0, 2.14, 0.09, [40, 40, 44], 0.85, { spacing: 0.2, max: 0.62 });
       for (let r = 0; r < 6; r++) for (let c = 0; c < 3; c++) rect(ctx, -0.36 + c * 0.25, 0.4 + r * 0.26, 0.21, 0.22, fade('#a8c0c4', 0.3), R, { outline: 0.2, n: 6 });
     },
   },
@@ -353,7 +353,7 @@ export const KINDS = {
       rect(ctx, -0.38, 0.6, 0.5, 1.1, fade('#bcd2d4', 0.2), R, { outline: 0.3 });
       for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) rect(ctx, -0.34 + c * 0.11, 0.68 + r * 0.26, 0.07, 0.16, fade(['#e05a3a', '#f2c230', '#3a9a6a', '#3a7ad0'][(r + c) % 4], 0.3), R, { outline: 0, n: 2 });
       rect(ctx, 0.2, 1.1, 0.18, 0.3, [50, 46, 46], R, { outline: 0.2 }); rect(ctx, -0.34, 0.18, 0.5, 0.2, [40, 36, 36], R, { outline: 0.2 });
-      text(ctx, 'COLD', 0, 1.78, 0.1, [250, 245, 230], 0.8, { spacing: 2 });
+      text(ctx, 'COLD', 0, 1.78, 0.1, [250, 245, 230], 0.8, { spacing: 0.4, max: 0.7 });
     },
   },
   jukebox: {
@@ -410,8 +410,8 @@ export const KINDS = {
       flat(ctx, [[1.68, 1.2], [2.12, 1.2], [1.98, 1.48], [1.68, 1.52]], fade('#9fb7c0', 0.2));
       for (let x = -2.2; x < 1.4; x += 0.5) line(ctx, x, 2.32, x + 0.35, 2.32, 0.06, [130, 120, 110]);
       line(ctx, -2.3, 2.38, 1.5, 2.38, 0.04, [130, 120, 110]);
-      text(ctx, 'TOP COAT', -0.4, 1.5, 0.36, fade('#2f5d8a', 0.15), 0.9, { spacing: 2 });
-      text(ctx, 'PAINTING & DECORATING', -0.4, 1.12, 0.13, fade('#2f5d8a', 0.15), 0.85, { spacing: 1 });
+      text(ctx, 'TOP COAT', -0.4, 1.5, 0.36, fade('#2f5d8a', 0.15), 0.9, { spacing: 1.2, max: 3.4 });
+      text(ctx, 'PAINTING & DECORATING', -0.4, 1.12, 0.13, fade('#2f5d8a', 0.15), 0.85, { spacing: 0.3, max: 3.4 });
       for (let i = 0; i < 3; i++) spot(ctx, -1.6 + i * 0.25 + R() * 0.1, 0.8 + R() * 0.2, 0.05 + R() * 0.03, fade(['#e05a3a', '#3a7ad0', '#f2c230'][i], 0.35));
       spot(ctx, 2.42, 0.95, 0.07, [250, 236, 190]);
       wheel(ctx, -1.5, 0.36, 0.36, R); wheel(ctx, 1.75, 0.36, 0.36, R);
@@ -433,7 +433,8 @@ export const KINDS = {
     draw(ctx, o, R) {
       line(ctx, 0, 0, 0, 2.5, 0.08, [120, 116, 110]);
       rect(ctx, -0.8, 1.9, 1.6, 0.62, o.col, R, { r: 0.05 });
-      text(ctx, o.text || 'NO DUMPING', 0, 2.21, 0.2, [150, 50, 44], 0.9, { spacing: 1 });
+      for (const x of [-0.68, 0.68]) spot(ctx, x, 2.42, 0.025, [120, 110, 100]);
+      text(ctx, o.text || 'NO DUMPING', 0, 2.21, 0.26, [150, 50, 44], 0.9, { spacing: 0.2, max: 1.36 });
     },
   },
   parasol: {

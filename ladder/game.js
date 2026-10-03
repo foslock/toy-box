@@ -5,8 +5,10 @@ import { Sim, LADDER, PAINTER, ladderEnds, riderPoint, groundAt, capsuleHits, ci
 
 export const TICK = 1 / 60;
 const SUB = 4, H = TICK / SUB;
-const WALK = 1.45, STEP_UP = 0.42, STEP_DOWN = 0.7;
+const WALK = 1.45, RUN = 3.2, STEP_UP = 0.42, STEP_DOWN = 0.7;
 const CLIMB_MAX = 2.6, CLIMB_GAIN = 6, LEAD = 1.2, S_MAX = LADDER.L - 0.55, ROCK = 0.34, ROCK_FREE = 0.6;
+// rushing (Shift): faster up and down the ladder, and every rung jolts it harder
+export const RUSH = { max: 3.3, gain: 9, lead: 1.8, rock: 0.55 };
 const D2R = Math.PI / 180, LOW = 4 * D2R;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const angTo = (a, b, k) => a + (((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k;
@@ -20,7 +22,8 @@ export class Game {
   reset() {
     const s = this.heap.start;
     this.mode = 'stand'; this.t = 0; this.held = 'carry';
-    this.p = { x: s.x, y: s.y, face: 1, edge: 0, walk: 0, shoulder: 0, stride: 0 };
+    this.p = { x: s.x, y: s.y, face: 1, edge: 0, walk: 0, run: 0, shoulder: 0, stride: 0, dist: 0 };
+    this.rush = false;
     this.lad = { fx: s.x + 0.3, fy: s.y + 0.02, a: Math.PI / 2, vx: 0, vy: 0, w: 0 };
     this.rider = null; this.pb = null; this.rope = null; this.anim = null;
     this.sTarget = 0; this.walkTo = null; this.walkDir = 0; this.climbHold = 0; this.holdT = 0;
@@ -50,6 +53,9 @@ export class Game {
     return { fx: up.fx + (sh.fx - up.fx) * k, fy: up.fy + (sh.fy - up.fy) * k, a: up.a + (sh.a - up.a) * k };
   }
   carryPose(snap) {
+    // turning round with it in your hands: the ladder turns with you at once, mirrored about where you stand
+    if (this.carryFace !== this.p.face && this.carried && !snap) { this.lad.fx = 2 * this.p.x - this.lad.fx; this.lad.a = Math.PI - this.lad.a; }
+    this.carryFace = this.p.face;
     const t = this.carryTarget(), k = snap ? 1 : 1 - Math.exp(-TICK * 11);
     this.lad.fx += (t.fx - this.lad.fx) * k; this.lad.fy += (t.fy - this.lad.fy) * k; this.lad.a = angTo(this.lad.a, t.a, k);
     this.lad.vx = this.lad.vy = this.lad.w = 0;
@@ -101,8 +107,10 @@ export class Game {
   climbBy(ds) {
     if (this.mode === 'stand' && this.held === 'planted' && ds > 0) this.mount();
     if (this.mode !== 'climb') return;
-    this.sTarget = clamp(this.sTarget + ds, this.rider.s - LEAD, this.rider.s + LEAD);
+    const LD = this.rush ? RUSH.lead : LEAD;
+    this.sTarget = clamp(this.sTarget + ds, this.rider.s - LD, this.rider.s + LD);
   }
+  setRush(on) { this.rush = !!on; }
   setClimb(dir) { this.climbHold = dir; this.holdT = 0; if (dir > 0 && this.mode === 'stand' && this.held === 'planted') this.mount(); }
   mount() {
     const a = this.lad.a;
@@ -166,6 +174,8 @@ export class Game {
       case 'fall': this.tickFall(); break;
       case 'stepoff': case 'haul': case 'down': case 'win': this.tickAnim(); break;
     }
+    this.carried = this.mode === 'stand' && this.held === 'carry';
+    if (!this.carried) this.carryFace = this.p.face;
     const h = this.height();
     if (this.fall) this.fall.min = Math.min(this.fall.min ?? h, h);
     this.hist.push(h); if (this.hist.length > 240) this.hist.shift();
@@ -177,15 +187,18 @@ export class Game {
     if (!dir && this.walkTo != null) { const d = this.walkTo - p.x; if (Math.abs(d) < 0.005) this.walkTo = null; else dir = Math.sign(d); }
     let walked = false;
     if (dir && this.held === 'planted') { this.held = 'carry'; this.ev('lift'); }
+    const run = !!(this.rush && dir && (this.walkDir || this.walkTo != null && Math.abs(this.walkTo - p.x) > 0.5));
+    p.run = run ? Math.min(1, p.run + TICK * 4) : Math.max(0, p.run - TICK * 4);
     if (dir) {
+      if (p.face !== dir && this.held === 'carry') { p.face = dir; this.carryPose(); }
       p.face = dir;
-      let nx = p.x + dir * WALK * TICK;
+      let nx = p.x + dir * (WALK + (RUN - WALK) * p.run) * TICK;
       if (this.walkTo != null && (this.walkTo - nx) * dir < 0) nx = this.walkTo;
       const g = groundAt(W, nx, p.y + STEP_UP, p.y - STEP_DOWN);
       if (g && headroom(W, nx, g.y)) {
         if (p.edge !== dir) p.edge = 0;
-        p.stride += Math.abs(nx - p.x); p.x = nx; p.y = g.y; p.on = g.P; walked = true;
-        if (p.stride > 0.55) { p.stride = 0; this.ev('step', { P: g.P }); }
+        p.stride += Math.abs(nx - p.x); p.dist += Math.abs(nx - p.x); p.x = nx; p.y = g.y; p.on = g.P; walked = true;
+        if (p.stride > (p.run > 0.5 ? 0.95 : 0.6)) { p.stride = 0; this.ev('step', { P: g.P, run: p.run > 0.5 }); }
       } else {
         // a wall, or the edge of a drop
         const wall = circleHits(W, nx + dir * 0.1, p.y + 0.6, 0.2) || circleHits(W, nx, p.y + 0.25, 0.15);
@@ -209,12 +222,13 @@ export class Game {
 
   tickClimb() {
     const lad = this.lad, R = this.rider, W = this.world;
+    const rush = this.rush, cap = rush ? RUSH.max : CLIMB_MAX, LD = rush ? RUSH.lead : LEAD;
     if (this.climbHold) {
       this.holdT += TICK;
-      const v = Math.min(CLIMB_MAX, 0.75 + this.holdT * 0.55);
-      this.sTarget = clamp(this.sTarget + this.climbHold * v * TICK, R.s - LEAD, R.s + LEAD);
+      const v = rush ? RUSH.max : Math.min(CLIMB_MAX, 0.75 + this.holdT * 0.55);
+      this.sTarget = clamp(this.sTarget + this.climbHold * v * TICK, R.s - LD, R.s + LD);
     }
-    const lead = this.sTarget - R.s, speed = Math.min(CLIMB_MAX, Math.abs(lead) * CLIMB_GAIN);
+    const lead = this.sTarget - R.s, speed = Math.min(cap, Math.abs(lead) * (rush ? RUSH.gain : CLIMB_GAIN));
     let ds = Math.sign(lead) * Math.min(Math.abs(lead), speed * TICK);
     if (ds > 0) {
       // don't climb your head into something
@@ -225,7 +239,7 @@ export class Game {
     const u = Math.abs(R.s - s0) / TICK;
     let kick = 0;
     if (Math.floor(R.s / LADDER.rung) !== Math.floor(s0 / LADDER.rung)) {
-      kick = R.side * ROCK * Math.max(0, u - ROCK_FREE) ** 1.5;
+      kick = R.side * ROCK * (rush ? RUSH.rock : 1) * Math.max(0, u - ROCK_FREE) ** 1.5;
       this.ev('rung', { s: R.s, up: R.s > s0, fast: u > 1.6 });
     }
     this.climbed += Math.max(0, R.s - s0) * Math.sin(lad.a);

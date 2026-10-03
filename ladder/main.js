@@ -57,6 +57,7 @@ cv.addEventListener('pointerdown', e => {
   e.preventDefault();
 });
 cv.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse' && e.shiftKey !== g.rush) g.setRush(e.shiftKey);
   if (!ptr || e.pointerId !== ptr.id) return;
   ptr.x = e.clientX; ptr.y = e.clientY;
   if (ptr.kind === 'pending' && Math.hypot(ptr.x - ptr.x0, ptr.y - ptr.y0) > 9) decide();
@@ -112,6 +113,7 @@ addEventListener('keydown', e => {
   if (replay) { if (e.key === 'Escape' || e.key === 'Enter') endReplay(); return; }
   if (bot) return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (k === 'Shift') { g.setRush(true); return; }
   if (held[k]) { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) e.preventDefault(); return; }
   held[k] = true;
   if (k === 'ArrowLeft' || k === 'a') { e.preventDefault(); if (g.mode === 'aim') turning = 1; else g.setWalk(-1); }
@@ -125,10 +127,11 @@ addEventListener('keydown', e => {
 let turning = 0;
 addEventListener('keyup', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; held[k] = false;
+  if (k === 'Shift') g.setRush(false);
   if (k === 'ArrowLeft' || k === 'a' || k === 'ArrowRight' || k === 'd') { turning = 0; g.setWalk(held.ArrowLeft || held.a ? -1 : held.ArrowRight || held.d ? 1 : 0); }
   if (k === 'ArrowUp' || k === 'w' || k === 'ArrowDown' || k === 's') g.setClimb(held.ArrowUp || held.w ? 1 : held.ArrowDown || held.s ? -1 : 0);
 });
-addEventListener('blur', () => { for (const k in held) held[k] = false; g.setWalk(0); g.setClimb(0); turning = 0; });
+addEventListener('blur', () => { for (const k in held) held[k] = false; g.setWalk(0); g.setClimb(0); g.setRush(false); turning = 0; });
 
 /* ------------------------------------------------------------------------------------------------- hints */
 const HINTS = {
@@ -195,8 +198,10 @@ function frame(now) {
     const [fx, fy] = g.focus();
     let cx = fx, cy = fy;
     if (g.mode === 'aim') { const c = Math.cos(g.lad.a), s = Math.sin(g.lad.a); cx += c * LADDER.L * 0.3; cy += s * LADDER.L * 0.2; }
+    // at the top, look up with the old painter as he paints the sky
+    if (g.mode === 'win' && heap.summit) { const k = Math.min(1, Math.max(0, (g.anim.t - 3.0) / 1.6)); cx += (heap.summit.npc + 5 - cx) * k; cy += (heap.summit.y0 + 3.2 - cy) * k; }
     view.follow(cx, cy, dt);
-    view.sky += ((g.won && (g.mode !== 'win' || g.anim.t > 5.6) ? 1 : 0) - view.sky) * Math.min(1, dt * 0.5);
+    view.sky += ((g.won && (g.mode !== 'win' || g.anim.t > 6.0) ? 1 : 0) - view.sky) * Math.min(1, dt * 0.5);
     view.draw(viewOf(g), dt);
     hud(dt);
     snd.update(g.height(), g.mode === 'climb' ? g.strain : 0, g.mode === 'climb' ? Math.min(2, g.slide) : 0);
@@ -230,7 +235,7 @@ let recAt = 0, pend = null;
 const r3 = v => Math.round(v * 1000) / 1000;
 function snap() {
   const o = { t: r3(g.t), mode: g.mode, held: g.held, strain: r3(g.strain),
-    p: { x: r3(g.p.x), y: r3(g.p.y), face: g.p.face, edge: g.p.edge, walk: r3(g.p.walk), shoulder: r3(g.p.shoulder), stride: r3(g.p.stride) },
+    p: { x: r3(g.p.x), y: r3(g.p.y), face: g.p.face, edge: g.p.edge, walk: r3(g.p.walk), run: r3(g.p.run), shoulder: r3(g.p.shoulder), stride: r3(g.p.stride), dist: r3(g.p.dist) },
     lad: { fx: r3(g.lad.fx), fy: r3(g.lad.fy), a: r3(g.lad.a) } };
   if (g.rider) o.rider = { s: r3(g.rider.s), side: g.rider.side };
   if (g.pb) o.pb = { x: r3(g.pb.x), y: r3(g.pb.y), vx: r3(g.pb.vx), vy: r3(g.pb.vy), spin: r3(g.pb.spin) };
@@ -311,6 +316,7 @@ function how() {
     <li><b>${TOUCH ? 'Tap' : 'Click'}</b> to walk.</li>
     <li><b>Drag</b> toward something and the ladder leans on whatever it touches first. Let go to set it down.</li>
     <li><b>Drag up</b> to climb${TOUCH ? '' : ' (or hold ↑, or scroll)'}. Keep going at the top to step off and haul the ladder up after you.</li>
+    ${TOUCH ? '' : '<li>Hold <b>Shift</b> to run, or to rush up the ladder. Rushing shakes it.</li>'}
     <li>Slippery underfoot needs a steeper lean. Too steep and it tips back. Climb fast and it rocks.</li>
   </ul>`;
 }
