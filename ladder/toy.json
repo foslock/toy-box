@@ -1,0 +1,9 @@
+{
+  "title": "Ladder",
+  "blurb": "A painter, a can of paint and one long wooden ladder at the foot of a hundred-metre heap of junk. Lean it, climb it rung by rung, haul it up after you and lean it again. Enamel is slippery, steep ladders tip, hurried ones rock, and a bad lean can drop you most of the way down. At the end of the day, a replay of your worst fall.",
+  "added": "2026-10-02",
+  "category": "games",
+  "tags": ["canvas", "physics", "game", "climbing"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo&at=67&s=1.6" }
+}

@@ -24,7 +24,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 16. Pile-Up
 - [ ] 17. Glyphs
 - [ ] 18. Needle
-- [ ] 19. Ladder
+- [x] 19. Ladder — [`ladder/`](ladder/)
 - [ ] 20. Chat Dungeon
 - [ ] 21. Moving Day
 - [ ] 22. Poker Squares
