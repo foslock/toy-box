@@ -39,6 +39,7 @@
       --shadow-lift: 0 2px 2px rgba(0, 0, 0, .3), 0 22px 38px -14px rgba(0, 0, 0, .8);
       --focus: #8fb0ff;
     }
+    .toy::after { background: radial-gradient(circle at 35% 32%, #d9dde5 0 12%, #7d8492 45%, #3a3f49 100%); }
   }
   * { box-sizing: border-box; }
   body {
@@ -105,11 +106,44 @@
   .pill[aria-pressed="true"] { color: var(--card); background: var(--ink); }
   .pill:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 
+  /* ---- search: a round button after the pills that opens into a text field ---- */
+  .search {
+    --h: 29px;
+    position: relative; display: flex; align-items: center; height: var(--h); width: var(--h); border-radius: 999px; overflow: hidden;
+    background: var(--card); box-shadow: 0 0 0 1px var(--card-edge), var(--shadow);
+    transition: width .28s cubic-bezier(.3, .7, .3, 1), transform .2s ease;
+  }
+  .search:not(.open):hover { transform: translateY(-1px); }
+  .search.open { width: min(260px, calc(100vw - 32px)); }
+  .search-btn { flex: none; display: grid; place-items: center; width: var(--h); height: var(--h); padding: 0; border: 0; border-radius: 999px; cursor: pointer; color: var(--ink-2); background: none; }
+  .search-btn:hover { color: var(--ink); }
+  .search-btn svg { width: 14px; height: 14px; }
+  .search-btn:focus-visible, .search-clear:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+  .search input {
+    flex: 1; min-width: 0; height: 100%; padding: 0 4px 0 0; border: 0; outline: 0; background: none; color: var(--ink);
+    font: 500 12px/1 var(--mono); letter-spacing: .04em; opacity: 0; transition: opacity .2s ease;
+  }
+  .search input::placeholder { color: var(--ink-3); }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search.open input { opacity: 1; }
+  .search.open:focus-within { box-shadow: 0 0 0 2px var(--focus), var(--shadow); }
+  .search-clear { flex: none; display: grid; place-items: center; width: 26px; height: 26px; margin-right: 2px; padding: 0; border: 0; border-radius: 999px; cursor: pointer; color: var(--ink-3); background: none; font: 500 16px/1 Figtree, system-ui, sans-serif; }
+  .search-clear:hover { color: var(--ink); }
+  .no-match { margin: 4px 0 0; font: 500 12px/1.5 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
   /* ---- AI usage disclaimer: a button across the row from the pills, and its modal ---- */
-  .bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 clamp(22px, 3vw, 30px); }
+  .bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 26px; }
   .bar .filters { margin: 0; }
+  .bar-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .disclaimer-btn { margin-left: auto; }
-  @media (max-width: 640px) { .disclaimer-btn .long { display: none; } }
+  /* on phones the category pills go; search and the disclaimer stay */
+  @media (max-width: 640px) {
+    .disclaimer-btn .long { display: none; }
+    .bar .filters { display: none; }
+    .bar { flex-wrap: nowrap; }   /* the search fills what the disclaimer leaves, on one line */
+    .bar-left { flex: 1; min-width: 0; }
+    .search.open { width: 100%; max-width: 260px; }
+  }
   .modal {
     max-width: min(480px, calc(100vw - 32px)); padding: 26px 26px 22px; border: 0; border-radius: 22px;
     color: var(--ink); background: var(--card); box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift);
@@ -120,7 +154,25 @@
   .modal .pill { display: block; margin-left: auto; }
 
   /* ---- the board ---- */
-  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  /* Each card hangs from a peg in one of the board's holes, near its top middle: a tab on the card (which swings with
+     it) and a peg in front (which doesn't). The page's script lines the rows up with the holes and sets --peg-x/--peg-y;
+     until then the peg sits just above the middle. */
+  .toy { position: relative; --peg-x: 50%; --peg-y: -12px; }
+  .toy::after {
+    content: ""; position: absolute; z-index: 2; left: calc(var(--peg-x) - 5px); top: calc(var(--peg-y) - 5px); width: 10px; height: 10px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 35% 32%, #fbfcfd 0 14%, #b9bfc9 45%, #6c7380 100%);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .35), 0 2px 5px rgba(0, 0, 0, .22);
+  }
+  /* the tab is centred on the card with a wide slot in it, like a shop hang tab, so the peg can sit anywhere along it */
+  .toy a::before {
+    content: ""; position: absolute; left: calc(50% - 30px); top: calc(var(--peg-y) - 10px); width: 60px; height: calc(11px - var(--peg-y));
+    border-radius: 10px 10px 0 0; background: var(--card); box-shadow: 0 0 0 1px var(--card-edge); clip-path: inset(-2px -2px 0 -2px);
+  }
+  .toy a::after {
+    content: ""; position: absolute; left: calc(50% - 21px); top: calc(var(--peg-y) - 4.5px); width: 42px; height: 9px; border-radius: 5px;
+    background: var(--board); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .3);
+  }
   .toy a {
     display: flex; flex-direction: column; height: 100%;
     color: inherit; text-decoration: none;
@@ -128,6 +180,7 @@
     box-shadow: 0 0 0 1px var(--card-edge), var(--shadow);
     transition: transform .25s ease, box-shadow .25s ease;
   }
+  .toy a { position: relative; transform-origin: var(--peg-x) var(--peg-y); }
   .toy a:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift); }
   .toy a:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
   .shot { aspect-ratio: 4 / 3; margin: 10px 10px 0; border-radius: 4px; overflow: hidden; background: #0b0c10; }
@@ -152,8 +205,8 @@
   .foot a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
-    .toy a, .shot img, .tape, .pill { transition: none; }
-    .toy a:hover, .toy a:hover .shot img, .pill:hover { transform: none; }
+    .toy a, .shot img, .tape, .pill, .search, .search input { transition: none; }
+    .toy a:hover, .toy a:hover .shot img, .pill:hover, .search:not(.open):hover { transform: none; }
   }
 </style>
 </head>
@@ -165,7 +218,16 @@
       <span class="count" aria-live="polite"><!--COUNT--></span>
     </header>
     <div class="bar">
-      <!--FILTERS-->
+      <div class="bar-left">
+        <!--FILTERS-->
+        <div class="search" role="search">
+          <button class="search-btn" type="button" aria-label="Search toys" aria-expanded="false" aria-controls="q">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6.8" cy="6.8" r="4.8"/><path d="m10.4 10.4 4 4"/></svg>
+          </button>
+          <input id="q" type="search" placeholder="Titles and tags" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search toys by title or tag" tabindex="-1">
+          <button class="search-clear" type="button" aria-label="Clear search" hidden>&times;</button>
+        </div>
+      </div>
       <button class="pill disclaimer-btn" type="button" aria-haspopup="dialog" aria-label="AI Usage Disclaimer"><span class="long">AI Usage </span>Disclaimer</button>
     </div>
     <dialog class="modal" aria-labelledby="ai-title">
@@ -175,6 +237,7 @@
     </dialog>
     <ul class="board"><!--TOYS-->
     </ul>
+    <p class="no-match" hidden></p>
     <script>
       // Click (or Enter/Space on) the title and its letters pop off the red label, then bounce back on one by one.
       (() => {
@@ -204,29 +267,121 @@
         tape.addEventListener('click', bounce);
         tape.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bounce(); } });
       })();
-      // The category pills: one at a time, and pressing the lit one again shows everything. The choice rides in the
-      // address (?category=games), so it's still there coming back from a toy, and a link can open on it.
+      // The category pills and the search box. Pills go one at a time, and pressing the lit one again shows everything;
+      // the search matches every word typed against each toy's title and tags. Both ride in the address
+      // (?category=games&q=cards), so they're still there coming back from a toy, and a link can open on them.
       (() => {
         const pills = [...document.querySelectorAll('.pill[data-category]')], toys = [...document.querySelectorAll('.board .toy')];
-        const count = document.querySelector('.count'), all = count.textContent;
-        function show(cat) {
-          if (!pills.some(p => p.dataset.category === cat)) cat = null;
-          let n = 0;
-          for (const t of toys) { t.hidden = !!cat && t.dataset.category !== cat; if (!t.hidden) n++; }
-          for (const p of pills) p.setAttribute('aria-pressed', String(p.dataset.category === cat));
-          count.textContent = cat ? `${n} of ${toys.length} toys on the board` : all;
-          return cat;
+        const count = document.querySelector('.count'), all = count.textContent, none = document.querySelector('.no-match');
+        const box = document.querySelector('.search'), btn = box.querySelector('.search-btn'), input = box.querySelector('input'), clear = box.querySelector('.search-clear');
+        let cat = null;
+        const narrow = matchMedia('(max-width: 640px)');   // no pills on phones, so no category either
+
+        // Hang every card on a hole of the board: holes sit every 30px from the page's corner, 15px in. The board is
+        // nudged down and each row stretched a little so every card's top lands 12px under a row of holes, then each
+        // card takes the hole nearest its middle.
+        const board = document.querySelector('.board'), mod = (a, b) => ((a % b) + b) % b;
+        function hang() {
+          board.style.paddingTop = '';
+          for (const t of toys) t.style.minHeight = '';
+          const live = toys.filter(t => !t.hidden);
+          if (!live.length) return;
+          const docY = el => el.getBoundingClientRect().top + scrollY;
+          board.style.paddingTop = `${mod(27 - docY(live[0]), 30)}px`;
+          const gap = parseFloat(getComputedStyle(board).rowGap) || 0, rows = new Map();
+          for (const t of live) { const k = Math.round(t.offsetTop); rows.set(k, (rows.get(k) || []).concat(t)); }
+          for (const row of rows.values()) {
+            const h = Math.max(...row.map(t => t.getBoundingClientRect().height));
+            for (const t of row) t.style.minHeight = `${30 * Math.ceil((h + gap - .5) / 30) - gap}px`;
+          }
+          for (const t of live) {
+            const r = t.getBoundingClientRect(), x = r.left + scrollX, y = r.top + scrollY;
+            const hx = 15 + 30 * Math.round((x + r.width / 2 - 15) / 30), hy = 15 + 30 * Math.round((y - 12 - 15) / 30);
+            t.style.setProperty('--peg-x', `${hx - x}px`);
+            t.style.setProperty('--peg-y', `${hy - y}px`);
+          }
         }
-        for (const p of pills) p.addEventListener('click', () => {
-          const cat = show(p.getAttribute('aria-pressed') === 'true' ? null : p.dataset.category), url = new URL(location.href);
+        // Then let them swing a little and settle, like a hand just let go of them, one after another.
+        const still = matchMedia('(prefers-reduced-motion: reduce)'), canSway = !!document.body.animate && CSS.supports('rotate', '1deg');
+        function sway() {
+          if (still.matches || !canSway) return;
+          toys.filter(t => !t.hidden).forEach((t, i) => {
+            const a = t.firstElementChild;
+            if (a._sway && a._sway.playState === 'running') return;
+            const A = (2 + Math.random() * 1.6) * (i % 2 ? 1 : -1), T = 1.15 + Math.random() * .35, tau = .7 + Math.random() * .25, dur = 3.4, n = 48;
+            const frames = Array.from({ length: n + 1 }, (_, k) => {
+              const s = dur * k / n;
+              return { rotate: `${k === n ? 0 : A * Math.exp(-s / tau) * Math.cos(2 * Math.PI * s / T)}deg` };
+            });
+            a._sway = a.animate(frames, { duration: dur * 1000, delay: Math.min(i, 12) * 55, fill: 'backwards' });
+          });
+        }
+        let shown = '';
+        function show() {
+          if (!pills.some(p => p.dataset.category === cat)) cat = null;
+          const c = narrow.matches ? null : cat;
+          const q = input.value.trim(), words = q.toLowerCase().split(/\s+/).filter(Boolean);
+          let n = 0;
+          for (const t of toys) {
+            t.hidden = (!!c && t.dataset.category !== c) || !words.every(w => t.dataset.search.includes(w));
+            if (!t.hidden) n++;
+          }
+          for (const p of pills) p.setAttribute('aria-pressed', String(p.dataset.category === c));
+          count.textContent = c || words.length ? `${n} of ${toys.length} toys on the board` : all;
+          none.hidden = n > 0;
+          none.textContent = q ? `Nothing on the board matches \u201c${q}\u201d${c ? ' in this category' : ''}.` : 'Nothing here yet.';
+          clear.hidden = !q;
+          const url = new URL(location.href);
           if (cat) url.searchParams.set('category', cat); else url.searchParams.delete('category');
+          if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
           history.replaceState(null, '', url);
+          // re-hang and swing only when the set of cards on the board actually changed
+          const now = toys.map(t => t.hidden ? 0 : 1).join('');
+          if (now !== shown) { shown = now; hang(); sway(); }
+        }
+        for (const p of pills) p.addEventListener('click', () => { cat = p.getAttribute('aria-pressed') === 'true' ? null : p.dataset.category; show(); });
+
+        function open(focus = true) {
+          box.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); input.tabIndex = 0;
+          if (focus) input.focus();
+        }
+        function close() {
+          box.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); input.tabIndex = -1;
+        }
+        btn.addEventListener('click', () => {
+          if (!box.classList.contains('open')) open();
+          else if (!input.value.trim()) { close(); btn.focus(); }
+          else input.focus();
+        });
+        input.addEventListener('input', show);
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Escape') { e.preventDefault(); if (input.value) { input.value = ''; show(); } else { close(); btn.focus(); } }
+          if (e.key === 'Enter') input.blur();
+        });
+        clear.addEventListener('click', () => { input.value = ''; show(); input.focus(); });
+        // An empty box folds away once you're done with it.
+        box.addEventListener('focusout', () => setTimeout(() => { if (!box.contains(document.activeElement) && !input.value.trim()) close(); }, 0));
+        // "/" opens the search from anywhere on the page.
+        document.addEventListener('keydown', e => {
+          if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !document.querySelector('dialog[open]')) { e.preventDefault(); open(); }
         });
         const dlg = document.querySelector('.modal');
         document.querySelector('.disclaimer-btn').addEventListener('click', () => dlg.showModal());
         dlg.querySelector('.pill').addEventListener('click', () => dlg.close());
         dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); }); // backdrop click
-        show(new URLSearchParams(location.search).get('category'));
+        const params = new URLSearchParams(location.search);
+        cat = params.get('category');
+        input.value = params.get('q') || '';
+        if (input.value) open(false);
+        show();
+        // cards move when the window resizes or the fonts arrive; keep them on their pegs
+        // and when anything above the board changes height (the search box opening can wrap the row of buttons)
+        let width = 0, above = 0;
+        new ResizeObserver(([e]) => { if (Math.abs(e.contentRect.width - width) > .5) { width = e.contentRect.width; hang(); } }).observe(board);
+        new ResizeObserver(() => { const y = board.getBoundingClientRect().top + scrollY - parseFloat(board.style.paddingTop || 0); if (Math.abs(y - above) > .5) { above = y; hang(); } })
+          .observe(document.querySelector('.bar'));
+        document.fonts && document.fonts.ready.then(hang);
+        narrow.addEventListener('change', show);
       })();
     </script>
     <footer class="foot">

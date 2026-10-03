@@ -149,7 +149,7 @@ function card(t, i) {
     : `<div class="shot shot--blank" aria-hidden="true"><span>${esc(initials(t.title))}</span></div>`;
   const meta = [t.added ? `<time datetime="${esc(t.added)}">${month(t.added)}</time>` : '', ...t.tags.map(x => `<span>${esc(x)}</span>`)].filter(Boolean).join('');
   return `
-      <li class="toy"${t.category ? ` data-category="${t.category}"` : ''} style="--tape:${color}">
+      <li class="toy"${t.category ? ` data-category="${t.category}"` : ''} data-search="${esc([t.title, ...t.tags].join(' ').toLowerCase())}" style="--tape:${color}">
         <a href="${href}">
           ${shot}
           <div class="card-body">
