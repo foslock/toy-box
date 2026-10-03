@@ -8,7 +8,7 @@ export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const DEFAULTS = { entry: 'index.html', preview: 'preview.webp', tags: [], loader: false };
 export const CAPTURE_DEFAULTS = { width: 1200, height: 900, scale: 1, wait: 2500, selector: null, query: '' };
 // The home page's filters, in the order their pills appear. A toy picks one with "category".
-export const CATEGORIES = { games: 'Games', ambient: 'Ambient', interactive: 'Interactive' };
+export const CATEGORIES = { games: 'Games', ambient: 'Ambient' };
 
 export function loadToys() {
   const toys = [], problems = [];

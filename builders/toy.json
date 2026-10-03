@@ -2,7 +2,7 @@
   "title": "Builders",
   "blurb": "Type, and little crews in orange vests and hard hats put up scaffolding and lay each letter brick by brick, in the order you typed. Share a phrase with ?text=HELLO|WORLD.",
   "added": "2026-09-24",
-  "category": "interactive",
+  "category": "ambient",
   "tags": ["canvas", "pixel art", "typing"],
   "tape": "orange",
   "capture": { "width": 1200, "height": 900, "wait": 7000, "query": "?text=BUILD|IT+UP!&speed=3" }
