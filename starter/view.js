@@ -19,7 +19,7 @@ const LAYOUT = [
     mid: [['mapBox', 'actBox', 'newsBox'], ['figBox', 'pjBox', 'mkBox', 'jarBox']], flex: [1.05, 1.5, 1] },
 ];
 const HEADS = [
-  {},
+  { mkHead: 'Grow', pjHead: 'Upgrades' },
   { mapHead: 'The Parish', figHead: 'Figures', actHead: 'At the Baker’s', mkHead: 'Openings', pjHead: 'Notices', newsHead: 'News in Brief', jarHead: 'The Original Jar' },
   { mapHead: 'Holdings', figHead: 'The Ledger', mkHead: 'Expansion', pjHead: 'Initiatives', newsHead: 'The Wire', jarHead: 'The Mother Jar' },
   { mapHead: 'Everything', figHead: 'Reckoning', actHead: 'Warmth', mkHead: 'Spore Clouds', pjHead: 'Workings', newsHead: 'Signals', jarHead: 'The First Jar' },
@@ -177,7 +177,6 @@ export function makeView(h) {
         b.children[0].textContent = G.nameIt(s, p.name);
         b.children[1].textContent = G.nameIt(s, p.flavor);
         b.children[2].textContent = G.nameIt(s, p.effect);
-        b.children[3].textContent = costText(p.cost);
         b.addEventListener('click', () => h.buy(p.id));
         pjEls.set(p.id, b);
         // keep the order the content gives
@@ -186,6 +185,9 @@ export function makeView(h) {
       const ok = G.canBuy(s, p.id);
       b.classList.toggle('ok', ok);
       b.setAttribute('aria-disabled', ok ? 'false' : 'true');
+      // the price is a button-shaped pill: it fills as you save up, and says Buy once you can
+      const price = (ok ? 'Buy · ' : '') + costText(p.cost);
+      if (b.children[3].textContent !== price) b.children[3].textContent = price;
       b.style.setProperty('--p', progress(s, p.cost).toFixed(3));
     }
     $('pjEmpty').textContent = open.length ? '' : EMPTY[s.phase];
@@ -211,8 +213,10 @@ export function makeView(h) {
       const c = G.costOf(s, m.id);
       b.children[1].textContent = '×' + num(s.n[m.id]);
       b.children[2].textContent = m.effect(k);
-      b.children[3].textContent = full ? (m.id === 'kelp' ? 'All the sea' : s.n[m.id] >= 100 ? 'All the land' : 'No more land, yet') : (m.cur === 'm' ? money(c) : `${num(c)} bubbles`);
       const ok = G.canMake(s, m.id);
+      const price = full ? (m.id === 'kelp' ? 'All the sea' : s.n[m.id] >= 100 ? 'All the land' : 'No more land, yet')
+        : (ok ? 'Buy · ' : '') + (m.cur === 'm' ? money(c) : `${num(c)} bubbles`);
+      if (b.children[3].textContent !== price) b.children[3].textContent = price;
       b.classList.toggle('ok', ok); b.classList.toggle('full', full);
       const have = m.cur === 'm' ? s.money : s.b;
       b.style.setProperty('--p', full ? 0 : Math.min(1, have / c).toFixed(3));
@@ -278,7 +282,8 @@ export function makeView(h) {
     let cap = JARCAP[s.phase];
     if (s.phase === 0) {
       const r = s._r || G.rates(s);
-      cap = s.clicks < 6 ? 'Tap the jar to bubble.' : !s.own.wild ? 'Each bubble gets you closer to doubled. Double, and the baker feeds you.'
+      cap = s.clicks < 6 ? 'Tap the jar to bubble.' : !s.ownN && G.canBuy(s, 'wild') ? 'You can afford <b>Wild yeast</b>. Tap it below to buy it.'
+        : !s.own.wild ? 'Each bubble gets you closer to doubled. Double, and the baker feeds you.'
         : isFinite(r.doubling) ? `You double every <b>${Math.round(r.doubling)} s</b> on your own. Tapping helps.` : '';
     }
     if ($('jarCap').innerHTML !== cap) $('jarCap').innerHTML = cap;

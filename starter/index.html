@@ -2,7 +2,7 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#f3ead6">
 <title>Starter</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f3ead6'/%3E%3Cpath d='M9 8h14v3a3 3 0 0 1 1 2v12a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V13a3 3 0 0 1 1-2z' fill='%23fff8ea' stroke='%232b2620' stroke-width='1.6'/%3E%3Cpath d='M9 17q7-4 14 0v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z' fill='%23e3cfa6'/%3E%3Cpath d='M8 18.5h16' stroke='%23b5562f' stroke-width='1.8'/%3E%3Ccircle cx='13' cy='22' r='1.2' fill='none' stroke='%232b2620' stroke-width='.8'/%3E%3Ccircle cx='18' cy='24' r='1' fill='none' stroke='%232b2620' stroke-width='.8'/%3E%3C/svg%3E">
@@ -17,6 +17,7 @@
   html, body { margin: 0; min-height: 100%; }
   body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior-y: none; }
   [hidden] { display: none !important; }
+  #app, #app * { touch-action: manipulation; }
   button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
   button:disabled { cursor: default; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -24,7 +25,7 @@
   #app {
     --bg: #f3ead6; --bg2: #efe4cc; --ink: #2b2620; --muted: #7c7061; --faint: #a89a85; --line: #d8cbb0; --accent: #b5562f; --good: #2f6b3a;
     --card: transparent; --font: 'Fraunces', Georgia, serif; --head: 'Fraunces', Georgia, serif; --num: 'Fraunces', Georgia, serif;
-    --night: 0;
+    --btn: var(--accent); --btn-ink: #fff8ec; --night: 0;
     min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.4;
     transition: background-color 1.2s, color 1.2s; padding-bottom: calc(40px + env(safe-area-inset-bottom));
   }
@@ -75,8 +76,6 @@
   #pjList, #mkList { display: flex; flex-direction: column; gap: 8px; }
   .pj, .mk { position: relative; display: block; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card);
     transition: border-color .2s, background-color .2s, opacity .2s, transform .08s; overflow: hidden; }
-  .pj::before, .mk::before { content: ''; position: absolute; inset: auto 0 0 0; height: 3px; width: calc(var(--p, 0) * 100%); background: var(--accent); opacity: .35; transition: width .3s; }
-  .pj.ok::before, .mk.ok::before { opacity: 0; }
   .pj.ok, .mk.ok { border-color: var(--ink); }
   .pj:not(.ok), .mk:not(.ok) { color: var(--muted); }
   .pj.ok:active, .mk.ok:active { transform: scale(.985); }
@@ -86,13 +85,17 @@
   .pj:not(.ok) .pj-name { color: var(--muted); }
   .pj-flavor { display: block; font-style: italic; font-size: 14px; margin-top: 1px; }
   .pj-effect { display: block; font-size: 14px; margin-top: 3px; }
-  .pj-cost { display: block; font-size: 13px; margin-top: 5px; font-family: var(--num); font-variant-numeric: tabular-nums; color: var(--muted); }
-  .pj.ok .pj-cost { color: var(--ink); }
-  .mk { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: baseline; }
+  /* the price is drawn as the button: an outline that fills while you save, then solid, saying Buy */
+  .pj-cost, .mk-cost { display: inline-block; margin-top: 8px; padding: 4px 12px; border: 1px solid var(--faint); border-radius: 999px; font-size: 13px; line-height: 1.3;
+    font-family: var(--num); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent) calc(var(--p, 0) * 100%), transparent 0); transition: background-color .2s, color .2s; }
+  .pj.ok .pj-cost, .mk.ok .mk-cost { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); font-weight: 600; }
+  .mk.full .mk-cost { background: none; }
+  .mk { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: center; }
   .mk-name { font-weight: 600; color: var(--ink); }
   .mk-n { font-family: var(--num); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); }
   .mk-eff { font-size: 13px; }
-  .mk-cost { font-size: 13px; font-family: var(--num); font-variant-numeric: tabular-nums; text-align: right; }
+  .mk-cost { justify-self: end; margin-top: 6px; }
   .mk.full { opacity: .55; }
   #pjBox .empty { margin: 4px 0 0; color: var(--faint); font-style: italic; font-size: 14px; }
 
@@ -127,6 +130,7 @@
   /* ================================================================ I. the kitchen: one quiet column */
   [data-phase=kitchen] #cols { max-width: 560px; }
   [data-phase=kitchen] .bh { display: none; }
+  [data-phase=kitchen] #pjHead, [data-phase=kitchen] #mkHead { display: block; margin: 6px 0 8px; font-size: 12px; letter-spacing: .16em; }
   [data-phase=kitchen] #jarBox { order: 0; }
   [data-phase=kitchen] #newsList { flex-direction: column-reverse; min-height: 6.5em; justify-content: flex-start; gap: 4px; }
   [data-phase=kitchen] #newsList li { text-align: center; font-size: 15px; }
@@ -138,9 +142,9 @@
   @media (min-width: 560px) { [data-phase=kitchen] #figList { grid-template-columns: auto auto auto auto; column-gap: 14px; } [data-phase=kitchen] #figList dt:nth-of-type(odd) ~ dt:nth-of-type(even) { padding-left: 20px; } }
   [data-phase=kitchen] #jar { max-height: min(40vh, 340px); }
   [data-phase=kitchen] #figList dd { text-align: left; }
-  [data-phase=kitchen] .pj, [data-phase=kitchen] .mk { border-width: 0 0 1px; border-radius: 0; padding: 10px 2px; background: none; }
-  [data-phase=kitchen] .pj.ok, [data-phase=kitchen] .mk.ok { border-color: var(--line); }
-  [data-phase=kitchen] .pj.ok .pj-name::after, [data-phase=kitchen] .mk.ok .mk-name::after { content: ' ›'; color: var(--accent); }
+  [data-phase=kitchen] .pj, [data-phase=kitchen] .mk { border-radius: 12px; padding: 12px 14px; background: #f8f1e1; }
+  [data-phase=kitchen] .pj.ok, [data-phase=kitchen] .mk.ok { border-color: var(--ink); background: #fcf8ee; box-shadow: 0 3px 0 rgba(43, 38, 32, .2); }
+  [data-phase=kitchen] .pj.ok:active, [data-phase=kitchen] .mk.ok:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(43, 38, 32, .2); }
   [data-phase=kitchen] #brand { font-style: italic; font-weight: 400; }
   #app[data-phase=kitchen] { --bg: color-mix(in srgb, #f3ead6, #b8ab95 calc(var(--night) * 22%)); }
 
@@ -148,6 +152,7 @@
   #app[data-phase=town] {
     --bg: #ebe5d5; --ink: #1c1a15; --muted: #5b564a; --faint: #8c8576; --line: #1c1a15; --accent: #8e2a1c; --card: #f3eee2;
     --font: 'Old Standard TT', Georgia, serif; --head: 'Old Standard TT', Georgia, serif; --num: 'Old Standard TT', Georgia, serif;
+    --btn: var(--ink); --btn-ink: #f3eee2;
   }
   [data-phase=town] #mast, [data-phase=world] #mast, [data-phase=beyond] #mast { display: block; }
   [data-phase=town] #mast { max-width: 1280px; margin: 0 auto 14px; padding: 0 16px; text-align: center; }
@@ -180,6 +185,7 @@
   #app[data-phase=world] {
     --bg: #0e2824; --ink: #f1e6c8; --muted: #a9b8a6; --faint: #6f877d; --line: #c9a55a; --accent: #e3bd68; --card: #11332e;
     --font: 'Josefin Sans', system-ui, sans-serif; --head: 'Poiret One', 'Josefin Sans', sans-serif; --num: 'Josefin Sans', system-ui, sans-serif;
+    --btn: var(--accent); --btn-ink: #0e2824;
   }
   [data-phase=world] #mast { max-width: 1280px; margin: 4px auto 18px; padding: 0 16px; text-align: center; }
   [data-phase=world] .m-title { font-family: 'Poiret One', sans-serif; font-size: clamp(30px, 6vw, 56px); letter-spacing: .28em; margin: 0; color: var(--accent); font-weight: 400;
@@ -207,7 +213,7 @@
   #app[data-phase=beyond] {
     --bg: #070920; --ink: #ece4cf; --muted: #9196bd; --faint: #5d6190; --line: #b89b5e; --accent: #f1c879; --card: rgba(19, 22, 56, .75);
     --font: 'Cormorant Garamond', Georgia, serif; --head: 'Cinzel', Georgia, serif; --num: 'Cormorant Garamond', Georgia, serif;
-    font-size: 18px;
+    --btn: var(--accent); --btn-ink: #070920; font-size: 18px;
   }
   [data-phase=beyond] #mast { max-width: 1280px; margin: 0 auto 14px; padding: 0 16px; text-align: center; }
   [data-phase=beyond] .m-title { font-family: 'Cinzel', serif; font-weight: 400; font-size: clamp(30px, 6vw, 54px); letter-spacing: .4em; padding-left: .4em; margin: 0; color: var(--accent); }

@@ -131,6 +131,28 @@ document.addEventListener('keydown', e => {
   if (tag === 'input' || tag === 'button' || e.target === jarEl) return;
   if (e.key === ' ' || e.key === 'b' || e.key === 'B') { e.preventDefault(); tapJar(); }
 });
+// No zooming on phones. The viewport tag stops it on Android, but iOS ignores that, so: no pinch (Safari's gesture
+// events, or two fingers moving), and no double-tap zoom when taps come quickly. A quick second tap on a button would
+// lose its click to that, so it's pressed by hand. A touch that moved is a scroll, and is left alone.
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+let lastTouchEnd = -1e9, touchFrom = null;
+document.addEventListener('touchstart', e => { const t = e.touches[0]; touchFrom = t && { x: t.clientX, y: t.clientY }; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const quick = e.timeStamp - lastTouchEnd < 400;
+  lastTouchEnd = e.timeStamp;
+  const t = e.target;
+  if (!t.closest || t.closest('input, select, textarea, a')) return;
+  if (jarEl.contains(t)) { e.preventDefault(); return; }       // the jar taps on pointerdown, so its touchend is spare
+  const end = e.changedTouches[0];
+  const still = !touchFrom || !end || Math.hypot(end.clientX - touchFrom.x, end.clientY - touchFrom.y) < 12;
+  if (!quick || !still || e.touches.length) return;
+  e.preventDefault();
+  const target = t.closest('button') || t;
+  if (!target.disabled && target.click) target.click();
+}, { passive: false });
+
 // iOS only lets audio start inside certain gestures, so try on each of them
 for (const t of ['pointerdown', 'touchend', 'click', 'keydown']) document.addEventListener(t, () => sound.unlock(), { capture: true });
 
