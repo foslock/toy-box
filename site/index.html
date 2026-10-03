@@ -39,7 +39,7 @@
       --shadow-lift: 0 2px 2px rgba(0, 0, 0, .3), 0 22px 38px -14px rgba(0, 0, 0, .8);
       --focus: #8fb0ff;
     }
-    .toy::after { background: radial-gradient(circle at 35% 32%, #d9dde5 0 12%, #7d8492 45%, #3a3f49 100%); }
+    .toy::after { background: radial-gradient(circle at 36% 32%, #e3e6ec 0 12%, #8a91a0 42%, #464c57 82%, #2c3038 100%); }
   }
   * { box-sizing: border-box; }
   body {
@@ -132,7 +132,7 @@
   .no-match { margin: 4px 0 0; font: 500 12px/1.5 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 
   /* ---- AI usage disclaimer: a button across the row from the pills, and its modal ---- */
-  .bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 26px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 clamp(16px, 2.5vw, 24px); }
   .bar .filters { margin: 0; }
   .bar-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .disclaimer-btn { margin-left: auto; }
@@ -154,24 +154,15 @@
   .modal .pill { display: block; margin-left: auto; }
 
   /* ---- the board ---- */
-  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
-  /* Each card hangs from a peg in one of the board's holes, near its top middle: a tab on the card (which swings with
-     it) and a peg in front (which doesn't). The page's script lines the rows up with the holes and sets --peg-x/--peg-y;
-     until then the peg sits just above the middle. */
-  .toy { position: relative; --peg-x: 50%; --peg-y: -12px; }
+  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  /* Each card is pinned to the board through the strip above its picture, into one of the board's holes near its top
+     middle. The pin stays put; the card swings, and grows on hover, around it. The page's script lines the rows up with
+     the holes and sets --peg-x/--peg-y; until then the pin sits in the middle of the strip. */
+  .toy { position: relative; --peg-x: 50%; --peg-y: 13px; }
   .toy::after {
-    content: ""; position: absolute; z-index: 2; left: calc(var(--peg-x) - 5px); top: calc(var(--peg-y) - 5px); width: 10px; height: 10px; border-radius: 50%; pointer-events: none;
-    background: radial-gradient(circle at 35% 32%, #fbfcfd 0 14%, #b9bfc9 45%, #6c7380 100%);
-    box-shadow: 0 1px 1px rgba(0, 0, 0, .35), 0 2px 5px rgba(0, 0, 0, .22);
-  }
-  /* the tab is centred on the card with a wide slot in it, like a shop hang tab, so the peg can sit anywhere along it */
-  .toy a::before {
-    content: ""; position: absolute; left: calc(50% - 30px); top: calc(var(--peg-y) - 10px); width: 60px; height: calc(11px - var(--peg-y));
-    border-radius: 10px 10px 0 0; background: var(--card); box-shadow: 0 0 0 1px var(--card-edge); clip-path: inset(-2px -2px 0 -2px);
-  }
-  .toy a::after {
-    content: ""; position: absolute; left: calc(50% - 21px); top: calc(var(--peg-y) - 4.5px); width: 42px; height: 9px; border-radius: 5px;
-    background: var(--board); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .3);
+    content: ""; position: absolute; z-index: 2; left: calc(var(--peg-x) - 6px); top: calc(var(--peg-y) - 6px); width: 12px; height: 12px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 36% 32%, #fbfcfd 0 13%, #b9bfc9 42%, #69707d 82%, #4b515c 100%);
+    box-shadow: 0 0 0 .5px rgba(0, 0, 0, .25), 0 1px 1px rgba(0, 0, 0, .3), 2px 3px 4px rgba(0, 0, 0, .22);
   }
   .toy a {
     display: flex; flex-direction: column; height: 100%;
@@ -180,10 +171,10 @@
     box-shadow: 0 0 0 1px var(--card-edge), var(--shadow);
     transition: transform .25s ease, box-shadow .25s ease;
   }
-  .toy a { position: relative; transform-origin: var(--peg-x) var(--peg-y); }
-  .toy a:hover { transform: translateY(-3px); box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift); }
+  .toy a { position: relative; transform-origin: var(--peg-x) var(--peg-y); transition: scale .25s ease, box-shadow .25s ease; }
+  .toy a:hover { scale: 1.015; box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift); }
   .toy a:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
-  .shot { aspect-ratio: 4 / 3; margin: 10px 10px 0; border-radius: 4px; overflow: hidden; background: #0b0c10; }
+  .shot { aspect-ratio: 4 / 3; margin: 26px 10px 0; border-radius: 4px; overflow: hidden; background: #0b0c10; }
   .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
   .toy a:hover .shot img { transform: scale(1.03); }
   .shot--blank { display: grid; place-items: center; background: repeating-linear-gradient(-45deg, var(--tape), var(--tape) 12px, color-mix(in srgb, var(--tape) 82%, #000) 12px 24px); }
@@ -207,6 +198,7 @@
   @media (prefers-reduced-motion: reduce) {
     .toy a, .shot img, .tape, .pill, .search, .search input { transition: none; }
     .toy a:hover, .toy a:hover .shot img, .pill:hover, .search:not(.open):hover { transform: none; }
+    .toy a:hover { scale: none; }
   }
 </style>
 </head>
@@ -277,9 +269,9 @@
         let cat = null;
         const narrow = matchMedia('(max-width: 640px)');   // no pills on phones, so no category either
 
-        // Hang every card on a hole of the board: holes sit every 30px from the page's corner, 15px in. The board is
-        // nudged down and each row stretched a little so every card's top lands 12px under a row of holes, then each
-        // card takes the hole nearest its middle.
+        // Pin every card to a hole of the board: holes sit every 30px from the page's corner, 15px in. The board is
+        // nudged down and each row stretched a little so a row of holes runs 13px below every card's top edge, through
+        // the strip above the picture, then each card takes the hole nearest its middle.
         const board = document.querySelector('.board'), mod = (a, b) => ((a % b) + b) % b;
         function hang() {
           board.style.paddingTop = '';
@@ -287,7 +279,7 @@
           const live = toys.filter(t => !t.hidden);
           if (!live.length) return;
           const docY = el => el.getBoundingClientRect().top + scrollY;
-          board.style.paddingTop = `${mod(27 - docY(live[0]), 30)}px`;
+          board.style.paddingTop = `${mod(2 - docY(live[0]), 30)}px`;
           const gap = parseFloat(getComputedStyle(board).rowGap) || 0, rows = new Map();
           for (const t of live) { const k = Math.round(t.offsetTop); rows.set(k, (rows.get(k) || []).concat(t)); }
           for (const row of rows.values()) {
@@ -296,7 +288,7 @@
           }
           for (const t of live) {
             const r = t.getBoundingClientRect(), x = r.left + scrollX, y = r.top + scrollY;
-            const hx = 15 + 30 * Math.round((x + r.width / 2 - 15) / 30), hy = 15 + 30 * Math.round((y - 12 - 15) / 30);
+            const hx = 15 + 30 * Math.round((x + r.width / 2 - 15) / 30), hy = 15 + 30 * Math.round((y + 13 - 15) / 30);
             t.style.setProperty('--peg-x', `${hx - x}px`);
             t.style.setProperty('--peg-y', `${hy - y}px`);
           }
