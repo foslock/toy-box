@@ -76,7 +76,7 @@ export function makeMap(canvas, { onTap, onPop, pad }) {
   let fitted = false;
   const pos = new Map();          // bubble id → world [x, y]
   const fx = [];                  // ripples
-  let selected = -1, picking = false, hover = -1;
+  let selected = -1, picking = false, hover = -1, mouse = null;
   let t = 0, dusk = 0;
   const bubbleHits = [];
 
@@ -126,7 +126,8 @@ export function makeMap(canvas, { onTap, onPop, pad }) {
   });
   canvas.addEventListener('pointermove', e => {
     const r = canvas.getBoundingClientRect();
-    if (!ptrs.has(e.pointerId)) { if (e.pointerType === 'mouse') hover = regionAt(e.clientX - r.left, e.clientY - r.top); return; }
+    if (e.pointerType === 'mouse') mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
+    if (!ptrs.has(e.pointerId)) { if (e.pointerType === 'mouse') hover = regionAt(mouse.x, mouse.y); return; }
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && ptrs.size >= 2) {
       const [a, b] = [...ptrs.values()];
@@ -159,7 +160,7 @@ export function makeMap(canvas, { onTap, onPop, pad }) {
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
-  canvas.addEventListener('pointerleave', () => { hover = -1; });
+  canvas.addEventListener('pointerleave', () => { hover = -1; mouse = null; });
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
@@ -355,6 +356,12 @@ export function makeMap(canvas, { onTap, onPop, pad }) {
       bubbleHits.push({ id: b.id, x: X, y: Y, r: R });
     }
     for (const id of pos.keys()) if (!live.has(id)) pos.delete(id);
+
+    // a pointing hand over anything you can click: bubbles, and regions while you're choosing where to start
+    const still = !drag || !drag.moved;
+    const over = mouse && still && (bubbleHits.some(h => Math.hypot(h.x - mouse.x, h.y - mouse.y) < h.r + 14) || (picking && hover >= 0));
+    const cursor = over ? 'pointer' : '';
+    if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
   }
 
   function bubbleSpot(b, th) {

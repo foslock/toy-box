@@ -46,6 +46,16 @@ export function rnd(s) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 const pick = (s, arr) => arr[Math.floor(rnd(s) * arr.length)];
+// Like pick, but not one of the last few lines from the same list, so the headlines don't repeat themselves.
+function fresh1(s, key, arr) {
+  const recent = (s.recent ||= {})[key] ||= [];
+  const keep = Math.min(arr.length - 1, Math.floor(arr.length * .6));
+  const open = arr.map((_, i) => i).filter(i => !recent.includes(i));
+  const i = open[Math.floor(rnd(s) * open.length)];
+  recent.push(i);
+  while (recent.length > keep) recent.shift();
+  return arr[i];
+}
 function weighted(s, ws) {
   let tot = 0; for (const w of ws) tot += w;
   if (tot <= 0) return -1;
@@ -160,6 +170,8 @@ export function devolve(s, id, ev = NOOP) {
 
 // ---- small helpers for talking to the page -----------------------------------------------------------------------------
 function fill(s, line, i = -1, o = -1, extra = {}) {
+  // "in {r}" reads "in the Nordics" for the regions that want a "the"
+  line = line.replace(/\b(in|from|across) \{(r|o)\}/g, (m, w, k) => { const j = k === 'r' ? i : o; return j >= 0 && REGIONS[j].the ? `${w} the {${k}}` : m; });
   return line.replace(/\{r\}/g, i >= 0 ? REGIONS[i].name : '').replace(/\{o\}/g, o >= 0 ? REGIONS[o].name : '').replace(/\{n\}/g, s.name)
     .replace(/\{(\w)\}/g, (m, k) => extra[k] ?? m);
 }
@@ -216,7 +228,7 @@ export function pop(s, id, ev = NOOP) {
     const r = s.r[b.i];
     r.c = Math.max(0, r.c - .05);
     s.research = Math.max(0, s.research - .4);
-    news(s, ev, pick(s, NEWS.whistleQuiet), 'you', b.i);
+    news(s, ev, fill(s, fresh1(s, 'whistleQuiet', NEWS.whistleQuiet), b.i), 'you', b.i);
     ev.sound('hush');
   }
   return b;
@@ -446,7 +458,7 @@ function economy(s, st, dt, dy, ev) {
     s.stats.leaked++;
     s.research = Math.min(100, s.research + 1.2);
     s.r[b.i].c = Math.min(1, s.r[b.i].c + .05);
-    news(s, ev, fill(s, pick(s, NEWS.whistleLoud), b.i), 'human', b.i);
+    news(s, ev, fill(s, fresh1(s, 'whistleLoud', NEWS.whistleLoud), b.i), 'human', b.i);
     ev.fx('leak', { i: b.i });
   }
   if (s.t >= s.next.bubble) {
@@ -464,7 +476,7 @@ function economy(s, st, dt, dy, ev) {
     if (s.t >= s.next.whistle) {
       s.next.whistle = s.t + (9 + rnd(s) * 8) / Math.min(2.2, .4 + C * 3);
       const i = weighted(s, s.r.map((r, i) => r.seeded ? r.c * (REGIONS[i].pop - r.D) * (1 - r.M / Math.max(1e-9, REGIONS[i].pop - r.D)) * (.3 + REGIONS[i].wealth) : 0));
-      if (i >= 0) { addBubble(s, 'whistle', i, 1); tip(s, ev, 'whistle'); news(s, ev, fill(s, pick(s, NEWS.whistle), i), 'human', i); }
+      if (i >= 0) { addBubble(s, 'whistle', i, 1); tip(s, ev, 'whistle'); news(s, ev, fill(s, fresh1(s, 'whistle', NEWS.whistle), i), 'human', i); }
     }
   }
   if (!s.tips.train && s.hype >= 5 && s.t > 25 && !s.stats.bought.length) tip(s, ev, 'train');
