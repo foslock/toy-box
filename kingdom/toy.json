@@ -5,5 +5,6 @@
   "category": "games",
   "tags": ["canvas", "pixel art", "roguelite", "game"],
   "tape": "red",
-  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" },
+  "share": { "y": 0 }
 }

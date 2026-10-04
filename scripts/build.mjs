@@ -1,30 +1,13 @@
 // Builds the static site into dist/: copies every toy folder and writes the home page.
 // Usage: node scripts/build.mjs
-import { rmSync, mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { rmSync, mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, sep, posix } from 'node:path';
 import { createHash } from 'node:crypto';
 import { ROOT, CATEGORIES, loadToys } from './lib/toys.mjs';
+import { esc, tape, tapeColor } from './lib/tape.mjs';
 
 const DIST = join(ROOT, 'dist');
 const SITE = join(ROOT, 'site');
-
-// Label-maker tape colors. A toy picks one with "tape"; otherwise they rotate.
-const TAPES = { red: '#c8323c', blue: '#2a4d9b', green: '#2f7a4f', teal: '#17736f', purple: '#5b3a9a', orange: '#b8501a', black: '#1d1d22' };
-const ROTATION = ['red', 'blue', 'green', 'purple', 'teal', 'orange', 'black'];
-
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-
-// Embossed letters never sit perfectly straight, so each gets a small, repeatable wobble.
-function tapeLetters(text) {
-  let h = 0;
-  return [...String(text)].map(ch => {
-    if (ch === ' ') return ' ';
-    h = (h * 31 + ch.charCodeAt(0) + 7) % 997;
-    const j = (h % 5) - 2;
-    return `<span style="--j:${j}">${esc(ch)}</span>`;
-  }).join('');
-}
-const tape = (text, cls = '') => `<span class="tape${cls ? ' ' + cls : ''}"><span class="tape-text" aria-hidden="true">${tapeLetters(text)}</span><span class="sr">${esc(text)}</span></span>`;
 
 const month = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 const initials = title => String(title).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
@@ -141,8 +124,41 @@ function versionScripts(dir, entry) {
   writeFileSync(file, html);
 }
 
+// Link previews (iMessage, Slack, social sites): the home page and every toy page get Open Graph tags naming their
+// share image, drawn by `npm run og`. A toy without one yet borrows the home page's. Previews need full addresses,
+// so the tags name the live site, and the image's address changes with its content so a redrawn one isn't stale.
+const SITE_URL = 'https://theboxof.toys';
+const versioned = (file, path) => `${SITE_URL}/${path}?v=${createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 10)}`;
+const HOME_IMAGE = versioned(join(SITE, 'og.png'), 'og.png');
+const shareTags = ({ title, description, path, image, alt }) => `
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Toy Box">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:url" content="${SITE_URL}/${path}">
+<meta property="og:image" content="${image}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(alt)}">
+<meta name="twitter:card" content="summary_large_image">`;
+function toyShareTags(t) {
+  const own = existsSync(join(t.dir, 'og.jpg'));
+  return shareTags({
+    title: t.title, description: t.blurb, path: encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry)),
+    image: own ? versioned(join(t.dir, 'og.jpg'), `${encodeURIComponent(t.slug)}/og.jpg`) : HOME_IMAGE,
+    alt: own ? `A screenshot of ${t.title}, with its name on a label-maker tape` : 'TOY BOX on a red label-maker tape, stuck to a pegboard',
+  });
+}
+// The tags go right after the page's <title>, or at the top of its <head>.
+function addShareTags(file, tags) {
+  const html = readFileSync(file, 'utf8'), title = html.match(/<\/title>/i), head = html.match(/<head[^>]*>/i), anchor = title || head;
+  if (!anchor) throw new Error(`${file} has no <title> or <head> for the link-preview tags`);
+  const at = anchor.index + anchor[0].length;
+  writeFileSync(file, html.slice(0, at) + tags + html.slice(at));
+}
+
 function card(t, i) {
-  const color = TAPES[t.tape] || (/^#[0-9a-f]{6}$/i.test(t.tape || '') ? t.tape : TAPES[ROTATION[i % ROTATION.length]]);
+  const color = tapeColor(t, i);
   const href = encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry));
   const shot = t.hasPreview
     ? `<div class="shot"><img src="${encodeURIComponent(t.slug)}/${encodeURI(t.preview)}" alt="Screenshot of ${esc(t.title)}" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async"></div>`
@@ -173,6 +189,7 @@ for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
   versionScripts(join(DIST, t.slug), t.entry);
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
+  addShareTags(join(DIST, t.slug, t.entry), toyShareTags(t));
   if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
@@ -183,13 +200,15 @@ const cats = Object.keys(CATEGORIES).filter(c => toys.some(t => t.category === c
 const filters = cats.length ? `<div class="filters" role="group" aria-label="Show only">${cats.map(c =>
   `<button class="pill" type="button" data-category="${c}" aria-pressed="false">${esc(CATEGORIES[c])}</button>`).join('')}</div>` : '';
 const html = readFileSync(join(SITE, 'index.html'), 'utf8')
+  .replace('<!--SHARE_TAGS-->', shareTags({ title: 'Toy Box', description: 'A pegboard of small, self-contained browser experiments.', path: '', image: HOME_IMAGE, alt: 'TOY BOX on a red label-maker tape, stuck to a pegboard' }).trim())
   .replace('<!--HEADER_TAPE-->', tape('Toy Box', 'tape--xl'))
   .replace('<!--COUNT-->', count)
   .replace('<!--FILTERS-->', filters)
   .replace('<!--TOYS-->', toys.map(card).join('') || '\n      <li class="empty">No toys yet — add a folder with a toy.json.</li>');
 writeFileSync(join(DIST, 'index.html'), html);
 
-const missing = toys.filter(t => !t.hasPreview).map(t => t.slug), unsorted = toys.filter(t => !t.category).map(t => t.slug);
+const missing = toys.filter(t => !t.hasPreview).map(t => t.slug), unshared = toys.filter(t => !existsSync(join(t.dir, 'og.jpg'))).map(t => t.slug), unsorted = toys.filter(t => !t.category).map(t => t.slug);
 console.log(`Built ${count} → dist/`);
 if (missing.length) console.log(`No preview image yet for: ${missing.join(', ')} — run \`npm run shots\`.`);
+if (unshared.length) console.log(`No share image yet for: ${unshared.join(', ')} — run \`npm run og -- ${unshared.join(' ')}\`; their links show the home page's for now.`);
 if (unsorted.length) console.log(`No category yet for: ${unsorted.join(', ')} — they only show with no filter on. Set "category" in toy.json.`);

@@ -7,8 +7,9 @@ toy-box/
 ├── cave/                 one toy per top-level folder
 │   ├── index.html        the toy itself (plus anything it loads)
 │   ├── toy.json          title, blurb, tags… this is what puts it on the home page
-│   └── preview.webp      card image, made by `npm run shots`
-├── site/                 home page template + favicon
+│   ├── preview.webp      card image, made by `npm run shots`
+│   └── og.jpg            link-preview image, made by `npm run og`
+├── site/                 home page template, favicon and the home page's link-preview image
 ├── scripts/              build, screenshot and local-server scripts (no dependencies)
 └── render.yaml           Render Blueprint
 ```
@@ -30,8 +31,9 @@ toy-box/
 
 3. Leave the top-left corner of the page clear: the build adds a small Home button there (about 50px square) that links back to the board. Existing toys start their titles 60px in, beside it.
 4. `npm run shots -- boids` captures `boids/preview.webp` with your installed Chrome. Previews are taken from the source folder, so the Home button isn't in them.
-5. `npm run dev` builds the site and serves it at http://127.0.0.1:5173.
-6. Commit the folder (including the preview image) and push. Render rebuilds on every push.
+5. `npm run og -- boids` draws `boids/og.jpg`, the picture iMessage, Slack and social sites show when someone shares the toy's link: the preview cropped to 1200×630 with the toy's name label on it.
+6. `npm run dev` builds the site and serves it at http://127.0.0.1:5173.
+7. Commit the folder (including both images) and push. Render rebuilds on every push.
 
 ### `toy.json` fields
 
@@ -48,6 +50,7 @@ toy-box/
 | `preview` | no | `preview.webp` | Card image file. If it's missing, the card shows a striped placeholder with the toy's initials |
 | `loader` | no | `false` | Shows a small loading bar while the toy starts up. For toys that take a moment (three.js from the CDN, shader compiles). The toy calls `window.toyboxReady?.()` right after it queues its first frame; see below |
 | `capture` | no | see below | How `npm run shots` takes the screenshot |
+| `share` | no | `{ "y": 50 }` | How `npm run og` crops the preview for the link-preview image: `y` is how far down the screenshot the crop sits, from `0` (the top) to `100` (the bottom) |
 
 `capture` accepts `width` and `height` (the browser viewport, default 1200×900), `wait` (milliseconds to let the toy animate before the shot, default 2500), `scale` (pixel density, default 1), `selector` (a CSS selector to crop to, such as `"canvas"`; by default the whole viewport is captured) and `query` (appended to the page URL, such as `"?demo"`, for toys that need to be doing something in the shot).
 
@@ -69,8 +72,9 @@ The `?.` keeps the toy working when it's opened straight from its folder, where 
 | `npm run build` | Writes the site to `dist/`: every toy folder (with a Home button added to its page) plus the generated home page. Stops with a clear message if a `toy.json` is invalid |
 | `npm run dev` | Builds, then serves `dist/` locally (`PORT` overrides 5173) |
 | `npm run shots` | Captures previews for toys that don't have one yet. Name toys to re-capture them (`npm run shots -- cave`), or pass `--all`. Needs Node 22+ and Chrome (set `CHROME_PATH` if Chrome isn't found) |
+| `npm run og` | Draws the link-preview images: `site/og.png` (the TOY BOX label on the pegboard) and every toy's `og.jpg`. Name toys to redraw just those (`npm run og -- cave`). Same needs as `shots` |
 
-Screenshots are taken locally and committed, so the Render build never needs a browser.
+Screenshots are taken locally and committed, so the Render build never needs a browser. The build adds Open Graph tags to the home page and every toy page, pointing at `https://theboxof.toys`; a toy without an `og.jpg` uses the home page's image.
 
 ## Deploy on Render
 

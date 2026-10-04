@@ -29,6 +29,7 @@ export function loadToys() {
     if (toy.position !== undefined && !(Number.isInteger(toy.position) && toy.position >= 1)) problems.push(`${d.name}/toy.json "position" should be a whole number from 1`);
     if (typeof toy.loader !== 'boolean') problems.push(`${d.name}/toy.json "loader" should be true or false`);
     if (toy.category !== undefined && !Object.hasOwn(CATEGORIES, toy.category)) problems.push(`${d.name}/toy.json "category" should be one of ${Object.keys(CATEGORIES).join(', ')}`);
+    if (toy.share !== undefined && !(typeof toy.share?.y === 'number' && toy.share.y >= 0 && toy.share.y <= 100)) problems.push(`${d.name}/toy.json "share" should look like { "y": 30 }, with y from 0 (top) to 100 (bottom)`);
     if (!existsSync(join(toy.dir, toy.entry))) problems.push(`${d.name}/${toy.entry} not found (set "entry" in toy.json if the page has another name)`);
     toy.hasPreview = existsSync(join(toy.dir, toy.preview));
     toys.push(toy);
