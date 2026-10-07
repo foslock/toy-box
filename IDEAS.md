@@ -6,7 +6,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 
 ### Checklist
 
-- [ ] 1. Scales
+- [x] 1. Scales — [`scales/`](scales/)
 - [x] 2. Ten of Me — [`tenofme/`](tenofme/)
 - [ ] 3. Moonshot
 - [x] 4. Please Stay on This Page — [`staypage/`](staypage/)
@@ -70,8 +70,10 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 
 ---
 
-## 1. Scales
+## 1. Scales ✅
 *Borrows: Suika Game · Twist: there's no jar, just a see-saw*
+
+**Built 2026-10-06 as [`scales/`](scales/).**
 
 A Suika-style merge game with no jar. Everything lands on a long plank balanced on a single pivot, like a see-saw. Two things of the same kind that touch merge into the next size up, and bigger things are heavier. The plank tilts with weight and position (a small thing far out on the end outweighs a big one near the middle), round things roll when it tilts, and anything that falls off ends the game. That makes every drop a merge decision and a balance decision at once.
 
