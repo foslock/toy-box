@@ -11,7 +11,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 3. Moonshot
 - [x] 4. Please Stay on This Page — [`staypage/`](staypage/)
 - [ ] 5. Grip
-- [ ] 6. Horde
+- [x] 6. Horde — [`horde/`](horde/)
 - [ ] 7. Lost Property
 - [ ] 8. Gumball Landlord
 - [ ] 9. Mirror Knight
@@ -111,8 +111,10 @@ A climbing rage game made for phones first: each of your two thumbs is one of a 
 
 One hand-authored route up a sea cliff, then a lighthouse, then a radio mast in a storm, with holds that teach things: a jug, a crimp that tires you faster, a hold that crumbles, a swinging rope, a gap you have to lunge across. Grip strength drains while you hang on one hand and recovers on two. A dry, calm narrator (on-screen text) comments on your falls now and then. Keep the art bold and simple, one chalky climber silhouette against big skies, and make the falls feel awful and funny at once. Save the highest point reached.
 
-## 6. Horde
+## 6. Horde ✅
 *Borrows: Vampire Survivors · Twist: you are the horde*
+
+**Built 2026-10-07 as [`horde/`](horde/).**
 
 A reverse Vampire Survivors. A single hero stands in a field auto-attacking with a growing arsenal of whips, orbiting books, garlic auras and lightning, and you are the horde. You spend a trickle of essence to spawn monsters at the edges of the screen and steer them with a rally flag. Every monster that touches the hero chips its health; every monster the hero kills gives it XP, which it spends on upgrades (the familiar level-up cards, picked by the hero itself). Kill the hero before it maxes out and becomes unstoppable.
 

@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Horde: sprites</title>
+<style>body{margin:0;background:#1a1a22;color:#ccc;font:12px monospace} canvas{image-rendering:pixelated;display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// Every sprite in the atlas, zoomed, on a lamplit strip and a moonlit one: for working on the art.
+//   sheet.html?z=6&only=mob,hero,prop,kit
+import { bakeAll, toCanvas, moonOf } from './art.js';
+const Q = new URLSearchParams(location.search), Z = +(Q.get('z') || 6), S = bakeAll();
+const c = document.getElementById('c'), x = c.getContext('2d');
+c.width = innerWidth; c.height = innerHeight; x.imageSmoothingEnabled = false;
+x.fillStyle = '#334324'; x.fillRect(0, 0, c.width, c.height);
+const moonImg = img => ({ w: img.w, h: img.h, d: img.d.map((v, i) => { if (i % 4 === 3 || img.d[i - (i % 4) + 3] === 250) return v; const p = i - (i % 4), m = moonOf([img.d[p], img.d[p + 1], img.d[p + 2]]); return m[i % 4]; }) });
+let px = 6, py = 6, rowH = 0;
+const put = (img, label, bg) => {
+  const cv = toCanvas(img, Z), w = cv.width, h = cv.height;
+  if (px + w > c.width - 6) { px = 6; py += rowH + 16; rowH = 0; }
+  if (bg) { x.fillStyle = bg; x.fillRect(px - 2, py - 2, w + 4, h + 4); }
+  x.drawImage(cv, px, py); x.fillStyle = '#ddd'; x.fillText(label, px, py + h + 11);
+  px += w + 10; rowH = Math.max(rowH, h);
+};
+const only = (Q.get('only') || 'mob,hero').split(',');
+for (const [k, img] of Object.entries(S.img)) {
+  const grp = k.startsWith('hero_') ? 'hero' : k.startsWith('prop_') ? 'prop' : k.startsWith('kit_') ? 'kit' : 'mob';
+  if (!only.includes(grp)) continue;
+  put(img, k); put(moonImg(img), 'moon', '#191c31');
+}
+if (only.includes('icon')) for (const [k, img] of Object.entries(S.icon)) put(img, k, '#eadfc4');
+</script></body></html>

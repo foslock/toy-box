@@ -1,0 +1,10 @@
+{
+  "title": "Horde",
+  "blurb": "A reverse Vampire Survivors. A hero stands in a field at night with a lantern and a growing arsenal, and you are everything out in the dark: raise imps, brutes and worse at the edges, mass them at a flag where its light can't reach, and send them all in at once. It picks its own upgrades from the gems your dead leave behind. Six nights, six heroes, and dawn is coming.",
+  "added": "2026-10-07",
+  "category": "games",
+  "tags": ["pixel art", "webgl", "horde", "game"],
+  "tape": "purple",
+  "capture": { "width": 1200, "height": 900, "wait": 2600, "query": "?demo" },
+  "share": { "y": 50 }
+}
