@@ -24,6 +24,7 @@
     --shadow: 0 1px 1px rgba(20, 24, 33, .06), 0 10px 24px -12px rgba(20, 24, 33, .3);
     --shadow-lift: 0 2px 2px rgba(20, 24, 33, .06), 0 22px 38px -14px rgba(20, 24, 33, .4);
     --focus: #2a4d9b;
+    --drop: rgba(20, 24, 33, .32);
     --mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
@@ -39,6 +40,7 @@
       --shadow: 0 1px 1px rgba(0, 0, 0, .3), 0 10px 24px -12px rgba(0, 0, 0, .7);
       --shadow-lift: 0 2px 2px rgba(0, 0, 0, .3), 0 22px 38px -14px rgba(0, 0, 0, .8);
       --focus: #8fb0ff;
+      --drop: rgba(0, 0, 0, .72);
     }
     .toy::after { background: radial-gradient(circle at 36% 32%, #e3e6ec 0 12%, #8a91a0 42%, #464c57 82%, #2c3038 100%); }
   }
@@ -155,7 +157,7 @@
   .modal .pill { display: block; margin-left: auto; }
 
   /* ---- the board ---- */
-  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(22px, 3vw, 34px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .board { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(18px, 2.4vw, 26px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); }
   /* Each card is pinned to the board through the strip above its picture, into one of the board's holes near its top
      middle. The pin stays put; the card swings, and grows on hover, around it. The page's script lines the rows up with
      the holes and sets --peg-x/--peg-y; until then the pin sits in the middle of the strip. */
@@ -166,26 +168,40 @@
     box-shadow: 0 0 0 .5px rgba(0, 0, 0, .25), 0 1px 1px rgba(0, 0, 0, .3), 2px 3px 4px rgba(0, 0, 0, .22);
   }
   .toy a {
-    display: flex; flex-direction: column; height: 100%;
+    position: relative; display: flex; flex-direction: column; height: 100%;
     color: inherit; text-decoration: none;
     background: var(--card); border-radius: 8px;
     box-shadow: 0 0 0 1px var(--card-edge), var(--shadow);
-    transition: transform .25s ease, box-shadow .25s ease;
+    transform-origin: var(--peg-x) var(--peg-y); transition: scale .25s ease, box-shadow .25s ease;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
-  .toy a { position: relative; transform-origin: var(--peg-x) var(--peg-y); transition: scale .25s ease, box-shadow .25s ease; }
   .toy a:hover { scale: 1.015; box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift); }
   .toy a:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
-  .shot { aspect-ratio: 4 / 3; margin: 26px 10px 0; border-radius: 4px; overflow: hidden; background: #0b0c10; }
+  .shot { aspect-ratio: 4 / 3; margin: 26px 8px 0; border-radius: 4px; overflow: hidden; background: #0b0c10; }
   .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
   .toy a:hover .shot img { transform: scale(1.03); }
   .shot--blank { display: grid; place-items: center; background: repeating-linear-gradient(-45deg, var(--tape), var(--tape) 12px, color-mix(in srgb, var(--tape) 82%, #000) 12px 24px); }
   .shot--blank span { font: 800 64px/1 var(--mono); color: rgba(255, 255, 255, .85); letter-spacing: .06em; }
-  .card-body { position: relative; flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 0 18px 18px; }
-  .card-body h2 { margin: -15px 0 0 -4px; font-size: inherit; }
+  .card-body { position: relative; flex: 1; display: flex; flex-direction: column; gap: 9px; padding: 0 14px 14px; }
+  .card-body h2 { margin: -14px 0 0 -4px; font-size: inherit; }
+  .card-body .tape { font-size: 12px; }
+  /* a long title's label shrinks to fit across its card (each letter is about .8em of tape) */
+  @supports (font-size: 1cqi) {
+    .card-body { container-type: inline-size; }
+    .card-body .tape { font-size: clamp(9px, 100cqi / (var(--letters, 12) * .8 + 2), 12px); }
+  }
   .toy a:hover .tape { transform: rotate(-2.4deg); }
-  .blurb { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); text-wrap: pretty; }
-  .meta { margin: auto 0 0; padding-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 500 11px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .blurb { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+  .meta { margin: auto 0 0; padding-top: 2px; display: flex; flex-wrap: wrap; gap: 3px 12px; font: 500 10px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
   .empty { color: var(--ink-3); }
+  /* A card in hand, pulled off its peg: the page's script poses it, and --lift runs from 0 (on the board) to 1 (about
+     to pop off). It rides above its neighbours, under its peg until it's clear of it, then over it. */
+  .toy.lifted { z-index: 3; }
+  .toy a.held { --lift: 0; scale: none; transition: none; box-shadow: 0 0 0 1px var(--card-edge), 0 1px 1px rgba(0, 0, 0, .06), 0 calc(10px + 30px * var(--lift)) calc(24px + 34px * var(--lift)) -12px var(--drop); }
+  .toy.popped a { z-index: 3; }
+  .pulling, .pulling * { cursor: grabbing !important; }
+  .pop { position: absolute; z-index: 4; width: 0; height: 0; pointer-events: none; }
+  .pop i { position: absolute; left: 0; top: -1px; width: 8px; height: 2px; border-radius: 1px; background: var(--ink-2); transform-origin: 0 50%; opacity: 0; }
 
   /* ---- footer ---- */
   .foot { margin-top: clamp(48px, 7vw, 72px); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font: 500 11px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
@@ -375,6 +391,180 @@
           .observe(document.querySelector('.bar'));
         document.fonts && document.fonts.ready.then(hang);
         narrow.addEventListener('change', show);
+      })();
+      // Grab a card and pull it, any direction: it swings on its peg and comes away from the board, more the farther
+      // you drag, and at the end of its give it pops off and the page goes to that toy. Let go sooner and it springs
+      // back onto its peg. A mouse grabs on the first few pixels of a drag, so a plain click still just opens the toy;
+      // a finger holds still for a moment first, so a swipe still scrolls the page.
+      (() => {
+        const board = document.querySelector('.board'), still = matchMedia('(prefers-reduced-motion: reduce)');
+        if (!board || !document.body.animate) return;
+        const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+        const css = q => `perspective(900px) translate(${q.tx}px, ${q.ty}px) rotateX(${q.rx}deg) rotateY(${q.ry}deg) rotate(${q.rz}deg) scale(${q.s})`;
+        const pegOf = li => { const r = li.getBoundingClientRect(), p = getComputedStyle(li, '::after'); return { x: parseFloat(p.left) + 6, y: parseFloat(p.top) + 6, r }; };
+        const moving = new Set();   // cards off the board: in hand, or springing back
+        let hand = null, eat = false, leaving = false, raf = 0, last = 0;
+
+        // The card's pose with the hand (vx, vy) from where it took hold, `lift` (0..1) off the board.
+        function pose(m, vx, vy, lift, t) {
+          const d = Math.hypot(vx, vy), ux = d ? vx / d : 0, uy = d ? vy / d : 0;
+          // It swings round the peg toward the hand, giving a little under half as far as the hand goes,
+          const wx = m.gx + vx * .45, wy = m.gy + vy * .45;
+          const swing = clamp(Math.atan2(m.gx * wy - m.gy * wx, m.gx * wx + m.gy * wy) * 180 / Math.PI, -26, 26);
+          // slides a few pixels along it, tips its free end out toward you,
+          const slide = 12 * (1 - Math.exp(-d / 50));
+          // and strains near the end of its give.
+          const shake = m.held ? clamp((d / m.reach - .72) / .28, 0, 1) ** 2 : 0;
+          return {
+            tx: ux * slide + shake * 1.3 * Math.sin(t * .083), ty: uy * slide + shake * 1.3 * Math.cos(t * .121),
+            rx: 11 * lift * (.55 + .45 * uy), ry: -7 * lift * ux, rz: swing + shake * .6 * Math.sin(t * .07), s: 1 + .06 * lift,
+          };
+        }
+        function tick(t) {
+          const dt = Math.min(.034, last ? (t - last) / 1000 : .016) / 4;
+          last = t;
+          for (const m of moving) {
+            for (let i = 0; i < 4; i++) {
+              if (!m.held) {   // let go: the hand's pull springs back to nothing, overshooting a little, so the card swings past and settles
+                m.wx += (-240 * m.vx - 15 * m.wx) * dt; m.wy += (-240 * m.vy - 15 * m.wy) * dt;
+                m.vx += m.wx * dt; m.vy += m.wy * dt;
+              }
+              // the lift chases the pull without overshooting; a card in hand is always a little off the board
+              const goal = m.held ? Math.max(.1, Math.hypot(m.vx, m.vy) / m.reach) : 0, k = m.held ? 600 : 220;
+              m.lv += (k * (goal - m.lift) - 2 * Math.sqrt(k) * m.lv) * dt; m.lift += m.lv * dt;
+            }
+            if (!m.held && Math.hypot(m.vx, m.vy) < .3 && Math.hypot(m.wx, m.wy) < 5 && Math.abs(m.lift) < .004) { settle(m); continue; }
+            m.a.style.transform = css(pose(m, m.vx, m.vy, m.lift, t));
+            m.a.style.setProperty('--lift', Math.max(0, m.lift).toFixed(3));
+          }
+          raf = moving.size ? requestAnimationFrame(tick) : (last = 0);
+        }
+        function grab(a, x, y) {
+          let m = [...moving].find(m => m.a === a);
+          if (!m) {
+            const li = a.parentElement, { x: px, y: py, r } = pegOf(li);
+            // where the hand took hold, from the peg (held right by the peg, it swings as if held a little lower)
+            let gx = x - r.left - px, gy = y - r.top - py;
+            const n = Math.hypot(gx, gy);
+            if (n < 80) [gx, gy] = n < 1 ? [0, 80] : [gx * 80 / n, gy * 80 / n];
+            m = { a, li, gx, gy, reach: clamp(r.width * .5, 100, 140), vx: 0, vy: 0, wx: 0, wy: 0, lift: 0, lv: 0 };
+            a._sway?.cancel();
+            a.classList.add('held'); li.classList.add('lifted');
+            moving.add(m);
+          }
+          m.held = true; m.x0 = x - m.vx; m.y0 = y - m.vy;   // taking hold of a card mid-spring carries on from where it is
+          if (!raf) raf = requestAnimationFrame(tick);
+          return m;
+        }
+        function pull(m, x, y) {
+          m.vx = x - m.x0; m.vy = y - m.y0;
+          if (Math.hypot(m.vx, m.vy) >= m.reach) pop(m);
+        }
+        function settle(m) {
+          moving.delete(m);
+          m.a.classList.remove('held'); m.a.style.transform = ''; m.a.style.removeProperty('--lift');
+          m.li.classList.remove('lifted');
+        }
+        // Off the peg: it jumps free, tumbles away the way it was pulled and falls, the peg rocks, and the toy opens.
+        function pop(m) {
+          const { a, li } = m, q = pose(m, m.vx, m.vy, m.lift, performance.now());
+          const d = Math.hypot(m.vx, m.vy) || 1, ux = m.vx / d, uy = m.vy / d, turn = Math.sign(q.rz) || Math.sign(ux) || 1;
+          moving.delete(m); m.held = false; leaving = true;
+          li.classList.add('popped');
+          const free = { ...q, tx: q.tx + ux * 34, ty: q.ty + uy * 34 - 12, rx: q.rx * .4, ry: q.ry * .4, rz: q.rz + turn * 6, s: q.s * 1.1 };
+          const gone = { tx: q.tx + ux * 240, ty: q.ty + uy * 160 + 320, rx: -14, ry: q.ry * .3, rz: q.rz + turn * 48, s: q.s * 1.16 };
+          a.animate([
+            { transform: css(q), easing: 'cubic-bezier(.15, .8, .3, 1)' },
+            { transform: css(free), offset: .2, easing: 'cubic-bezier(.45, 0, .85, .45)' },
+            { transform: css(gone) },
+          ], { duration: 620, fill: 'forwards' });
+          a.animate([{ opacity: 1 }, { opacity: 1, offset: .45 }, { opacity: 0 }], { duration: 620, fill: 'forwards' });
+          const { x, y } = pegOf(li), burst = document.createElement('span');
+          burst.className = 'pop'; burst.style.left = `${x}px`; burst.style.top = `${y}px`;
+          for (let i = 0; i < 7; i++) {
+            const ray = burst.appendChild(document.createElement('i'));
+            ray.style.rotate = `${i * 360 / 7 + 10}deg`;
+            ray.animate([
+              { transform: 'translateX(7px) scaleX(.2)', opacity: 1 },
+              { transform: 'translateX(17px) scaleX(1)', opacity: .9, offset: .45 },
+              { transform: 'translateX(25px) scaleX(.2)', opacity: 0 },
+            ], { duration: 380, easing: 'cubic-bezier(.2, .7, .3, 1)', fill: 'forwards' });
+          }
+          li.append(burst);
+          try {
+            li.animate([{ translate: '0 0' }, { translate: `${ux * 3}px ${uy * 3}px` }, { translate: `${-ux * 1.5}px ${-uy * 1.5}px` }, { translate: '0 0' }],
+              { duration: 360, pseudoElement: '::after' });
+          } catch {}
+          navigator.vibrate?.(12);
+          setTimeout(() => location.assign(a.href), 440);
+        }
+        // The hand lets go: a card still on its peg springs back.
+        function drop() {
+          if (!hand) return;
+          clearTimeout(hand.timer);
+          if (hand.m) { hand.m.held = false; eat = true; setTimeout(() => { eat = false; }, hand.touch ? 400 : 0); }
+          document.documentElement.classList.remove('pulling');
+          hand = null;
+        }
+
+        // Mouse and pen: press, and the first few pixels of a drag take hold.
+        board.addEventListener('pointerdown', e => {
+          if (hand && !hand.touch) drop();   // a mouse has one press at a time; a release we never heard of ended the last one
+          eat = false;
+          const a = e.target.closest('.toy > a');
+          if (!a || hand || leaving || e.pointerType === 'touch' || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || still.matches) return;
+          hand = { a, id: e.pointerId, x: e.clientX, y: e.clientY };
+        });
+        addEventListener('pointermove', e => {
+          if (!hand || hand.touch || e.pointerId !== hand.id) return;
+          if (!hand.m) {
+            if (Math.hypot(e.clientX - hand.x, e.clientY - hand.y) < 5) return;
+            hand.m = grab(hand.a, hand.x, hand.y);
+            try { hand.a.setPointerCapture(e.pointerId); } catch {}
+            document.documentElement.classList.add('pulling');
+          }
+          if (hand.m.held) pull(hand.m, e.clientX, e.clientY);
+        });
+        for (const type of ['pointerup', 'pointercancel']) addEventListener(type, e => { if (hand && !hand.touch && e.pointerId === hand.id) drop(); });
+        // Touch: hold still for a moment to take hold; moving sooner is a scroll, and the page gets it.
+        board.addEventListener('touchstart', e => {
+          if (hand) { if (hand.touch) drop(); return; }   // a second finger lets go
+          const a = e.target.closest('.toy > a'), t = e.changedTouches[0];
+          if (!a || leaving || still.matches || e.touches.length > 1) return;
+          hand = { a, touch: true, id: t.identifier, x: t.clientX, y: t.clientY };
+          hand.timer = setTimeout(() => { hand.m = grab(a, hand.x, hand.y); navigator.vibrate?.(8); }, 260);
+        }, { passive: true });
+        board.addEventListener('touchmove', e => {
+          const t = hand?.touch && [...e.changedTouches].find(t => t.identifier === hand.id);
+          if (!t) return;
+          if (!hand.m) { if (Math.hypot(t.clientX - hand.x, t.clientY - hand.y) > 10) drop(); return; }
+          e.preventDefault();
+          if (hand.m.held) pull(hand.m, t.clientX, t.clientY);
+        }, { passive: false });
+        for (const type of ['touchend', 'touchcancel']) board.addEventListener(type, e => {
+          if (!hand?.touch || ![...e.changedTouches].some(t => t.identifier === hand.id)) return;
+          if (hand.m && e.cancelable) e.preventDefault();   // no click after a pull
+          drop();
+        });
+        // A pull isn't a click, and a card isn't a link to drag elsewhere; a long press doesn't open the link menu.
+        board.addEventListener('click', e => { if (eat || leaving) { e.preventDefault(); eat = false; } }, true);
+        board.addEventListener('dragstart', e => { if (!still.matches && e.target.closest?.('.toy')) e.preventDefault(); });
+        board.addEventListener('contextmenu', e => { if (hand?.touch) e.preventDefault(); });
+        addEventListener('blur', drop);
+        // Coming Back to the page from the toy it may still be held in memory as it was left, card mid-flight: hang the
+        // card back on its peg, swinging.
+        addEventListener('pageshow', e => {
+          if (!e.persisted) return;
+          drop(); eat = leaving = false;   // the hand that pulled it let go on the toy's page
+          for (const li of board.querySelectorAll('.toy.popped')) {
+            const a = li.firstElementChild;
+            li.classList.remove('popped', 'lifted');
+            li.querySelectorAll('.pop').forEach(b => b.remove());
+            a.getAnimations().forEach(x => x.cancel());
+            a.classList.remove('held'); a.style.transform = ''; a.style.removeProperty('--lift');
+            if (!still.matches) a.animate([5, -3.4, 2.2, -1.3, .6, 0].map(r => ({ rotate: `${r}deg` })), { duration: 1500, easing: 'ease-out' });
+          }
+        });
       })();
     </script>
     <footer class="foot">

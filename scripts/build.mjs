@@ -165,7 +165,7 @@ function card(t, i) {
     : `<div class="shot shot--blank" aria-hidden="true"><span>${esc(initials(t.title))}</span></div>`;
   const meta = [t.added ? `<time datetime="${esc(t.added)}">${month(t.added)}</time>` : '', ...t.tags.map(x => `<span>${esc(x)}</span>`)].filter(Boolean).join('');
   return `
-      <li class="toy"${t.category ? ` data-category="${t.category}"` : ''} data-search="${esc([t.title, ...t.tags].join(' ').toLowerCase())}" style="--tape:${color}">
+      <li class="toy"${t.category ? ` data-category="${t.category}"` : ''} data-search="${esc([t.title, ...t.tags].join(' ').toLowerCase())}" style="--tape:${color};--letters:${[...String(t.title)].length}">
         <a href="${href}">
           ${shot}
           <div class="card-body">
@@ -207,8 +207,11 @@ const html = readFileSync(join(SITE, 'index.html'), 'utf8')
   .replace('<!--TOYS-->', toys.map(card).join('') || '\n      <li class="empty">No toys yet — add a folder with a toy.json.</li>');
 writeFileSync(join(DIST, 'index.html'), html);
 
+// A full stop, question or exclamation mark followed by more words means a second sentence.
+const wordy = toys.filter(t => /[.!?]["')\]]*\s+\S/.test(String(t.blurb).trim())).map(t => t.slug);
 const missing = toys.filter(t => !t.hasPreview).map(t => t.slug), unshared = toys.filter(t => !existsSync(join(t.dir, 'og.jpg'))).map(t => t.slug), unsorted = toys.filter(t => !t.category).map(t => t.slug);
 console.log(`Built ${count} → dist/`);
 if (missing.length) console.log(`No preview image yet for: ${missing.join(', ')} — run \`npm run shots\`.`);
 if (unshared.length) console.log(`No share image yet for: ${unshared.join(', ')} — run \`npm run og -- ${unshared.join(' ')}\`; their links show the home page's for now.`);
+if (wordy.length) console.log(`Blurb runs past one sentence for: ${wordy.join(', ')} — the cards are small; keep each to one.`);
 if (unsorted.length) console.log(`No category yet for: ${unsorted.join(', ')} — they only show with no filter on. Set "category" in toy.json.`);

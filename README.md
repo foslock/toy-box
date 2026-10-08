@@ -22,7 +22,7 @@ toy-box/
    ```json
    {
      "title": "Boids",
-     "blurb": "One or two sentences on what it is and what to watch for.",
+     "blurb": "One sentence on what it is and what to watch for.",
      "added": "2026-10-02",
      "tags": ["canvas", "simulation"],
      "tape": "blue"
@@ -40,7 +40,7 @@ toy-box/
 | Field | Required | Default | What it does |
 |---|---|---|---|
 | `title` | yes | | Name on the card's label |
-| `blurb` | yes | | Short description under the label |
+| `blurb` | yes | | One sentence under the label. The cards are small, four to a row, so keep it to about 25 words |
 | `added` | no | | `YYYY-MM-DD`. Cards are sorted newest first |
 | `position` | no | | Pins the card to that spot on the board (`1` is the first card) instead of sorting it by date |
 | `category` | no | | Which filter pill above the board shows it: `games` or `ambient`. A toy without one only shows when no filter is on |

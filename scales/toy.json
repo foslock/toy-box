@@ -1,6 +1,6 @@
 {
   "title": "Scales",
-  "blurb": "A merge game with no jar: crab apples, squash and pumpkins all land on one long plank balanced on a hay bale. Two the same make the next size up, bigger is heavier, and anything that rolls off the end closes the market. Then the gusts start, a crow drops in, and the stallholder saws the plank shorter.",
+  "blurb": "A merge game on a plank balanced on a hay bale, where two the same make the next size up and anything that rolls off closes the market.",
   "added": "2026-10-06",
   "category": "games",
   "tags": ["canvas", "physics", "merge", "game"],
