@@ -27,7 +27,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 19. Ladder — [`ladder/`](ladder/)
 - [ ] 20. Chat Dungeon
 - [ ] 21. Moving Day
-- [ ] 22. Poker Squares
+- [x] 22. Poker Squares — [`fivebyfive/`](fivebyfive/)
 - [ ] 23. High Tide
 - [ ] 24. Try Finger
 - [ ] 25. Floodplain
@@ -225,8 +225,10 @@ A first-person forced-perspective puzzle game set on moving day. You have to get
 
 Six or seven spaces (the bedroom, the kitchen, the stairwell, the street, and the van itself, which is a puzzle about fitting everything in), then a closing scene in the new place. Warm and a little dreamlike, with the apartment getting stranger as you go. Style: soft, realistic lighting and cosy clutter in three.js, first person with no body, just the thing you're carrying. Pointer lock and click to grab on desktop; drag to look and a grab button on phones.
 
-## 22. Poker Squares
+## 22. Poker Squares ✅
 *Borrows: Balatro · Twist: poker hands on a 5×5 grid, where every row, column and diagonal scores at once*
+
+**Built 2026-10-08 as [`fivebyfive/`](fivebyfive/) (Five by Five).**
 
 A Balatro-style roguelite built on Poker Squares, the old solitaire. You place cards one at a time anywhere on a 5×5 grid. When the grid is full, every row, column and both diagonals score as poker hands at once (a pair, a flush, a full house…), so one card can be part of four hands. Each round has a target score like Balatro's blinds, and between rounds you shop for jokers that bend the rules (diagonals score double, face cards are wild in columns, straights can wrap around), card enhancements, and board modifications: a square that multiplies, a square you can't use, a square that keeps its card into the next round.
 

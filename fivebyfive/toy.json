@@ -1,0 +1,10 @@
+{
+  "title": "Five by Five",
+  "blurb": "Poker on a five-by-five grid where every row, column and diagonal pays as a hand, and the regulars at the bar bend the rules.",
+  "added": "2026-10-08",
+  "category": "games",
+  "tags": ["cards", "roguelite", "puzzle", "game"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 2600, "query": "?demo" },
+  "share": { "y": 10 }
+}
