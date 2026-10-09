@@ -43,10 +43,21 @@ export class Run {
     this.routeSeen = new Set();
     this.routesTaken = [];
     this.routeDist = {};
-    // which kinds of thing are on this mountain, smallest first, for "big enough for…" calls
-    const kinds = {};
-    for (const it of C.items) if (!it.deco && it.need > C.def.start * 1.05) kinds[it.key] = Math.min(kinds[it.key] ?? 1e9, it.need);
-    this.unlocks = Object.entries(kinds).filter(([k]) => C.items.filter(i => i.key === k && !i.deco).length >= 3).sort((a, b) => a[1] - b[1]);
+    // Every kind of thing on this mountain, smallest first, for the "big enough for…" calls and the "next" line:
+    // [key, the size you need, whether it's an outsize one]. That includes the buildings along the streets and the
+    // one-off landmarks; a kind that also comes outsize (the giant snowman) gets a second entry for the big one.
+    const lo = {}, hi = {};
+    for (const it of C.items) {
+      if (it.pass || it.scenery || it.need <= C.def.start * 1.05) continue;
+      lo[it.key] = Math.min(lo[it.key] ?? 1e9, it.need);
+      hi[it.key] = Math.max(hi[it.key] ?? 0, it.need);
+    }
+    this.unlocks = [];
+    for (const k in lo) {
+      this.unlocks.push([k, lo[k], false]);
+      if (hi[k] > lo[k] * 1.3) this.unlocks.push([k, hi[k], true]);
+    }
+    this.unlocks.sort((a, b) => a[1] - b[1]);
     this.slowmo = 0;
     this.snowGain = 0;
   }
@@ -199,8 +210,8 @@ export class Run {
     this.events.push({ t: 'eat', it, dir, frac, combo: this.combo, r: b.r });
     // big enough for something new?
     while (this.unlocks.length && this.unlocks[0][1] <= b.r * 2) {
-      const [key] = this.unlocks.shift();
-      this.events.push({ t: 'unlock', key });
+      const [key, , big] = this.unlocks.shift();
+      this.events.push({ t: 'unlock', key, big });
     }
   }
 

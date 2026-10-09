@@ -244,13 +244,13 @@ class BallView {
     const key = it.key, info = ITEMS[key];
     let s = this.stuck.get(key);
     if (!s) {
-      const mesh = this.view.makeInstanced(key, 96);
+      const mesh = this.view.makeInstanced(key, 240);
       mesh.castShadow = true;
       this.spin.add(mesh);
       s = { mesh, recs: [] };
       this.stuck.set(key, s);
     }
-    if (s.recs.length >= 96) this.drop(s.recs[0]);
+    if (s.recs.length >= 240) this.drop(s.recs[0]);
     // where it hit, in the ball's own frame
     this.spin.updateWorldMatrix(true, false);
     const inv = _q.copy(this.spin.getWorldQuaternion(_q2)).invert();

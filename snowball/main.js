@@ -569,7 +569,7 @@ function events(t) {
       case 'unlock': {
         const info = ITEMS[e.key];
         if (DEMO) break;
-        if (t - lastBanner > 5 || info.need > 1.6 * MOUNTAINS[mi].start * 4) { banner('Big enough for', info.plural); sound.fanfare(1); lastBanner = t; }
+        if (t - lastBanner > 5 || info.need > 1.6 * MOUNTAINS[mi].start * 4 || e.big) { banner('Big enough for', e.big ? 'the big ' + info.name : info.plural); sound.fanfare(1); lastBanner = t; }
         else sound.say('jingle', 0.5);
         nextUp();
         if (BUILDINGS.has(e.key)) remark('unlockhouse', `Patrol to all units: it’s big enough to eat ${info.plural} now.`);
@@ -592,7 +592,7 @@ const BUILDINGS = new Set(['cabin', 'chalet', 'house', 'shop', 'church', 'clockt
 // under the ruler: the next kind of thing you'll be big enough for
 function nextUp() {
   const n = run.unlocks[0];
-  $('next').innerHTML = n ? `Next: <b>${ITEMS[n[0]].plural}</b> at ${sizeWords(n[1])}` : 'You can take <b>anything</b>';
+  $('next').innerHTML = n ? `Next: <b>${n[2] ? 'the big ' + ITEMS[n[0]].name : ITEMS[n[0]].plural}</b> at ${sizeWords(n[1])}` : 'You can take <b>anything</b> here';
 }
 
 // snow kicked up as it rolls: more when fast, sideways when turning; a groove left behind
@@ -645,20 +645,21 @@ function finaleTick(dt, t) {
   if (!fin.vac && (fin.stopped || fin.t > 9)) {
     // gather the town: everything small enough, nearest first, flying in one after another
     const dia = fin.diaAtFinish;
-    const list = [...run.statics, ...run.movers].filter(it => !it.eaten && it.town && (!it.deco || it.need > 6) && it.need <= dia);
+    const list = [...run.statics, ...run.movers].filter(it => !it.eaten && it.town && it.need <= dia);
     list.sort((a, c) => Math.hypot(a.x - b.x, a.d - b.d) - Math.hypot(c.x - b.x, c.d - b.d));
-    const cap = Math.min(list.length, 160);
-    fin.vac = list.slice(0, cap);
-    fin.extra = list.length - cap;
+    // all of it, nearest first, the whole lot arriving within about three and a half seconds
+    const cap = list.length, gap = Math.min(0.05, 3.2 / Math.max(1, cap));
+    fin.vac = list;
+    fin.extra = 0;
     fin.vac.forEach((it, k) => {
       it.eaten = true;
       const dist = Math.hypot(it.x - b.x, it.d - b.d);
       const rel = [it.x - b.x, it.y + it.h * 0.4 - b.y, it.d - b.d], L = Math.hypot(...rel) || 1;
-      view.ball.attach(it, rel.map(v => v / L), t + 0.3 + k * Math.min(0.05, 3 / cap), 0.5 + Math.min(1.4, dist / 120), false);
+      view.ball.attach(it, rel.map(v => v / L), t + 0.3 + k * gap, 0.5 + Math.min(1.4, dist / 120), false);
       found[it.key] = (found[it.key] || 0) + 1;
     });
     run.townEaten += list.length;
-    fin.vacT = 0; fin.vacEnd = 0.3 + cap * Math.min(0.05, 3 / cap) + 1.9;
+    fin.vacT = 0; fin.vacEnd = 0.3 + cap * gap + 1.9;
     if (list.length) { banner('Taking the town', `${list.length} things`); sound.say('crash'); }
   }
   if (fin.vac) {
@@ -683,7 +684,7 @@ function showReport() {
   const m = MOUNTAINS[mi], dia = fin.diaAtFinish, medal = run.medal();
   // how much of the town came too, weighted by size: the houses count for more than the bins
   let tw = 0, te = 0;
-  for (const it of C.items) if (it.town && (!it.deco || it.need > 6)) { const w = it.need; tw += w; if (it.eaten) te += w; }
+  for (const it of C.items) if (it.town) { const w = it.need; tw += w; if (it.eaten) te += w; }
   const town = te / Math.max(1e-6, tw);
   const prev = save.best[m.id];
   const isBest = !prev || dia > prev.dia;

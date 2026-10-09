@@ -470,7 +470,7 @@ function placeItems(C) {
       id: items.length, key, x, d, y, yaw, scale, cr, need: it.need * scale, h: it.h * scale,
       tint: it.tint ? pick(PALETTES[it.tint]) : null, phase: R() * 100,
       move: o.still ? null : it.move || null, follow: !!o.follow, pass: !!it.pass,
-      town: C.def.town && d >= C.def.town.from, deco: !!o.deco,
+      town: C.def.town && d >= C.def.town.from && !o.scenery, deco: !!o.deco, scenery: !!o.scenery,
     };
     items.push(obj);
     const b = Math.floor(d / 10);
@@ -578,15 +578,15 @@ function placeItems(C) {
   for (let d = C.d0 + 20; d < C.d0 + C.nd * CELL - 20; d += 9) {
     for (const side of [-1, 1]) {
       const x = side > 0 ? C.x0 + C.nx * CELL - 30 - R() * 50 : C.x0 + 30 + R() * 50;
-      if (R() < 0.75) add(R() < 0.3 ? 'pine_tall' : 'pine', x, d, R() * 6.28, { deco: true });
+      if (R() < 0.75) add(R() < 0.3 ? 'pine_tall' : 'pine', x, d, R() * 6.28, { deco: true, scenery: true });
     }
   }
   // woods on the far side of the valley, beyond the town
   for (let k = 0; k < (C.nx * CELL) * 0.6; k++) {
     const d = def.len + 140 + R() * 520, x = C.x0 + 20 + R() * (C.nx * CELL - 40);
-    if (R() < 0.6) add(R() < 0.25 ? 'pine_tall' : R() < 0.5 ? 'pine_s' : 'pine', x, d, R() * 6.28, { deco: true });
+    if (R() < 0.6) add(R() < 0.25 ? 'pine_tall' : R() < 0.5 ? 'pine_s' : 'pine', x, d, R() * 6.28, { deco: true, scenery: true });
   }
   items.sort((a, b) => a.d - b.d);
   items.forEach((o, i) => { o.id = i; });
-  C.townTotal = items.filter(o => o.town && !o.deco).length + items.filter(o => o.town && o.deco && o.need > 6).length;
+  C.townTotal = items.filter(o => o.town).length;
 }
