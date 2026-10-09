@@ -57,6 +57,8 @@ function loadMountain(i) {
 function showTitle() {
   mode = 'title';
   loadMountain(0);
+  // a run starts with a little roll downhill; on the title the ball waits, quite still, for its push
+  run.ball.vx = run.ball.vy = run.ball.vd = 0;
   $('title').hidden = false; $('map').hidden = true; $('hud').hidden = true; $('report').hidden = true;
   radio(null);
 }
