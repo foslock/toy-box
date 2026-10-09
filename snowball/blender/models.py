@@ -471,7 +471,7 @@ def _(m):
     m.cyl(BARK, (0, 0, 0), (0, 0, 0.12), 0.025, seg=6)
     for i, (z, r, h) in enumerate(((0.08, 0.2, 0.25), (0.22, 0.14, 0.22), (0.34, 0.08, 0.18))):
         m.cone(PINE2 if i % 2 else PINE, (0, 0, z), (0, 0, z + h), r, seg=7, smooth=False, wig=grad((0, 0, 0), 0.6, 0.3))
-        m.cyl(SNOW, (0, 0, z + h * 0.5), (0, 0, z + h + 0.01), r * 0.56, 0.0, seg=7, smooth=False, wavy=0.12, wig=grad((0, 0, 0), 0.6, 0.3))
+        m.cyl(SNOW, (0, 0, z + h * 0.5), (0, 0, z + h * 1.07), r * 0.55, 0.0, seg=7, smooth=False, wavy=0.12, wig=grad((0, 0, 0), 0.6, 0.3))
 
 @model('gnome')
 def _(m):
@@ -857,7 +857,8 @@ def pine(m, h=8.0, tiers=5, seg=9, colors=(PINE, PINE2, PINE3), sway=0.12):
         hh = (2.6 - 0.7 * f) * s
         rot = (0, 0, i * 0.7)
         m.add('cyl', colors[i % 3], (0, 0, z0 + hh / 2), (2 * r, 2 * r, hh), rot, seg=seg, top=0.0, smooth=False, wig=g)
-        m.add('cyl', SNOW, (0, 0, z0 + hh * 0.72 + 0.03 * s), (2 * r * 0.5, 2 * r * 0.5, hh * 0.56), rot, seg=seg, top=0.0, smooth=False, wavy=0.13, wig=g)
+        # a shell of snow over the top of the tier, a little outside it everywhere (so the two never share a surface)
+        m.add('cyl', SNOW, (0, 0, z0 + hh * 0.805), (2 * r * 0.486, 2 * r * 0.486, hh * 0.51), rot, seg=seg, top=0.0, smooth=False, wavy=0.13, wig=g)
 
 @model('pine')
 def _(m): pine(m, 8.0, 5)
@@ -982,9 +983,9 @@ def _(m):
 def _(m):
     m.box(RED, (0, 0, 1.25), (1.0, 1.0, 2.5), bevel=0.04)
     for sx in (-1, 1):
-        m.box(GLASS, (0, -0.505, 0.6 + 0.6 * (sx > 0)), (0.7, 0.02, 0.5), code=glow(0.25))
-        m.box(GLASS, (0.505, 0, 0.6 + 0.6 * (sx > 0)), (0.02, 0.7, 0.5), code=glow(0.25))
-    m.box(WHITE, (0, -0.51, 2.3), (0.7, 0.03, 0.14), code=glow(0.5))
+        m.box(GLASS, (0, -0.53, 0.6 + 0.6 * (sx > 0)), (0.7, 0.04, 0.5), code=glow(0.25))
+        m.box(GLASS, (0.53, 0, 0.6 + 0.6 * (sx > 0)), (0.04, 0.7, 0.5), code=glow(0.25))
+    m.box(WHITE, (0, -0.54, 2.3), (0.7, 0.05, 0.14), code=glow(0.5))
     m.box(DRED, (0, 0, 2.6), (1.1, 1.1, 0.18), bevel=0.04)
     m.cyl(DRED, (0, -0.5, 2.7), (0, 0.5, 2.7), 0.4, seg=14)
     m.slab((0, 0, 2.95), (0.9, 0.9, 0.14))
@@ -993,8 +994,8 @@ def _(m):
 def _(m):
     m.box(WOOD2, (0, 0, 0.06), (2.1, 2.7, 0.12))
     m.box(WHITE, (0, 0, 1.1), (2.0, 2.6, 2.0), bevel=0.05, code=TINT)
-    m.box(WOOD2, (0.4, -1.31, 0.95), (0.7, 0.04, 1.6))
-    m.box(LAMP, (-0.5, -1.31, 1.4), (0.45, 0.04, 0.4), code=GLOW)
+    m.box(WOOD2, (0.4, -1.33, 0.95), (0.7, 0.06, 1.6))
+    m.box(LAMP, (-0.5, -1.34, 1.4), (0.45, 0.06, 0.4), code=GLOW)
     m.box(WHITE, (0, 0, 2.2), (2.4, 3.0, 0.15), rot=(0.15, 0, 0), code=TINT2)
     m.slab((0, 0, 2.33), (2.3, 2.9, 0.2), rot=(0.15, 0, 0))
     m.cyl(STEEL, (0.6, 0.6, 2.0), (0.6, 0.6, 3.0), 0.09, seg=8)
@@ -1073,9 +1074,9 @@ def _(m):
     m.box(WHITE, (0, 0, 0.72), (1.8, 4.1, 0.75), bevel=0.28, code=TINT, smooth=True)
     m.box(WHITE, (0, 0.25, 1.32), (1.6, 2.2, 0.62), bevel=0.25, code=TINT, smooth=True)
     for sx in (-1, 1):
-        m.box(GLASS, (sx * 0.79, 0.25, 1.36), (0.04, 1.85, 0.42), bevel=0.02, code=glow(0.15))
-        m.box(LAMP, (sx * 0.62, -2.04, 0.82), (0.32, 0.04, 0.18), bevel=0.03, code=GLOW)
-        m.box(RED, (sx * 0.62, 2.04, 0.82), (0.3, 0.04, 0.15), bevel=0.03, code=glow(0.6))
+        m.box(GLASS, (sx * 0.83, 0.25, 1.36), (0.06, 1.85, 0.42), bevel=0.02, code=glow(0.15))
+        m.box(LAMP, (sx * 0.62, -2.08, 0.82), (0.32, 0.06, 0.18), bevel=0.02, code=GLOW)
+        m.box(RED, (sx * 0.62, 2.08, 0.82), (0.3, 0.06, 0.15), bevel=0.02, code=glow(0.6))
     m.box(GLASS, (0, -0.85, 1.32), (1.4, 0.04, 0.45), rot=(-0.5, 0, 0), code=glow(0.15))
     m.box(GLASS, (0, 1.36, 1.32), (1.4, 0.04, 0.42), rot=(0.5, 0, 0), code=glow(0.15))
     m.box(DARK, (0, -2.05, 0.5), (1.7, 0.08, 0.15), bevel=0.04)
@@ -1088,12 +1089,12 @@ def _(m):
 def _(m):
     m.box(WHITE, (0, 0, 1.75), (2.5, 11.0, 2.9), bevel=0.35, code=TINT, smooth=True)
     for sx in (-1, 1):
-        m.box(GLASS, (sx * 1.255, 0.4, 2.25), (0.04, 9.0, 0.85), code=glow(0.25))
+        m.box(GLASS, (sx * 1.28, 0.4, 2.25), (0.06, 9.0, 0.85), code=glow(0.25))
         for y in range(-4, 6):
-            m.box(WHITE, (sx * 1.27, y - 0.1, 2.25), (0.03, 0.1, 0.9), code=TINT2)
+            m.box(WHITE, (sx * 1.32, y - 0.1, 2.25), (0.05, 0.1, 0.9), code=TINT2)
         m.box(LAMP, (sx * 0.85, -5.51, 1.0), (0.4, 0.04, 0.25), bevel=0.05, code=GLOW)
-    m.box(GLASS, (0, -5.505, 2.3), (2.2, 0.04, 1.1), code=glow(0.25))
-    m.box(WHITE, (0, 0, 1.05), (2.52, 11.02, 0.25), code=TINT2)
+    m.box(GLASS, (0, -5.53, 2.3), (2.2, 0.06, 1.1), code=glow(0.25))
+    m.box(WHITE, (0, 0, 1.05), (2.56, 11.06, 0.25), code=TINT2)
     m.box(COAL, (0, -5.51, 3.0), (1.6, 0.05, 0.3), code=glow(0.4))
     wheels(m, (-1.1, 1.1), (-3.6, 3.4), 0.55, 0.35)
     m.slab((0, 0, 3.25), (2.2, 10.4, 0.25))
@@ -1105,8 +1106,8 @@ def _(m):
     m.box(RED, (0, 0.3, 1.55), (2.6, 3.6, 1.1), bevel=0.2, smooth=True)
     m.box(RED, (0, -0.6, 2.6), (2.3, 1.9, 1.2), bevel=0.2, smooth=True)
     for sx in (-1, 1):
-        m.box(GLASS, (sx * 1.16, -0.6, 2.7), (0.04, 1.5, 0.75), code=glow(0.2))
-    m.box(GLASS, (0, -1.56, 2.7), (2.0, 0.04, 0.8), code=glow(0.2))
+        m.box(GLASS, (sx * 1.19, -0.6, 2.7), (0.06, 1.5, 0.75), code=glow(0.2))
+    m.box(GLASS, (0, -1.59, 2.7), (2.0, 0.06, 0.8), code=glow(0.2))
     for sx in (-1, 1):
         m.box(COAL, (sx * 1.6, 0.2, 0.62), (1.0, 5.2, 1.2), bevel=0.45, smooth=True)
         for y in (-1.8, -0.6, 0.6, 1.8):
@@ -1136,11 +1137,11 @@ def _(m):
 def _(m):
     m.box(RED, (0, -2.6, 1.6), (2.4, 2.2, 2.2), bevel=0.25, smooth=True)
     m.box(RED, (0, 1.0, 1.4), (2.4, 5.2, 1.8), bevel=0.2, smooth=True)
-    m.box(GLASS, (0, -3.71, 2.0), (2.0, 0.04, 0.8), code=glow(0.2))
+    m.box(GLASS, (0, -3.74, 2.0), (2.0, 0.06, 0.8), code=glow(0.2))
     for sx in (-1, 1):
-        m.box(GLASS, (sx * 1.21, -2.7, 2.0), (0.04, 1.2, 0.7), code=glow(0.2))
-        m.box(LAMP, (sx * 0.8, -3.72, 0.95), (0.3, 0.04, 0.2), code=GLOW)
-        m.box(STEEL, (sx * 1.21, 1.0, 1.4), (0.04, 5.0, 0.1))
+        m.box(GLASS, (sx * 1.24, -2.7, 2.0), (0.06, 1.2, 0.7), code=glow(0.2))
+        m.box(LAMP, (sx * 0.8, -3.75, 0.95), (0.3, 0.06, 0.2), code=GLOW)
+        m.box(STEEL, (sx * 1.24, 1.0, 1.4), (0.06, 5.0, 0.1))
         m.box(STEEL, (sx * 0.5, 0.6, 2.55), (0.08, 6.4, 0.08))
     for i in range(14):
         m.box(STEEL, (0, -2.5 + i * 0.45, 2.55), (1.0, 0.05, 0.05))
@@ -1153,9 +1154,9 @@ def _(m):
 def _(m):
     m.box(WHITE, (0, 0, 1.25), (2.0, 2.0, 2.3), bevel=0.45, code=TINT, smooth=True)
     for sx in (-1, 1):
-        m.box(GLASS, (sx * 0.99, 0, 1.6), (0.06, 1.5, 0.75), code=glow(0.2))
-        m.box(GLASS, (0, sx * 0.99, 1.6), (1.5, 0.06, 0.75), code=glow(0.2))
-    m.box(WHITE, (0, 0, 0.6), (2.04, 2.04, 0.2), code=TINT2)
+        m.box(GLASS, (sx * 1.02, 0, 1.6), (0.06, 1.5, 0.75), code=glow(0.2))
+        m.box(GLASS, (0, sx * 1.02, 1.6), (1.5, 0.06, 0.75), code=glow(0.2))
+    m.box(WHITE, (0, 0, 0.6), (2.08, 2.08, 0.2), code=TINT2)
     m.cyl(STEEL, (0, 0, 2.4), (0, 0, 3.6), 0.07, seg=8)
     m.cyl(STEEL, (0, 0, 3.6), (0, -0.5, 4.1), 0.07, seg=8)
     m.box(DARK, (0, -0.6, 4.1), (0.3, 0.5, 0.3), bevel=0.05)
@@ -1184,7 +1185,7 @@ def _(m):
     for z in (11.0, 13.0):
         m.ring(WHITE, (0, 0, z), 2.82, 0.06, seg=20, rings=4, code=TINT2)
     m.cone(WHITE, (0, 0, 14.0), (0, 0, 15.6), 3.0, seg=18, code=TINT2)
-    m.cone(SNOW, (0, 0, 14.6), (0, 0, 15.75), 2.0, seg=18, wavy=0.08)
+    m.cone(SNOW, (0, 0, 14.6), (0, 0, 15.85), 2.15, seg=18, wavy=0.08)
 
 @model('train')
 def _(m):
@@ -1195,7 +1196,7 @@ def _(m):
     m.box(DRED, (0, 3.5, 2.7), (2.6, 3.0, 3.0), bevel=0.15)
     m.box(COAL, (0, 3.5, 4.3), (3.0, 3.4, 0.25), bevel=0.08)
     for sx in (-1, 1):
-        m.box(LAMP, (sx * 1.31, 3.2, 3.2), (0.04, 1.0, 0.8), code=GLOW)
+        m.box(LAMP, (sx * 1.34, 3.2, 3.2), (0.06, 1.0, 0.8), code=GLOW)
     m.cyl(COAL, (0, -3.8, 3.2), (0, -3.8, 4.6), 0.35, 0.6, seg=12)
     m.ball(GOLD, (0, -1.2, 3.4), (0.45, 0.45, 0.35))
     m.box(RED, (0, -5.6, 0.9), (2.6, 1.2, 1.2), rot=(0.6, 0, 0))
@@ -1214,8 +1215,8 @@ def _(m):
     m.cyl('#2f6b4a', (0, -5.5, 3.4), (0, 5.5, 3.4), 1.4, seg=18)
     for sx in (-1, 1):
         for i in range(7):
-            m.box(LAMP, (sx * 1.31, -4.3 + i * 1.43, 2.6), (0.04, 0.95, 0.85), code=GLOW)
-        m.box(GOLD, (sx * 1.31, 0, 1.6), (0.04, 10.6, 0.1))
+            m.box(LAMP, (sx * 1.34, -4.3 + i * 1.43, 2.6), (0.06, 0.95, 0.85), code=GLOW)
+        m.box(GOLD, (sx * 1.35, 0, 1.6), (0.06, 10.6, 0.1))
     m.box(COAL, (0, 0, 0.95), (2.4, 10.0, 0.4))
     for y in (-3.8, -2.8, 2.8, 3.8):
         for sx in (-1, 1):
@@ -1247,29 +1248,32 @@ def _(m):
 
 # ===================================================================================================== buildings
 def windows(m, x0, x1, y, z, n, w=0.7, h=0.9, axis='x', glow=GLOW, shutters=None):
+    """a row of lit windows on the wall at y (axis 'x': across x) or at x = y (axis 'y'), set clear of the wall and of
+    each other so no two faces share a plane (that flickers at a distance)"""
+    o = 1 if y > 0 else -1
     for i in range(n):
         t = (i + 0.5) / n
         c = x0 + (x1 - x0) * t
         if axis == 'x':
-            m.box(LAMP, (c, y, z), (w, 0.08, h), code=glow)
-            m.box(WHITE, (c, y, z), (0.07, 0.1, h), code=0)
-            m.box(WHITE, (c, y - 0.01 * (1 if y < 0 else -1), z - h / 2 - 0.05), (w + 0.2, 0.18, 0.1))
+            m.box(LAMP, (c, y + o * 0.04, z), (w, 0.12, h), code=glow)
+            m.box(WHITE, (c, y + o * 0.09, z), (0.07, 0.12, h), code=0)
+            m.box(WHITE, (c, y + o * 0.1, z - h / 2 - 0.05), (w + 0.2, 0.24, 0.1))
             if shutters:
                 for sx in (-1, 1):
-                    m.box(shutters, (c + sx * (w / 2 + 0.17), y, z), (0.28, 0.1, h + 0.05))
+                    m.box(shutters, (c + sx * (w / 2 + 0.17), y + o * 0.05, z), (0.28, 0.12, h + 0.05))
         else:
-            m.box(LAMP, (y, c, z), (0.08, w, h), code=glow)
-            m.box(WHITE, (y, c, z), (0.1, 0.07, h))
-            m.box(WHITE, (y, c, z - h / 2 - 0.05), (0.18, w + 0.2, 0.1))
+            m.box(LAMP, (y + o * 0.04, c, z), (0.12, w, h), code=glow)
+            m.box(WHITE, (y + o * 0.09, c, z), (0.12, 0.07, h))
+            m.box(WHITE, (y + o * 0.1, c, z - h / 2 - 0.05), (0.24, w + 0.2, 0.1))
             if shutters:
                 for sx in (-1, 1):
-                    m.box(shutters, (y, c + sx * (w / 2 + 0.17), z), (0.1, 0.28, h + 0.05))
+                    m.box(shutters, (y + o * 0.05, c + sx * (w / 2 + 0.17), z), (0.12, 0.28, h + 0.05))
 
 def snowroof(m, at, w, d, h, color, rot=(0, 0, 0), thick=0.35):
     """a gable roof under a fat duvet of snow; ridge along y, then rotated"""
     m.roof(color, at, w, d, h, rot=rot)
     x, y, z = at
-    m.roof(SNOW, (x, y, z + thick), w * 0.97, d * 1.0, h * 0.98, rot=rot)
+    m.roof(SNOW, (x, y, z + thick), w * 0.97, d * 1.04, h * 0.98, rot=rot)
 
 def icicles(m, x0, x1, y, z, n, L=0.5):
     for i in range(n):
@@ -1297,7 +1301,7 @@ def _(m):
     m.box('#f1e7d6', (0, 0, 2.2), (8.0, 7.0, 2.6))
     m.box(WOOD, (0, 0, 4.6), (8.0, 7.0, 2.2))
     for z in (3.8, 4.3, 4.8, 5.3):
-        m.box(WOOD2, (0, -3.52, z), (8.0, 0.04, 0.05))
+        m.box(WOOD2, (0, -3.54, z), (8.0, 0.06, 0.05))
     windows(m, -3.6, 3.6, -3.55, 2.3, 3, 0.9, 1.1, shutters=RED)
     windows(m, -3.6, 3.6, -3.55, 4.6, 3, 0.8, 1.0, shutters=RED)
     windows(m, -3.0, 3.0, 3.55, 2.3, 2, 0.9, 1.1, shutters=RED)
@@ -1329,14 +1333,14 @@ def _(m):
 @model('shop')
 def _(m):
     m.box(WHITE, (0, 0, 3.5), (8.0, 7.0, 7.0), code=TINT)
-    m.box(LAMP, (0, -3.53, 1.6), (5.2, 0.1, 2.2), code=GLOW)
+    m.box(LAMP, (0, -3.55, 1.6), (5.2, 0.12, 2.2), code=GLOW)
     for x in (-1.3, 1.3):
-        m.box(WHITE, (x, -3.56, 1.6), (0.12, 0.1, 2.2))
-    m.box(WOOD2, (3.1, -3.55, 1.2), (1.1, 0.12, 2.3))
+        m.box(WHITE, (x, -3.6, 1.6), (0.12, 0.14, 2.2))
+    m.box(WOOD2, (3.1, -3.56, 1.2), (1.1, 0.14, 2.3))
     for i in range(9):
         m.box(WHITE if i % 2 else RED, (-3.6 + i * 0.9, -4.1, 3.35), (0.9, 1.4, 0.06), rot=(-0.45, 0, 0), code=TINT2 if i % 2 == 0 else 0)
     m.box(DARK, (0, -3.6, 4.4), (5.0, 0.15, 0.9))
-    m.box(GOLD, (0, -3.69, 4.4), (4.2, 0.04, 0.35), code=glow(0.5))
+    m.box(GOLD, (0, -3.72, 4.4), (4.2, 0.06, 0.35), code=glow(0.5))
     windows(m, -3.2, 3.2, -3.53, 5.6, 3, 0.9, 1.1)
     snowroof(m, (0, 0, 6.95), 8.8, 7.8, 3.0, '#4f5866', rot=(0, 0, PI / 2), thick=0.4)
     icicles(m, -4.2, 4.2, -3.9, 6.9, 12, 0.6)
@@ -1346,21 +1350,21 @@ def _(m):
     m.box('#f4efe6', (0, 2.0, 4.0), (8.0, 14.0, 8.0))
     for sx in (-1, 1):
         for i in range(4):
-            m.box(LAMP, (sx * 4.03, -2.5 + i * 3.4, 4.2), (0.08, 1.0, 3.0), code=GLOW)
-            m.cyl(LAMP, (sx * 4.0, -2.5 + i * 3.4, 5.7), (sx * 4.07, -2.5 + i * 3.4, 5.7), 0.5, seg=10, code=GLOW)
+            m.box(LAMP, (sx * 4.04, -2.5 + i * 3.4, 4.2), (0.1, 1.0, 3.0), code=GLOW)
+            m.cyl(LAMP, (sx * 3.96, -2.5 + i * 3.4, 5.7), (sx * 4.08, -2.5 + i * 3.4, 5.7), 0.5, seg=10, code=GLOW)
     snowroof(m, (0, 2.0, 7.95), 9.0, 14.4, 5.0, SLATE, thick=0.45)
     m.box('#f4efe6', (0, -6.5, 7.0), (5.0, 5.0, 14.0))
-    m.box(WOOD2, (0, -9.03, 1.6), (2.0, 0.12, 3.2))
-    m.cyl(WOOD2, (0, -9.03, 3.2), (0, -9.09, 3.2), 1.0, seg=12)
+    m.box(WOOD2, (0, -9.04, 1.6), (2.0, 0.12, 3.2))
+    m.cyl(WOOD2, (0, -9.0, 3.2), (0, -9.1, 3.2), 1.0, seg=12)
     for (x, y, rz) in ((0, -9.02, 0), (2.52, -6.5, 1), (-2.52, -6.5, 1)):
         if rz:
-            m.cyl(WHITE, (x, y, 11.0), (x + 0.06 * (1 if x > 0 else -1), y, 11.0), 1.3, seg=20)
-            m.box(DARK, (x + 0.08 * (1 if x > 0 else -1), y, 11.3), (0.04, 0.12, 0.8))
+            m.cyl(WHITE, (x, y, 11.0), (x + 0.08 * (1 if x > 0 else -1), y, 11.0), 1.3, seg=20)
+            m.box(DARK, (x + 0.13 * (1 if x > 0 else -1), y, 11.3), (0.06, 0.12, 0.8))
         else:
-            m.cyl(WHITE, (x, y, 11.0), (x, y - 0.06, 11.0), 1.3, seg=20)
-            m.box(DARK, (0.3, y - 0.08, 11.0), (0.7, 0.04, 0.12))
-            m.box(DARK, (0, y - 0.08, 11.3), (0.12, 0.04, 0.7))
-    m.box(LAMP, (0, -9.02, 8.0), (1.0, 0.1, 1.6), code=GLOW)
+            m.cyl(WHITE, (x, y, 11.0), (x, y - 0.08, 11.0), 1.3, seg=20)
+            m.box(DARK, (0.3, y - 0.13, 11.0), (0.7, 0.06, 0.12))
+            m.box(DARK, (0, y - 0.13, 11.3), (0.12, 0.06, 0.7))
+    m.box(LAMP, (0, -9.05, 8.0), (1.0, 0.12, 1.6), code=GLOW)
     m.cone(SLATE, (0, -6.5, 14.0), (0, -6.5, 22.0), 3.3, seg=8, smooth=False)
     m.cone(SNOW, (0, -6.5, 15.4), (0, -6.5, 17.3), 2.85, seg=8, smooth=False, wavy=0.1)
     m.cyl(GOLD, (0, -6.5, 22.0), (0, -6.5, 23.4), 0.08, seg=6)
@@ -1373,18 +1377,18 @@ def _(m):
         m.box(STONE2, (0, 0, z), (6.2, 6.2, 0.4))
     for a in range(4):
         mk = m.mark()
-        m.cyl(WHITE, (0, -3.0, 14.5), (0, -3.12, 14.5), 2.2, seg=24, code=glow(0.4))
-        m.ring(GOLD, (0, -3.12, 14.5), 2.2, 0.12, rot=(PI / 2, 0, 0), seg=24, rings=4)
-        m.box(DARK, (0, -3.17, 15.2), (0.18, 0.05, 1.5))
-        m.box(DARK, (0.5, -3.17, 14.5), (1.1, 0.05, 0.16))
-        m.box(LAMP, (0, -3.04, 7.0), (1.0, 0.1, 1.8), code=GLOW)
+        m.cyl(WHITE, (0, -2.95, 14.5), (0, -3.12, 14.5), 2.2, seg=24, code=glow(0.4))
+        m.ring(GOLD, (0, -3.12, 14.5), 2.25, 0.12, rot=(PI / 2, 0, 0), seg=24, rings=4)
+        m.box(DARK, (0, -3.2, 15.2), (0.18, 0.08, 1.5))
+        m.box(DARK, (0.5, -3.22, 14.5), (1.1, 0.08, 0.16))
+        m.box(LAMP, (0, -3.06, 7.0), (1.0, 0.14, 1.8), code=GLOW)
         m.move(mk, T(yaw=a * PI / 2))
     m.box(STONE2, (0, 0, 18.3), (7.0, 7.0, 0.6))
     m.cone('#4fa08a', (0, 0, 18.6), (0, 0, 25.0), 4.6, seg=4, rot=(0, 0, PI / 4), smooth=False)
-    m.cone(SNOW, (0, 0, 20.4), (0, 0, 25.15), 3.45, seg=4, rot=(0, 0, PI / 4), smooth=False, wavy=0.06)
+    m.cone(SNOW, (0, 0, 20.4), (0, 0, 25.4), 3.75, seg=4, rot=(0, 0, PI / 4), smooth=False, wavy=0.06)
     m.cyl(GOLD, (0, 0, 25.0), (0, 0, 26.5), 0.1, seg=6)
     m.ball(GOLD, (0, 0, 26.6), 0.3)
-    m.box(WOOD2, (0, -3.03, 1.6), (1.6, 0.12, 3.2))
+    m.box(WOOD2, (0, -3.05, 1.6), (1.6, 0.14, 3.2))
 
 @model('lodge')
 def _(m):
@@ -1425,12 +1429,12 @@ def _(m):
     m.box(LAMP, (0, -8.25, 1.8), (6.0, 0.3, 2.4), code=GLOW)
     m.box(RED, (0, -9.6, 3.5), (8.0, 3.0, 0.3), rot=(0.12, 0, 0))
     m.add('cyl', SLATE, (0, 0, 26.0), (34.0 * 1.0, 22.6, 4.0), (0, 0, PI / 4), seg=4, top=0.72, smooth=False)
-    m.box(SNOW, (0, 0, 28.0), (16.6, 8.6, 0.8), bevel=0.35, smooth=True)
+    m.box(SNOW, (0, 0, 28.05), (16.6, 8.6, 0.8), bevel=0.35, smooth=True)
     for sx in (-1, 1):
         for sy in (-1, 1):
             m.cyl(WHITE, (sx * 11.5, sy * 7.5, 0), (sx * 11.5, sy * 7.5, 27.0), 2.3, seg=12, code=TINT)
             m.cone(SLATE, (sx * 11.5, sy * 7.5, 27.0), (sx * 11.5, sy * 7.5, 33.0), 2.8, seg=12, smooth=False)
-            m.cone(SNOW, (sx * 11.5, sy * 7.5, 28.6), (sx * 11.5, sy * 7.5, 33.1), 2.15, seg=12, smooth=False, wavy=0.08)
+            m.cone(SNOW, (sx * 11.5, sy * 7.5, 28.6), (sx * 11.5, sy * 7.5, 33.4), 2.35, seg=12, smooth=False, wavy=0.08)
     for x in (-5.0, 0.0, 5.0):
         m.cyl(STEEL, (x, -4.0, 28.0), (x, -4.0, 32.5), 0.08, seg=5)
         m.box((RED, WHITE, '#3a7ad0')[int(x / 5 + 1)], (x + 0.9, -4.0, 31.9), (1.7, 0.06, 1.0), wig=grad((x, -4, 32), 1.8, 0.7))
@@ -1450,7 +1454,7 @@ def _(m):
         for sy in (-1, 1):
             m.cyl(S, (sx * 20, sy * 20, 0), (sx * 20, sy * 20, 20.0), 4.5, seg=14)
             m.cone(WHITE, (sx * 20, sy * 20, 20.0), (sx * 20, sy * 20, 30.0), 5.4, seg=14, code=TINT, smooth=False)
-            m.cone(SNOW, (sx * 20, sy * 20, 23.0), (sx * 20, sy * 20, 30.15), 3.9, seg=14, smooth=False, wavy=0.08)
+            m.cone(SNOW, (sx * 20, sy * 20, 23.0), (sx * 20, sy * 20, 30.5), 4.25, seg=14, smooth=False, wavy=0.08)
             for i in range(3):
                 m.box(LAMP, (sx * 20 + sx * 0.2, sy * 20 - sy * 4.45, 6.0 + i * 5), (0.9, 0.2, 1.6), code=GLOW)
     m.box(S, (0, 4.0, 14.0), (18.0, 18.0, 28.0))
@@ -1461,7 +1465,7 @@ def _(m):
     snowroof(m, (0, 4.0, 28.0), 19.0, 19.0, 8.0, WHITE, thick=0.6)
     m.cyl(S, (6.0, -1.0, 0), (6.0, -1.0, 40.0), 3.2, seg=12)
     m.cone(WHITE, (6.0, -1.0, 40.0), (6.0, -1.0, 50.0), 4.0, seg=12, code=TINT, smooth=False)
-    m.cone(SNOW, (6.0, -1.0, 42.5), (6.0, -1.0, 50.15), 3.05, seg=12, smooth=False, wavy=0.08)
+    m.cone(SNOW, (6.0, -1.0, 42.5), (6.0, -1.0, 50.5), 3.35, seg=12, smooth=False, wavy=0.08)
     m.cyl(STEEL, (6.0, -1.0, 50.0), (6.0, -1.0, 54.0), 0.12, seg=5)
     m.box(WHITE, (7.2, -1.0, 53.3), (2.4, 0.08, 1.4), code=TINT2, wig=grad((6, -1, 53), 2.5, 0.8))
 
@@ -1493,7 +1497,53 @@ def _(m):
         x = -5.5 + i
         m.box(WHITE if i % 2 else COAL, (x, 0, 5.2), (1.0, 0.08, 1.4), code=TINT if i % 2 else 0, wig=0.25 * math.sin((i + 0.5) / 12 * PI))
     for i in range(12):
-        m.box(COAL if i % 2 else WHITE, (-5.5 + i, -0.01, 4.85), (1.0, 0.08, 0.35), code=0 if i % 2 else TINT, wig=0.25 * math.sin((i + 0.5) / 12 * PI))
+        m.box(COAL if i % 2 else WHITE, (-5.5 + i, -0.09, 4.35), (1.0, 0.08, 0.35), code=0 if i % 2 else TINT, wig=0.25 * math.sin((i + 0.5) / 12 * PI))
+
+
+# ===================================================================================================== terrain park
+@model('rail')
+def _(m):   # a grind rail: a long striped bar on two legs, running down the slope
+    for y in (-1.6, 1.6):
+        m.box(DARK, (0, y, 0.27), (0.08, 0.08, 0.5))
+        m.box(DARK, (0, y, 0.02), (0.5, 0.3, 0.04))
+    for i in range(8):
+        m.cyl(WHITE if i % 2 else DARK, (0, -2 + i * 0.5, 0.55), (0, -2 + (i + 1) * 0.5, 0.55), 0.06, seg=10, code=TINT if i % 2 else 0)
+    m.slab((0, -1.75, 0.62), (0.14, 0.4, 0.06))
+
+@model('funbox')
+def _(m):   # a box to slide along, with a ramp up at each end
+    m.box(WHITE, (0, 0, 0.45), (1.4, 2.4, 0.9), code=TINT, bevel=0.03)
+    for sy in (-1, 1):
+        m.box(WHITE, (0, sy * 1.9, 0.42), (1.4, 1.75, 0.12), rot=(sy * 0.55, 0, 0), code=TINT)
+        m.box(DARK, (0, sy * 1.21, 0.2), (1.44, 0.04, 0.42))
+    for sx in (-1, 1):
+        m.cyl(STEEL, (sx * 0.7, -1.2, 0.92), (sx * 0.7, 1.2, 0.92), 0.04, seg=6)
+        m.box(WHITE, (sx * 0.72, 0, 0.45), (0.04, 2.3, 0.18), code=TINT2)
+    m.slab((0.2, 0.4, 0.93), (0.6, 0.9, 0.05))
+
+@model('tube')
+def _(m):   # a rubber snow tube
+    m.ring(WHITE, (0, 0, 0.19), 0.44, 0.18, seg=18, rings=10, code=TINT)
+    m.cyl(DARK, (0, 0, 0.05), (0, 0, 0.1), 0.3, seg=14)
+    for a in (0.4, PI + 0.4):
+        m.ring(DARK, (math.cos(a) * 0.62, math.sin(a) * 0.62, 0.22), 0.08, 0.02, rot=(PI / 2, 0, a + PI / 2), seg=10, rings=4)
+
+@model('jumpflags')
+def _(m):   # a pair of orange flags marking the lip of a jump, 4 m apart
+    for sx in (-1, 1):
+        m.cyl(ORANGE, (sx * 2.0, 0, -0.2), (sx * 2.0, 0, 2.3), 0.045, seg=6)
+        m.box(RED if sx > 0 else ORANGE, (sx * 2.0, 0.32, 2.0), (0.02, 0.62, 0.42), wig=grad((sx * 2.0, 0, 2.0), 0.7, 0.8))
+        m.ball(WHITE, (sx * 2.0, 0, 2.32), 0.07, seg=8, rings=6)
+
+@model('arch')
+def _(m):   # an inflatable arch over the way into the park; its lower half is under the snow
+    m.ring(WHITE, (0, 0, 0), 4.2, 0.55, rot=(PI / 2, 0, 0), seg=28, rings=10, code=TINT)
+    for i in range(9):
+        a = PI * (0.1 + 0.8 * i / 8)
+        m.ring(WHITE, (math.cos(a) * 4.2, 0, math.sin(a) * 4.2), 0.57, 0.06, rot=(PI / 2, 0, 0), seg=14, rings=4)
+    m.box(WHITE, (0, -0.1, 4.3), (3.6, 0.2, 1.0), bevel=0.1, code=TINT2)
+    for i in range(5):
+        m.box(COAL, (-1.3 + i * 0.65, -0.24, 4.3), (0.3, 0.04, 0.5))
 
 
 # ===================================================================================================== build + export

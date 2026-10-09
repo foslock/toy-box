@@ -41,7 +41,7 @@ let tut = null;             // the radio lessons, on the first run of Bunny Hill
 let fin = null;             // the finale
 let pushT = 0, pushing = false;
 
-await view.load('models.glb?v=3');
+await view.load('models.glb?v=4');
 
 function loadMountain(i) {
   mi = i;
@@ -139,29 +139,39 @@ function drawRange() {
       <path d="${body}" fill="url(#rock)" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/>
       <path d="${body}" fill="url(#hatch)"/>
       <path d="${cap}" fill="#fff" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/>`;
-    // the routes, laid on the face: d down the mountain, x across
-    const xs = Math.max(...m.routes.flatMap(r => r.path.map(p => Math.abs(p[1])))) || 30;
-    const sx = (half * 0.42) / xs, ty = top + 36, sy = (base - 70 - ty) / m.len;
+    // the routes, laid on the face in perspective: the slope recedes uphill, so the top of the run is drawn narrower
+    // and squashed up, always inside the mountain's outline at that height, and its lines thinner
+    const xs = Math.max(...m.routes.flatMap(r => r.path.map(p => Math.abs(p[1]) + p[2] * 0.6))) || 30;
+    const yT = top + (base - top) * 0.1, yB = base - 52;
+    const Y = d => yT + (yB - yT) * Math.pow(Math.min(1, Math.max(0, d / m.len)), 1.3);
+    const X = (x, y) => cx + (x / xs) * half * Math.pow(Math.min(1, Math.max(0, (y - top) / (base - top))), 0.8) * 0.72;
+    const depth = y => (y - yT) / (yB - yT);
     const col = lock ? '#8a93a6' : { green: '#2f9a4a', blue: '#2766c9', black: '#16181d', double: '#16181d' }[m.grade];
     const sm = t => t * t * (3 - 2 * t);
+    const xAt = (r, d) => {
+      for (let k = 1; k < r.path.length; k++) if (d <= r.path[k][0]) { const a = r.path[k - 1], b = r.path[k]; return a[1] + (b[1] - a[1]) * sm((d - a[0]) / (b[0] - a[0])); }
+      return r.path[r.path.length - 1][1];
+    };
+    const casing = [], lines = [];
     for (const r of m.routes) {
-      const pts = [];
       const d0 = Math.max(r.path[0][0], 0), d1 = Math.min(r.path[r.path.length - 1][0], m.len);
-      for (let d = d0; d <= d1 + 0.1; d += (d1 - d0) / 24) {
-        let x = r.path[r.path.length - 1][1];
-        for (let k = 1; k < r.path.length; k++) if (d <= r.path[k][0]) { const a = r.path[k - 1], b = r.path[k]; x = a[1] + (b[1] - a[1]) * sm((d - a[0]) / (b[0] - a[0])); break; }
-        pts.push(`${(cx + x * sx).toFixed(1)},${(ty + d * sy).toFixed(1)}`);
-      }
-      if (pts.length < 2) continue;
+      if (d1 <= d0) continue;
+      const pts = [];
+      const n = Math.max(6, Math.round((d1 - d0) / 25));
+      for (let k = 0; k <= n; k++) { const d = d0 + (d1 - d0) * k / n, y = Y(d); pts.push([X(xAt(r, d), y), y]); }
       const ice = typeof r.surf !== 'string' && r.surf.some(z => z[2] === 'lake');
-      svg += `<polyline points="${pts.join(' ')}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-        <polyline points="${pts.join(' ')}" fill="none" stroke="${ice && !lock ? '#5fb4e8' : col}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" ${ice ? 'stroke-dasharray="9 7"' : ''}/>`;
-      for (const f of r.feats || []) if (f[0] === 'cliff' || f[0] === 'kicker' && f[2] > 2.5) {
-        const fd = f[0] === 'cliff' ? f[2] : f[1];
-        let x = 0; for (let k = 1; k < r.path.length; k++) if (fd <= r.path[k][0]) { const a = r.path[k - 1], b = r.path[k]; x = a[1] + (b[1] - a[1]) * sm((fd - a[0]) / (b[0] - a[0])); break; }
-        svg += `<path d="M${cx + x * sx - 9} ${ty + fd * sy + 5} l9 -9 l9 9" fill="none" stroke="${ink}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+      // in short pieces, so the line can thicken as it comes towards you
+      for (let k = 0; k < pts.length - 1; k += 2) {
+        const seg = pts.slice(k, k + 3).map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '), z = depth(pts[Math.min(k + 1, pts.length - 1)][1]);
+        casing.push(`<polyline points="${seg}" fill="none" stroke="#fff" stroke-width="${(4.5 + 7 * z).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>`);
+        lines.push(`<polyline points="${seg}" fill="none" stroke="${ice && !lock ? '#5fb4e8' : col}" stroke-width="${(2 + 3.5 * z).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"${ice ? ` stroke-dasharray="${(4 + 6 * z).toFixed(0)} ${(3 + 4 * z).toFixed(0)}"` : ''}/>`);
+      }
+      for (const f of r.feats || []) if (f[0] === 'cliff' || f[0] === 'kicker' && f[2] > 2.5 || f[0] === 'terraces') {
+        const fd = f[0] === 'cliff' ? f[2] : f[1], y = Y(fd), x = X(xAt(r, fd), y), z = 0.5 + depth(y) * 0.6;
+        lines.push(`<path d="M${(x - 8 * z).toFixed(1)} ${(y + 4 * z).toFixed(1)} l${(8 * z).toFixed(1)} ${(-8 * z).toFixed(1)} l${(8 * z).toFixed(1)} ${(8 * z).toFixed(1)}" fill="none" stroke="${ink}" stroke-width="${(2 + 2 * z).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>`);
       }
     }
+    svg += casing.join('') + lines.join('');
     // the town at the foot
     for (let k = 0; k < 7; k++) {
       const hx = cx - 70 + k * 21, hy = base - 30 - (k % 3) * 5, hh = 16 + (k % 2) * 7;
@@ -504,8 +514,9 @@ function events(t) {
         const d = $('dia'); d.classList.add('grow'); setTimeout(() => d.classList.remove('grow'), 120);
         if (it.key === 'moose') remark('moose', 'Did you just eat a moose?');
         else if (it.key === 'yeti') remark('yeti', 'So they ARE real. Were. Were real.');
-        else if (/skier|racer|boarder/.test(it.key)) remark('skier', 'Skier down! Skier... in?');
-        else if (/chalet|house|cabin|shop/.test(it.key)) remark('house', 'Please stop eating the buildings. ...Fine. Fine.');
+        else if (/skier|racer|boarder/.test(it.key)) { const n = info.name[0].toUpperCase() + info.name.slice(1); remark('skier', `${n} down! ${n}... in?`); }
+        else if (BUILDINGS.has(it.key)) remark('house', `Did you just eat ${an(info.name)}? Please stop eating the buildings. ...Fine. Fine.`);
+        else if (it.key === 'outhouse') remark('outhouse', 'That outhouse was occupied.');
         else if (it.key === 'mammoth') remark('mammoth', 'That mammoth was ten thousand years old. It was a protected mammoth.');
         else if (it.key === 'dog') remark('dog', 'That was our rescue dog.');
         break;
@@ -546,7 +557,8 @@ function events(t) {
       case 'shed': {
         for (const it of e.items) { view.ball.dropItem(it); found[it.key] = Math.max(0, (found[it.key] || 1) - 1); }
         sound.shed();
-        remark('shed', 'You’re shedding kit all over my piste.');
+        const who = e.items.find(it => it.key !== 'hottub' && (ITEMS[it.key].anim === 'person' || ITEMS[it.key].anim === 'kid'));
+        remark('shed', who ? `${an(ITEMS[who.key].name).replace(/^a/, 'A')} just fell off you. Are they all right?` : `You just dropped ${an(ITEMS[e.items[0].key].name)}. You’re shedding things all over my mountain.`);
         break;
       }
       case 'panic': {
@@ -556,14 +568,15 @@ function events(t) {
       }
       case 'unlock': {
         const info = ITEMS[e.key];
+        if (DEMO) break;
         if (t - lastBanner > 5 || info.need > 1.6 * MOUNTAINS[mi].start * 4) { banner('Big enough for', info.plural); sound.fanfare(1); lastBanner = t; }
         else sound.say('jingle', 0.5);
         nextUp();
-        if (/chalet|house|cabin/.test(e.key)) remark('unlockhouse', 'Patrol to all units: it can eat houses now.');
+        if (BUILDINGS.has(e.key)) remark('unlockhouse', `Patrol to all units: it’s big enough to eat ${info.plural} now.`);
         break;
       }
-      case 'fork': forkSign(e.fork); if (!said.has('forktalk')) { said.add('forktalk'); if (!tut && !DEMO && mi < 2) radio('Trail splits up ahead. Lean left or right to pick one.', 0, 0, 3); } break;
-      case 'route': $('hudRoute').textContent = e.route.name; if (!C.forks.some(f => f.routes.includes(e.route))) sign(`<div class="board"><div class="n">${e.route.name}</div><div class="h">${routeHint(e.route)}</div></div>`, 2.4); if (e.route.mainSurf === 'ice' && !said.has('ice')) remark('ice', 'Ice! You can’t steer on ice. Nobody can. Brace.'); break;
+      case 'fork': forkSign(e.fork); if (!said.has('forktalk')) { said.add('forktalk'); if (!tut && !DEMO && mi < 2) radio(e.fork.branch ? `There’s a turn-off coming up: ${e.fork.routes.find(r => r.d0 > e.fork.d - 20)?.name || 'a side trail'}. Lean into it if you want it.` : 'Trail splits up ahead. Lean left or right to pick one.', 0, 0, 3.4); } break;
+      case 'route': $('hudRoute').textContent = e.route.name; if (!C.forks.some(f => f.routes.includes(e.route))) sign(`<div class="board"><div class="n">${e.route.name}</div><div class="h">${routeHint(e.route)}</div></div>`, 2.4); break;
       case 'rescue': radio(['Patrol here. We’ve dug you out. Try not to do that again.', 'Got you. Back on the piste, and mind the trees this time.', 'Rescue complete. That’s going in the report.'][Math.floor(Math.random() * 3)], 0, 0, 3.4); flash(0.5); sound.say('whoosh'); view.fx.trail.lift(); break;
       case 'nudge': fx.puffs.spawn(b.x, b.y - b.r * 0.7, -b.d, 0, 2, 0, b.r * 0.6, 0.8, 1, 2, 1); break;
       case 'finish': startFinale(); break;
@@ -573,6 +586,9 @@ function events(t) {
   run.events.length = 0;
 }
 let found = {}, lastBanner = -9;
+// real buildings (not the outhouse, the phone box or the ice-fishing hut)
+const an = n => (/^[aeiou]/i.test(n) ? 'an ' : 'a ') + n;
+const BUILDINGS = new Set(['cabin', 'chalet', 'house', 'shop', 'church', 'clocktower', 'lodge', 'hotel', 'castle']);
 // under the ruler: the next kind of thing you'll be big enough for
 function nextUp() {
   const n = run.unlocks[0];
@@ -962,6 +978,7 @@ function tick(dt, t) {
     if (mode === 'finale') finaleTick(dt, t);
     hud(dt);
     if (!DEMO) bubbles(dt);
+    if (run.ball.surf === 2 && run.ball.ground) remark('ice', 'Ice! You can’t steer on ice. Nobody can. Brace.');
     if (sound.ctx) sound.music.set(Math.min(5, Math.floor(Math.log2(run.ball.r * 2 / MOUNTAINS[mi].start) * 1.4)), run.ball.speed);
   }
   if (radioT > 0 && (radioT -= dt) <= 0 && !tut) radio(null);
@@ -1020,6 +1037,7 @@ if (DEMO) {
   const b = run.ball;
   b.d = 470; b.x = -33; b.r = 1.25; b.vd = 12; b.vx = -0.4; b.hx = -0.03; b.hd = 1;
   run.unlocks = run.unlocks.filter(u => u[1] > b.r * 2);
+  nextUp();
   run.routeSeen.add('main'); run.routeSeen.add('top');
   $('hudRoute').textContent = 'Main Piste';
   b.y = run.support(b.x, b.d, b.r).y;

@@ -676,7 +676,8 @@ export class View {
     this.cam.rotateZ(-S.steer * 0.09);
     S.punch = (S.punch || 0) * Math.exp(-dt * 7);
     this.cam.fov = S.fov + S.punch;
-    this.cam.near = Math.max(0.04, r * 0.08);
+    // as far out as the near plane can go without clipping the ball: more depth precision for everything far away
+    this.cam.near = Math.max(0.05, r * 0.15);
     this.cam.far = 260 + r * 90;
     this.cam.updateProjectionMatrix();
   }

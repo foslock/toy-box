@@ -346,7 +346,7 @@ export class Run {
     const b = this.ball, C = this.C;
     // forks coming up
     for (const f of C.forks) {
-      if (!this.forkSeen.has(f) && b.d > f.d - 70 - b.speed * 3.5 && b.d < f.d) {
+      if (!this.forkSeen.has(f) && b.d > f.d - 70 - b.speed * 3.5 && b.d < f.d && Math.abs(b.x - f.x) < 26 + b.r * 2) {
         this.forkSeen.add(f);
         this.events.push({ t: 'fork', fork: f });
       }
@@ -356,7 +356,8 @@ export class Run {
     const dd = Math.max(0, b.d - (this.lastD ?? b.d));
     this.lastD = b.d;
     if (owner) this.routeDist[owner.id] = (this.routeDist[owner.id] || 0) + dd;
-    if (owner && owner.name && !this.routeSeen.has(owner.id) && (this.routeDist[owner.id] > 25 || b.d < 30)) {
+    // (a big ball straddles neighbouring channels, so it takes a fair share of a route, up to 150 m, to count)
+    if (owner && owner.name && !this.routeSeen.has(owner.id) && (this.routeDist[owner.id] > Math.max(25, Math.min(150, 0.3 * (owner.d1 - owner.d0))) || b.d < 30)) {
       this.routeSeen.add(owner.id);
       this.routesTaken.push(owner);
       this.events.push({ t: 'route', route: owner });
