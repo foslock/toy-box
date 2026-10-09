@@ -1,0 +1,11 @@
+{
+  "title": "Snowball",
+  "blurb": "Roll a handful of snow down a mountain, picking up everything smaller than you, from pinecones to skiers to chalets, then take the town at the bottom.",
+  "added": "2026-10-09",
+  "category": "games",
+  "tags": ["three.js", "blender", "game"],
+  "tape": "blue",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 4500, "query": "?demo" },
+  "share": { "y": 55 }
+}

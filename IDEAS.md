@@ -37,7 +37,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 29. Liar's Table
 - [ ] 30. Customs of the Dead
 - [ ] 31. Sonar
-- [ ] 32. Snowball
+- [x] 32. Snowball — [`snowball/`](snowball/)
 - [ ] 33. Invader
 - [ ] 34. Night Bus
 - [x] 35. Starter — [`starter/`](starter/)
@@ -305,7 +305,7 @@ The fear should come from what you can't see: the hull creaking, the thud of som
 
 # More ideas (32–61)
 
-## 32. Snowball
+## 32. Snowball ✅
 *Borrows: Katamari Damacy · Twist: you're a snowball, and the only way is down*
 
 A Katamari Damacy game where you're a snowball rolling down a mountain. You start as a handful of snow at the summit and roll down, steering left and right, picking up anything smaller than you: pinecones, then skis, then snowmen, then skiers (who flail comically and stick out of you), then trees, chalets, a snowcat and eventually the ski lodge. The only direction is down, so each run is a race to get big enough, fast enough, before you reach the valley, and your final size decides how much of the town at the bottom you take with you.
