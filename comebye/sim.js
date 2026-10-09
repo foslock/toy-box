@@ -50,7 +50,7 @@ export class Trial {
     this.cmd = 'lie'; this.cmdHold = 0; this.cmdCand = 'lie';
     this.buildSteps();
     this.scores = {};
-    for (const p of course.phases) this.scores[p] = { max: PHASE_MAX[p], lost: [], pts: null, panic: 0, split: 0, dev: 0, devN: 0, missed: 0, t: 0 };
+    for (const p of course.phases) this.scores[p] = { max: PHASE_MAX[p], lost: [], pts: null, panic: 0, split: 0, dev: 0, devN: 0, missed: 0, t: 0, minD: 1e9 };
     this.measure();
     this.startStep(0);
   }
@@ -240,23 +240,24 @@ export class Trial {
     const lose = (pts, why) => { pts = Math.round(pts); if (pts > 0) sc.lost.push({ pts, why }); };
     const panic = sc.panic / n;
     if (p === 'outrun') {
-      lose(Math.min(6, panic / 0.7), 'came in too tight on the lift');
+      lose(Math.min(5, Math.max(0, 6 - sc.minD) * 1.5), 'cut in tight');
+      lose(Math.min(5, panic / 0.6), 'rough lift');
       lose(Math.min(3, Math.max(0, sc.t - 45) / 12), 'slow outrun');
     }
     if (p === 'fetch' || p === 'drive') {
       if (sc.missed) lose(sc.missed * 2, `${words(sc.missed)} missed the gates`);
       const dev = sc.devN ? sc.dev / sc.devN : 0;
-      lose(Math.min(p === 'drive' ? 9 : 6, Math.max(0, dev - 2.5) * 0.7), 'off the line');
-      lose(Math.min(5, panic / 1.2), 'pushed them too hard');
+      lose(Math.min(p === 'drive' ? 12 : 8, Math.max(0, dev - 1.5)), dev > 5 ? 'wandering lines' : 'off the line');
+      lose(Math.min(6, panic / 0.8), 'pushed them too hard');
       lose(Math.min(4, sc.split / 5), 'let the flock split');
     }
     if (p === 'shed') {
       lose(Math.min(6, Math.max(0, sc.t - 25) / 12), 'took a while to shed');
-      lose(Math.min(3, panic / 1.2), 'rough in the ring');
+      lose(Math.min(3, panic / 0.8), 'rough in the ring');
     }
     if (p === 'pen') {
       lose(Math.min(6, Math.max(0, sc.t - 35) / 12), 'slow at the pen');
-      lose(Math.min(3, panic / 1.2), 'rushed the pen');
+      lose(Math.min(3, panic / 0.8), 'rushed the pen');
     }
     let lost = sc.lost.reduce((a, b) => a + b.pts, 0);
     if (lost > sc.max) { lost = sc.max; }
@@ -607,6 +608,7 @@ export class Trial {
       }
     }
     if (st.k === 'lift') {
+      sc.minD = Math.min(sc.minD, Math.hypot(this.dog.x - this.cx, this.dog.y - this.cy) - this.spread);
       if (Math.hypot(this.cx - st.from[0], this.cy - st.from[1]) > 5) this.finishStep();
     } else if (st.k === 'gate') {
       const g = st.gate, px = -g.d[1], py = g.d[0];

@@ -20,7 +20,8 @@ export class View {
     this.tr = tr;
     const c = tr.c;
     // paint resolution: enough for a desktop close-up, small enough for a phone's memory
-    const ppm = Math.min(22, Math.max(12, Math.floor(2600 / Math.max(c.w, c.h))));
+    const budget = matchMedia('(pointer: coarse)').matches ? 1800 : 2600;
+    const ppm = Math.min(22, Math.max(11, Math.floor(budget / Math.max(c.w, c.h))));
     this.field = paintField(c, ppm);
     this.sky = SKIES[c.sky];
     this.snap = true;
