@@ -115,7 +115,7 @@ class Puffs extends Billboards {
       this.pos[w * 3] = p[o]; this.pos[w * 3 + 1] = p[o + 1]; this.pos[w * 3 + 2] = p[o + 2];
       this.vel[w * 3] = p[o + 3]; this.vel[w * 3 + 1] = p[o + 4]; this.vel[w * 3 + 2] = p[o + 5];
       this.sa[w * 2] = p[o + 6];
-      this.sa[w * 2 + 1] = Math.min(1, t * 8) * (1 - t) ** 1.4 * 0.9;
+      this.sa[w * 2 + 1] = Math.min(1, t * 8) * (1 - t) ** 1.4 * 0.7;
       w++;
     }
     this.n = w;

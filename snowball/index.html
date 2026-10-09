@@ -188,6 +188,21 @@
   .stick.on { opacity: 1; }
   .stick i { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(255, 255, 255, .9); border: 3px solid var(--ink); box-sizing: border-box; }
 
+  /* things stuck in the ball, shouting */
+  .bubble { position: fixed; z-index: 6; left: 0; top: 0; pointer-events: none; background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 6px 11px 7px;
+    font: 800 16px/1.1 'Big Shoulders Display', sans-serif; letter-spacing: .03em; color: var(--ink); white-space: nowrap; box-shadow: 0 3px 0 var(--ink); }
+  .bubble::after { content: ''; position: absolute; bottom: -12px; left: 18px; width: 16px; height: 14px; background: #fff; border: 3px solid var(--ink); border-top: 0; border-left: 0; transform: skewX(35deg) rotate(10deg); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+  .bubble.r::after { left: auto; right: 18px; transform: skewX(-35deg) rotate(-10deg); clip-path: polygon(0 0, 100% 0, 0 100%); border-right: 0; border-left: 3px solid var(--ink); }
+
+  /* a found thing, up close: drag to turn it round */
+  .detail { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; background: rgba(20, 35, 74, .5); padding: 16px; }
+  .detail .card { width: min(360px, 100%); }
+  .detail canvas { width: 220px; height: 220px; display: block; margin: 0 auto 6px; cursor: grab; touch-action: none; border-radius: 12px; background: radial-gradient(circle at 50% 60%, #fff, #d7e7f8 70%); }
+  .detail h2 { font-size: 28px; }
+  .detail .stat { display: flex; justify-content: center; gap: 14px; font: 800 14px/1 'Big Shoulders Display', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--ink2); margin: 4px 0 10px; }
+  .detail .stat b { color: var(--ink); }
+  .detail ul { list-style: none; margin: 0 0 14px; padding: 0; font: 400 15px/1.5 'Special Elite', monospace; color: var(--ink2); }
+  .detail .hint { font: 700 12px/1 'Big Shoulders Display', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: var(--ink2); margin-bottom: 8px; }
   #flash { position: fixed; inset: 0; z-index: 9; pointer-events: none; background: #fff; opacity: 0; }
   #wipe { position: fixed; inset: 0; z-index: 30; pointer-events: none; background: #fff; transform: translateY(-105%); }
   #wipe.on { animation: wipe 1.1s cubic-bezier(.6, 0, .3, 1) both; }
@@ -251,7 +266,7 @@
   .slider input { width: 100%; margin: 10px 0 4px; accent-color: var(--red); height: 28px; touch-action: pan-x; }
   .slider .eats { font: 600 15px/1.35 'Big Shoulders Display', sans-serif; color: var(--ink2); min-height: 2.7em; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; max-width: 900px; margin: 0 auto; }
-  .thing { position: relative; background: #fff; border: 2.5px solid var(--ink); border-radius: 10px; padding: 6px 6px 7px; text-align: center; transition: transform .15s, opacity .2s, filter .2s; }
+  .thing { cursor: pointer; position: relative; background: #fff; border: 2.5px solid var(--ink); border-radius: 10px; padding: 6px 6px 7px; text-align: center; transition: transform .15s, opacity .2s, filter .2s; }
   .thing .pic { border-radius: 6px; background: linear-gradient(#d7e7f8, #fff 80%); }
   .thing canvas { width: 100%; aspect-ratio: 1; display: block; }
   .thing b { display: block; font: 800 14px/1.05 'Big Shoulders Display', sans-serif; letter-spacing: .03em; text-transform: uppercase; margin-top: 5px; min-height: 2.1em; }
@@ -293,6 +308,15 @@
   }
   @media (max-height: 500px) {
     #mini { display: none; }
+    .banner { top: 60%; }
+    .banner b { font-size: 34px; -webkit-text-stroke-width: 4px; }
+    .banner small { font-size: 12px; }
+    .sign { top: calc(var(--safe-t) + 74px); }
+    .board { padding: 4px 9px 5px; min-width: 0; }
+    .board .n { font-size: 15px; }
+    .board .h { font-size: 11px; max-width: 150px; }
+    .radio { width: min(420px, calc(100% - 200px)); padding: 7px 12px 8px 52px; }
+    .radio p { font-size: 14px; min-height: 0; }
     .stage { flex-direction: row; align-items: flex-end; }
     .ticket { position: absolute; right: calc(var(--safe-r) + 10px); bottom: calc(var(--safe-b) + 10px); width: 330px; margin: 0; }
     .ticket h3 { font-size: 24px; }
@@ -358,6 +382,7 @@
 <div class="banner" id="banner" aria-live="polite"><small></small><b></b></div>
 <div class="radio off" id="radio" aria-live="polite"><i class="led"></i><div class="who">Ski Patrol · channel 9</div><p id="radiotext"></p><div class="steps" id="radiosteps"></div></div>
 <div class="stick" id="stick" aria-hidden="true"><i></i></div>
+<div class="bubble" id="bubble" hidden></div>
 <div id="flash"></div>
 
 <section id="pause" class="sheet" hidden aria-label="Paused">

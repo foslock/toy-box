@@ -17,9 +17,9 @@ export class Sound {
 
   init(ctx) {
     this.ctx = ctx;
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 5; comp.attack.value = 0.004; comp.release.value = 0.2;
     comp.connect(ctx.destination);
-    this.master = ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(comp);
+    this.master = ctx.createGain(); this.master.gain.value = 1.6; this.master.connect(comp);
     this.sfx = ctx.createGain(); this.sfx.gain.value = this.sfxOn ? 1 : 0; this.sfx.connect(this.master);
     this.mus = ctx.createGain(); this.mus.gain.value = this.musicOn && this.sfxOn ? 0.5 : 0; this.mus.connect(this.master);
     const len = ctx.sampleRate * 2;

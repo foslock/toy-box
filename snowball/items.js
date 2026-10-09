@@ -144,6 +144,30 @@ for (const [key, it] of Object.entries(ITEMS)) {
   it.stuck = [a[2] * d[1], a[3]];
 }
 
+// what the things stuck in the ball shout as it rolls
+export const QUIPS = {
+  skier: ['Wheeee!', 'My skis!', 'Is this the lift?', 'I paid for a day pass!', 'Best run ever!', 'Put me down!', 'Which way is down?', 'I can see my chalet!', 'Not again!'],
+  racer: ['My time!', 'Is this legal?', 'Personal best!'],
+  boarder: ['Gnarly!', 'Duuude.', 'Totally meant that.', 'Sick line!'],
+  climber: ['Summit postponed!', 'I had a rope!', 'Wrong way!'],
+  kid: ['Again! Again!', 'Mum!!', 'Faster!', 'I’m a snowball!', 'Best day EVER'],
+  walker: ['I was getting bread!', 'Excuse me!', 'Mind my shopping!', 'My hat!', 'Is this the bus?'],
+  skater: ['Triple axel!', 'Ta-daa!', 'Dizzy...'],
+  moose: ['Hrrnk.', '...', '(confused moose noises)'],
+  yeti: ['RAAARGH', 'Hello, again', 'No photos!'],
+  dog: ['Woof!', 'Brandy, anyone?', 'Who’s a good snowball?'],
+  bear: ['Five more minutes...', 'GRRR'],
+  deer: ['!!', 'Not the antlers!'],
+  reindeer: ['Ho ho... oh no', 'Not the nose!'],
+  snowman: ['Family reunion!', 'Finally, a body!'],
+  snowman_s: ['Mum?', 'Hello, big snowman!'],
+  hottub: ['Shut the door!', 'Party in here!'],
+  goat: ['Meh.', 'Unbothered.'],
+  car: ['BEEP BEEP', 'My insurance!'],
+  bus: ['Next stop: everywhere', 'Fares please!'],
+  gondola: ['We’re still in here!', 'Lovely view!'],
+};
+
 // sizes in words, for the size readout and the "big enough for…" calls
 export function sizeWords(dia) {
   if (dia < 1) return Math.round(dia * 100) + ' cm';

@@ -216,6 +216,8 @@ class BallView {
 
   // a dent of extra snow where something went in
   addLump(dir, amp) {
+    // a lump near an old one builds that one up a little, rather than stacking another on top
+    for (const l of this.lumps) if (l.x * dir.x + l.y * dir.y + l.z * dir.z > 0.9) { l.a = Math.min(0.14, Math.max(l.a, amp) + amp * 0.25); this.shapeDirty = true; return; }
     this.lumps.push({ x: dir.x, y: dir.y, z: dir.z, a: amp });
     if (this.lumps.length > 36) { this.lumps.sort((a, b) => b.a - a.a); this.lumps.length = 30; }
     this.shapeDirty = true;
@@ -238,7 +240,7 @@ class BallView {
     this.shapeDirty = false;
   }
 
-  attach(it, dirW, t, dur = 0.26) {
+  attach(it, dirW, t, dur = 0.26, lump = true) {
     const key = it.key, info = ITEMS[key];
     let s = this.stuck.get(key);
     if (!s) {
@@ -266,7 +268,7 @@ class BallView {
     const rec = { it, key, local, from, t0: t, dur, dist, h: h, tint: it.tint, anim: [info.stuck[0] * sc, info.stuck[1] * (0.85 + Math.random() * 0.3), Math.random() * 50] };
     s.recs.push(rec);
     this.recs.push(rec);
-    this.addLump(dir, clamp(0.1 * (it.need / (this.r * 2)), 0.01, 0.12));
+    if (lump) this.addLump(dir, clamp(0.1 * (it.need / (this.r * 2)), 0.01, 0.12));
     return rec;
   }
 
@@ -571,7 +573,7 @@ export class View {
   heightAt(x, z) { return this.C.heightAt(x, -z); }
 
   // a little portrait of one kind of thing, for Lost & Found and Ski School
-  thumb(key, size = 160) {
+  thumb(key, size = 160, yaw = -0.6) {
     if (!this.thumbRig) {
       const sc = new THREE.Scene();
       sc.add(new THREE.HemisphereLight('#cfe3ff', '#ffffff', 1.4));
@@ -580,10 +582,15 @@ export class View {
       rt.texture.colorSpace = THREE.SRGBColorSpace;
       this.thumbRig = { sc, cam: new THREE.PerspectiveCamera(30, 1, 0.01, 1000), rt, buf: new Uint8Array(size * size * 4), size };
     }
+    if (this.thumbRig.size !== size) {
+      this.thumbRig.rt.setSize(size, size);
+      this.thumbRig.buf = new Uint8Array(size * size * 4);
+      this.thumbRig.size = size;
+    }
     const T = this.thumbRig, info = ITEMS[key];
     const mesh = this.makeInstanced(key, 1);
     mesh.count = 1;
-    mesh.setMatrixAt(0, _m.makeRotationY(-0.6));
+    mesh.setMatrixAt(0, _m.makeRotationY(yaw));
     if (mesh.instanceColor) mesh.setColorAt(0, _c.set('#e8412f'));
     T.sc.add(mesh);
     const ext = Math.max(info.w, info.h, info.dp);
@@ -659,7 +666,8 @@ export class View {
     this.cam.up.copy(UP);
     this.cam.lookAt(S.look);
     this.cam.rotateZ(-S.steer * 0.09);
-    this.cam.fov = S.fov;
+    S.punch = (S.punch || 0) * Math.exp(-dt * 7);
+    this.cam.fov = S.fov + S.punch;
     this.cam.near = Math.max(0.04, r * 0.08);
     this.cam.far = 260 + r * 90;
     this.cam.updateProjectionMatrix();
@@ -681,6 +689,8 @@ export class View {
       p.x = lerp(p.x, b.x, 0.3); p.z = lerp(p.z, -b.d, 0.3); p.y = lerp(p.y, b.y + b.r, 0.2);
     }
   }
+
+  punch(a) { this.camState.punch = (this.camState.punch || 0) + a; }
 
   shake(a) { this.camState.shake = Math.min(1.2, Math.max(this.camState.shake, a)); }
 

@@ -5,7 +5,7 @@
 // ?fresh (ignore the saved game)
 import { MOUNTAINS, buildCourse } from './course.js';
 import { Run } from './sim.js';
-import { ITEMS, sizeWords } from './items.js';
+import { ITEMS, QUIPS, sizeWords } from './items.js';
 import { View } from './render.js';
 import { Sound } from './sound.js';
 import { makeBot } from './bot.js';
@@ -316,6 +316,12 @@ addEventListener('keyup', e => {
   if (mode === 'title' && (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowDown' || e.code === 'KeyS')) endPush();
 });
 addEventListener('blur', () => { keys.clear(); ptr.id = null; stick.classList.remove('on'); if (mode === 'play' && !AUTO) togglePause(true); });
+// iPhones only let sound start from a touch ending or a click; if it comes alive mid-run, start the band too
+for (const ev of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, () => {
+  const had = !!sound.ctx;
+  sound.start();
+  if (!had && sound.ctx && mode === 'play' && !sound.music.on) sound.music.start(mi * 7 + 3, [60, 62, 57, 59, 61, 60][mi]);
+}, { passive: true });
 const canvas = $('c');
 canvas.addEventListener('pointerdown', e => {
   sound.start();
@@ -485,13 +491,13 @@ function events(t) {
         const it = e.it, info = ITEMS[it.key];
         view.ball.attach(it, e.dir, t);
         // a puff of snow where it went in, sized to it
-        const pr = Math.max(0.15, it.h * it.scale * 0.35);
-        for (let k = 0; k < 3 + Math.min(8, e.frac * 10); k++) fx.puffs.spawn(it.x + (Math.random() - 0.5) * pr, it.y + it.h * 0.4, -it.d + (Math.random() - 0.5) * pr, (Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, pr * (0.6 + Math.random() * 0.6), 0.7, 0.8, 2, 1);
+        const pr = Math.min(run.ball.r * 0.5, Math.max(0.1, it.h * 0.25));
+        for (let k = 0; k < 2 + Math.min(6, e.frac * 7); k++) fx.puffs.spawn(it.x + (Math.random() - 0.5) * pr, it.y + it.h * 0.3, -it.d + (Math.random() - 0.5) * pr, (Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, pr * (0.5 + Math.random() * 0.5), 0.6, 0.8, 2, 1);
         sound.pickup(e.frac, e.combo);
         if (info.say && (e.frac > 0.25 || Math.random() < 0.5)) sound.say(info.say, 1);
         pop(it, e);
         found[it.key] = (found[it.key] || 0) + 1;
-        if (e.frac > 0.45) { view.shake(0.25 + e.frac * 0.4); view.ball.kick(1.5 + e.frac * 3); }
+        if (e.frac > 0.45) { view.shake(0.25 + e.frac * 0.4); view.ball.kick(1.5 + e.frac * 3); view.punch(-6 - e.frac * 8); }
         if (e.frac > 0.7) { freezeT = 0.07; flash(0.35); }
         const d = $('dia'); d.classList.add('grow'); setTimeout(() => d.classList.remove('grow'), 120);
         if (it.key === 'moose') remark('moose', 'Did you just eat a moose?');
@@ -609,6 +615,7 @@ function startFinale() {
   if (fin) return;
   mode = 'finale';
   fin = { t: 0, stopped: false, vac: null, n: 0, done: false, diaAtFinish: run.ball.r * 2 };
+  if (tut) { tut = null; save.tutDone = true; store(); }
   slowT = 1.4;
   sound.fanfare(run.medal());
   banner('Finish', sizeWords(run.ball.r * 2));
@@ -629,7 +636,7 @@ function finaleTick(dt, t) {
       it.eaten = true;
       const dist = Math.hypot(it.x - b.x, it.d - b.d);
       const rel = [it.x - b.x, it.y + it.h * 0.4 - b.y, it.d - b.d], L = Math.hypot(...rel) || 1;
-      view.ball.attach(it, rel.map(v => v / L), t + 0.3 + k * Math.min(0.05, 3 / cap), 0.5 + Math.min(1.4, dist / 120));
+      view.ball.attach(it, rel.map(v => v / L), t + 0.3 + k * Math.min(0.05, 3 / cap), 0.5 + Math.min(1.4, dist / 120), false);
       found[it.key] = (found[it.key] || 0) + 1;
     });
     run.townEaten += list.length;
@@ -654,8 +661,12 @@ function finaleTick(dt, t) {
 let reportNo = 0;
 function showReport() {
   mode = 'report';
+  sound.music?.stop();
   const m = MOUNTAINS[mi], dia = fin.diaAtFinish, medal = run.medal();
-  const town = run.townEaten / Math.max(1, C.townTotal);
+  // how much of the town came too, weighted by size: the houses count for more than the bins
+  let tw = 0, te = 0;
+  for (const it of C.items) if (it.town && (!it.deco || it.need > 6)) { const w = it.need; tw += w; if (it.eaten) te += w; }
+  const town = te / Math.max(1e-6, tw);
   const prev = save.best[m.id];
   const isBest = !prev || dia > prev.dia;
   save.best[m.id] = { dia: Math.max(dia, prev?.dia || 0), town: Math.max(town, prev?.town || 0), medal: Math.max(medal, prev?.medal || 0) };
@@ -782,10 +793,51 @@ function showGuide() {
     const pic = document.createElement('div'); pic.className = 'pic'; pic.appendChild(c);
     el.prepend(pic);
     el.title = n ? `${it.name}: ${it.lines.join(', ')}` : 'Not found yet';
+    el.tabIndex = 0;
+    el.onclick = () => detail(k);
+    el.onkeydown = e => { if (e.key === 'Enter') detail(k); };
     grid.appendChild(el);
   }
   $('guide').hidden = false;
   guideSlide();
+}
+// one thing up close, on a turntable you can spin by dragging
+function detail(k) {
+  sound.click();
+  const it = ITEMS[k], n = save.found[k] || 0;
+  const wrap = document.createElement('div');
+  wrap.className = 'detail';
+  wrap.innerHTML = `<div class="card"><canvas width="440" height="440"></canvas><div class="hint">${n ? 'Drag to turn it round' : 'Not found yet'}</div>
+    <h2>${n ? it.name : '???'}</h2>
+    <div class="stat"><span>Needs <b>${sizeWords(it.need)}</b></span><span>Picked up <b>${n}</b></span></div>
+    ${n ? `<ul>${it.lines.map(l => `<li>“${l}”</li>`).join('')}</ul>` : '<ul><li>Somewhere on the mountain. Get big enough, then go and find it.</li></ul>'}
+    <button class="btn">Put it back</button></div>`;
+  document.body.appendChild(wrap);
+  const cv = wrap.querySelector('canvas'), g = cv.getContext('2d');
+  const frames = Array.from({ length: 24 }, (_, i) => view.thumb(k, 220, i / 24 * Math.PI * 2));
+  let a = 0, v = 0.6, drag = null;
+  const draw = () => {
+    const f = frames[((Math.round(a / (Math.PI * 2) * 24) % 24) + 24) % 24];
+    g.clearRect(0, 0, 440, 440);
+    if (!n) g.filter = 'brightness(0) opacity(.3)';
+    g.drawImage(f, 0, 0, 440, 440);
+    g.filter = 'none';
+  };
+  let last = performance.now();
+  const spin = now => {
+    if (!wrap.isConnected) return;
+    requestAnimationFrame(spin);
+    const dt = (now - last) / 1000; last = now;
+    if (!drag) { a += v * dt; v += (0.6 - v) * dt; }
+    draw();
+  };
+  requestAnimationFrame(spin);
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, a }; });
+  cv.addEventListener('pointermove', e => { if (!drag) return; const na = drag.a + (e.clientX - drag.x) * 0.02; v = (na - a) * 30; a = na; });
+  cv.addEventListener('pointerup', () => { drag = null; });
+  const close = () => { wrap.remove(); sound.click(); };
+  wrap.querySelector('button').onclick = close;
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
 }
 function guideSlide() {
   const dia = sliderDia(+$('grange').value);
@@ -907,14 +959,42 @@ function tick(dt, t) {
     if (tut) { tut.t += dt; if (LESSONS[tut.step]?.done(tut)) nextLesson(); }
     if (mode === 'finale') finaleTick(dt, t);
     hud(dt);
+    if (!DEMO) bubbles(dt);
     if (sound.ctx) sound.music.set(Math.min(5, Math.floor(Math.log2(run.ball.r * 2 / MOUNTAINS[mi].start) * 1.4)), run.ball.speed);
   }
   if (radioT > 0 && (radioT -= dt) <= 0 && !tut) radio(null);
   if (signT > 0 && (signT -= dt) <= 0) $('sign').classList.remove('on');
   sound.roll(dt, { speed: run.ball.speed, r: run.ball.r, ground: run.ball.ground, surf: run.ball.surf, playing });
   const camMode = mode === 'title' && run.ball.vd < 2 ? 'orbit' : mode === 'finale' && fin && fin.t > 0.8 ? 'finale' : mode === 'report' ? 'finale' : 'play';
-  view.frame(playing ? dt * timeScale : dt, t, run, camMode, dt);
+  // the trail map and its pages cover the screen: no need to draw the mountain behind them
+  if (mode === 'map' && !first) return;
+  const frozen = paused && (mode === 'play' || mode === 'finale');
+  view.frame(playing ? dt * timeScale : frozen ? 0 : dt, t, run, camMode, frozen ? 0 : dt);
   if (first) { first = false; window.toyboxReady?.(); }
+}
+// now and then something stuck in the ball has something to say
+let bubbleT = 4, bubbleOn = 0;
+function bubbles(dt) {
+  const el = $('bubble');
+  if (bubbleOn > 0) {
+    bubbleOn -= dt;
+    const b = run.ball, p = view.project(b.x, b.y + b.r * 1.25, b.d);
+    const right = el.classList.contains('r');
+    el.style.transform = `translate(${p.x + (right ? -el.offsetWidth - 10 : 10) + b.r * 2}px, ${p.y - el.offsetHeight - 14}px)`;
+    if (bubbleOn <= 0) el.hidden = true;
+    return;
+  }
+  if ((bubbleT -= dt) > 0) return;
+  bubbleT = 3.5 + Math.random() * 4.5;
+  const talkers = view.ball.recs.filter(r => r.out > 0 && QUIPS[r.key] && performance.now() / 1000 - r.t0 > 0.6);
+  if (!talkers.length || mode !== 'play') return;
+  const r = talkers[Math.floor(Math.random() * talkers.length)], q = QUIPS[r.key];
+  el.textContent = q[Math.floor(Math.random() * q.length)];
+  el.classList.toggle('r', Math.random() < 0.5);
+  el.hidden = false; bubbleOn = 1.9;
+  el.animate([{ opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1.05, offset: 0.12 }, { opacity: 1, scale: 1, offset: 0.2 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 1900 });
+  const say = ITEMS[r.key].say;
+  if (say) sound.say(say, 0.35);
 }
 function hud() {
   const b = run.ball, dia = b.r * 2;
@@ -967,7 +1047,7 @@ if (DEBUG || AUTO || Q.has('hold')) {
     // step the game by hand (for a hidden browser pane): ms of game time, rendered at the end
     ff(ms, render = true) { const was = hold; hold = false; const n = Math.ceil(ms / 50); for (let i = 0; i < n; i++) tick(0.05, performance.now() / 1000 + i * 0.05); hold = was; if (render) view.frame(0.016, performance.now() / 1000, run, mode === 'finale' || mode === 'report' ? 'finale' : 'play'); },
     start(i, o) { startRun(i, o); }, map: showMap, title: showTitle, guide: showGuide, school: showSchool,
-    get mode() { return mode; },
+    get mode() { return mode; }, get fin() { return fin; }, get paused() { return paused; },
     get save() { return save; }, setSave(o) { save = Object.assign({ best: {}, found: {}, steer: 'drag', sound: 'all' }, o); store(); },
   };
 }
