@@ -638,8 +638,12 @@ export class View {
     } else {
       S.orbit = undefined;
       const tall = Math.max(0, 1 - this.cam.aspect);   // a phone held upright: look down the slope more, less sky
-      const dist = 1.35 + r * 4.6 + Math.min(speed, 40) * 0.045 * (1 + r * 0.15);
-      const height = (0.5 + r * 2.0) * (1 + tall * 0.5);
+      // the faster you go, the higher the camera rides and the further down the slope it looks, so the ball sits low
+      // in the picture and what's coming is in view rather than behind it
+      const quick = clamp(speed / (18 + r * 3), 0, 1);
+      S.quick = lerp(S.quick ?? quick, quick, 1 - Math.exp(-dt * 3));
+      const dist = 1.35 + r * 4.6 + Math.min(speed, 40) * 0.04 * (1 + r * 0.15);
+      const height = (0.5 + r * 2.0) * (1 + tall * 0.5) + S.quick * (1.4 + r * 1.8);
       S.dist = lerp(S.dist, dist, 1 - Math.exp(-dt * 3));
       _v.set(b.x - hx * S.dist, b.y + height, -(b.d - hd * S.dist));
       // keep the camera out of the snow
@@ -652,12 +656,16 @@ export class View {
       // never let the ball get away from the camera at speed
       const far = S.pos.distanceTo(_v2.set(b.x, b.y, -b.d));
       if (far > S.dist * 1.8 + height) S.pos.lerp(_v, 0.5);
-      _v2.set(b.x + hx * (r * 2.5 + 2), b.y + r * 0.35 - tall * (r * 0.9 + 0.5), -(b.d + hd * (r * 2.5 + 2)));
-      S.look.lerp(_v2, 1 - Math.exp(-dt * 10));
+      // aim at where the ball will be in a moment, down at the snow there rather than level with the ball
+      const lead = r * 2.5 + 2 + Math.min(speed, 45) * 0.45 * (1 + r * 0.1);
+      const ax = b.x + hx * lead, ad = b.d + hd * lead;
+      const ay = lerp(b.y + r * 0.35, this.C.heightAt(ax, ad) + r * 0.6, 0.4 + 0.55 * S.quick) - tall * (r * 0.9 + 0.5);
+      _v2.set(ax, ay, -ad);
+      S.look.lerp(_v2, 1 - Math.exp(-dt * 8));
       const fast = clamp((speed - 4) / (26 + r * 4), 0, 1);
       // a tall phone screen sees very little across at the usual field of view, so widen it
       const base = 58 + Math.max(0, 1 - this.cam.aspect) * 30;
-      S.fov = lerp(S.fov, base + fast * 26 + (run.input.tuck ? 6 : 0), 1 - Math.exp(-dt * 3));
+      S.fov = lerp(S.fov, base + fast * 16 + (run.input.tuck ? 6 : 0), 1 - Math.exp(-dt * 3));
       S.steer = lerp(S.steer, run.input.steer, 1 - Math.exp(-dt * 5));
     }
     S.shake = Math.max(0, S.shake - dt * 1.6);
