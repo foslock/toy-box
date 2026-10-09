@@ -47,7 +47,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 39. Crossfire
 - [ ] 40. Dollhouse
 - [x] 41. Shared Deck — [`harrowing/`](harrowing/)
-- [ ] 42. Come Bye
+- [x] 42. Come Bye — [`comebye/`](comebye/)
 - [ ] 43. Floppy
 - [ ] 44. Conga
 - [ ] 45. Heirloom
@@ -375,8 +375,10 @@ A Slay the Spire-style roguelite deckbuilder where every fight is played from on
 
 Climb a three-act map in the usual way (fights, elites, events, rests, shops) to a final boss, with a few characters, around 60 cards and 20 relics, and monsters whose cards make you think about what you've let into the deck. Show clearly whose turn it is and who drew what. Style: hand-inked, two-tone illustration like an old printed card game on a dark blue table, with lots of satisfying card motion. Tap or drag to play.
 
-## 42. Come Bye
+## 42. Come Bye ✅
 *Borrows: sheepdog trials · Twist: a real flock with real flocking, steered only through your dog*
+
+**Built 2026-10-09 as [`comebye/`](comebye/).**
 
 A sheepdog trial game. You steer the dog by dragging where it should run, and a small flock of sheep with real flocking behaviour (they bunch up, flee the dog, follow each other, a stubborn few break away) has to be gathered and guided around the course. Fetch them down the field, drive them through a pair of gates, split a few off in the shedding ring and pen them at the end, all against the clock. Come in too close and they scatter; hang back and they drift. It's calm, readable and surprisingly tense.
 

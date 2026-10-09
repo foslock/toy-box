@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Come Bye</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #23241d; --paper: #f4ecd8; --paper2: #ebe0c6; --red: #a8321f; --green: #2f4a2e; --dim: #6d6650; --rule: rgba(35, 36, 29, .35); }
+  html, body { height: 100%; margin: 0; }
+  body { background: #5d7a3c; color: var(--ink); font: 400 15px/1.45 "Libre Caslon Text", Georgia, serif; overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .disp { font-family: "Libre Caslon Display", "Libre Caslon Text", Georgia, serif; font-weight: 400; }
+  .sc { font-variant: small-caps; letter-spacing: .08em; }
+  /* paper grain over the whole screen, like the field's painted on cartridge paper */
+  #grain { position: fixed; inset: 0; pointer-events: none; opacity: .5; mix-blend-mode: multiply; z-index: 2;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .3 0 0 0 .3 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  #vig { position: fixed; inset: 0; pointer-events: none; z-index: 2; background: radial-gradient(130% 100% at 50% 45%, transparent 55%, rgba(40, 35, 20, .35) 100%); }
+
+  /* ---- the HUD: two paper slips pinned to the top of the screen */
+  .slip { position: fixed; z-index: 5; background: var(--paper); border: 1px solid var(--ink); box-shadow: 2px 3px 0 rgba(35, 36, 29, .35); padding: 6px 11px 7px; }
+  #hudL { left: max(62px, calc(env(safe-area-inset-left) + 60px)); top: max(10px, env(safe-area-inset-top)); max-width: calc(100% - 62px - 170px); pointer-events: none; }
+  #hudL .t { font-size: 11px; line-height: 1.1; color: var(--green); font-variant: small-caps; letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hudL .s { font-style: italic; font-size: 14.5px; line-height: 1.2; margin-top: 2px; }
+  #hudL .s b { font-style: normal; color: var(--red); font-weight: 400; }
+  #hudR { right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; padding: 4px 6px 4px 11px; }
+  #clock { font: 400 22px/1 "Libre Caslon Display", Georgia, serif; font-variant-numeric: oldstyle-nums tabular-nums; min-width: 44px; text-align: right; }
+  #clock.low { color: var(--red); }
+  #pts { font-size: 11px; line-height: 1.05; color: var(--dim); text-align: center; font-variant: small-caps; letter-spacing: .06em; }
+  #pts b { display: block; font: 400 17px/1 "Libre Caslon Display", Georgia, serif; color: var(--ink); letter-spacing: 0; font-variant-numeric: oldstyle-nums; }
+  .ib { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--ink); background: var(--paper2); display: grid; place-items: center; padding: 0; }
+  .ib svg { width: 15px; height: 15px; }
+  #map { position: fixed; z-index: 4; right: max(10px, env(safe-area-inset-right)); top: calc(max(10px, env(safe-area-inset-top)) + 52px); border: 1px solid var(--ink); box-shadow: 2px 3px 0 rgba(35, 36, 29, .3); background: var(--paper); pointer-events: none; }
+
+  /* the whistle call, printed large for a moment */
+  #call { position: fixed; z-index: 5; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 160px); transform: translate(-50%, 0); pointer-events: none; text-align: center; opacity: 0; transition: opacity .5s;
+    font: italic 400 clamp(24px, 6vw, 40px)/1 "Libre Caslon Text", Georgia, serif; color: var(--paper); white-space: nowrap;
+    text-shadow: 0 1px 0 rgba(0,0,0,.5), 0 0 14px rgba(20, 25, 10, .65); }
+  #call.on { opacity: 1; transition: none; }
+  #call small { display: block; font-size: 12px; letter-spacing: .14em; font-style: normal; font-variant: small-caps; margin-top: 6px; opacity: .85; }
+  #toast { position: fixed; z-index: 6; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 92px); transform: translate(-50%, 0) rotate(-2deg); pointer-events: none; opacity: 0; text-align: center; white-space: nowrap;
+    background: var(--paper); border: 1.5px solid var(--ink); padding: 6px 16px 7px; box-shadow: 3px 4px 0 rgba(35, 36, 29, .4); }
+  #toast .a { font: 400 22px/1.05 "Libre Caslon Display", Georgia, serif; }
+  #toast .b { font-style: italic; font-size: 14px; color: var(--dim); }
+  #toast.on { animation: toast 2.6s ease both; }
+  @keyframes toast { 0% { opacity: 0; transform: translate(-50%, 8px) rotate(-2deg); } 10%, 80% { opacity: 1; transform: translate(-50%, 0) rotate(-2deg); } 100% { opacity: 0; transform: translate(-50%, -6px) rotate(-2deg); } }
+
+  /* Tam's notes: a card pinned at the bottom */
+  #note { position: fixed; z-index: 6; left: 50%; bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px)); transform: translate(-50%, 0) rotate(-.6deg); width: min(470px, calc(100% - 24px)); box-sizing: border-box;
+    background: var(--paper); border: 1px solid var(--ink); box-shadow: 3px 4px 0 rgba(35, 36, 29, .35); padding: 10px 14px 11px 14px; pointer-events: auto; transition: opacity .3s, transform .3s; }
+  #note.off { opacity: 0; transform: translate(-50%, 12px) rotate(-.6deg); pointer-events: none; }
+  #note .who { padding-right: 22px; font-variant: small-caps; letter-spacing: .1em; font-size: 11.5px; color: var(--red); display: flex; justify-content: space-between; align-items: baseline; }
+  #note .who span { color: var(--dim); letter-spacing: .04em; }
+  #note p { margin: 3px 0 0; font-size: 15.5px; line-height: 1.38; }
+  #note .x { position: absolute; right: 4px; top: 2px; border: 0; background: none; font-size: 20px; line-height: 1; padding: 6px 8px; color: var(--dim); }
+  #note .ok { margin-top: 8px; }
+
+  /* ---- sheets: the programme, the pause menu, the judge's card */
+  .sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    background: rgba(30, 36, 20, .55); padding: max(14px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+  .page { position: relative; width: min(520px, 100%); background: var(--paper); border: 1px solid var(--ink); box-shadow: 4px 6px 0 rgba(20, 22, 14, .45); padding: 22px 24px 20px; box-sizing: border-box; margin: auto 0;
+    background-image: linear-gradient(rgba(255,255,255,.18), rgba(0,0,0,.03)); }
+  .page::before { content: ''; position: absolute; inset: 5px; border: 1px solid var(--rule); pointer-events: none; }
+  .mast { text-align: center; }
+  .mast .over { font-variant: small-caps; letter-spacing: .22em; font-size: 12px; color: var(--green); }
+  .mast h1 { margin: 2px 0 0; font: 400 clamp(40px, 12vw, 58px)/.95 "Libre Caslon Display", Georgia, serif; letter-spacing: -.01em; }
+  .mast h1 i { color: var(--red); font-style: normal; }
+  .mast .sub { font-style: italic; font-size: 15px; margin-top: 4px; }
+  .orn { text-align: center; color: var(--red); letter-spacing: .5em; margin: 8px 0 6px; font-size: 13px; }
+  .rule { border: 0; border-top: 1px solid var(--ink); margin: 10px 0; }
+  .rule.d { border-top: 3px double var(--ink); }
+  #vign { display: block; margin: 8px auto 0; width: 220px; height: 92px; }
+  .entrant { text-align: center; font-size: 13px; color: var(--dim); font-style: italic; }
+  .classes { list-style: none; margin: 0; padding: 0; }
+  .classes li + li { border-top: 1px dotted var(--rule); }
+  .cls { display: grid; grid-template-columns: 34px 1fr auto; gap: 4px 10px; align-items: baseline; width: 100%; text-align: left; background: none; border: 0; padding: 10px 4px 9px; }
+  .cls:hover:not(:disabled) { background: rgba(168, 50, 31, .06); }
+  .cls .n { font: 400 24px/1 "Libre Caslon Display", Georgia, serif; color: var(--red); font-variant-numeric: oldstyle-nums; }
+  .cls .nm { font-size: 17px; line-height: 1.15; }
+  .cls .nm small { font-style: italic; color: var(--dim); font-size: 13px; }
+  .cls .bs { font-variant: small-caps; font-size: 12px; color: var(--dim); text-align: right; letter-spacing: .05em; line-height: 1.1; }
+  .cls .bs b { display: block; font: 400 19px/1 "Libre Caslon Display", Georgia, serif; color: var(--ink); font-variant-numeric: oldstyle-nums; letter-spacing: 0; }
+  .cls .ds { grid-column: 2 / 4; font-size: 13.5px; font-style: italic; color: #4c4838; line-height: 1.35; }
+  .cls:disabled { opacity: .45; cursor: default; }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; color: var(--dim); }
+  .btn { border: 1px solid var(--ink); background: var(--paper2); padding: 8px 16px 9px; font-size: 16px; box-shadow: 2px 2px 0 var(--ink); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn.red { background: var(--red); color: var(--paper); }
+  .btn.small { font-size: 13px; padding: 5px 10px 6px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
+  .howto { font-size: 14px; line-height: 1.45; margin: 8px 2px 0; }
+  .howto b { font-weight: 400; font-variant: small-caps; letter-spacing: .06em; color: var(--red); }
+
+  /* the judge's card */
+  .card h2 { margin: 0; text-align: center; font: 400 30px/1 "Libre Caslon Display", Georgia, serif; }
+  .card .cl { text-align: center; font-style: italic; color: var(--dim); margin-top: 3px; }
+  .card table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .card th { font-weight: 400; font-variant: small-caps; letter-spacing: .08em; font-size: 12px; color: var(--dim); text-align: right; border-bottom: 1px solid var(--ink); padding: 3px 4px; }
+  .card th:first-child { text-align: left; }
+  .card td { padding: 6px 4px 5px; vertical-align: top; border-bottom: 1px dotted var(--rule); }
+  .card td.num { text-align: right; font: 400 20px/1 "Libre Caslon Display", Georgia, serif; font-variant-numeric: oldstyle-nums; width: 46px; }
+  .card td.num.max { color: var(--dim); font-size: 15px; }
+  .card td small { display: block; font-style: italic; font-size: 12.5px; color: var(--red); line-height: 1.3; margin-top: 2px; }
+  .card tr.tot td { border-bottom: 3px double var(--ink); border-top: 1px solid var(--ink); font-size: 16px; }
+  .card tr.tot td.num { font-size: 26px; }
+  .stampw { text-align: center; margin: 12px 0 2px; }
+  .stamp { display: inline-block; transform: rotate(-4deg); border: 2.5px solid var(--red); color: var(--red); padding: 3px 9px 2px; font: 400 15px/1.1 "Libre Caslon Display", Georgia, serif; letter-spacing: .12em; text-transform: uppercase; opacity: .82; border-radius: 3px; }
+  .card .best { text-align: center; font-size: 13px; color: var(--dim); font-style: italic; margin-top: 8px; }
+  .menu .page { width: min(340px, 100%); text-align: center; }
+  .menu .btns { flex-direction: column; align-items: stretch; }
+
+  body.demo #note, body.demo .sheet { display: none !important; }
+  @media (max-width: 520px) {
+    #hudL { max-width: calc(100% - 62px - 166px); padding: 5px 8px 6px; }
+    #hudL .t { display: none; }
+    #hudL .s { font-size: 13px; margin: 0; }
+    #hudR { gap: 7px; padding: 3px 4px 3px 8px; }
+    #clock { font-size: 19px; min-width: 38px; }
+    #pts b { font-size: 15px; }
+    .page { padding: 18px 16px 16px; }
+    #map { transform-origin: top right; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="grain"></div><div id="vig"></div>
+
+<div id="hudL" class="slip" hidden><div class="t" id="hudT"></div><div class="s" id="hudS"></div></div>
+<div id="hudR" class="slip" hidden>
+  <div id="pts">points<b id="ptsN">0</b></div>
+  <div id="clock">5:00</div>
+  <button class="ib" id="bpause" aria-label="Pause"><svg viewBox="0 0 16 16"><rect x="3.5" y="2.5" width="3" height="11" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" fill="currentColor"/></svg></button>
+</div>
+<canvas id="map" hidden></canvas>
+<div id="call"></div>
+<div id="toast"><div class="a"></div><div class="b"></div></div>
+<div id="note" class="off"><div class="who">Tam's notes <span id="noteStep"></span></div><button class="x" id="noteX" aria-label="Hide note">×</button><p id="noteP"></p><div id="noteOk" hidden><button class="btn small" id="noteBtn">Right you are</button></div></div>
+
+<!-- the programme -->
+<div class="sheet" id="menu" hidden>
+  <div class="page">
+    <div class="mast">
+      <div class="over">Crag End &amp; District</div>
+      <h1>Come <i>Bye</i></h1>
+      <div class="sub">Sheep Dog Trials · Programme of Events</div>
+    </div>
+    <canvas id="vign" width="440" height="184"></canvas>
+    <div class="entrant">Handler: yourself · Dog: Fly, rough-coated bitch, three years</div>
+    <hr class="rule d">
+    <ul class="classes" id="classes"></ul>
+    <hr class="rule">
+    <p class="howto" id="howto"></p>
+    <div class="foot"><span id="totalBest"></span><button class="btn small" id="bsound">Sound: on</button></div>
+  </div>
+</div>
+
+<!-- paused -->
+<div class="sheet menu" id="pause" hidden>
+  <div class="page">
+    <div class="mast"><div class="over">A word with the judge</div><h1 style="font-size:36px">Paused</h1></div>
+    <hr class="rule">
+    <div class="btns">
+      <button class="btn red" id="presume">Back to the field</button>
+      <button class="btn" id="prestart">Start the run again</button>
+      <button class="btn" id="pretire">Retire and see the card</button>
+      <button class="btn" id="pmenu">The programme</button>
+      <button class="btn small" id="psound">Sound: on</button>
+    </div>
+  </div>
+</div>
+
+<!-- the judge's card -->
+<div class="sheet" id="card" hidden>
+  <div class="page card" id="cardPage"></div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

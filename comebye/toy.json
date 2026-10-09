@@ -1,0 +1,10 @@
+{
+  "title": "Come Bye",
+  "blurb": "A sheepdog trial with a real flock: steer your dog by touch alone to fetch, drive, shed and pen the sheep while a judge takes off points.",
+  "added": "2026-10-09",
+  "category": "games",
+  "tags": ["canvas", "flocking", "sheepdog", "game"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 2600, "query": "?demo" },
+  "share": { "y": 50 }
+}
