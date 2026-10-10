@@ -15,7 +15,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 7. Lost Property
 - [ ] 8. Gumball Landlord
 - [ ] 9. Mirror Knight
-- [ ] 10. Draw Ahead
+- [x] 10. Draw Ahead — [`drawahead/`](drawahead/)
 - [ ] 11. Marco
 - [ ] 12. Spire Keeper
 - [ ] 13. Pop-Up
@@ -141,7 +141,7 @@ A single Elden Ring-style boss fight, top-down: you against the Mirror Knight in
 
 Show the learning honestly: a quiet "the Mirror Knight has learned…" line after each death, and a small crack in its armour for each habit it has picked up. Three phases, with a final phase that uses everything it knows. Style: stark black and white with one accent colour per weapon, crisp animation that reads at phone size, a big named health bar across the bottom and a proper YOU DIED. Keyboard and mouse on desktop; a stick and buttons on phones.
 
-## 10. Draw Ahead
+## 10. Draw Ahead ✅
 *Borrows: Line Rider · Twist: the sled is already moving, and you draw the track just ahead of it*
 
 Line Rider, except the sled is already moving. A little rider starts sliding the moment you begin, and you draw the track in front of it in real time with your finger or mouse, faster than it can catch up. Steep lines speed it up and gentle ones slow it down, loops and jumps work if you draw them right, and running off the end of your line means a tumble. Ink is limited and refills slowly, and the track behind the rider fades away.

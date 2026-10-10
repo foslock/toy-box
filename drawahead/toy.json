@@ -1,0 +1,9 @@
+{
+  "title": "Draw Ahead",
+  "blurb": "The sled is already moving, so draw the hill in front of it with a pencil, faster than it can catch up and before your lead runs out.",
+  "added": "2026-10-10",
+  "category": "games",
+  "tags": ["canvas", "drawing", "physics", "game"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
