@@ -23,7 +23,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 15. Lantern
 - [ ] 16. Pile-Up
 - [ ] 17. Glyphs
-- [ ] 18. Needle
+- [x] 18. Needle — [`needle/`](needle/)
 - [x] 19. Ladder — [`ladder/`](ladder/)
 - [ ] 20. Chat Dungeon
 - [ ] 21. Moving Day
@@ -197,8 +197,10 @@ A language-deciphering puzzle game in the style of Chants of Sennaar. You arrive
 
 About 40 glyphs with a simple grammar (plurals, negation, a question marker), learned through the town's life: a baker, a guard who won't let you through the gate, a child playing a counting game, a priest's prayer. Understanding is how you progress. The gate opens when you can tell the guard the right thing by choosing glyphs. Style: flat, sun-bleached, near-isometric illustration in terracotta and teal, with calm ambient music. About 45 minutes long.
 
-## 18. Needle
+## 18. Needle ✅
 *Borrows: tower defense · Twist: the battlefield is a spinning vinyl record, and towers fire on the beat*
+
+**Built 2026-10-11 as [`needle/`](needle/).**
 
 A tower defense played on a turntable. Enemies march along the groove of a spinning record, spiralling slowly in toward the label, while your towers sit still on the plinth around the edge and on a few bridges across the record. The record carries every enemy past every tower once per revolution, so a creep you missed comes back round. The tone arm plays a real little song, generated with WebAudio, and the towers fire on its beats: some on every beat, some on the off-beat, some only on the snare. The soundtrack is the rhythm of your defence.
 

@@ -1,0 +1,9 @@
+{
+  "title": "Needle",
+  "blurb": "Tower defence on a spinning record, where dust walks the groove toward the label and every tower plays one part of the song, firing on its beat.",
+  "added": "2026-10-11",
+  "category": "games",
+  "tags": ["canvas", "webaudio", "tower defence", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
