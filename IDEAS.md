@@ -44,7 +44,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 36. Pinball Over It
 - [ ] 37. Hotline
 - [ ] 38. Regulars
-- [ ] 39. Crossfire
+- [x] 39. Crossfire — [`crossfire/`](crossfire/)
 - [ ] 40. Dollhouse
 - [x] 41. Shared Deck — [`harrowing/`](harrowing/)
 - [x] 42. Come Bye — [`comebye/`](comebye/)
@@ -356,8 +356,10 @@ A time-management diner game in the spirit of Papa's Pizzeria: take the order, m
 
 Rush hours stay fun as a game, with the regulars mixed in among passing strangers, and remembering a regular's "usual" earns a bonus. The diner changes with the years too (prices, the jukebox, the menu board, a renovation). Twenty short days, about 40 minutes in all, with an ending that might make someone tear up. Style: warm, flat mid-century illustration, the chrome counter seen from behind, and soft jazz that changes with the decades.
 
-## 39. Crossfire
+## 39. Crossfire ✅
 *Borrows: Worms, Frozen Synapse · Twist: both teams' turns happen at once, and shells can collide in the air*
+
+**Built 2026-10-12 as [`crossfire/`](crossfire/).**
 
 A Worms-style artillery game where both teams take their turns at the same time. Each round, both sides secretly aim, pick a weapon and plan a move, then everything plays out at once. Shells fly together, can meet and burst in mid-air, and land on ground that the other side's shot blew away a moment earlier. Predicting where the enemy will be when your shell arrives, and where their shot is headed, is the whole game. A short replay shows each turn's collisions from a dramatic angle.
 

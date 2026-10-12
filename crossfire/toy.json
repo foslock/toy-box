@@ -1,0 +1,19 @@
+{
+  "title": "Crossfire",
+  "blurb": "Artillery where both generals plan in secret and fire at the same moment, so you aim where they'll be and shells can meet in mid-air.",
+  "added": "2026-10-12",
+  "category": "games",
+  "tags": [
+    "canvas",
+    "artillery",
+    "turn-based",
+    "game"
+  ],
+  "tape": "red",
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 2500,
+    "query": "?demo"
+  }
+}
