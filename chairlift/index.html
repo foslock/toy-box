@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Chairlift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Condensed:ital,wght@0,400;0,600;0,800;1,400;1,600&family=Sofia+Sans+Extra+Condensed:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --paper: #f1ede2; --snow: #fbfaf5; --ink: #1c2130; --dim: #687083; --red: #cf3326; --green: #2b8a4c; --blue: #1d5fc6; --black: #16181d; --rule: rgba(28, 33, 48, .22); --night: #1b2440; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 400 16px/1.35 "Sofia Sans Condensed", "Arial Narrow", sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .disp { font-family: "Sofia Sans Extra Condensed", "Sofia Sans Condensed", sans-serif; font-weight: 900; text-transform: uppercase; letter-spacing: .01em; line-height: .9; }
+  .caps { text-transform: uppercase; letter-spacing: .12em; font-weight: 600; font-size: 12px; }
+  /* the trail-map symbols, used in text */
+  .sym { display: inline-block; width: .62em; height: .62em; vertical-align: .02em; margin: 0 .08em; }
+  .sym.g { background: var(--green); border-radius: 50%; }
+  .sym.b { background: var(--blue); }
+  .sym.k { background: var(--black); transform: rotate(45deg) scale(.86); }
+  .lift-sym { display: inline-block; width: 1.1em; height: .7em; vertical-align: -.02em; background: linear-gradient(var(--ink), var(--ink)) 0 50%/100% 1.5px no-repeat, linear-gradient(90deg, transparent 30%, var(--ink) 30% 40%, transparent 40% 62%, var(--ink) 62% 72%, transparent 72%) 0 50%/100% 60% no-repeat; }
+
+  /* ---- HUD: a printed title strip across the top of the map */
+  #hud { position: fixed; z-index: 5; left: max(62px, calc(env(safe-area-inset-left) + 60px)); right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top));
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; pointer-events: none; }
+  #where { background: var(--snow); border: 1.5px solid var(--ink); padding: 5px 10px 6px; min-width: 0; }
+  #where .m { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #where .d { display: flex; align-items: center; gap: 8px; margin-top: 1px; }
+  #where .d b { font: 900 22px/1 "Sofia Sans Extra Condensed", sans-serif; text-transform: uppercase; }
+  #sun { width: 64px; height: 6px; border: 1.5px solid var(--ink); position: relative; background: var(--snow); }
+  #sun i { position: absolute; inset: 0 auto 0 0; background: #f0b43c; width: 0; }
+  #score { background: var(--ink); color: var(--snow); padding: 5px 11px 6px; text-align: right; }
+  #score .m { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; opacity: .7; }
+  #score b { display: block; font: 900 26px/1 "Sofia Sans Extra Condensed", sans-serif; font-variant-numeric: tabular-nums; }
+  #score.pop b { animation: pop .3s ease; }
+  @keyframes pop { 40% { transform: scale(1.18); } }
+
+  /* ---- the toolbar along the bottom */
+  #bar { position: fixed; z-index: 5; left: 50%; bottom: max(10px, calc(env(safe-area-inset-bottom) + 6px)); transform: translateX(-50%); display: flex; gap: 6px; align-items: stretch;
+    background: var(--snow); border: 1.5px solid var(--ink); padding: 5px; box-shadow: 3px 3px 0 rgba(28, 33, 48, .18); }
+  .tool { min-width: 46px; height: 46px; padding: 0 9px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1.5px solid transparent; font-weight: 600; font-size: 15px; white-space: nowrap; }
+  .tool svg { width: 22px; height: 22px; display: block; }
+  .tool .n { font: 900 21px/1 "Sofia Sans Extra Condensed", sans-serif; font-variant-numeric: tabular-nums; }
+  .tool.on { background: var(--ink); color: var(--snow); }
+  .tool.arm { background: var(--red); color: var(--snow); }
+  .tool:disabled { opacity: .35; cursor: default; }
+  .tool.flash { animation: flash .8s ease 2; }
+  @keyframes flash { 50% { background: #f0b43c; } }
+  #bar .sep { width: 1.5px; background: var(--rule); margin: 4px 2px; }
+  #bar .lbl { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; line-height: 1.05; text-align: left; font-weight: 600; }
+  @media (max-width: 420px) { .tool { min-width: 42px; padding: 0 6px; } #bar .lbl { display: none; } #bar { gap: 3px; } }
+
+  /* ---- a short message just above the toolbar */
+  #hint { position: fixed; z-index: 6; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom) + 6px) + 70px); transform: translate(-50%, 6px); opacity: 0; pointer-events: none;
+    background: var(--ink); color: var(--snow); padding: 6px 12px 7px; font-weight: 600; white-space: nowrap; transition: opacity .25s, transform .25s; max-width: calc(100vw - 30px); overflow: hidden; text-overflow: ellipsis; }
+  #hint.on { opacity: 1; transform: translate(-50%, 0); }
+  #hint.bad { background: var(--red); }
+  #hint .sym, #pop .sym { box-shadow: 0 0 0 1.5px var(--snow); }
+
+  /* ---- selected run or lift */
+  #pop { position: fixed; z-index: 7; background: var(--snow); border: 1.5px solid var(--ink); padding: 8px 10px 9px; min-width: 150px; box-shadow: 3px 3px 0 rgba(28, 33, 48, .2); }
+  #pop .t { font: 900 20px/1 "Sofia Sans Extra Condensed", sans-serif; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+  #pop .s { font-size: 14px; color: var(--dim); margin: 3px 0 7px; }
+  #pop .row { display: flex; gap: 6px; }
+  .btn { border: 1.5px solid var(--ink); padding: 7px 12px 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; font-size: 14px; background: var(--snow); }
+  .btn.solid { background: var(--ink); color: var(--snow); }
+  .btn.red { background: var(--red); border-color: var(--red); color: var(--snow); }
+  .btn:active { transform: translateY(1px); }
+
+  /* ---- coach card for the tutorial */
+  #coach { position: fixed; z-index: 8; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 60px); transform: translateX(-50%); width: min(430px, calc(100vw - 24px)); box-sizing: border-box;
+    background: var(--snow); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 rgba(28, 33, 48, .2); padding: 10px 14px 12px; }
+  #coach .hd { display: flex; justify-content: space-between; align-items: baseline; }
+  #coach .hd span { color: var(--red); }
+  #coach .hd button { font-size: 13px; color: var(--dim); text-decoration: underline; text-underline-offset: 2px; }
+  #coach p { margin: 4px 0 0; font-size: 17px; line-height: 1.32; }
+  #coach .go { margin-top: 10px; display: flex; justify-content: flex-end; }
+  #coach .dots { display: flex; gap: 4px; margin-top: 8px; }
+  #coach .dots i { width: 16px; height: 3px; background: var(--rule); }
+  #coach .dots i.on { background: var(--ink); }
+  #coach.low { top: auto; bottom: calc(max(10px, env(safe-area-inset-bottom) + 6px) + 70px); }
+
+  /* ---- full-screen cards: title, evening, closed */
+  .sheet { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; box-sizing: border-box; overflow-y: auto; touch-action: pan-y; }
+  .sheet.dim { background: rgba(27, 36, 64, .55); }
+  .card { width: min(520px, 100%); background: var(--snow); border: 1.5px solid var(--ink); box-shadow: 6px 6px 0 rgba(28, 33, 48, .25); box-sizing: border-box; }
+
+  #title { background: var(--paper); }
+  #title .card { padding: 0; overflow: hidden; }
+  #title .mast { background: var(--red); color: var(--snow); padding: 18px 20px 14px; position: relative; overflow: hidden; }
+  #title .mast h1 { margin: 0; font-size: clamp(64px, 19vw, 104px); }
+  #title .mast .sub { font-weight: 600; font-size: 17px; margin-top: 6px; max-width: 30ch; }
+  #title .mast svg { position: absolute; right: -10px; bottom: -4px; width: 52%; opacity: .95; pointer-events: none; }
+  #title .body { padding: 14px 20px 18px; }
+  #title .how { font-size: 16px; margin: 0 0 12px; }
+  .mtn { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; width: 100%; text-align: left; border-top: 1.5px solid var(--ink); padding: 11px 2px 12px; }
+  .mtn:last-of-type { border-bottom: 1.5px solid var(--ink); }
+  .mtn .nm { font: 900 27px/1 "Sofia Sans Extra Condensed", sans-serif; text-transform: uppercase; }
+  .mtn .ds { font-style: italic; color: var(--dim); font-size: 15px; grid-column: 1; }
+  .mtn .bs { grid-row: 1 / span 2; grid-column: 2; text-align: right; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--dim); }
+  .mtn .bs b { display: block; font: 900 24px/1 "Sofia Sans Extra Condensed", sans-serif; color: var(--ink); letter-spacing: 0; }
+  .mtn:disabled { cursor: default; }
+  .mtn:disabled .nm, .mtn:disabled .ds { opacity: .4; }
+  .mtn:not(:disabled):hover .nm { color: var(--red); }
+  #title .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px; flex-wrap: wrap; }
+  #title .foot .btn { font-size: 15px; }
+
+  #evening .card { padding: 16px 18px 18px; }
+  #evening h2, #closed h2 { margin: 0; font-size: 44px; }
+  #evening .s, #closed .s { color: var(--dim); margin: 4px 0 14px; font-size: 16px; }
+  .tickets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ticket { position: relative; text-align: left; border: 1.5px solid var(--ink); padding: 12px 12px 14px; background: var(--snow); min-height: 150px; display: flex; flex-direction: column; gap: 6px; }
+  .ticket::before, .ticket::after { content: ""; position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--snow); border: 1.5px solid var(--ink); transform: translateY(-50%); }
+  .ticket::before { left: -9px; clip-path: inset(0 0 0 50%); }
+  .ticket::after { right: -9px; clip-path: inset(0 50% 0 0); }
+  .ticket .k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; color: var(--red); }
+  .ticket .t { font: 900 28px/.92 "Sofia Sans Extra Condensed", sans-serif; text-transform: uppercase; }
+  .ticket .d { font-size: 15px; color: var(--dim); line-height: 1.25; }
+  .ticket svg { width: 54px; height: 30px; margin-top: auto; }
+  .ticket:hover, .ticket:focus-visible { background: #fff6d8; }
+  @media (max-width: 360px) { .tickets { grid-template-columns: 1fr; } .ticket { min-height: 0; } }
+
+  #closed .card { padding: 16px 18px 18px; }
+  #closed h2 { color: var(--red); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); margin-bottom: 14px; }
+  .stats div { padding: 8px 4px 9px; text-align: center; }
+  .stats div + div { border-left: 1.5px solid var(--rule); }
+  .stats b { display: block; font: 900 30px/1 "Sofia Sans Extra Condensed", sans-serif; }
+  .stats span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  .row2 { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+  /* the map legend, in the margin when there's room */
+  #legend { position: fixed; z-index: 4; left: max(14px, env(safe-area-inset-left)); bottom: 90px; width: 190px; background: var(--snow); border: 1.5px solid var(--ink); padding: 9px 11px 10px; font-size: 14.5px; line-height: 1.3; pointer-events: none; }
+  #legend .caps { margin-bottom: 5px; }
+  #legend div { display: flex; gap: 6px; align-items: baseline; margin-top: 3px; }
+  #legend div .sym, #legend div .lift-sym { flex: none; }
+  body.demo #legend { display: none; }
+  body.wide #bar { left: auto; right: max(14px, env(safe-area-inset-right)); bottom: 14px; transform: none; flex-direction: column; }
+  body.wide #bar .sep { width: auto; height: 1.5px; margin: 2px 4px; }
+  body.wide .tool { justify-content: flex-start; }
+  body.wide #hint { bottom: 22px; }
+  body.wide #legend { bottom: 14px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" hidden>
+  <div id="where"><div class="m" id="mname">Hollin Fell</div><div class="d"><b id="dayn">Day 1</b><div id="sun"><i></i></div></div></div>
+  <div id="score"><div class="m">Skiers</div><b id="served">0</b></div>
+</div>
+
+<div id="legend" hidden>
+  <div class="caps">Legend</div>
+  <div><span class="sym g"></span><span>Easy · gentle all the way</span></div>
+  <div><span class="sym b"></span><span>Intermediate · a steeper pitch</span></div>
+  <div><span class="sym k"></span><span>Expert · the steepest ground</span></div>
+  <div><span class="lift-sym"></span><span>Chairlift · straight, uphill</span></div>
+  <div style="margin-top:7px;color:var(--dim)">Skiers ski one run of their own colour, then head to any lodge.</div>
+  <div style="margin-top:7px;color:var(--dim);font-size:13px">Space pause · S steepness · scroll to zoom · right-drag to pan</div>
+</div>
+
+<div id="bar" hidden>
+  <button class="tool" id="tLift" title="Chairlifts left: drag uphill from anywhere to build one">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5 22 2"/><path d="M8 4v6M16 3v6"/><path d="M5 10h6v4H5zM13 9h6v4h-6z" fill="currentColor" stroke="none"/><path d="M5 18h14" stroke-width="1.4"/></svg>
+    <span class="n" id="nLift">3</span><span class="lbl">Chair-<br>lifts</span>
+  </button>
+  <button class="tool" id="tGon" title="Gondolas: tap, then tap a lift to upgrade it">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4 22 2"/><path d="M12 3v5"/><rect x="6" y="8" width="12" height="11" rx="1.5" fill="currentColor" stroke="none"/><path d="M8 11h8" stroke="var(--snow)" stroke-width="2"/></svg>
+    <span class="n" id="nGon">0</span><span class="lbl">Gon-<br>dolas</span>
+  </button>
+  <div class="sep"></div>
+  <button class="tool" id="tSteep" title="Show the steepness of the ground (S)">
+    <svg viewBox="0 0 24 24"><path d="M2 20 9 9l4 5 3-4 6 10z" fill="currentColor"/><path d="M9 9l2.2 2.8L9.6 13 8 11.6z" fill="var(--snow)"/></svg>
+    <span class="lbl">Steep-<br>ness</span>
+  </button>
+  <div class="sep"></div>
+  <button class="tool" id="tPause" title="Pause (Space)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></button>
+  <button class="tool on" id="tPlay" title="Normal speed (1)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l11-7z"/></svg></button>
+  <button class="tool" id="tFast" title="Fast (2)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5v14l9-7zM12 5v14l9-7z"/></svg></button>
+  <button class="tool" id="tFit" title="Show the whole mountain (0)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button class="tool" id="tSound" title="Sound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="soundWaves" d="M16 9c1.3 1.6 1.3 4.4 0 6M18.5 6.5c2.6 3 2.6 8 0 11"/></svg></button>
+</div>
+
+<div id="hint"></div>
+<div id="pop" hidden></div>
+
+<div id="coach" hidden>
+  <div class="hd"><span class="caps" id="coachK">Lesson 1 of 6</span><button id="coachSkip">Skip the lessons</button></div>
+  <p id="coachP"></p>
+  <div class="go" id="coachGo" hidden><button class="btn solid" id="coachBtn">Next</button></div>
+  <div class="dots" id="coachDots"></div>
+</div>
+
+<div class="sheet" id="title" hidden>
+  <div class="card">
+    <div class="mast">
+      <div class="caps" style="opacity:.85">Trail map &amp; operating plan</div>
+      <h1 class="disp">Chair&shy;lift</h1>
+      <div class="sub">Run the mountain. Lifts go up, runs come down, and every skier wants their own colour.</div>
+      <svg viewBox="0 0 200 110" aria-hidden="true"><path d="M0 110 62 34l18 18 34-44 86 102z" fill="#fbfaf5" opacity=".18"/><path d="M60 104 170 18" stroke="#fbfaf5" stroke-width="2.4"/><path d="M84 85v-9M108 66v-9M132 48v-9M156 29v-9" stroke="#fbfaf5" stroke-width="2"/><rect x="92" y="74" width="9" height="7" fill="#fbfaf5"/><rect x="128" y="46" width="9" height="7" fill="#fbfaf5"/></svg>
+    </div>
+    <div class="body">
+      <p class="how">Drag <b>uphill</b> to build a chairlift. Drag <b>downhill</b> to cut a run. A run takes its colour from its steepest pitch: <span class="sym g"></span>easy, <span class="sym b"></span>intermediate, <span class="sym k"></span>expert. Keep the crowds moving.</p>
+      <div id="mtns"></div>
+      <div class="foot">
+        <button class="btn" id="tutBtn">Lessons</button>
+        <span style="color:var(--dim);font-size:14px;font-style:italic">Touch, or mouse &amp; keys</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet dim" id="evening" hidden>
+  <div class="card">
+    <div class="caps" style="color:var(--red)" id="eveK">Evening</div>
+    <h2 class="disp" id="eveH">Day 1 is done</h2>
+    <div class="s" id="eveS">The floodlights are on. Pick one thing for tomorrow.</div>
+    <div class="tickets" id="tickets"></div>
+  </div>
+</div>
+
+<div class="sheet dim" id="closed" hidden>
+  <div class="card">
+    <div class="caps" id="closedK">Hollin Fell</div>
+    <h2 class="disp">Lifts closed</h2>
+    <div class="s" id="closedS">The queue at the Base Lodge got out of hand.</div>
+    <div class="stats"><div><b id="stServed">0</b><span>Skiers</span></div><div><b id="stDays">1</b><span>Days</span></div><div><b id="stBest">0</b><span>Best</span></div></div>
+    <div class="row2"><button class="btn" id="closedMenu">Trail maps</button><button class="btn" id="closedLook">Look at the map</button><button class="btn solid" id="closedAgain">Again</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

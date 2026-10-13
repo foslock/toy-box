@@ -1,0 +1,10 @@
+{
+  "title": "Chairlift",
+  "blurb": "Run a ski mountain like a metro map: drag lifts up and runs down, where each run's steepness sets its colour, and keep every skier moving.",
+  "added": "2026-10-13",
+  "category": "games",
+  "tags": ["canvas", "network", "strategy", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 45 }
+}

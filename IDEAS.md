@@ -54,7 +54,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 46. Panto Horse
 - [ ] 47. Plonk
 - [ ] 48. Jolly Cooperator
-- [ ] 49. Chairlift
+- [x] 49. Chairlift — [`chairlift/`](chairlift/)
 - [ ] 50. Moonrise Manor
 - [ ] 51. Spaghetti Bridge
 - [ ] 52. Are We There Yet
@@ -430,8 +430,10 @@ You're a summoned spirit in an Elden Ring-style world, and your host is a well-m
 
 A short run through a few areas and bosses, with a different host each run (the cautious one, the berserker, the one who's only here for fashion). Escort, protect, draw aggro, revive. Funny and warm, with the host's little emotes after a win and their messages on the ground. Style: desaturated, golden-hued dark fantasy with readable silhouettes and a summoning-sign glow on you. Twin-stick on desktop, a virtual stick on phones, and gestures on a radial wheel.
 
-## 49. Chairlift
+## 49. Chairlift ✅
 *Borrows: Mini Metro, Mini Motorways · Twist: a ski resort, where lifts only go up and runs only go down*
+
+**Built 2026-10-13 as [`chairlift/`](chairlift/).**
 
 A Mini Metro-style network game on a ski mountain. Lodges, car parks and hotels appear at the base and on the slopes, and skiers rated green, blue or black want to ride up and ski back down runs that suit them. You draw chairlifts, which go up in straight lines, and pistes, which can only go downhill along the terrain, and the network has to let every skier loop round. A beginner who ends up at the top of a black run takes a tumble, queues build at busy lifts, and when one overflows the day is over.
 
