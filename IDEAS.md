@@ -30,7 +30,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 22. Poker Squares — [`fivebyfive/`](fivebyfive/)
 - [ ] 23. High Tide
 - [ ] 24. Try Finger
-- [ ] 25. Floodplain
+- [x] 25. Floodplain — [`floodplain/`](floodplain/)
 - [ ] 26. Still Life
 - [ ] 27. Encore
 - [x] 28. Dam Day — [`damday/`](damday/)
@@ -250,8 +250,10 @@ A short, tough, side-view souls-like descent into a ruined castle, where the gro
 
 When you die, you can leave one message of your own in the same grammar. It persists in localStorage for your next attempt, along with a bloodstain that replays how you died. About 10–15 minutes to the bottom for a practised player, with two or three bosses. Style: muted grey-gold ink wash with the orange glow of messages, and plenty of dry humour in the fake player names.
 
-## 25. Floodplain
+## 25. Floodplain ✅
 *Borrows: Into the Breach · Twist: you're the river, not the army*
+
+**Built 2026-10-14 as [`floodplain/`](floodplain/).** Twelve months rather than twenty (three per season), and an engraved farmer's-almanac diorama in place of clay. Tools are Gate, Dig, Rain and Freeze; every month is checked by `floodplain/solve.mjs`.
 
 An Into the Breach-style tactics puzzle where you command the river, not the army. Each level is a small grid valley with a village and a raiding party marching on it, and your tools are the water: raise or lower a sluice, breach a bank, freeze a stretch into ice, call rain on a tile, send a surge down a channel. Water flows downhill tile by tile on a simple, readable rule. A surge can sweep raiders into the lake, turn a field to mud they can't cross, or, if you're careless, flood the village you're protecting.
 

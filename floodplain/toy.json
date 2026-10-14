@@ -1,0 +1,9 @@
+{
+  "title": "Floodplain",
+  "blurb": "Into the Breach, but you're the river: open gates, cut banks, call rain and freeze reaches so the raiders' marked routes run underwater.",
+  "added": "2026-10-14",
+  "category": "games",
+  "tags": ["canvas", "tactics", "puzzle", "game"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}

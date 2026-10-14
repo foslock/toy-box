@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Floodplain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=IM+Fell+DW+Pica:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root { --paper: #efe6d0; --paper2: #e4d7b8; --card: #f6f0df; --ink: #2a241c; --ink2: #5a4c3a; --dim: #7d6d55; --red: #a3321f; --blue: #2f6f9a; --rule: rgba(42, 36, 28, .28); }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 400 17px/1.32 "IM Fell English", Georgia, serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .sc { font-family: "IM Fell English SC", "IM Fell English", serif; letter-spacing: .04em; }
+  .num { font-family: "IM Fell DW Pica", "IM Fell English", serif; }
+  .rubric { color: var(--red); }
+  i, em { font-style: italic; }
+  .rule2 { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); height: 2px; }
+
+  /* ---- top of the page: the month's heading, like an almanac's running head */
+  #hud { position: fixed; z-index: 5; left: max(62px, calc(env(safe-area-inset-left) + 60px)); right: max(10px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top));
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; pointer-events: none; }
+  #head { min-width: 0; padding-top: 2px; }
+  #head .m { font-size: 13px; color: var(--red); letter-spacing: .14em; white-space: nowrap; }
+  #head .t { font-size: 25px; line-height: 1.02; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #days { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: auto; }
+  #days .row { display: flex; gap: 6px; align-items: center; }
+  #days .lbl { font-size: 13px; letter-spacing: .1em; color: var(--ink2); }
+  #cal { display: flex; gap: 3px; }
+  #cal i { width: 17px; height: 17px; border: 1px solid var(--ink); display: grid; place-items: center; font: 12px/1 "IM Fell DW Pica", serif; font-style: normal; background: var(--card); }
+  #cal i.past { background: var(--ink); color: var(--paper); }
+  #cal i.now { background: var(--red); border-color: var(--red); color: var(--paper); }
+  #moves { display: flex; gap: 2px; }
+  #moves svg { width: 15px; height: 19px; }
+  .iconbtn { width: 36px; height: 36px; border: 1px solid var(--ink); background: var(--card); display: grid; place-items: center; }
+  .iconbtn svg { width: 20px; height: 20px; }
+
+  /* ---- the tray of tools along the bottom: woodcut blocks */
+  #tray { position: fixed; z-index: 5; left: 50%; bottom: max(8px, calc(env(safe-area-inset-bottom) + 4px)); transform: translateX(-50%); display: flex; gap: 5px; align-items: stretch;
+    background: var(--card); border: 1px solid var(--ink); outline: 1px solid var(--ink); outline-offset: 2px; padding: 5px; max-width: calc(100vw - 22px); box-sizing: border-box; }
+  .tool { width: 60px; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 1px solid transparent; position: relative; }
+  .tool svg { width: 30px; height: 26px; display: block; }
+  .tool .nm { font-size: 14px; line-height: 1; }
+  .tool .ct { position: absolute; top: 2px; right: 4px; font: 14px/1 "IM Fell DW Pica", serif; }
+  .tool.on { background: var(--ink); color: var(--card); }
+  .tool.on svg { filter: invert(1) sepia(.2); }
+  .tool:disabled { opacity: .33; cursor: default; }
+  .tool.glow { animation: glow 1s ease-in-out infinite; }
+  @keyframes glow { 50% { background: rgba(163, 50, 31, .2); border-color: var(--red); } }
+  #tray .sep { width: 1px; background: var(--rule); margin: 2px 1px; }
+  #endBtn { width: auto; padding: 0 10px; background: var(--ink); color: var(--card); }
+  #endBtn svg { filter: invert(1) sepia(.2); }
+  #endBtn.warn { background: var(--red); }
+  #endBtn .nm { white-space: nowrap; }
+  @media (max-width: 430px) { .tool { width: 50px; min-height: 54px; } .tool .nm { font-size: 13px; } #endBtn { padding: 0 7px; } }
+  @media (max-width: 360px) { .tool { width: 44px; } .tool svg { width: 26px; } }
+
+  /* ---- one printed line above the tray: what will happen, or why not */
+  #say { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); bottom: calc(max(8px, env(safe-area-inset-bottom) + 4px) + 80px); max-width: calc(100vw - 24px);
+    text-align: center; font-size: 17px; padding: 3px 12px 4px; background: var(--card); border: 1px solid var(--rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; transition: opacity .2s; }
+  #say.bad { color: var(--card); background: var(--red); border-color: var(--red); }
+  #say.good { color: var(--ink); }
+  #say.blue { color: var(--card); background: var(--blue); border-color: var(--blue); }
+
+  /* ---- a raider's or a tile's description */
+  #info { position: fixed; z-index: 7; background: var(--card); border: 1px solid var(--ink); padding: 7px 10px 8px; max-width: 230px; box-shadow: 3px 3px 0 rgba(42, 36, 28, .18); pointer-events: none; }
+  #info b { font-family: "IM Fell English SC", serif; font-weight: 400; font-size: 18px; display: block; }
+  #info span { font-size: 15px; color: var(--ink2); }
+
+  /* ---- the coach: a printed note with a pointing hand */
+  #coach { position: fixed; z-index: 8; left: 50%; transform: translateX(-50%); top: calc(max(8px, env(safe-area-inset-top)) + 64px); width: min(440px, calc(100vw - 20px)); box-sizing: border-box;
+    background: var(--card); border: 1px solid var(--ink); outline: 1px solid var(--ink); outline-offset: 3px; padding: 10px 14px 11px; box-shadow: 5px 6px 0 rgba(42, 36, 28, .15); }
+  #coach .hd { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; letter-spacing: .12em; color: var(--red); }
+  #coach .hd button { font-size: 14px; letter-spacing: 0; color: var(--dim); font-style: italic; text-decoration: underline; text-underline-offset: 2px; }
+  #coach p { margin: 4px 0 0; font-size: 18px; line-height: 1.3; min-height: 3.9em; }
+  #coach p .k { font-style: italic; color: var(--red); }
+  #coach .ft { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; min-height: 30px; }
+  #coach .dots { display: flex; gap: 5px; }
+  #coach .dots i { width: 7px; height: 7px; border: 1px solid var(--ink); border-radius: 50%; }
+  #coach .dots i.on { background: var(--ink); }
+  #coach .wait { font-style: italic; color: var(--dim); font-size: 15px; }
+  @media (max-width: 400px) { #coach p { font-size: 16.5px; } #coach { padding: 8px 12px 9px; } }
+  #coach.low { top: auto; bottom: calc(max(8px, env(safe-area-inset-bottom) + 4px) + 118px); }
+
+  /* ---- short landscape screens (a phone on its side): tray down the right, notes down the left */
+  @media (max-height: 540px) and (min-aspect-ratio: 4/3) {
+    #hud { right: 92px; }
+    #head .t { font-size: 21px; }
+    #tray { left: auto; right: max(8px, env(safe-area-inset-right)); top: 50%; bottom: auto; transform: translateY(-50%); flex-direction: column; max-width: none; max-height: calc(100vh - 16px); padding: 4px; gap: 2px; }
+    #tray .sep { width: auto; height: 1px; margin: 1px 2px; }
+    .tool { width: 62px; min-height: 0; height: calc((100vh - 40px) / 6); max-height: 54px; }
+    .tool svg { width: 24px; height: 20px; }
+    #endBtn { padding: 0; }
+    #say { left: max(10px, env(safe-area-inset-left)); transform: none; bottom: 8px; font-size: 15px; max-width: calc(100vw - 120px); }
+    #coach { left: max(10px, env(safe-area-inset-left)); transform: none; top: 74px; width: min(300px, 36vw); padding: 8px 11px 9px; }
+    #coach p { font-size: 15.5px; min-height: 0; }
+    #coach .ft { margin-top: 5px; }
+    #coach.low { bottom: 46px; }
+  }
+
+  .btn { border: 1px solid var(--ink); padding: 6px 14px 7px; font-size: 17px; background: var(--card); }
+  .btn.solid { background: var(--ink); color: var(--card); }
+  .btn.red { background: var(--red); border-color: var(--red); color: var(--card); }
+  .btn:active { transform: translateY(1px); }
+
+  /* ---- full-page sheets: the almanac's title page, the month's verdict */
+  .sheet { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 14px; box-sizing: border-box; overflow-y: auto; touch-action: pan-y; }
+  .sheet.dim { background: rgba(42, 36, 28, .45); }
+  .page { width: min(560px, 100%); background: var(--card); border: 1px solid var(--ink); outline: 1px solid var(--ink); outline-offset: 4px; box-shadow: 8px 10px 0 rgba(42, 36, 28, .18); box-sizing: border-box; padding: 18px 20px 18px; margin: 6px; }
+  #title { background: rgba(239, 230, 208, .82); }
+  #title .page { text-align: center; }
+  #title .kick { font-size: 13px; letter-spacing: .22em; color: var(--red); }
+  #title h1 { margin: 2px 0 0; font: 400 clamp(46px, 13vw, 76px)/.95 "IM Fell English SC", serif; letter-spacing: .02em; }
+  #title .sub { font-style: italic; font-size: 18px; margin: 6px auto 10px; max-width: 34ch; color: var(--ink2); }
+  #title .how { text-align: left; font-size: 16.5px; margin: 10px 2px 12px; columns: 2; column-gap: 20px; column-rule: 1px solid var(--rule); }
+  #title .how p { margin: 0 0 6px; break-inside: avoid; }
+  #title .how p::first-letter { font-size: 1.5em; color: var(--red); }
+  @media (max-width: 520px) { #title .how { columns: 1; } }
+  .months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--ink); border-left: 1px solid var(--ink); margin-top: 8px; }
+  .season { grid-column: 1 / -1; font-size: 13px; letter-spacing: .2em; color: var(--red); padding: 5px 0 3px; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper2); }
+  .mo { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 6px 4px 7px; text-align: center; min-height: 64px; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+  .mo .mn { font-family: "IM Fell English SC", serif; font-size: 18px; line-height: 1; }
+  .mo .vn { font-style: italic; font-size: 14px; line-height: 1.1; color: var(--ink2); }
+  .mo .hs { font-size: 13px; letter-spacing: .1em; min-height: 15px; }
+  .mo .hs b { color: var(--ink); font-weight: 400; }
+  .mo .hs s { color: var(--rule); text-decoration: none; }
+  .mo:disabled { opacity: .38; cursor: default; }
+  .mo:not(:disabled):hover { background: var(--paper2); }
+  .mo.next { background: var(--ink); color: var(--card); }
+  .mo.next .vn, .mo.next .hs b { color: var(--card); }
+  #title .foot { display: flex; justify-content: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+  #done .page { text-align: center; max-width: 420px; }
+  #done .kick { font-size: 13px; letter-spacing: .2em; color: var(--red); }
+  #done h2 { margin: 2px 0 2px; font: 400 40px/1 "IM Fell English SC", serif; }
+  #done .s { font-style: italic; font-size: 18px; color: var(--ink2); margin: 4px 0 10px; }
+  #done .homes { display: flex; justify-content: center; gap: 8px; margin: 8px 0 12px; }
+  #done .homes svg { width: 44px; height: 40px; }
+  #done .row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  #done .verse { font-style: italic; font-size: 16px; margin: 12px auto 0; max-width: 30ch; color: var(--ink2); border-top: 1px solid var(--rule); padding-top: 8px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" hidden>
+  <div id="head"><div class="m sc" id="hMonth">March · Spring</div><div class="t" id="hName">The Mill Gate</div></div>
+  <div id="days">
+    <div class="row"><span class="lbl sc">Day</span><div id="cal"></div><button class="iconbtn" id="menuBtn" aria-label="Calendar"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="4" width="15" height="13.5"/><path d="M2.5 8h15M6.5 2v4M13.5 2v4M6 11h2M9 11h2M12 11h2M6 14h2M9 14h2"/></svg></button></div>
+    <div class="row"><span class="lbl sc">Moves</span><div id="moves"></div></div>
+  </div>
+</div>
+
+<div id="say" hidden></div>
+<div id="info" hidden></div>
+
+<div id="tray" hidden>
+  <button class="tool" data-tool="gate" title="Gate (1)"><svg viewBox="0 0 30 26" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M5 24V5M25 24V5M3 5h24"/><circle cx="15" cy="4" r="2.4" fill="#f6f0df"/><rect x="8" y="9" width="14" height="9" fill="#c9a877"/><path d="M11.5 9v9M15 9v9M18.5 9v9M2 24h26"/><path d="M8 21.5q2-1.5 4 0t4 0 4 0 4 0" stroke="#2f6f9a"/></svg><span class="nm">Gate</span><span class="ct"></span></button>
+  <button class="tool" data-tool="dig" title="Dig (2)"><svg viewBox="0 0 30 26" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M20 2l-2.5 2.5M16 2l6 6"/><path d="M19 5L9.5 14.5"/><path d="M9.5 14.5l-4 -1-2.5 2.5c-1 1 -.5 5 1.5 7s6 2.5 7 1.5l2.5-2.5-1-4z" fill="#b8b1a2"/><path d="M2 25h26" /></svg><span class="nm">Dig</span><span class="ct"></span></button>
+  <button class="tool" data-tool="rain" title="Rain (3)"><svg viewBox="0 0 30 26" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M7 13h17a4 4 0 0 0-1-7.8A6 6 0 0 0 11.5 4 4.5 4.5 0 0 0 7 13z" fill="#e2ded3"/><path d="M9 16l-1.5 4M14 16l-1.5 4M19 16l-1.5 4M23 16l-1.5 4M11.5 21l-1 3M16.5 21l-1 3M21 21l-1 3" stroke="#2f6f9a"/></svg><span class="nm">Rain</span><span class="ct"></span></button>
+  <button class="tool" data-tool="freeze" title="Freeze (4)"><svg viewBox="0 0 30 26" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M15 1v24M4.6 7l20.8 12M4.6 19L25.4 7"/><path d="M12 3l3 3 3-3M12 23l3-3 3 3M5 11l4-1-1-4M25 15l-4 1 1 4M5 15l4 1-1 4M25 11l-4-1 1-4" stroke="#2f6f9a"/></svg><span class="nm">Freeze</span><span class="ct"></span></button>
+  <span class="sep"></span>
+  <button class="tool" id="undoBtn" title="Undo (Z)"><svg viewBox="0 0 30 26" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M8 9h11a6 6 0 0 1 0 12h-7"/><path d="M12 4.5L7.5 9l4.5 4.5"/></svg><span class="nm">Undo</span></button>
+  <button class="tool" id="endBtn" title="End the day (Enter)"><svg viewBox="0 0 30 26" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M3 19h24M6 23h18"/><path d="M8 19a7 7 0 0 1 14 0"/><path d="M15 5v3M7 9l2 2M23 9l-2 2M3 15h2M25 15h2"/></svg><span class="nm">End day</span></button>
+</div>
+
+<div id="coach" hidden>
+  <div class="hd"><span class="sc" id="coachHd">A note for the keeper</span><button id="coachSkip">skip the notes</button></div>
+  <p id="coachP"></p>
+  <div class="ft"><div class="dots" id="coachDots"></div><span class="wait" id="coachWait"></span><button class="btn solid" id="coachNext">Go on</button></div>
+</div>
+
+<div class="sheet" id="title" hidden>
+  <div class="page">
+    <div class="kick sc">Being an Almanack for the Keeper of the River</div>
+    <h1>Floodplain</h1>
+    <div class="sub">Twelve months in a small valley, where the raiders come on foot and the only weapon is water.</div>
+    <div class="rule2"></div>
+    <div class="how">
+      <p>You are the river. Each day, before the raiders march, use your moves: open a gate, cut a bank, call the rain, freeze a reach.</p>
+      <p>Water runs to lower or level ground and never uphill. It drowns any raider it reaches, and ruins any cottage too.</p>
+      <p>The red lines show exactly where every raider will walk, and which cottage it will burn. Change the ground and the lines change.</p>
+      <p>Hold out to the last day with a cottage standing and the month is kept. Undo is free until you end the day.</p>
+    </div>
+    <div class="rule2"></div>
+    <div class="months" id="months"></div>
+    <div class="foot"><button class="btn" id="soundBtn">Sound: on</button><button class="btn" id="resetBtn">Begin the year again</button></div>
+  </div>
+</div>
+
+<div class="sheet dim" id="done" hidden>
+  <div class="page">
+    <div class="kick sc" id="dKick">March is kept</div>
+    <h2 id="dH">The Village Stands</h2>
+    <div class="s" id="dS">Two of two cottages saved.</div>
+    <div class="homes" id="dHomes"></div>
+    <div class="row"><button class="btn" id="dAgain">Try again</button><button class="btn" id="dCal">Calendar</button><button class="btn solid" id="dNext">Next month</button></div>
+    <div class="verse" id="dVerse"></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
