@@ -66,7 +66,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 58. Unlocked
 - [ ] 59. Reef
 - [ ] 60. Documentary
-- [ ] 61. Midnight Golf
+- [x] 61. Midnight Golf — [`midnightgolf/`](midnightgolf/)
 
 ---
 
@@ -518,8 +518,10 @@ A Pokémon Snap-style on-rails photography game where you're the camera operator
 
 Five or six routes through different habitats (a misty forest, a reed marsh, a waterfall, a cave of glowing fungi, the river at night), about 30 species with a few behaviours each, and a field guide that fills in. Style: soft, painterly three.js in lush colours, creatures that feel alive and a little silly, and a gentle orchestral score.
 
-## 61. Midnight Golf
+## 61. Midnight Golf ✅
 *Borrows: mini golf, Untitled Goose Game · Twist: the course runs through a sleeping house, and noise wakes the family*
+
+**Built 2026-10-15 as [`midnightgolf/`](midnightgolf/).** Nine holes rather than eighteen, top-down 2D canvas rather than three.js (the whole room fits on a phone screen, rotated on wide screens), and a moonlit-gouache look with a pencil-scorecard UI. Moons stand in for the quiet-hole bonus.
 
 A mini golf game played through a house at midnight while the family sleeps. Each hole runs through a different room (down the hall carpet, across the kitchen tiles, through the cat flap, along the banister, past someone asleep on the sofa, around the dog's bowl) and ends in a mug, a slipper or a plughole. Every shot makes noise depending on how hard you hit and what the ball bounces off, and a noise meter fills in each room. Let it get too loud and someone wakes up, and the round is over. A soft putt on carpet is silent; a hard drive off the fridge is not.
 

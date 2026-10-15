@@ -1,0 +1,9 @@
+{
+  "title": "Midnight Golf",
+  "blurb": "Mini golf through a sleeping house at 2 a.m., where every putt, bump and clattery tile is noise and a full ring means the lights come on.",
+  "added": "2026-10-15",
+  "category": "games",
+  "tags": ["canvas", "mini golf", "stealth", "game"],
+  "tape": "purple",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
