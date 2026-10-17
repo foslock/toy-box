@@ -49,7 +49,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 41. Shared Deck — [`harrowing/`](harrowing/)
 - [x] 42. Come Bye — [`comebye/`](comebye/)
 - [ ] 43. Floppy
-- [ ] 44. Conga
+- [x] 44. Conga — [`conga/`](conga/)
 - [ ] 45. Heirloom
 - [ ] 46. Panto Horse
 - [ ] 47. Plonk
@@ -397,8 +397,10 @@ A narrative game told through the little games someone made as a kid. You've fou
 
 About eight tiny games, each clearly by the same person getting better and growing up, with flaws you can see, and an ending when you load the last disk. Not a twist ending for its own sake: an honest, kind one. Style: an emulated DOS-to-Windows 98 PC on a desk in an attic, each game in its era's look (text mode, CGA, VGA), with disk-drive clunks and fan hum.
 
-## 44. Conga
+## 44. Conga ✅
 *Borrows: Snake, Super Auto Pets · Twist: your army is a conga line you steer*
+
+**Built 2026-10-17 as [`conga/`](conga/).**
 
 Snake meets Super Auto Pets. You steer the head of a dancing conga line around an arena, and every recruit you pick up joins at the tail. Recruits are animals with abilities that depend on their place in the line: a tortoise at the back shields everyone, a bee near the front stings, a parrot copies whoever's ahead of it. When your line touches an enemy conga line, the two dancers who touch fight, and abilities chain down both lines. Cross your own tail and you trip over yourself.
 

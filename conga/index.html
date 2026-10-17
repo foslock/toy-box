@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Conga</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chango&family=Familjen+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --paper: #f6efdc; --blue: #3255a4; --pink: #ff48b0; --yellow: #ffe33a; --ink2: #5a6aa0; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--paper); color: var(--blue); font: 600 17px/1.25 "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
+  .fat { font-family: Chango, "Arial Black", sans-serif; font-weight: 400; }
+  .ic { display: inline-block; width: 1em; height: 1em; vertical-align: -.14em; }
+
+  /* misregistered two-drum type: the pink copy sits under, a hair off */
+  .mis { position: relative; display: inline-block; isolation: isolate; }
+  .mis::before { content: attr(data-t); position: absolute; left: .05em; top: -.035em; color: var(--pink); mix-blend-mode: multiply; z-index: -1; white-space: nowrap; }
+
+  /* ---- running head */
+  #hud { position: fixed; z-index: 5; left: max(62px, calc(env(safe-area-inset-left) + 60px)); right: max(10px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top));
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
+  #song { min-width: 0; }
+  #song .n { font-family: Chango, sans-serif; font-size: 20px; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #song .n small { font-family: "Familjen Grotesk", sans-serif; font-weight: 700; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--pink); margin-right: 6px; mix-blend-mode: multiply; }
+  #song .s { font-size: 15px; margin-top: 3px; white-space: nowrap; display: flex; gap: 10px; align-items: center; }
+  #song .s span { display: inline-flex; align-items: center; gap: 3px; }
+  #btns { display: flex; gap: 6px; pointer-events: auto; }
+  .ib { width: 40px; height: 40px; background: var(--blue); color: var(--paper); display: grid; place-items: center; box-shadow: 3px 3px 0 var(--pink); }
+  .ib svg { width: 22px; height: 22px; }
+  .ib:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pink); }
+  body.menu #hud .s, body.menu #bpause { visibility: hidden; }
+  @media (max-width: 440px) { #song .n { font-size: 17px; } #song .s { font-size: 14px; gap: 8px; } .ib { width: 36px; height: 36px; } }
+
+  /* ---- printed sheets */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; box-sizing: border-box; background: rgba(246,239,220,.55); overflow: auto; }
+  .card { position: relative; background: var(--paper); color: var(--blue); padding: 20px 20px 18px; width: min(420px, calc(100vw - 32px)); box-sizing: border-box;
+    border: 3px solid var(--blue); box-shadow: 7px 7px 0 var(--pink); max-height: calc(100dvh - 40px); overflow: auto; margin: auto; }
+  .card.grain, .grain { background-image: var(--grain); }
+  .card h1 { margin: 0; font-family: Chango, sans-serif; font-weight: 400; font-size: 64px; line-height: .95; letter-spacing: -1px; }
+  .card h2 { margin: 0 0 6px; font-family: Chango, sans-serif; font-weight: 400; font-size: 28px; line-height: 1.05; }
+  .card p { margin: 8px 0 0; font-size: 17px; line-height: 1.3; font-weight: 600; }
+  .kick { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--pink); mix-blend-mode: multiply; }
+  .small { font-size: 14px !important; color: var(--ink2); }
+  .row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .btn { flex: 1 1 auto; min-height: 48px; padding: 6px 16px; background: var(--blue); color: var(--paper); font-family: Chango, sans-serif; font-size: 19px; box-shadow: 4px 4px 0 var(--pink); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--pink); }
+  .btn.alt { background: transparent; color: var(--blue); box-shadow: inset 0 0 0 3px var(--blue), 4px 4px 0 var(--yellow); }
+  .btn.alt:active { box-shadow: inset 0 0 0 3px var(--blue), 1px 1px 0 var(--yellow); }
+  .btn:disabled { opacity: .35; cursor: default; transform: none; }
+  .band { margin: 14px -20px 0; padding: 10px 20px; background: radial-gradient(circle, rgba(255,227,58,.9) 34%, transparent 37%) 0 0 / 7px 7px; }
+  .keys { margin-top: 12px; font-size: 14px; color: var(--ink2); }
+  .link { font-size: 15px; text-decoration: underline; text-underline-offset: 3px; color: var(--ink2); margin-top: 10px; }
+
+  #title { width: min(440px, calc(100vw - 32px)); text-align: center; }
+  #title h1 { font-size: clamp(52px, 16.5vw, 92px); margin-top: 4px; }
+  #title .tag { font-size: 18px; margin-top: 6px; }
+  .parade { display: flex; justify-content: center; gap: 0; margin: 10px 0 2px; height: 64px; }
+  .parade img { width: 56px; height: 56px; animation: hop .58s ease-in-out infinite alternate; mix-blend-mode: multiply; }
+  .parade img:nth-child(2) { animation-delay: .1s; } .parade img:nth-child(3) { animation-delay: .2s; } .parade img:nth-child(4) { animation-delay: .3s; } .parade img:nth-child(5) { animation-delay: .4s; }
+  @keyframes hop { from { transform: translateY(6px) rotate(-5deg); } to { transform: translateY(-4px) rotate(5deg); } }
+  #title .best { margin-top: 8px; font-size: 15px; color: var(--ink2); }
+
+  /* ---- the shop */
+  #shop { width: min(520px, calc(100vw - 24px)); padding: 16px 16px 14px; }
+  #shop .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  #shop .purse { display: flex; gap: 10px; align-items: center; font-family: Chango, sans-serif; font-size: 20px; white-space: nowrap; }
+  #shop .purse span { display: inline-flex; gap: 3px; align-items: center; }
+  .lbl { display: flex; justify-content: space-between; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; margin: 12px 0 4px; color: var(--ink2); }
+  .toks { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tok { position: relative; width: 50px; height: 62px; display: flex; flex-direction: column; align-items: center; }
+  .tok img { width: 50px; height: 50px; mix-blend-mode: multiply; }
+  .tok .st { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; font-family: Chango, sans-serif; font-size: 11px; line-height: 1; }
+  .tok .st i { font-style: normal; min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; }
+  .tok .st i:first-child { background: var(--yellow); color: var(--blue); }
+  .tok .st i:last-child { background: var(--pink); color: var(--paper); }
+  .tok .pos { position: absolute; top: -2px; left: 0; font-size: 11px; font-weight: 700; color: var(--ink2); }
+  .tok .lv { position: absolute; top: -2px; right: 0; font-size: 10px; color: var(--pink); letter-spacing: -1px; }
+  .tok.sel::after { content: ""; position: absolute; inset: -3px -2px; border: 3px solid var(--pink); pointer-events: none; }
+  .tok.empty { opacity: .25; }
+  .tok.empty::before { content: ""; position: absolute; left: 7px; top: 7px; width: 36px; height: 36px; border: 2px dashed var(--blue); border-radius: 50%; }
+  .tok.gone { visibility: hidden; }
+  .tok.lead { pointer-events: auto; }
+  .tok .price { position: absolute; top: -4px; right: -2px; background: var(--blue); color: var(--paper); font-family: Chango, sans-serif; font-size: 11px; padding: 1px 4px; }
+  .tok.merge .price { background: var(--pink); }
+  #info { margin-top: 10px; min-height: 92px; padding: 10px 12px; border: 2px dashed var(--blue); }
+  #info .nm { font-family: Chango, sans-serif; font-size: 19px; }
+  #info .nm small { font-family: "Familjen Grotesk", sans-serif; font-size: 14px; font-weight: 700; color: var(--pink); margin-left: 6px; }
+  #info .tx { font-size: 16px; margin-top: 2px; }
+  #info .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  #info .acts .btn { flex: 0 0 auto; min-height: 40px; font-size: 16px; padding: 4px 12px; }
+  #shop .foot { display: flex; gap: 10px; margin-top: 14px; }
+  #shop .foot .btn.alt { flex: 0 0 auto; }
+  #shopnote { margin-top: 10px; padding: 8px 10px; background: var(--yellow); color: var(--blue); font-size: 16px; }
+  #shopnote b { color: var(--pink); mix-blend-mode: multiply; }
+  .pulse { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: translateY(-3px); filter: drop-shadow(0 0 0 var(--pink)) drop-shadow(2px 2px 0 var(--pink)); } }
+
+  /* who's who */
+  .who { display: grid; grid-template-columns: 50px 1fr; gap: 6px 10px; margin-top: 10px; align-items: start; }
+  .who img { width: 50px; height: 50px; mix-blend-mode: multiply; }
+  .who b { font-family: Chango, sans-serif; font-weight: 400; font-size: 16px; }
+  .who div { font-size: 15px; }
+  .who .tier { font-size: 12px; color: var(--pink); font-weight: 700; mix-blend-mode: multiply; }
+
+  /* ---- the coach */
+  #coach { position: fixed; z-index: 10; left: 50%; top: max(66px, calc(env(safe-area-inset-top) + 60px)); transform: translateX(-50%); width: min(430px, calc(100vw - 24px)); box-sizing: border-box;
+    background: var(--paper); color: var(--blue); padding: 9px 13px 11px; border: 3px solid var(--blue); box-shadow: 5px 5px 0 var(--yellow); font-size: 17px; line-height: 1.25; transition: opacity .25s, transform .25s; }
+  #coach .hd { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--pink); margin-bottom: 3px; }
+  #coach .hd button { text-decoration: underline; text-underline-offset: 2px; font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink2); padding: 2px 0 2px 10px; }
+  #coach.pass { pointer-events: none; }
+  #coach.low { top: auto; bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px)); }
+  #coach.off { opacity: 0; transform: translateX(-50%) translateY(-10px); pointer-events: none; }
+  #coach em { font-style: normal; color: var(--pink); mix-blend-mode: multiply; }
+  #coach .go { margin-top: 8px; min-height: 40px; font-size: 16px; width: 100%; }
+
+  #banner { position: fixed; z-index: 9; left: 50%; top: 44%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; transition: opacity .5s; white-space: nowrap; }
+  #banner .k { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--pink); mix-blend-mode: multiply; }
+  #banner .t { font-family: Chango, sans-serif; font-size: clamp(40px, 13vw, 76px); line-height: 1; }
+  #banner .p { font-size: 16px; margin-top: 4px; }
+  #banner.off { opacity: 0; }
+</style>
+</head>
+<body class="menu">
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="song">
+    <div class="n"><small id="snum">Song 1/6</small><span id="sname">Warm-Up</span></div>
+    <div class="s"><span id="hearts"></span><span id="coins"></span><span id="troupe"></span></div>
+  </div>
+  <div id="btns">
+    <button class="ib" id="bmute" aria-label="Sound on or off"></button>
+    <button class="ib" id="bpause" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg></button>
+  </div>
+</div>
+
+<div id="coach" class="off"><div class="hd"><span id="ck">Lesson</span><button id="cskip">Skip lessons</button></div><div id="ct"></div><button class="btn go" id="cgo" hidden>Got it</button></div>
+<div id="banner" class="off"><div class="k" id="bk"></div><div class="t mis" id="bt"></div><div class="p" id="bp"></div></div>
+
+<div class="veil" id="vtitle">
+  <div class="card grain" id="title">
+    <div class="kick">A dance-floor brawl in six songs</div>
+    <h1 class="mis" data-t="Conga!">Conga!</h1>
+    <div class="parade" id="parade"></div>
+    <p class="tag">Steer the capybara, pick up animals, and break up the other conga lines. Where each dancer stands in the line changes what it does.</p>
+    <div class="row"><button class="btn" id="bplay">Dance</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn alt" id="blessons">Lessons</button><button class="btn alt" id="bwho">Who's who</button></div>
+    <div class="best" id="best"></div>
+    <div class="keys">Drag anywhere to steer on a phone. On a computer, point with the mouse or use the arrow keys. P pauses, M mutes.</div>
+  </div>
+</div>
+
+<div class="veil" id="vshop" hidden><div class="card grain" id="shop"></div></div>
+<div class="veil" id="vmsg" hidden><div class="card grain" id="msg"></div></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

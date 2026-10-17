@@ -1,0 +1,9 @@
+{
+  "title": "Conga",
+  "blurb": "Snake meets Super Auto Pets: steer a capybara's conga line, recruit animals whose powers depend on their place in line, and break up rival lines.",
+  "added": "2026-10-17",
+  "category": "games",
+  "tags": ["canvas", "snake", "auto-battler", "game"],
+  "tape": "#ff48b0",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
