@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Spaghetti Bridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  :root { --cork: #c99d68; --paper: #fbf8ee; --ink: #2b2623; --ink2: #6b5f55; --red: #e14b3b; --blue: #2f6fbf; --yellow: #f4c534; --green: #3d9a5b; --pasta: #f4cb6a; --pastadk: #c48d2c; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--cork); color: var(--ink); font: 20px/1.2 "Patrick Hand", "Comic Sans MS", sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .hand { font-family: "Londrina Solid", sans-serif; font-weight: 900; letter-spacing: .01em; }
+
+  /* ---- running head */
+  #hud { position: fixed; z-index: 5; left: max(62px, calc(env(safe-area-inset-left) + 60px)); right: max(10px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top));
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; pointer-events: none; }
+  #proj { background: var(--paper); padding: 4px 12px 5px; box-shadow: 3px 3px 0 rgba(60,35,10,.35); transform: rotate(-1deg); min-width: 0; max-width: 46vw; }
+  #proj .k { font-size: 14px; color: var(--ink2); line-height: 1; }
+  #proj .n { font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #right { display: flex; gap: 6px; align-items: flex-start; pointer-events: auto; }
+  #box { background: var(--paper); padding: 4px 10px 6px; box-shadow: 3px 3px 0 rgba(60,35,10,.35); transform: rotate(1deg); width: 150px; box-sizing: border-box; }
+  #box .k { display: flex; justify-content: space-between; font-size: 14px; color: var(--ink2); line-height: 1.1; }
+  #box .k b { font-weight: 400; color: var(--ink); }
+  #box .bar { position: relative; height: 12px; margin-top: 3px; background: #eee5cc; border: 2px solid var(--ink); }
+  #box .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pasta); }
+  #box.over .fill { background: var(--red); }
+  #box .tick { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1px; }
+  .ib { width: 40px; height: 40px; background: var(--paper); box-shadow: 3px 3px 0 rgba(60,35,10,.35); display: grid; place-items: center; }
+  .ib svg { width: 22px; height: 22px; }
+  .ib:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(60,35,10,.35); }
+  @media (max-width: 520px) {
+    #proj .n { font-size: 20px; } #proj { padding: 3px 9px 4px; } #proj .k { font-size: 13px; }
+    #box { width: 112px; padding: 3px 8px 5px; } #box .k { font-size: 13px; } .ib { width: 36px; height: 36px; } #right { gap: 5px; }
+  }
+
+  /* ---- the pasta box along the bottom */
+  #tray { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    display: flex; justify-content: center; align-items: stretch; gap: 6px; pointer-events: none; }
+  #tray > * { pointer-events: auto; }
+  .tool { position: relative; width: 84px; min-height: 62px; background: var(--paper); box-shadow: 3px 3px 0 rgba(60,35,10,.4); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 2px 3px; box-sizing: border-box; }
+  .tool img { width: 66px; height: 26px; object-fit: contain; }
+  .tool .l { font-size: 16px; line-height: 1; margin-top: 2px; }
+  .tool .m { font-size: 12px; color: var(--ink2); line-height: 1; margin-top: 2px; }
+  .tool.sel { background: var(--yellow); transform: translateY(-4px) rotate(-1.5deg); box-shadow: 3px 6px 0 rgba(60,35,10,.4); }
+  .tool.sq { width: 52px; }
+  .tool.sq svg { width: 26px; height: 26px; }
+  .tool:active { filter: brightness(.95); }
+  #test { min-width: 96px; background: var(--red); color: #fff; box-shadow: 3px 3px 0 #8d2318; font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 28px; line-height: .9; padding: 6px 12px; transform: rotate(1deg); }
+  #test small { display: block; font-family: "Patrick Hand", sans-serif; font-weight: 400; font-size: 13px; opacity: .9; letter-spacing: 0; }
+  #test:disabled { background: #b5aa9c; box-shadow: 3px 3px 0 #7e7468; cursor: default; }
+  #test:active:not(:disabled) { transform: translate(2px, 2px) rotate(1deg); box-shadow: 1px 1px 0 #8d2318; }
+  .gap { flex: 0 0 4px; }
+  @media (max-width: 520px) {
+    #tray { gap: 4px; padding-left: 6px; padding-right: 6px; }
+    .tool { width: 62px; min-height: 58px; } .tool img { width: 52px; height: 22px; } .tool .l { font-size: 14px; } .tool .m { font-size: 11px; }
+    .tool.sq { width: 42px; } .tool.sq svg { width: 22px; height: 22px; }
+    #test { min-width: 74px; font-size: 24px; padding: 4px 8px; } .gap { flex-basis: 0; }
+  }
+  @media (max-width: 360px) { .tool { width: 56px; } .tool.sq { width: 38px; } #test { min-width: 64px; font-size: 22px; } }
+
+  /* while the judges test */
+  #runbar { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; padding: 8px 8px max(10px, env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 8px; align-items: center; pointer-events: none; }
+  #runbar > * { pointer-events: auto; }
+  #queue { display: flex; gap: 6px; background: var(--paper); padding: 4px 8px; box-shadow: 3px 3px 0 rgba(60,35,10,.4); align-items: center; }
+  #queue img { width: 40px; height: 40px; opacity: .35; }
+  #queue img.now { opacity: 1; transform: scale(1.12); }
+  #queue img.ok { opacity: 1; filter: grayscale(.2); }
+  #queue span { font-size: 15px; color: var(--ink2); margin-right: 2px; }
+  .pbtn { min-height: 48px; padding: 4px 14px; background: var(--paper); box-shadow: 3px 3px 0 rgba(60,35,10,.4); font-size: 19px; }
+  .pbtn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(60,35,10,.4); }
+
+  /* ---- poster-board cards */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; box-sizing: border-box; background: rgba(60,35,10,.32); }
+  .card { position: relative; background: var(--paper); color: var(--ink); padding: 20px 22px 18px; width: min(410px, calc(100vw - 32px)); box-sizing: border-box;
+    box-shadow: 6px 7px 0 rgba(60,35,10,.45); transform: rotate(-.7deg); max-height: calc(100vh - 32px); overflow: auto; }
+  .card .strip { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: var(--blue); }
+  .card .pin { position: absolute; top: 8px; left: 50%; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: var(--red); box-shadow: 2px 3px 0 rgba(0,0,0,.25), inset -3px -3px 0 rgba(0,0,0,.15); }
+  .card h1 { margin: 6px 0 0; font-family: "Londrina Solid", sans-serif; font-weight: 900; line-height: .86; }
+  .card h2 { margin: 8px 0 4px; font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 34px; line-height: .95; }
+  .card p { margin: 8px 0 0; font-size: 20px; line-height: 1.22; }
+  .card .small { font-size: 16px; color: var(--ink2); }
+  .row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .btn { flex: 1 1 auto; min-height: 50px; padding: 6px 18px; background: var(--red); color: #fff; font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 25px; box-shadow: 3px 3px 0 #8d2318; letter-spacing: .02em; }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #8d2318; }
+  .btn.alt { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 2.5px var(--ink), 3px 3px 0 rgba(60,35,10,.3); }
+  .btn.blue { background: var(--blue); box-shadow: 3px 3px 0 #1b4683; }
+
+  #title { width: min(470px, calc(100vw - 32px)); text-align: center; transform: rotate(-1deg); padding-top: 26px; }
+  #title h1 { font-size: clamp(54px, 17vw, 96px); }
+  #title h1 .a { color: var(--pastadk); display: block; }
+  #title h1 .b { color: var(--blue); display: block; transform: rotate(-2deg); }
+  #title .tag { font-size: 20px; margin-top: 10px; }
+  #title .fair { display: inline-block; margin-top: 2px; background: var(--yellow); padding: 2px 10px; transform: rotate(1.5deg); font-size: 17px; }
+  #title .best { margin-top: 10px; font-size: 16px; color: var(--ink2); }
+  #title .pastas { display: flex; justify-content: center; gap: 4px; margin-top: 8px; }
+  #title .pastas img { width: 84px; height: 32px; }
+
+  #picker { width: min(560px, calc(100vw - 24px)); }
+  .projs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .projs button { position: relative; background: #fff; box-shadow: 2px 3px 0 rgba(60,35,10,.3); padding: 8px 4px 6px; min-height: 92px; text-align: center; line-height: 1.02; font-size: 15px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .projs button:nth-child(odd) { transform: rotate(-1.2deg); } .projs button:nth-child(even) { transform: rotate(1deg); }
+  .projs button b { font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 26px; line-height: 1; }
+  .projs button .rib { width: 30px; height: 36px; margin-top: auto; }
+  .projs button:disabled { opacity: .4; cursor: default; }
+  .projs button.cur { outline: 3px dashed var(--blue); outline-offset: 2px; }
+  @media (max-width: 480px) { .projs { grid-template-columns: repeat(2, 1fr); } .projs button { min-height: 76px; } }
+
+  #result { text-align: left; }
+  #result .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #result .rib { flex: 0 0 auto; width: 62px; height: 80px; transform: rotate(8deg); margin: 4px 4px -6px 0; }
+  .score { margin-top: 10px; border-top: 2px solid var(--ink); }
+  .score div { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1.5px dashed #bdb2a2; font-size: 19px; gap: 10px; }
+  .score div img { width: 34px; height: 34px; vertical-align: middle; margin-right: 6px; }
+  .score .ok { color: var(--green); font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 22px; }
+  .score .no { color: var(--red); font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: 22px; }
+  .tip { margin-top: 12px; background: var(--yellow); padding: 8px 12px; transform: rotate(.6deg); font-size: 19px; line-height: 1.2; box-shadow: 2px 3px 0 rgba(60,35,10,.25); }
+
+  /* ---- the teacher's sticky note */
+  #coach { position: fixed; z-index: 10; left: 50%; top: max(70px, calc(env(safe-area-inset-top) + 64px)); transform: translateX(-50%) rotate(-1deg); width: min(420px, calc(100vw - 24px)); box-sizing: border-box;
+    background: #fff4a3; color: var(--ink); padding: 8px 14px 10px; box-shadow: 3px 5px 0 rgba(60,35,10,.3); font-size: 19px; line-height: 1.2; transition: opacity .25s, transform .25s; }
+  #coach .hd { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--ink2); margin-bottom: 2px; }
+  #coach .hd button { text-decoration: underline; text-underline-offset: 2px; font-size: 15px; color: var(--ink2); padding: 4px 0 4px 10px; }
+  #coach.off { opacity: 0; transform: translateX(-50%) translateY(-10px); pointer-events: none; }
+  #coach b { font-weight: 400; color: var(--red); }
+  #coach .go { margin-top: 8px; min-height: 42px; font-size: 21px; width: 100%; }
+  @media (max-width: 520px) { #coach { font-size: 17px; top: max(62px, calc(env(safe-area-inset-top) + 56px)); } }
+
+  .pulse { animation: pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--blue), 3px 3px 0 rgba(60,35,10,.4); } }
+  #test.pulse { animation: pulsetest 0.9s ease-in-out infinite; }
+  @keyframes pulsetest { 50% { box-shadow: 0 0 0 4px var(--blue), 3px 3px 0 #8d2318; } }
+
+  #banner { position: fixed; z-index: 9; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 76px); transform: translate(-50%, 0) rotate(-2deg); text-align: center; pointer-events: none; transition: opacity .4s; white-space: nowrap;
+    background: var(--paper); padding: 6px 20px 8px; box-shadow: 4px 5px 0 rgba(60,35,10,.35); }
+  #banner .k { font-size: 16px; color: var(--ink2); }
+  #banner .t { font-family: "Londrina Solid", sans-serif; font-weight: 900; font-size: clamp(30px, 9vw, 52px); line-height: 1; }
+  #banner.off { opacity: 0; }
+  #toast { position: fixed; z-index: 11; left: 50%; bottom: calc(max(8px, env(safe-area-inset-bottom)) + 84px); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 6px 14px; font-size: 17px; pointer-events: none; transition: opacity .3s; max-width: calc(100vw - 32px); text-align: center; box-sizing: border-box; }
+  #toast.off { opacity: 0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" hidden>
+  <div id="proj"><div class="k" id="pk">Project 1 of 8</div><div class="n" id="pn">Mind the Gap</div></div>
+  <div id="right">
+    <div id="box" title="Pasta used / pasta in the box">
+      <div class="k"><span>pasta</span><b id="grams">0 / 30 g</b></div>
+      <div class="bar"><div class="fill" id="fill"></div><div class="tick" id="t1"></div><div class="tick" id="t2"></div></div>
+    </div>
+    <button class="ib" id="bmenu" aria-label="Projects"><svg viewBox="0 0 24 24" fill="none" stroke="#2b2623" stroke-width="2.4" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  </div>
+</div>
+
+<div id="tray" hidden>
+  <button class="tool" data-tool="spaghetti"><img alt=""><span class="l">Spaghetti</span><span class="m">pulls · 5 sq</span></button>
+  <button class="tool" data-tool="rigatoni"><img alt=""><span class="l">Rigatoni</span><span class="m">pushes · 2½ sq</span></button>
+  <button class="tool" data-tool="lasagne"><img alt=""><span class="l">Lasagne</span><span class="m">road · 3 sq</span></button>
+  <button class="tool sq" data-tool="erase" aria-label="Eraser"><svg viewBox="0 0 24 24" fill="none" stroke="#2b2623" stroke-width="2.2" stroke-linejoin="round"><path d="M14.5 4.5l5 5-9 9H6l-2.5-2.5z" fill="#f2a7b5"/><path d="M9 10l5 5M6 18.5h13"/></svg><span class="m">erase</span></button>
+  <button class="tool sq" id="bundo" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="#2b2623" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg><span class="m">undo</span></button>
+  <span class="gap"></span>
+  <button id="test">TEST<small>it!</small></button>
+</div>
+
+<div id="runbar" hidden>
+  <div id="queue"><span>judges:</span></div>
+  <button class="pbtn" id="bfast">▶▶ faster</button>
+  <button class="pbtn" id="bstop">✕ stop</button>
+</div>
+
+<div id="coach" class="off"><div class="hd"><span id="coachk">Ms. Penne says</span><button id="coachx">hide</button></div><div id="coacht"></div><button class="btn go" id="coachgo" hidden>OK</button></div>
+<div id="banner" class="off"><div class="k" id="bk"></div><div class="t" id="bt"></div></div>
+<div id="toast" class="off"></div>
+
+<div class="veil" id="vtitle" hidden>
+  <div class="card" id="title">
+    <div class="strip"></div><div class="pin"></div>
+    <h1><span class="a">Spaghetti</span><span class="b">Bridge</span></h1>
+    <div class="fair">Room 14 Science Fair</div>
+    <div class="pastas"><img id="tp1" alt=""><img id="tp2" alt=""><img id="tp3" alt=""></div>
+    <p class="tag">Glue pasta into bridges between the desks. The judges will roll toy cars, textbooks, a hamster and worse across them.</p>
+    <div class="row"><button class="btn" id="bplay">Start building</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn alt" id="bprojects">All projects</button><button class="btn alt" id="bsound" style="flex:0 0 auto">Sound: on</button></div>
+    <div class="best" id="tbest"></div>
+  </div>
+</div>
+
+<div class="veil" id="vpick" hidden>
+  <div class="card" id="picker">
+    <div class="strip" style="background:var(--green)"></div><div class="pin"></div>
+    <h2>The projects</h2>
+    <p class="small">Every bridge that holds wins a ribbon. Use less pasta for a better one.</p>
+    <div class="projs" id="projs"></div>
+    <div class="row"><button class="btn alt" id="bpickback">Back</button></div>
+  </div>
+</div>
+
+<div class="veil" id="vresult" hidden>
+  <div class="card" id="result">
+    <div class="strip" id="rstrip"></div><div class="pin"></div>
+    <div class="head"><h2 id="rh">It held!</h2><svg class="rib" id="rrib" viewBox="0 0 78 100"></svg></div>
+    <div class="score" id="rscore"></div>
+    <div class="tip" id="rtip" hidden></div>
+    <div class="row" id="rrow"></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

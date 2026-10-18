@@ -56,7 +56,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 48. Jolly Cooperator
 - [x] 49. Chairlift — [`chairlift/`](chairlift/)
 - [ ] 50. Moonrise Manor
-- [ ] 51. Spaghetti Bridge
+- [x] 51. Spaghetti Bridge — [`spaghetti/`](spaghetti/)
 - [ ] 52. Are We There Yet
 - [ ] 53. Puddle
 - [ ] 54. Cube
@@ -450,8 +450,10 @@ A social deduction game where you're the werewolf among eight dinner guests at a
 
 The guests are distinct characters with their own suspicions, alliances and habits (the bishop believes whatever the colonel says, the twins always vote together), and a few have secrets you can use against them. Survive five nights to win. A notebook shows what everyone has claimed so far. Style: a candlelit Victorian manor, painted portraits of the guests whose expressions change with their suspicion, and creaking, ominous sound.
 
-## 51. Spaghetti Bridge
+## 51. Spaghetti Bridge ✅
 *Borrows: Poly Bridge · Twist: a school science fair, and you build with pasta*
+
+**Built 2026-10-18 as [`spaghetti/`](spaghetti/).** Eight projects rather than twenty, no glue drying time, and the judges test one load at a time. Long spaghetti buckles more easily than short spaghetti (Euler-style), and the look is construction paper on graph paper pinned to a corkboard.
 
 A Poly Bridge-style bridge-building physics game at a school science fair, where everything is built from pasta. Spaghetti is light and strong in tension but snaps under compression, rigatoni is stiff but heavy, lasagne sheets make the deck, glue joints take time to dry, and your budget is how much pasta is in the box. Build across gaps between desks, books and lunchboxes, then the judges test it with escalating loads: a toy car, a stack of textbooks, the class hamster in its ball, a full lunch tray and finally the head teacher's bowling ball.
 

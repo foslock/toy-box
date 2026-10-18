@@ -1,0 +1,9 @@
+{
+  "title": "Spaghetti Bridge",
+  "blurb": "Poly Bridge at a school science fair: glue spaghetti, rigatoni and lasagne into bridges, then watch the judges roll a toy car, a hamster and a bowling ball across.",
+  "added": "2026-10-18",
+  "category": "games",
+  "tags": ["canvas", "physics", "bridge builder", "game"],
+  "tape": "#f4c534",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
