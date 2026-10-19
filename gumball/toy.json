@@ -1,0 +1,9 @@
+{
+  "title": "Gumball Landlord",
+  "blurb": "Luck be a Landlord with a real gumball machine: crank, watch gumballs rattle into the tray, score what touches what, and make rent.",
+  "added": "2026-10-19",
+  "category": "games",
+  "tags": ["canvas", "physics", "roguelite", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}

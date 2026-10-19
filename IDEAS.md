@@ -13,7 +13,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 5. Grip
 - [x] 6. Horde — [`horde/`](horde/)
 - [ ] 7. Lost Property
-- [ ] 8. Gumball Landlord
+- [x] 8. Gumball Landlord — [`gumball/`](gumball/)
 - [ ] 9. Mirror Knight
 - [x] 10. Draw Ahead — [`drawahead/`](drawahead/)
 - [ ] 11. Marco
@@ -127,8 +127,10 @@ A Her Story-style mystery told entirely through a search box. You're the new cle
 
 Write the entries so the story can be found in any order, and so the clerks themselves change over the years: their habits, their jokes, their notes to each other. There's no win screen until you type the right name into a final "Who?" field, followed by a quiet ending. Style: a green-phosphor CRT terminal on a desk in a dim office, with a sticky-note pad at the side where you can pin entries and jot notes, saved between visits.
 
-## 8. Gumball Landlord
+## 8. Gumball Landlord ✅
 *Borrows: Luck be a Landlord · Twist: the slot machine is a physics gumball machine*
+
+**Built 2026-10-19 as [`gumball/`](gumball/).** 22 offerable gumballs plus 3 that grow or hatch (not 40), eight rents and then endless, about 15 minutes a run. Nudges cost ¢1, ¢2, ¢3… per turn; there's no thief or tilt magnet-nudge item, and after each rent you may toss one gumball. Style: a candy-shop counter with a red-enamel machine whose glass globe really holds your gumballs.
 
 A Luck be a Landlord-style roguelite, but the slot machine is a big glass gumball machine. Each turn you crank it and a handful of gumballs rattle out, with real physics, into a tray below. Each gumball is a symbol (coin, cherry, cat, bee, flower, bomb, thief…) and scores both by itself and from whatever it's touching when it settles. After every crank you pick one new gumball out of three to add to the machine, and every few cranks the landlord comes for rent, which keeps going up.
 

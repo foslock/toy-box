@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Gumball Landlord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Shrikhand&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root { --red: #d42a2a; --redd: #8f1414; --cream: #fff4e0; --ink: #3a1208; --mint: #bfe6d3; --gold: #ffd23f; --pink: #ffd3da; --felt: #1d6f5a;
+    --colL: 0px; --colW: 100vw; --s: 1; --barY: 700px; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #f9efdc; color: var(--ink); font: 600 18px/1.25 "Big Shoulders Display", "Arial Narrow", sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .disp { font-family: Shrikhand, Georgia, serif; font-weight: 400; }
+
+  /* ---- head: the till, the rent slip, two buttons */
+  #hud { position: fixed; z-index: 5; top: max(8px, env(safe-area-inset-top)); left: max(62px, calc(var(--colL) + 8px)); right: max(8px, calc(100vw - var(--colL) - var(--colW) + 8px));
+    display: flex; align-items: center; gap: 8px; pointer-events: none; }
+  #till { background: var(--ink); color: var(--gold); border-radius: 10px; padding: 3px 10px 4px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.4), 0 2px 0 rgba(0,0,0,.15); min-width: 52px; text-align: center; }
+  #till .k { font-size: 11px; letter-spacing: .14em; color: #e9c9a0; display: block; line-height: 1; margin-top: 2px; }
+  #till .v { font-weight: 900; font-size: 27px; line-height: 1; font-variant-numeric: tabular-nums; }
+  #till.bump .v { animation: bump .25s; }
+  @keyframes bump { 50% { transform: scale(1.18); } }
+  #slip { flex: 1 1 auto; min-width: 0; background: var(--pink); border-radius: 3px; padding: 4px 9px 5px; font-family: "Special Elite", monospace; font-size: 14px; line-height: 1.15; color: #5a1220;
+    box-shadow: 0 2px 0 rgba(90,18,32,.25); transform: rotate(-1.2deg); position: relative; }
+  #slip b { font-weight: 400; font-size: 18px; color: #b0102a; white-space: nowrap; }
+  #slip .due { display: block; font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #slip.hot { animation: wob .5s ease-in-out infinite alternate; }
+  @keyframes wob { to { transform: rotate(1.2deg); } }
+  .ib { pointer-events: auto; width: 42px; height: 42px; border-radius: 50%; background: var(--red); color: var(--cream); display: grid; place-items: center; box-shadow: inset 0 -3px 0 var(--redd), 0 2px 0 rgba(0,0,0,.2); flex: none; position: relative; }
+  .ib svg { width: 22px; height: 22px; }
+  .ib:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 var(--redd); }
+  .ib .n { position: absolute; right: -4px; bottom: -4px; background: var(--ink); color: var(--gold); border-radius: 9px; font-size: 12px; font-weight: 900; padding: 0 5px; line-height: 17px; min-width: 9px; text-align: center; }
+  body.menu #hud { visibility: hidden; }
+
+  /* ---- action bar under the tray */
+  #bar { position: fixed; z-index: 5; left: calc(var(--colL) + 16px * var(--s)); width: calc(var(--colW) - 32px * var(--s)); top: var(--barY); display: flex; gap: 8px; }
+  .big { flex: 1 1 auto; min-height: 54px; border-radius: 30px; background: var(--red); color: var(--cream); font-family: Shrikhand, Georgia, serif; font-size: 23px; line-height: 1;
+    box-shadow: inset 0 -5px 0 var(--redd), inset 0 2px 0 rgba(255,255,255,.3), 0 3px 0 rgba(0,0,0,.25); padding: 4px 14px 9px; white-space: nowrap; }
+  .big:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 var(--redd), 0 0 0 rgba(0,0,0,.25); }
+  .big:disabled { filter: grayscale(.8) brightness(1.1); opacity: .6; cursor: default; transform: none; }
+  .big small { font-family: "Big Shoulders Display", sans-serif; font-weight: 900; font-size: 22px; color: var(--gold); margin-left: 4px; }
+  .nud { flex: 0 0 68px; min-height: 54px; border-radius: 30px; background: var(--cream); color: var(--ink); font-weight: 900; font-size: 18px; box-shadow: inset 0 0 0 3px var(--red), inset 0 -5px 0 rgba(143,20,20,.25), 0 3px 0 rgba(0,0,0,.2);
+    display: flex; align-items: center; justify-content: center; gap: 2px; }
+  .nud svg { width: 20px; height: 20px; color: var(--red); }
+  .nud:active { transform: translateY(3px); }
+  .nud:disabled { opacity: .45; cursor: default; transform: none; }
+  .glow { animation: glow 1s ease-in-out infinite alternate; }
+  @keyframes glow { to { box-shadow: 0 0 0 5px var(--gold), 0 0 22px 6px rgba(255,210,63,.8); } }
+
+  /* ---- cards and sheets */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; box-sizing: border-box; background: rgba(58,18,8,.45); overflow: auto; }
+  .veil.clear { background: transparent; pointer-events: none; }
+  .veil.clear .card { pointer-events: auto; }
+  .card { position: relative; background: var(--cream); color: var(--ink); width: min(420px, calc(100vw - 32px)); box-sizing: border-box; border-radius: 18px; padding: 18px 18px 16px;
+    box-shadow: 0 0 0 4px var(--red), 0 0 0 7px var(--cream), 0 0 0 9px var(--redd), 0 14px 30px rgba(40,10,0,.4); max-height: calc(100dvh - 48px); overflow: auto; margin: auto; }
+  .card h1 { margin: 0; font-family: Shrikhand, Georgia, serif; font-weight: 400; color: var(--red); font-size: 50px; line-height: .92; text-shadow: 3px 3px 0 var(--gold); transform: rotate(-3deg); transform-origin: left; }
+  .card h2 { margin: 0 0 4px; font-family: Shrikhand, Georgia, serif; font-weight: 400; color: var(--red); font-size: 28px; line-height: 1.05; }
+  .card p { margin: 8px 0 0; font-size: 18px; line-height: 1.25; }
+  .kick { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; font-weight: 900; color: var(--felt); }
+  .row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .row .big { font-size: 21px; min-height: 50px; }
+  .alt { flex: 1 1 auto; min-height: 48px; border-radius: 30px; background: transparent; color: var(--red); font-weight: 900; font-size: 19px; box-shadow: inset 0 0 0 3px var(--red); padding: 4px 14px; }
+  .alt:active { transform: translateY(2px); }
+  .alt:disabled { opacity: .4; cursor: default; }
+  .small { font-size: 15px !important; color: #7a5546; }
+  .keys { margin-top: 12px; font-size: 15px; color: #7a5546; }
+  kbd { font: inherit; font-weight: 900; background: #fff; border-radius: 4px; padding: 0 5px; box-shadow: inset 0 -2px 0 #d8c7b0; }
+
+  /* title */
+  #title .card { padding-top: 22px; }
+  #title h1 { margin-top: 8px; }
+  #title .balls { display: flex; justify-content: space-between; margin: 16px 0 2px; }
+  #title .balls canvas { width: min(34px, 9vw); height: min(34px, 9vw); }
+  @media (hover: none) { .keys { display: none; } }
+
+  /* picks */
+  .picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .pk { background: #fff; border-radius: 14px; padding: 10px 6px 10px; text-align: center; box-shadow: inset 0 0 0 2px #ead9c2, 0 3px 0 #ead9c2; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 172px; }
+  .pk:active { transform: translateY(2px); }
+  .pk canvas { width: 54px; height: 54px; }
+  .pk .nm { font-weight: 900; font-size: 19px; line-height: 1; }
+  .pk .rr { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 900; padding: 1px 6px; border-radius: 6px; background: #eee3d2; }
+  .pk .rr.r2 { background: #cfe9ff; color: #164a78; } .pk .rr.r3 { background: #ffd3f0; color: #7a1460; }
+  .pk .tx { font-size: 15px; line-height: 1.15; color: #5e3a2c; font-weight: 600; }
+  .pk .hv { font-size: 13px; color: var(--felt); font-weight: 800; margin-top: auto; }
+  @media (max-width: 380px) { .pk .tx { font-size: 14px; } .pk { padding: 8px 4px; } }
+
+  /* landlord slip */
+  .paper { background: var(--pink); font-family: "Special Elite", monospace; color: #5a1220; border-radius: 4px; transform: rotate(-1deg);
+    box-shadow: 0 14px 30px rgba(40,10,0,.4); padding: 20px 20px 18px; width: min(380px, calc(100vw - 40px)); box-sizing: border-box; position: relative; }
+  .paper h3 { margin: 0; font-weight: 400; font-size: 24px; letter-spacing: .04em; border-bottom: 2px dashed rgba(90,18,32,.4); padding-bottom: 8px; }
+  .paper p { margin: 10px 0 0; font-size: 17px; line-height: 1.35; }
+  .paper .amt { font-size: 40px; margin: 8px 0 0; }
+  .paper .row .big { font-family: Shrikhand, Georgia, serif; }
+  .stamp { position: absolute; right: 14px; bottom: 112px; font-family: Shrikhand, Georgia, serif; font-size: 38px; color: rgba(212,42,42,.85); border: 4px solid currentColor; border-radius: 10px; padding: 0 10px 6px;
+    transform: rotate(-14deg) scale(2); opacity: 0; transition: transform .22s cubic-bezier(.3,1.6,.6,1), opacity .12s; pointer-events: none; }
+  .stamp.on { transform: rotate(-14deg) scale(1); opacity: 1; }
+  .stamp.green { color: rgba(29,111,90,.9); }
+
+  /* toss + contents grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; margin-top: 12px; }
+  .grid button { aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; }
+  .grid canvas { width: 40px; height: 40px; }
+  .grid button.sel { box-shadow: 0 0 0 3px var(--red); }
+  .list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .li { display: grid; grid-template-columns: 38px 1fr; gap: 10px; align-items: center; }
+  .li canvas { width: 38px; height: 38px; }
+  .li b { font-weight: 900; font-size: 18px; } .li span { display: block; font-size: 15px; color: #5e3a2c; line-height: 1.15; }
+
+  /* info card for a tapped gumball */
+  #info { position: fixed; z-index: 8; left: calc(var(--colL) + 20px * var(--s)); width: calc(var(--colW) - 40px * var(--s)); bottom: calc(100vh - var(--barY) + 8px); box-sizing: border-box;
+    background: var(--cream); border-radius: 14px; padding: 9px 12px; box-shadow: 0 0 0 3px var(--red), 0 8px 20px rgba(40,10,0,.35); display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; pointer-events: none; }
+  #info canvas { width: 40px; height: 40px; }
+  #info b { font-weight: 900; font-size: 19px; } #info span { display: block; font-size: 15px; line-height: 1.15; color: #5e3a2c; }
+  #info .v { font-weight: 900; font-size: 28px; color: var(--red); }
+  #info .why { color: var(--felt); font-weight: 800; }
+
+  /* coach: a price tag on a string */
+  #coach { position: fixed; z-index: 15; left: calc(var(--colL) + 18px * var(--s)); width: calc(var(--colW) - 36px * var(--s)); box-sizing: border-box; top: calc(var(--coachY, 90px));
+    background: #fffdf6; border-radius: 12px; padding: 11px 14px 12px; box-shadow: 0 0 0 3px var(--felt), 0 10px 24px rgba(40,10,0,.35); transition: opacity .2s, transform .2s; }
+  #coach.off { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+  #coach .kick { display: flex; justify-content: space-between; }
+  #coach .kick button { color: #9a7a6a; letter-spacing: .1em; font-size: 12px; text-decoration: underline; }
+  #coach p { margin: 4px 0 0; font-size: 19px; line-height: 1.22; }
+  #coach .go { margin-top: 10px; min-height: 42px; font-size: 19px; padding: 2px 18px 7px; }
+
+  /* banner over the tray */
+  #banner { position: fixed; z-index: 9; left: 0; right: 0; top: calc(var(--bannerY, 40%)); text-align: center; pointer-events: none; transition: opacity .25s, transform .25s; }
+  #banner.off { opacity: 0; transform: scale(.85); }
+  #banner span { display: inline-block; font-family: Shrikhand, Georgia, serif; font-size: 34px; color: var(--cream); background: var(--red); padding: 4px 18px 10px; border-radius: 14px; transform: rotate(-3deg);
+    box-shadow: inset 0 -5px 0 var(--redd), 0 6px 16px rgba(40,10,0,.4); }
+</style>
+</head>
+<body class="menu">
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="till"><span class="k">TILL</span><span class="v">¢<span id="money">0</span></span></div>
+  <div id="slip"><b id="rent">Rent ¢15</b><span class="due" id="due">due in 5 turns</span></div>
+  <button class="ib" id="bjar" aria-label="What's in the machine"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9.5" cy="11" r="2" fill="currentColor"/><circle cx="14" cy="8.5" r="2" fill="currentColor"/><circle cx="13.5" cy="13" r="2" fill="currentColor"/><path d="M7 18h10v3H7z" fill="currentColor"/></svg><span class="n" id="count">6</span></button>
+  <button class="ib" id="bmenu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
+</div>
+
+<div id="bar" hidden>
+  <button class="nud" id="bl" aria-label="Nudge left"><svg viewBox="0 0 20 20"><path d="M12.5 4l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="c">¢1</span></button>
+  <button class="big" id="bgo">Turn the crank</button>
+  <button class="nud" id="br" aria-label="Nudge right"><span class="c">¢1</span><svg viewBox="0 0 20 20"><path d="M7.5 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+</div>
+
+<div id="info" hidden><canvas width="80" height="80"></canvas><div><b></b><span class="tx"></span><span class="why"></span></div><div class="v"></div></div>
+
+<div id="coach" class="off" role="status">
+  <div class="kick"><span id="ck">How it works</span><button id="cskip">skip tutorial</button></div>
+  <p id="ct"></p>
+  <button class="big go" id="cgo" hidden>Got it</button>
+</div>
+
+<div id="banner" class="off"><span id="bt">Rent day</span></div>
+
+<!-- title -->
+<div class="veil" id="title">
+  <div class="card">
+    <div class="kick">A candy-counter roguelite</div>
+    <h1>Gumball<br>Landlord</h1>
+    <div class="balls" id="tballs"></div>
+    <p>Your whole livelihood is one gumball machine. Every turn, a handful of gumballs rattle into the tray, and each one pays for itself and for whatever it lands touching.</p>
+    <p>Grow the machine, nudge the tray, and pay Mr. Grubb his rent every five turns. Eight rents and the shop is yours.</p>
+    <div class="row"><button class="big" id="bplay">Open the shop</button></div>
+    <div class="row" style="margin-top:10px"><button class="alt" id="btut">How to play</button><button class="alt" id="bsound">Sound: on</button></div>
+    <p class="small" id="best"></p>
+    <p class="keys">Keys: <kbd>Space</kbd> crank / collect · <kbd>←</kbd> <kbd>→</kbd> nudge · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick</p>
+  </div>
+</div>
+
+<!-- pick -->
+<div class="veil" id="pick" hidden>
+  <div class="card">
+    <div class="kick" id="pkick">Turn 1 · into the machine</div>
+    <h2>Add a gumball</h2>
+    <p class="small" id="ptip" hidden></p>
+    <div class="picks" id="picks"></div>
+    <div class="row"><button class="alt" id="bskip">Skip</button><button class="alt" id="breroll">Reroll ¢2</button></div>
+  </div>
+</div>
+
+<!-- rent -->
+<div class="veil" id="rentv" hidden>
+  <div class="paper">
+    <h3>NOTICE OF RENT DUE</h3>
+    <p id="rtxt">Rent, as agreed.</p>
+    <p class="amt" id="ramt">¢15</p>
+    <p id="rsub" class="small"></p>
+    <div class="stamp" id="rstamp">PAID</div>
+    <div class="row"><button class="big" id="rgo">Pay up</button></div>
+  </div>
+</div>
+
+<!-- toss -->
+<div class="veil" id="toss" hidden>
+  <div class="card">
+    <div class="kick">Spring cleaning</div>
+    <h2>Toss one out?</h2>
+    <p class="small">The rent's paid, and Mr. Grubb lets you throw one gumball away. Tap it, then toss it, or keep them all.</p>
+    <div class="grid" id="tgrid"></div>
+    <div class="row"><button class="alt" id="tkeep">Keep them all</button><button class="big" id="tgo" disabled>Toss it</button></div>
+  </div>
+</div>
+
+<!-- contents -->
+<div class="veil" id="jar" hidden>
+  <div class="card">
+    <div class="kick" id="jkick">In the machine</div>
+    <h2>Your gumballs</h2>
+    <div class="list" id="jlist"></div>
+    <div class="row"><button class="big" id="jclose">Back to the counter</button></div>
+  </div>
+</div>
+
+<!-- menu -->
+<div class="veil" id="menu" hidden>
+  <div class="card">
+    <h2>Paused</h2>
+    <div class="row"><button class="big" id="mresume">Back to the counter</button></div>
+    <div class="row" style="margin-top:10px"><button class="alt" id="msound">Sound: on</button><button class="alt" id="mquit">Close shop</button></div>
+  </div>
+</div>
+
+<!-- end -->
+<div class="veil" id="over" hidden>
+  <div class="paper">
+    <h3 id="otitle">EVICTION NOTICE</h3>
+    <p id="otxt"></p>
+    <div class="stamp" id="ostamp">EVICTED</div>
+    <p id="ostats"></p>
+    <div class="row"><button class="big" id="oagain">Try again</button></div>
+    <div class="row" style="margin-top:8px"><button class="alt" id="omore" hidden>Keep going</button><button class="alt" id="omenu">Main menu</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
