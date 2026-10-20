@@ -8,7 +8,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 
 - [x] 1. Scales — [`scales/`](scales/)
 - [x] 2. Ten of Me — [`tenofme/`](tenofme/)
-- [ ] 3. Moonshot
+- [x] 3. Moonshot — [`moonshot/`](moonshot/)
 - [x] 4. Please Stay on This Page — [`staypage/`](staypage/)
 - [ ] 5. Grip
 - [x] 6. Horde — [`horde/`](horde/)
@@ -88,8 +88,10 @@ A side-view heist in a museum after closing. You get ten runs of 30 seconds each
 
 A dozen or so hand-built floors that each teach one idea (a plate, a guard, a camera, a key only one of you can carry, a door that needs two of you at once) and then combine them. Style: flat noir silhouettes against a deep blue night palette, each copy of you a slightly different tint with its run number over its head, and a timeline strip along the bottom showing all ten runs. Keys on desktop, on-screen buttons on phones.
 
-## 3. Moonshot
+## 3. Moonshot ✅
 *Borrows: Worms · Twist: tiny round planetoids, each with its own gravity*
+
+**Built 2026-10-20 as [`moonshot/`](moonshot/).** Four or five planetoids sized to the screen, 4 astronauts a side with 60 HP, walking plus all five weapons (shell, bouncy grenade, drill, gravity mine, jetpack). Shells still flying after 6 s stay in orbit for 3 turns. The CPU searches shots by simulation and sharpens each time you beat it. Cut: per-pixel planet mass shifting (the pull weakens as rock is removed, but its centre stays put) and turn timers. Style: a 1970s paperback SF cover, with halftone-shaded planets and film grain.
 
 A turn-based artillery game in the spirit of Worms, set on a cluster of tiny round planetoids floating in space, each with its own gravity. Shells bend around every planetoid they pass near. A good shot slingshots around a moon and drops onto a team hiding on the far side; a bad one goes into orbit and comes back for you three turns later. The ground is destructible down to the pixel, so craters reshape the little worlds, and troops standing on a planetoid you've carved away can drift off into space.
 

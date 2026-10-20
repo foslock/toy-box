@@ -1,0 +1,9 @@
+{
+  "title": "Moonshot",
+  "blurb": "Worms on a cluster of tiny planetoids, each with its own gravity: shells bend round moons, craters reshape worlds, and missed shots stay in orbit.",
+  "added": "2026-10-20",
+  "category": "games",
+  "tags": ["canvas", "artillery", "gravity", "game"],
+  "tape": "#ffd23f",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
