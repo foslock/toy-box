@@ -1,0 +1,9 @@
+{
+  "title": "Pinball Over It",
+  "blurb": "A Foddian tower of ten stacked pinball tables. Shoot through the gate to climb; drain and the ball drops into the table below. One ball, no checkpoints.",
+  "added": "2026-10-21",
+  "category": "games",
+  "tags": ["canvas", "pinball", "physics", "game"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}

@@ -41,7 +41,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 33. Invader
 - [ ] 34. Night Bus
 - [x] 35. Starter — [`starter/`](starter/)
-- [ ] 36. Pinball Over It
+- [x] 36. Pinball Over It — [`overit/`](overit/)
 - [ ] 37. Hotline
 - [ ] 38. Regulars
 - [x] 39. Crossfire — [`crossfire/`](crossfire/)
@@ -341,8 +341,10 @@ An incremental game where you are a sourdough starter in a jar on someone's kitc
 
 About an hour to an ending, balanced so it never stalls, with three or four distinct phases (the kitchen, the town, the world, beyond) that each add a new resource and a new way of thinking. Funny and slightly unsettling. Save progress and count growth while the tab is closed. Style: a minimal, typographic interface that starts as a small jar drawing on a cream background and grows into increasingly ornate dashboards.
 
-## 36. Pinball Over It
+## 36. Pinball Over It ✅
 *Borrows: Getting Over It, Jump King, pinball · Twist: a tower of pinball tables, and draining drops you to the table below*
+
+**Built 2026-10-21 as [`overit/`](overit/).** Ten tables rather than fifteen (Launch Pad, Deep Sea, Dead Man's Gulch, Robot Works, Big Top, Haunted House, Lost Temple, Ice Palace, Volcano, The Storm), each with one trick: kelp drag, a sliding gate, a rocking table, a bumper cluster, a ghost, a narrow lane, small flippers, drop targets that open the gate, wind plus lightning that slams the gate. No ramps (2D only); the gate is an opening in the top wall. Style: every word on screen, menus included, is drawn in a hand-made 5×7 dot font on amber plasma-display dots.
 
 A Foddian pinball game. Pinball tables are stacked one on top of another, and the only way up is to shoot the ball through the gate at the top of a table into the bottom of the one above. Drain on any table and the game doesn't end: the ball falls into the table below, and keeps falling until a flipper catches it. One ball, no lives, no checkpoints, and a long way up: maybe 15 tables, each with its own theme and its own nasty trick (a narrow ramp to the gate, a spinner that kills your speed, a gate that moves, a table that tilts, a bumper cluster that flings you back down).
 
