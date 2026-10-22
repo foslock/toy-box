@@ -1,0 +1,10 @@
+{
+  "title": "Liar's Table",
+  "blurb": "Liar's dice against a clown, a lizard, a sea captain and a widow, each with a tell, and all of them learning yours.",
+  "added": "2026-10-22",
+  "category": "games",
+  "tags": ["dice", "bluffing", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 20 }
+}

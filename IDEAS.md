@@ -34,7 +34,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 26. Still Life
 - [ ] 27. Encore
 - [x] 28. Dam Day — [`damday/`](damday/)
-- [ ] 29. Liar's Table
+- [x] 29. Liar's Table — [`liars/`](liars/)
 - [ ] 30. Customs of the Dead
 - [ ] 31. Sonar
 - [x] 32. Snowball — [`snowball/`](snowball/)
@@ -286,8 +286,10 @@ A tiny Outer Wilds: a time loop of about four minutes in a small valley town on 
 
 Hand-build a town of about ten places and eight people, each with their own four-minute schedule, and a satisfying final loop where you use everything you know to save everyone. A clock in the corner, and a groan from the dam as time runs out. Style: gentle, sunny pastel pixel art with lots of small animated life (washing on lines, a fisherman, a church bell), which makes the end of each loop hurt.
 
-## 29. Liar's Table
+## 29. Liar's Table ✅
 *Borrows: Liar's Bar, Buckshot Roulette · Twist: the opponents have tells, and they learn yours*
+
+**Built 2026-10-22 as [`liars/`](liars/).**
 
 Liar's dice against three strange AI opponents in a smoky back room. Everyone rolls five dice under a cup, and players take turns raising the bid ("four 3s") or calling the last bidder a liar. Whoever's wrong loses a die, and the last player with dice wins. The twist is that the opponents have tells. Each has habits (one taps a finger when bluffing, one bids faster with a weak hand, one glances at a particular die) that you can learn to read. The tells aren't perfect, and the opponents are learning to read yours from your bidding patterns too.
 
