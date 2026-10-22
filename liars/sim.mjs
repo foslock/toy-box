@@ -11,8 +11,9 @@ function play(tableIdx, bot, seed) {
   const t = TABLES[tableIdx];
   const rand = rng(seed * 7919 + 13);
   const g = new Game(['you', ...t.seats], { seed });
-  const book = new Book();
-  const thinks = [];
+  // like the real game, the room's book on you (and your bid timings) carries over from table to table
+  const book = (bot.book ??= new Book());
+  const thinks = (bot.thinks ??= []);
   let rounds = 0;
   while (g.winner() < 0 && !g.players[0].out) {
     g.roll(); rounds++;
@@ -25,6 +26,7 @@ function play(tableIdx, bot, seed) {
         if (a.call) { const r = g.call(0); finish(r); break; }
         const think = bot.habit ? (a.bluff ? 5 + rand() * 3 : 1.5 + rand() * 1.5) : 2 + rand() * 2.5;
         thinks.push(think);
+        if (thinks.length > 40) thinks.shift();
         g.place(0, a.q, a.f, { think });
         seen = false;
       } else {
@@ -47,7 +49,8 @@ function play(tableIdx, bot, seed) {
 const bots = { plain: {}, reader: { reader: true }, habit: { habit: true }, 'reader+habit': { reader: true, habit: true } };
 for (const [ti, t] of TABLES.entries()) {
   const row = [];
-  for (const [name, bot] of Object.entries(bots)) {
+  for (const [name, b] of Object.entries(bots)) {
+    const bot = { ...b };
     let w = 0, r = 0;
     for (let k = 0; k < N; k++) { const o = play(ti, bot, SEED * 100003 + k); w += o.win; r += o.rounds; }
     row.push(`${name} ${(100 * w / N).toFixed(0)}%`);

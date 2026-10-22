@@ -41,15 +41,15 @@ const nameOf = i => (i === 0 ? 'You' : CHARACTERS[G.players[i].key].name);
 const fullOf = i => (i === 0 ? 'You' : CHARACTERS[G.players[i].key].full);
 
 // ---- the lamp and its light
-let W = innerWidth, H = innerHeight, swingAmp = 2.2, swingTarget = 2.2;
+let W = innerWidth, H = innerHeight, LX = W / 2, swingAmp = 2.2, swingTarget = 2.2;
 function drawRoom() {
   W = innerWidth; H = innerHeight;
   const svg = $('#rays');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const seats = $('#seats').getBoundingClientRect();
-  // on a wide screen the lamp hangs in view above the far side of the table; on a phone it's just off the top
-  const wide = W >= 700;
-  const lx = W / 2, ly = wide ? Math.min(40, seats.top - 62) : -70;
+  // on a wide screen the lamp hangs in view above the far side of the table; on a phone (or a short landscape one) it's just off the top
+  const wide = W >= 700 && H >= 520;
+  const lx = LX = seats.width ? seats.left + seats.width / 2 : W / 2, ly = wide ? Math.min(40, seats.top - 62) : -70;
   $('#swing').innerHTML = rays(lx, ly + 56, H * 1.15) + (wide ? lamp(lx, ly) : '');
   const top = seats.height ? seats.bottom - seats.height * 0.2 : H * 0.42;
   document.documentElement.style.setProperty('--tabletop', `${Math.round(top)}px`);
@@ -58,7 +58,7 @@ let lastCreak = 0;
 function frame(t) {
   swingAmp += (swingTarget - swingAmp) * 0.02;
   const a = Math.sin(t / 1000 * 1.25) * swingAmp;
-  $('#swing').setAttribute('transform', `rotate(${a.toFixed(3)} ${W / 2} ${-320})`);
+  $('#swing').setAttribute('transform', `rotate(${a.toFixed(3)} ${LX} ${-320})`);
   if (swingAmp > 3 && t - lastCreak > 2400 && Math.abs(a) > swingAmp * 0.97) { lastCreak = t; sound.creak(); }
   requestAnimationFrame(frame);
 }
@@ -241,8 +241,9 @@ async function aiTurn(i, script) {
   const tell = act.tell ?? (!act.call && !lesson && tellShows(ch, act.bluff, table.soften, rand));
   if (tell) think = Math.max(think, 0.35 + TELL_MS[ch.tell] / 1000 * 0.85);
   say(i, '· · ·', 'think', 0);
-  if (tell) setTimeout(() => session && doTell(i, ch.tell), 320 / SPEED);
-  else if (rand() < 0.3 && !lesson) setTimeout(() => fidget(i), (200 + rand() * think * 600) / SPEED);
+  const s = session; // leaving the table mid-think must not fire these on the next table's seats
+  if (tell) setTimeout(() => s === session && doTell(i, ch.tell), 320 / SPEED);
+  else if (rand() < 0.3 && !lesson) setTimeout(() => s === session && fidget(i), (200 + rand() * think * 600) / SPEED);
   await sleep(think * 1000 * (lesson ? 1.25 : 1));
   if (act.call) {
     say(i, line(ch, 'call', null, null, rand), 'call', 3000);
@@ -376,7 +377,6 @@ async function reveal(res, script) {
   await sleep(500);
   for (let i = 1; i < G.players.length; i++) renderSeat(i);
   $('#mine .youcount').innerHTML = pipsHtml(G.players[0].n, maxDice);
-  renderCard();
   // what the room has noticed about you
   if (!lesson) {
     const fresh = [];
@@ -470,12 +470,12 @@ async function playLesson() {
       async () => {
         await coach('Pip opens: <b>“two fives.”</b> A bid is a claim about <b>every</b> die on the table, his and yours together: there are at least two fives under the cups.', '#card');
         lock = { q: 3, f: 5 };
-        await coach('You hold two fives yourself, so Pip’s bid is already true. Raise it. A raise is <b>more dice</b>, or <b>the same number of a higher face</b>. Bid <b>three fives</b>.', '#bidBtn', { wait: true, anchor: '#controls' });
+        await coach('You hold two fives yourself, so Pip’s bid is already true. Raise it. A raise is <b>more dice</b>, or <b>the same number of a higher face</b>. Bid <b>three fives</b>.', '#bidBtn', { wait: true, anchor: '#mine' });
       },
       async () => {
         await coach('Did you see that? <b>Pip broke into a sweat.</b> That’s his tell. He sweats when he bids a face he doesn’t hold.', '.seat[data-i="1"] .bust');
         lock = 'liar';
-        await coach('He bid <b>three sixes</b>. You hold one six, and if Pip has none there can’t be three. <span class="r">Call him a liar.</span>', '#liarBtn', { wait: true, anchor: '#controls' });
+        await coach('He bid <b>three sixes</b>. You hold one six, and if Pip has none there can’t be three. <span class="r">Call him a liar.</span>', '#liarBtn', { wait: true, anchor: '#mine' });
       },
     ],
     afterReveal: async () => {

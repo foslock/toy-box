@@ -274,6 +274,28 @@
   }
   @media (max-width: 420px) { .iconbtn { width: 36px; height: 36px; } .iconbtn svg { width: 19px; height: 19px; } #hud { gap: 4px; padding-left: 52px; } #where b { font-size: 22px; } #where small { font-size: 10.5px; } }
   @media (max-height: 640px) { :root { --seat: min(29vw, 150px, 22vh); --die: min(12vw, 46px); } .qty, .faces button { height: 42px; } .faces button { width: 42px; } .big { height: 48px; } #card .bid { min-height: 40px; } }
+  /* a phone held sideways: the regulars and the bid on the left, your dice and controls on the right */
+  @media (max-height: 520px) and (min-aspect-ratio: 4/3) {
+    :root { --seat: min(15vw, 28vh, 150px); --die: min(11vh, 44px); }
+    #room { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 44%); grid-template-rows: auto auto minmax(0, 1fr); column-gap: 12px;
+      grid-template-areas: "hud hud" "seats me" "mid me"; }
+    #hud { grid-area: hud; min-height: 40px; }
+    #seats { grid-area: seats; margin-top: 12px; }
+    #mid { grid-area: mid; padding: 2px 0; gap: 4px; }
+    #me { grid-area: me; align-self: end; gap: 6px; }
+    #log li:not(:nth-last-child(-n+2)) { display: none; }
+    #mid { justify-content: safe center; }
+    #card { padding: 4px 18px 6px; }
+    #card .bid { min-height: 36px; }
+    #card .bid b { font-size: 34px; }
+    #card .bid .die { width: 32px; height: 32px; }
+    #card .sub { font-size: 14px; }
+    #stamp { font-size: 50px; }
+    #tally { width: 44px; height: 44px; font-size: 26px; }
+    #verdict { font-size: 20px; margin-top: 6px; }
+    #notice { font-size: 14px; padding: 4px 10px 5px; }
+    #verdict:not([hidden]) ~ #log { display: none; }
+  }
 </style>
 </head>
 <body>
