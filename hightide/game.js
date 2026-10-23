@@ -242,9 +242,9 @@ export class Game {
       if (ny < Math.floor(e.y) - e.climb) {
         // too tall to step up
         if (e.kind === 'crab') { e.y = this.standY(probe, e.y, 30); }
-        else if (e.kind === 'dog') { e.st = 'air'; e.vx = e.dir * 18; e.vy = -38; e.thrown = false; return; }
+        else if (e.kind === 'dog') { e.st = 'air'; e.vx = e.dir * 18; e.vy = -38; e.thrown = false; e.resume = leaving ? 'leave' : 'walk'; return; }
         else if (!leaving) { e.st = 'balk'; e.t = 0; return; }
-        else { e.dir = -e.dir; }
+        else { e.y = this.standY(probe, e.y, 30); }   // heading home: scramble over it rather than pace back and forth forever
       }
       if ((e.kind === 'kid' || e.kind === 'man') && !leaving) {
         const depth = b.depthAt(probe, ny);
@@ -255,7 +255,7 @@ export class Game {
     const sp = e.speed * (leaving ? 1.3 : 1) * (inWater && e.kind !== 'crab' ? 0.5 : 1);
     e.x += e.dir * sp * dt;
     const sy = this.standY(e.x, e.y, e.kind === 'crab' ? 30 : e.climb + 1);
-    if (sy > e.y + 2) { e.st = 'air'; e.vx = e.dir * sp; e.vy = 0; e.thrown = false; }
+    if (sy > e.y + 2) { e.st = 'air'; e.vx = e.dir * sp; e.vy = 0; e.thrown = false; e.resume = leaving ? 'leave' : 'walk'; }
     else e.y = sy;
     if (e.x < -8 || e.x > W + 8) e.gone = true;
   }
@@ -470,7 +470,8 @@ export class Game {
     const depth = b.depthAt(xi, yi);
     const sea = depth > 0 && b.conn[yi * W + xi] === b.step;
     e.vx = e.vy = 0; e.t = 0;
-    if (!e.thrown) { e.st = 'walk'; return; }
+    // stepped off a ledge: carry on with whatever it was doing (a visitor heading home stays heading home)
+    if (!e.thrown) { e.st = e.resume || 'walk'; return; }
     e.thrown = false;
     const hard = e.relSpeed >= GENTLE || e.peak < e.grabY - 14 && e.y - e.peak > 12;
     if (e.kind === 'crab') {
