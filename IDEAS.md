@@ -28,7 +28,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 20. Chat Dungeon
 - [ ] 21. Moving Day
 - [x] 22. Poker Squares — [`fivebyfive/`](fivebyfive/)
-- [ ] 23. High Tide
+- [x] 23. High Tide — [`hightide/`](hightide/)
 - [ ] 24. Try Finger
 - [x] 25. Floodplain — [`floodplain/`](floodplain/)
 - [ ] 26. Still Life
@@ -240,8 +240,10 @@ A Balatro-style roguelite built on Poker Squares, the old solitaire. You place c
 
 Keep the scoring spectacle: each hand lights up in turn with chips and mult ticking up and a crunchy sound, then the total slams onto the screen. A run is about eight antes, each ending in a boss round that twists a rule. Style: green felt under a warm lamp with a jaunty, slightly unhinged card-room vibe. Tap to place, with a clear preview of what each square would make.
 
-## 23. High Tide
+## 23. High Tide ✅
 *Borrows: Defend Your Castle (flash), falling-sand games · Twist: the tide actually erodes what you build, grain by grain*
+
+**Built 2026-10-23 as [`hightide/`](hightide/).** Eight waves from 9 AM to a sunset high tide on a 160×100 falling-sand beach, with crabs, gulls, kids, dogs and a detectorist. Between waves: 30 seconds to dig, pack, and buy bucket towers, driftwood posts or pebbles with shells. Losing the keep's flag to the water ends the day. Cut: the "bucket of water gulls won't cross" (pebbles and posts took its place). Style: bright seaside pixel art with deckchair-stripe boards.
 
 A Defend Your Castle-style game at the beach: you guard a sandcastle through one long summer day. Crabs, seagulls, dogs, kids with buckets and a man with a metal detector come for it, and you fend them off by picking them up and flinging them with your finger or mouse (the kids you set down gently somewhere else). Between waves you spend shells you've collected to build: dig a moat, raise walls, add towers, set down a bucket of water the seagulls won't cross.
 

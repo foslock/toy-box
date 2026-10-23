@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>High Tide</title>
+<meta name="description" content="Guard a sandcastle through one long summer day. Fling crabs into the sea, set kids down gently, and build before the tide eats it grain by grain.">
+<meta name="theme-color" content="#62c2ef">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Tiny5&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1f2a44; --cream: #fff4dc; --red: #e4473b; --teal: #2fa7b5; --sun: #ffc93c; --sand: #f3d9a4; --wet: #c99d63;
+    --head: Silkscreen, 'Courier New', monospace; --body: Tiny5, 'Courier New', monospace;
+    --stripe: repeating-linear-gradient(90deg, var(--red) 0 14px, var(--cream) 14px 28px);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #62c2ef; color: var(--ink); font: 16px/1.25 var(--body); overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+  canvas { image-rendering: pixelated; }
+  #world { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* hard-edged boards: cream paint, ink outline, a shadow with no blur */
+  .board { background: var(--cream); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+  .btn { font: 700 14px/1 var(--head); text-transform: uppercase; letter-spacing: .02em; background: var(--cream); border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink); padding: 9px 12px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+  .btn:active, .btn.down { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn.go { background: var(--sun); }
+  .btn.red { background: var(--red); color: var(--cream); }
+  .btn:focus-visible { outline: 3px dashed var(--teal); outline-offset: 3px; }
+  .btn[disabled] { opacity: .45; cursor: default; }
+
+  /* ---- top bar; the Home button lives in the first 56px */
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: flex-start; gap: 6px; z-index: 5; pointer-events: none;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(62px, calc(env(safe-area-inset-left) + 56px)); }
+  #hud > * { pointer-events: auto; }
+  .chip { display: flex; align-items: center; gap: 6px; padding: 5px 8px 4px; font: 16px/1 var(--body); height: 38px; white-space: nowrap; }
+  .chip b { font: 700 14px/1 var(--head); }
+  .chip small { font: 10px/1 var(--head); text-transform: uppercase; opacity: .75; display: block; margin-top: 3px; }
+  #clock { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; min-width: 66px; }
+  #hud .spacer { flex: 1; }
+  .ibtn { width: 38px; height: 38px; display: grid; place-items: center; font: 700 16px/1 var(--head); }
+  .ibtn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+  .ibtn.off { opacity: .5; }
+  #castleChip.low b { color: var(--red); }
+
+  /* ---- bottom bar: tools between waves */
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+    padding: 0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  #bar > * { pointer-events: auto; }
+  #tools { display: flex; gap: 6px; align-items: stretch; flex-wrap: nowrap; max-width: 100%; }
+  .tool { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; width: 64px; padding: 6px 2px 5px; min-height: 64px;
+    font: 700 11px/1 var(--head); text-transform: uppercase; background: var(--cream); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); position: relative; }
+  .tool canvas { flex: none; }
+  .tool .price { font: 13px/1 var(--body); display: flex; align-items: center; gap: 2px; }
+  .tool.on { background: var(--sun); transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .tool.broke { opacity: .5; }
+  .tool .key { position: absolute; top: 2px; left: 4px; font: 9px/1 var(--head); opacity: .5; }
+  #pailMeter { position: absolute; left: 5px; right: 5px; top: 4px; height: 5px; border: 1px solid var(--ink); background: var(--cream); }
+  #pailMeter i { display: block; height: 100%; background: var(--wet); }
+  #goRow { display: flex; gap: 8px; align-items: center; }
+  #goBtn { min-width: 210px; }
+  #goBtn .t { font: 14px/1 var(--body); opacity: .8; }
+  #waveNote { font: 700 12px/1 var(--head); text-transform: uppercase; padding: 8px 12px 7px; }
+
+  /* ---- big words slammed across the beach */
+  #banner { position: fixed; left: 0; right: 0; top: 34%; z-index: 6; display: grid; place-items: center; pointer-events: none; }
+  #banner div { background: var(--stripe); border-block: 4px solid var(--ink); width: 100%; text-align: center; padding: 10px 8px 8px; transform-origin: center;
+    animation: slam 2.2s steps(12) forwards; }
+  #banner b { font: 700 clamp(26px, 7vw, 56px)/1 var(--head); color: var(--cream); text-shadow: 3px 3px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink); display: block; }
+  #banner small { display: inline-block; font: 16px/1 var(--body); background: var(--cream); border: 3px solid var(--ink); padding: 5px 8px 4px; margin-top: 8px; }
+  @keyframes slam { 0% { transform: scaleY(0); } 8% { transform: scaleY(1.15); } 14%, 82% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(0); opacity: 1; } }
+
+  /* ---- tutorial coach */
+  #coach { position: fixed; z-index: 7; left: 50%; transform: translateX(-50%); top: calc(max(8px, env(safe-area-inset-top)) + 50px); width: min(440px, calc(100% - 16px));
+    padding: 10px 12px 10px; display: flex; gap: 10px; align-items: flex-start; }
+  #coach .face { flex: none; }
+  #coach p { margin: 0; font: 16px/1.3 var(--body); }
+  #coach p b { font-weight: normal; color: var(--red); }
+  #coach .step { font: 700 10px/1 var(--head); text-transform: uppercase; opacity: .65; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  #coach .step button { text-decoration: underline; font: inherit; opacity: 1; }
+  #coach .next { margin-top: 8px; }
+
+  /* ---- title, pause and end cards */
+  .overlay { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px; background: rgba(31, 42, 68, .18); overflow: auto; }
+  .card { width: min(440px, 100%); padding: 0 0 16px; text-align: center; }
+  .card .stripe { height: 18px; background: var(--stripe); border-bottom: 3px solid var(--ink); }
+  .card h1 { font: 700 clamp(40px, 12vw, 64px)/.9 var(--head); margin: 16px 12px 6px; letter-spacing: -.02em; color: var(--red); text-shadow: 3px 3px 0 var(--ink); }
+  .card h2 { font: 700 22px/1 var(--head); margin: 14px 12px 8px; text-transform: uppercase; }
+  .card p { margin: 6px 18px; font: 16px/1.35 var(--body); }
+  .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 14px 12px 0; }
+  .card .best { font: 12px/1 var(--head); text-transform: uppercase; opacity: .7; margin-top: 12px; }
+  .card .cast { display: flex; justify-content: center; align-items: flex-end; gap: 14px; margin: 10px 0 4px; }
+  .rules { text-align: left; margin: 8px 18px 0; padding: 0; list-style: none; }
+  .rules li { display: flex; gap: 10px; align-items: center; margin: 7px 0; font: 15px/1.3 var(--body); }
+  .rules li canvas { flex: none; }
+  .rules li span { flex: 1; }
+  #postcard { background: var(--cream); }
+  #snap { display: block; margin: 12px auto 4px; border: 3px solid var(--ink); width: calc(100% - 32px); height: auto; image-rendering: pixelated; background: #9ad9f3; }
+  .stamp { font: 700 12px/1 var(--head); text-transform: uppercase; display: inline-block; border: 2px dashed var(--ink); padding: 6px 8px 5px; margin-top: 4px; transform: rotate(-2deg); }
+  .score { font: 700 40px/1 var(--head); color: var(--ink); margin-top: 8px; }
+
+  @media (max-width: 560px) {
+    .tool { width: 56px; min-height: 60px; font-size: 10px; }
+    #tools { gap: 5px; }
+    .chip { padding: 5px 6px 4px; }
+    #goBtn { min-width: 0; width: 100%; }
+    #goRow { width: 100%; max-width: 330px; }
+  }
+  @media (max-height: 460px) {
+    .tool { min-height: 52px; width: 54px; padding-top: 4px; }
+    #bar { flex-direction: row; justify-content: center; align-items: flex-end; }
+    #goBtn { min-width: 150px; }
+    #banner { top: 26%; }
+    #coach { top: calc(max(4px, env(safe-area-inset-top)) + 44px); padding: 6px 10px; }
+    #coach p { font-size: 14px; }
+    .rules li { margin: 4px 0; font-size: 13px; }
+    .card h2 { margin: 8px 12px 4px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+
+<div id="hud" hidden>
+  <div class="chip board" id="clock"><b id="clockTime">9 AM</b><small id="clockWave">Wave 1 of 8</small></div>
+  <div class="chip board" id="shellChip" title="Shells"><span id="shellIcon"></span><b id="shellN">6</b></div>
+  <div class="chip board" id="castleChip" title="Grains of castle still standing"><span id="castleIcon"></span><b id="castleN">0</b></div>
+  <div class="spacer"></div>
+  <button class="ibtn board" id="soundBtn" aria-label="Sound on or off">♪</button>
+  <button class="ibtn board" id="helpBtn" aria-label="How to play">?</button>
+</div>
+
+<div id="bar" hidden>
+  <div id="tools" role="toolbar" aria-label="Building tools">
+    <button class="tool" data-tool="dig"><span class="key">1</span><span data-icon="spade"></span>Dig<span class="price" id="digNote">free</span></button>
+    <button class="tool" data-tool="pack"><span class="key">2</span><span id="pailMeter"><i></i></span><span data-icon="pail"></span>Pack<span class="price" id="pailNote">0</span></button>
+    <button class="tool" data-tool="tower"><span class="key">3</span><span data-icon="mould"></span>Tower<span class="price" data-price="tower"></span></button>
+    <button class="tool" data-tool="post"><span class="key">4</span><span data-icon="post"></span>Post<span class="price" data-price="post"></span></button>
+    <button class="tool" data-tool="peb"><span class="key">5</span><span data-icon="pebbles"></span>Pebble<span class="price" data-price="peb"></span></button>
+  </div>
+  <div id="goRow"><button class="btn go" id="goBtn">Next wave <span class="t" id="goT"></span></button></div>
+  <div class="board" id="waveNote" hidden>Grab · fling · set kids down gently</div>
+</div>
+
+<div id="banner" hidden><div><b id="bannerBig">10 AM</b><small id="bannerSmall">Here they come</small></div></div>
+
+<div id="coach" class="board" hidden>
+  <div class="face" id="coachFace"></div>
+  <div>
+    <div class="step"><span id="coachStep">1 of 6</span><button id="coachSkip">skip tutorial</button></div>
+    <p id="coachText"></p>
+    <button class="btn go next" id="coachNext" hidden>Got it</button>
+  </div>
+</div>
+
+<div class="overlay" id="title" hidden>
+  <div class="card board">
+    <div class="stripe"></div>
+    <h1>High<br>Tide</h1>
+    <p>Guard your sandcastle through one long summer day. Fling the crabs, shoo the gulls, set the kids down gently, and build between waves. The tide comes in a little further every time.</p>
+    <div class="cast" id="titleCast"></div>
+    <div class="row">
+      <button class="btn go" id="playBtn">Play</button>
+      <button class="btn" id="tutBtn">Tutorial</button>
+    </div>
+    <div class="best" id="titleBest"></div>
+  </div>
+</div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="card board">
+    <div class="stripe"></div>
+    <h2>How it works</h2>
+    <ul class="rules" id="rules"></ul>
+    <div class="row">
+      <button class="btn go" id="resumeBtn">Back to the beach</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="replayTutBtn">Tutorial</button>
+      <button class="btn" id="quitBtn">New day</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="end" hidden>
+  <div class="card board" id="postcard">
+    <div class="stripe"></div>
+    <h2 id="endTitle">Wish you were here</h2>
+    <canvas id="snap" width="96" height="60"></canvas>
+    <div class="score" id="endScore">0</div>
+    <p id="endLine"></p>
+    <div class="stamp" id="endBest"></div>
+    <div class="row">
+      <button class="btn go" id="againBtn">Another day</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

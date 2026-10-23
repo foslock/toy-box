@@ -1,0 +1,10 @@
+{
+  "title": "High Tide",
+  "blurb": "Guard a sandcastle through one summer day: fling crabs into the sea, set kids down gently, and build before the tide eats it grain by grain.",
+  "added": "2026-10-23",
+  "category": "games",
+  "tags": ["pixel art", "falling sand", "game"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 55 }
+}
