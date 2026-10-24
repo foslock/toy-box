@@ -95,7 +95,7 @@ function render() {
 
 function drawFloaters() {
   const { b, p } = painter;
-  floaters = floaters.filter((f) => (f.t += 1 / 60) < f.life);
+  floaters = floaters.filter((f) => (f.t = time - f.t0) < f.life);
   for (const f of floaters) {
     const [sx, sy] = toScreen(f.x, f.y);
     const k = f.t / f.life, rise = k * 34, a = k > 0.7 ? (1 - k) / 0.3 : 1;
@@ -108,7 +108,7 @@ function drawFloaters() {
     L.globalAlpha = 1; L.textAlign = 'left';
   }
 }
-function floater(x, y, text, opts = {}) { floaters.push({ x, y, text, t: 0, life: opts.life ?? 1.3, big: opts.big, blue: opts.blue }); }
+function floater(x, y, text, opts = {}) { floaters.push({ x, y, text, t: 0, t0: time, life: opts.life ?? 1.3, big: opts.big, blue: opts.blue }); }
 
 // ---------------------------------------------------------------- input
 function pick(sx, sy, touch) {
@@ -372,7 +372,7 @@ function startNight(i) {
 
 function endNight(won) {
   if (mode === 'end' || !g) return;
-  mode = 'end'; ring = null;
+  mode = 'end'; ring = null; hover = null; $('tip').hidden = true;
   const n = NIGHTS[nightIx];
   const prev = new Set(save.todo[n.id] || []);
   for (const d of g.done) if (n.todo.some((t) => t.id === d)) prev.add(d);

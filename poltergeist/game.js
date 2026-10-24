@@ -463,8 +463,13 @@ export class Game {
     // ---- the routine
     const want = this.scheduled(p);
     if (want === 'follow') {
-      const q = this.people[p.follow];
-      if (!q || q.gone || q.leaving) return;
+      let q = this.people[p.follow];
+      if (!q || q.gone || q.leaving) {
+        // whoever they were trailing has bolted: stick with a grown-up who's still here
+        const others = this.people.filter((r) => r.resident && !r.gone && !r.leaving);
+        if (!others.length) return;
+        q = others[Math.floor(this.rand() * others.length)]; p.follow = q.i;
+      }
       const off = p.role === 'dog' ? -38 : 34;
       const tx = Math.max(20, Math.min(HW - 20, q.x + off * (q.face || 1) * -1));
       const far = q.f !== p.f || Math.abs(tx - p.x) > 70;

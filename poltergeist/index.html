@@ -95,6 +95,13 @@
   #coach .row small { font: 11px/1 var(--body); opacity: .7; text-transform: uppercase; letter-spacing: .08em; }
   #coach .btn { min-height: 36px; padding: 8px 12px 7px; font-size: 15px; }
   #coach .side { flex: 1; }
+  /* a short landscape screen has no room above the house: the coach goes in the right column, under Mr Hobb */
+  @media (max-height: 620px) {
+    body.side #coach { left: auto; right: max(8px, env(safe-area-inset-right)); transform: none; top: calc(124px + env(safe-area-inset-top)); width: 178px;
+      max-height: calc(100% - 132px - env(safe-area-inset-top)); overflow: auto; padding: 8px 9px 9px; }
+    body.side #coach .ghosty { display: none; }
+    body.side #coach p { font-size: 12.5px; line-height: 1.35; }
+  }
 
   /* ---- full-screen sheets: title, case file, end, pause */
   .sheet { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); overflow: auto; touch-action: pan-y; }
