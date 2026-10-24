@@ -62,7 +62,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 54. Cube
 - [ ] 55. Last Checkout
 - [ ] 56. Conductor
-- [ ] 57. Poltergeist
+- [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
 - [ ] 58. Unlocked
 - [ ] 59. Reef
 - [ ] 60. Documentary
@@ -504,8 +504,10 @@ A rhythm game where you conduct a small, chaotic orchestra. Draw the beat patter
 
 Five or six short pieces (a march, a waltz, a lullaby, a tango, a big finale), synthesized with WebAudio so they follow you in real time. Score is based on steadiness and cues, and the audience applauds, coughs or walks out. Style: a theatre seen from the podium, the orchestra as charming, flat caricatures, with stage lights that brighten as the music goes well.
 
-## 57. Poltergeist
+## 57. Poltergeist ✅
 *Borrows: Untitled Goose Game, Ghost Master · Twist: you have to scare the new family out, but they get used to every trick*
+
+**Built 2026-10-24 as [`poltergeist/`](poltergeist/).** One house as a side-on cutaway (six rooms and a stairwell) instead of top-down, so "looking" is simply which way someone faces. A practice night with Mr Hobb, then three families: the Pims, the Hales (with Kit, a sceptic only combos reach, and Ron, a heavy sleeper) and the Okafors (Femi with a torch, Bea the toddler, Biscuit the dog who sees ghosts). 19 haunted things, ectoplasm to pace the tricks, same-room combos, per-trick habituation that slowly fades, and three to-dos per family. Cut: several houses, and scares that need two objects at once. Style: a two-ink risograph print, blue and fluorescent pink on cream, with halftone screens and off-register inks.
 
 A mischief stealth game where you're the ghost of an old house and a new family has just moved in. You can possess objects (rattle the cups, swing a door, switch on the radio, tip a book off a shelf, breathe on a window), but only when nobody's looking right at the object, or the scare is ruined. Each family member has a fear meter, and each gets used to scares: the same trick twice does less, so you have to escalate and combine (the lights flicker while the music box plays while the rocking chair rocks). Fill everyone's meter and they move out.
 

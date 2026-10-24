@@ -1,0 +1,10 @@
+{
+  "title": "Poltergeist",
+  "blurb": "Haunt a cutaway house and frighten each new family out by dawn, but never while they're looking, and never the same trick twice.",
+  "added": "2026-10-24",
+  "category": "games",
+  "tags": ["risograph", "stealth", "game"],
+  "tape": "purple",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 45 }
+}

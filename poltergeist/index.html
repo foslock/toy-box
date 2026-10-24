@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Poltergeist</title>
+<meta name="description" content="You're the ghost of an old house and a family has just moved in. Rattle, creak and flicker them out before dawn, but never while anyone's looking.">
+<meta name="theme-color" content="#2c4c9c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,800;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3ecdb; --blue: #2c4c9c; --pink: #ff4f9e; --yellow: #ffd23a; --purple: #6b3a86;
+    --head: Caprasimo, Georgia, serif; --body: Literata, Georgia, serif;
+    --dots: radial-gradient(var(--pink) 1.1px, transparent 1.5px);
+    --bdots: radial-gradient(var(--blue) 1px, transparent 1.4px);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--blue); color: var(--blue); font: 15px/1.35 var(--body); overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: default; }
+  #cv.point { cursor: pointer; }
+
+  /* riso cards: cream paper, a blue rule, and a pink shadow printed a touch out of register */
+  .card { background: var(--paper); border: 2.5px solid var(--blue); box-shadow: 4px 4px 0 var(--pink); border-radius: 3px; }
+  .btn { font: 17px/1 var(--head); color: var(--paper); background: var(--blue); border-radius: 3px; padding: 11px 16px 10px;
+    box-shadow: 3px 3px 0 var(--pink); min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; letter-spacing: .01em; }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pink); }
+  .btn.alt { background: var(--paper); color: var(--blue); border: 2.5px solid var(--blue); padding: 9px 14px 8px; }
+  .btn.pink { background: var(--pink); color: var(--paper); box-shadow: 3px 3px 0 var(--blue); }
+  .btn:focus-visible, .ibtn:focus-visible, .night:focus-visible { outline: 3px dashed var(--pink); outline-offset: 3px; }
+  .btn[disabled] { opacity: .45; cursor: default; }
+  h1, h2, h3 { font-family: var(--head); font-weight: 400; margin: 0; color: var(--blue); text-shadow: 2px -1.5px 0 rgba(255, 79, 158, .85); }
+
+  /* ---- the top bar (the Home button sits in its first 56px) */
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 6px; pointer-events: none;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(62px, calc(env(safe-area-inset-left) + 56px)); height: calc(52px + env(safe-area-inset-top)); }
+  #hud > * { pointer-events: auto; }
+  .chip { flex: none; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; white-space: nowrap; }
+  #clockChip { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; min-width: 92px; }
+  #clockChip b { font: 17px/1 var(--head); }
+  #clockChip small { font: 600 10px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; opacity: .8; }
+  #ecto { gap: 4px; padding: 0 8px; }
+  #ecto i { width: 17px; height: 21px; display: block; position: relative; border-radius: 9px 9px 2px 2px; border: 2px solid var(--blue); overflow: hidden; }
+  #ecto i::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--f, 0%); background: var(--pink); }
+  #ecto i.full::after { height: 100%; }
+  #ecto i::before { content: ''; position: absolute; left: 3px; top: 5px; width: 3px; height: 4px; border-radius: 2px; background: var(--blue); box-shadow: 5px 0 0 var(--blue); z-index: 1; }
+  #combo { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%) rotate(-3deg); top: calc(max(8px, env(safe-area-inset-top)) + 50px); pointer-events: none;
+    font: 22px/1 var(--head); color: var(--pink); text-shadow: 2px 2px 0 var(--blue); transition: opacity .25s; opacity: 0; white-space: nowrap; }
+  #combo.on { opacity: 1; }
+  .spacer { flex: 1; }
+  .ibtn { width: 40px; height: 40px; display: grid; place-items: center; font: 18px/1 var(--head); }
+  .ibtn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--pink); }
+  .ibtn svg { width: 20px; height: 20px; }
+  .ibtn.off { opacity: .55; }
+
+  /* ---- the family, along the bottom (or down the right on a wide short screen) */
+  #family { position: fixed; z-index: 5; display: flex; gap: 6px; pointer-events: none; left: 0; right: 0; bottom: 0; justify-content: center;
+    padding: 0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  #family .fam { pointer-events: auto; display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto auto; column-gap: 7px; align-items: center;
+    padding: 5px 9px 6px 5px; min-width: 0; flex: 0 1 172px; height: 64px; }
+  .fam canvas { grid-row: 1 / 4; width: 40px; height: 52px; display: block; }
+  .fam b { font: 14px/1.1 var(--head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fam .bar { height: 8px; border: 1.6px solid var(--blue); border-radius: 3px; position: relative; overflow: hidden; margin: 3px 0 2px; }
+  .fam .bar i { position: absolute; inset: 0 auto 0 0; background: var(--pink); width: 0; }
+  .fam .bar.na { border-style: dashed; opacity: .5; }
+  .fam small { font: 11px/1.15 var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9; }
+  .fam.gone { opacity: .55; }
+  .fam.gone b { text-decoration: line-through; text-decoration-color: var(--pink); text-decoration-thickness: 2px; }
+  body.side #family { left: auto; top: calc(56px + env(safe-area-inset-top)); bottom: auto; right: 0; flex-direction: column; width: 186px; padding-left: 0; }
+  body.side #family .fam { flex: none; height: 60px; }
+
+  /* ---- a label for whatever the pointer is over */
+  #tip { position: fixed; z-index: 6; pointer-events: none; padding: 6px 9px 6px; font: 600 13px/1.2 var(--body); transform: translate(-50%, calc(-100% - 12px)); white-space: nowrap; }
+  #tip em { font-style: normal; display: block; font: 400 12px/1.2 var(--body); color: var(--pink); }
+  #tip em.ok { color: var(--blue); opacity: .75; }
+
+  /* ---- big words */
+  #banner { position: fixed; z-index: 6; left: 0; right: 0; top: 30%; display: grid; place-items: center; pointer-events: none; }
+  #banner b { font: clamp(34px, 9vw, 72px)/1 var(--head); color: var(--pink); text-shadow: 3px 3px 0 var(--blue); animation: slam 1.6s ease-out forwards; display: block; }
+  @keyframes slam { 0% { transform: scale(1.6) rotate(-6deg); opacity: 0; } 12% { transform: scale(1) rotate(-3deg); opacity: 1; } 75% { opacity: 1; } 100% { transform: scale(.96) rotate(-3deg); opacity: 0; } }
+
+  /* ---- tutorial coach */
+  #coach { position: fixed; z-index: 7; left: 50%; transform: translateX(-50%); top: calc(max(8px, env(safe-area-inset-top)) + 52px); width: min(460px, calc(100% - 16px));
+    padding: 10px 12px 11px 12px; display: flex; gap: 10px; align-items: flex-start; }
+  #coach .ghosty { flex: none; width: 34px; height: 40px; background: var(--pink); border-radius: 17px 17px 4px 4px; position: relative; margin-top: 2px; }
+  #coach .ghosty::before { content: ''; position: absolute; left: 9px; top: 12px; width: 5px; height: 7px; border-radius: 3px; background: var(--paper); box-shadow: 11px 0 0 var(--paper); }
+  #coach p { margin: 0; font: 14.5px/1.4 var(--body); }
+  #coach p b { font-weight: 800; }
+  #coach .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+  #coach .row small { font: 11px/1 var(--body); opacity: .7; text-transform: uppercase; letter-spacing: .08em; }
+  #coach .btn { min-height: 36px; padding: 8px 12px 7px; font-size: 15px; }
+  #coach .side { flex: 1; }
+
+  /* ---- full-screen sheets: title, case file, end, pause */
+  .sheet { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); overflow: auto; touch-action: pan-y; }
+  .sheet.dim { background: rgba(44, 76, 156, .55); background-image: var(--bdots); background-size: 6px 6px; }
+  .sheet .card { width: min(520px, 100%); padding: 20px 20px 18px; max-height: 100%; overflow: auto; }
+  #title { background: transparent; }
+  #title .card { text-align: center; padding: 22px 20px 18px; width: min(480px, 100%); }
+  #title h1 { font-size: clamp(48px, 13vw, 76px); line-height: .95; letter-spacing: -.01em; text-shadow: 3px -2px 0 rgba(255, 79, 158, .9); }
+  #title .tag { font: italic 16px/1.35 var(--body); margin: 10px auto 16px; max-width: 340px; }
+  #nights { display: grid; gap: 8px; text-align: left; margin-top: 4px; }
+  .night { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; padding: 9px 12px 9px; border: 2.5px solid var(--blue); border-radius: 3px; background: var(--paper); box-shadow: 3px 3px 0 var(--pink); text-align: left; }
+  .night:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pink); }
+  .night b { font: 19px/1 var(--head); }
+  .night small { font: 12px/1.2 var(--body); grid-column: 1; opacity: .85; }
+  .night .stars { grid-row: 1 / 3; grid-column: 2; font: 20px/1 var(--head); letter-spacing: 2px; color: var(--pink); }
+  .night .stars s { text-decoration: none; color: transparent; -webkit-text-stroke: 1.5px var(--blue); }
+  .night.locked { opacity: .45; box-shadow: none; cursor: default; }
+  .night.tut { background-image: var(--dots); background-size: 6px 6px; }
+  #title .foot { margin-top: 14px; font: 12px/1.4 var(--body); opacity: .75; }
+
+  #intro h2, #end h2, #pause h2 { font-size: clamp(30px, 8vw, 40px); line-height: 1; }
+  .kicker { font: 600 11px/1 var(--body); text-transform: uppercase; letter-spacing: .14em; color: var(--pink); margin-bottom: 6px; }
+  .members { display: grid; gap: 8px; margin: 14px 0 12px; }
+  .member { display: grid; grid-template-columns: 46px 1fr; gap: 10px; align-items: center; }
+  .member canvas { width: 46px; height: 58px; }
+  .member b { font: 17px/1.1 var(--head); display: block; }
+  .member span { font: 14px/1.3 var(--body); }
+  .todo { list-style: none; padding: 10px 12px; margin: 0 0 14px; border: 2px dashed var(--blue); border-radius: 3px; }
+  .todo li { display: flex; gap: 8px; align-items: baseline; font: 14px/1.3 var(--body); padding: 2px 0; }
+  .todo li:not(.h)::before { content: ''; flex: none; width: 13px; height: 13px; border: 2px solid var(--blue); border-radius: 2px; transform: translateY(2px); }
+  .todo li.done::before { background: var(--pink); box-shadow: inset 0 0 0 2px var(--paper); }
+  .todo li.done { text-decoration: line-through; text-decoration-color: var(--pink); text-decoration-thickness: 2px; }
+  .todo .h { font: 600 11px/1 var(--body); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; color: var(--pink); }
+  .rules { font: 14px/1.45 var(--body); margin: 0 0 14px; padding-left: 18px; }
+  .rules li { margin: 3px 0; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  #end .big { font: 15px/1.4 var(--body); margin: 10px 0 12px; }
+  #end .stamp { display: inline-block; font: 22px/1 var(--head); color: var(--pink); border: 3px solid var(--pink); padding: 6px 10px 4px; transform: rotate(-4deg); margin: 6px 0 4px; }
+
+  @media (max-width: 560px) {
+    #family.many { flex-wrap: wrap; }
+    #family.many .fam { flex: 0 1 calc(50% - 3px); }
+  }
+  @media (max-width: 520px) {
+    #family .fam { grid-template-columns: 30px 1fr; padding: 4px 6px 5px 3px; height: 58px; column-gap: 4px; }
+    .fam canvas { width: 30px; height: 44px; }
+    .fam b { font-size: 13px; }
+    .fam small { font-size: 10px; }
+    #clockChip { min-width: 78px; }
+    #clockChip b { font-size: 15px; }
+    #ecto i { width: 14px; height: 18px; }
+    #ecto { padding: 0 6px; gap: 3px; }
+    .chip { padding: 0 7px; }
+    #hud { gap: 4px; }
+  }
+  @media (max-width: 360px) { #ecto i { width: 12px; } .ibtn { width: 36px; } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" hidden>
+  <div class="chip card" id="clockChip"><small id="nightName">Night one</small><b id="clock">8:00 pm</b></div>
+  <div class="chip card" id="ecto" title="Ectoplasm: one per trick, and it comes back slowly"><i></i><i></i><i></i><i></i></div>
+  <div class="spacer"></div>
+  <button class="ibtn card" id="listBtn" aria-label="To-do list"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 5h2M8 5h9M3 10h2M8 10h9M3 15h2M8 15h9"/></svg></button>
+  <button class="ibtn card" id="soundBtn" aria-label="Sound"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3l5-4v12l-5-4H3z" fill="currentColor"/><path id="soundWave" d="M14 7c1.5 1.6 1.5 4.4 0 6M16.5 5c2.6 2.8 2.6 7.2 0 10"/></svg></button>
+  <button class="ibtn card" id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4" height="14" rx="1"/><rect x="12" y="3" width="4" height="14" rx="1"/></svg></button>
+</div>
+<div id="family" hidden></div>
+<div id="combo"></div>
+<div id="tip" class="card" hidden></div>
+<div id="banner"></div>
+<div id="coach" class="card" hidden><div class="ghosty"></div><div class="side"><p id="coachText"></p><div class="row"><small id="coachStep"></small><button class="btn" id="coachBtn" hidden>Next</button></div></div></div>
+
+<div id="title" class="sheet">
+  <div class="card">
+    <h1>Poltergeist</h1>
+    <p class="tag">You're the ghost of this house, and it's yours. Somebody new moves in every night. Make them leave by dawn.</p>
+    <div id="nights"></div>
+    <div class="foot">Tap a thing to haunt it. Never while anyone's looking.</div>
+  </div>
+</div>
+
+<div id="intro" class="sheet dim" hidden>
+  <div class="card">
+    <div class="kicker" id="introKicker">Night one</div>
+    <h2 id="introTitle">The Pims</h2>
+    <div class="members" id="introMembers"></div>
+    <ul class="todo" id="introTodo"></ul>
+    <ul class="rules" id="introRules"></ul>
+    <div class="btns"><button class="btn alt" id="introBack">Back</button><button class="btn pink" id="introGo">Start haunting</button></div>
+  </div>
+</div>
+
+<div id="end" class="sheet dim" hidden>
+  <div class="card">
+    <div class="kicker" id="endKicker">Dawn</div>
+    <h2 id="endTitle">They've gone.</h2>
+    <div class="stamp" id="endStamp">Vacant</div>
+    <p class="big" id="endText"></p>
+    <ul class="todo" id="endTodo"></ul>
+    <div class="btns"><button class="btn alt" id="endMenu">All nights</button><button class="btn alt" id="endRetry">Again</button><button class="btn pink" id="endNext">Next night</button></div>
+  </div>
+</div>
+
+<div id="pause" class="sheet dim" hidden>
+  <div class="card">
+    <div class="kicker">Paused</div>
+    <h2 id="pauseTitle">The Pims</h2>
+    <ul class="todo" id="pauseTodo"></ul>
+    <ul class="rules">
+      <li>Tap a thing to haunt it. Each trick costs one <b>ectoplasm</b>, and they refill slowly.</li>
+      <li>If anyone's looking at it (the pink cone, and an <b>eye</b> over the thing), it's just a loose hinge, and they get braver.</li>
+      <li>Tricks one after another <b>in the same room</b> stack into a combo.</li>
+      <li>Every trick wears off on whoever saw it. Mix them up.</li>
+      <li>Loud things carry to the rooms next door and above and below.</li>
+    </ul>
+    <div class="btns"><button class="btn alt" id="pauseQuit">Give up the night</button><button class="btn pink" id="pauseGo">Carry on</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
