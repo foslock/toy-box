@@ -21,7 +21,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 13. Pop-Up
 - [ ] 14. Hedges
 - [ ] 15. Lantern
-- [ ] 16. Pile-Up
+- [x] 16. Pile-Up — [`pileup/`](pileup/)
 - [ ] 17. Glyphs
 - [x] 18. Needle — [`needle/`](needle/)
 - [x] 19. Ladder — [`ladder/`](ladder/)
@@ -187,8 +187,10 @@ A compressed Nightreign: a top-down action roguelite where the safe zone is your
 
 Keep the combat readable and weighty in the Souls tradition: light attack, heavy attack, a dodge roll with invincibility frames, stamina, a few healing flasks refilled at sites of grace, and bosses with clearly telegraphed moves. Each weapon you find carries one passive. Between runs, unlock two more characters with different abilities and a short ultimate. Style: a dark, desaturated, painterly map where the lantern light is warm gold and everything outside it is cold blue-black. Twin-stick on desktop (WASD and mouse), virtual sticks on phones.
 
-## 16. Pile-Up
+## 16. Pile-Up ✅
 *Borrows: Learn to Fly, Toss the Turtle · Twist: every wreck stays where it landed and becomes terrain*
+
+**Built 2026-10-25 as [`pileup/`](pileup/).** Four upgrade lines (ramp, wings, rocket, belly wax) of four tiers each; penguins, snapped gliders and burnt-out rockets are stamped into the heightfield as bouncy bumps and wedge ramps, and crevasses fill up with whatever falls in until you can slide over. Seals, a natural ski jump, a 5 km ice shelf and pressure ridges on the way to a cliff into the sea. A bot that buys the cheapest upgrade reaches the sea on about day 23. Cut: placeable bounce pads (seals and wreck heaps do that job); slow motion is only a short dip on big bounces. Style: a three-colour linocut print (cream paper, Prussian blue, vermilion) with gouge marks and ink specks.
 
 A launch-and-upgrade game like Learn to Fly: fling a hapless penguin off a ramp as far as you can, earn money by distance, and spend it on better ramps, rockets, gliders and bounce pads. The twist is that nothing you launch ever goes away. Every crashed penguin, broken glider and burnt-out rocket stays exactly where it landed and piles up across the landscape as permanent terrain. Your failures become the ramps, bumpers and slides that carry later launches further, and sometimes the heap you built gets in your way.
 

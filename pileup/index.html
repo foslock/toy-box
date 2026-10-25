@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pile-Up</title>
+<meta name="description" content="Fling a penguin off a ramp across 20 km of tundra. Every penguin, broken glider and spent rocket stays where it lands, and the heap becomes the terrain.">
+<meta name="theme-color" content="#efe5cf">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Holtwood+One+SC&family=Zilla+Slab:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #efe5cf; --tint: #b8cad3; --blue: #24395c; --black: #17171c; --red: #d6452a;
+    --head: 'Holtwood One SC', Georgia, serif; --body: 'Zilla Slab', Georgia, serif;
+    --cut: 3px 7px 4px 6px / 6px 3px 7px 4px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--paper); color: var(--black); font: 500 17px/1.3 var(--body); overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+  #world { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* printed blocks: flat ink, hand-cut corners, no soft shadows anywhere */
+  .block { background: var(--paper); border: 3px solid var(--blue); border-radius: var(--cut); }
+  .btn { font: 18px/1 var(--head); background: var(--red); color: var(--paper); border-radius: var(--cut); padding: 13px 18px 11px; min-height: 48px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; letter-spacing: .01em; box-shadow: 0 4px 0 var(--black); position: relative; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--black); }
+  .btn.blue { background: var(--blue); }
+  .btn.plain { background: var(--paper); color: var(--blue); border: 3px solid var(--blue); box-shadow: 0 4px 0 var(--blue); padding: 10px 14px 8px; }
+  .btn[disabled] { opacity: .4; cursor: default; transform: none; }
+  .btn:focus-visible, .ibtn:focus-visible { outline: 3px dashed var(--red); outline-offset: 3px; }
+
+  /* ---- top bar; the Home button lives in the first 56px */
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 5; pointer-events: none;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(62px, calc(env(safe-area-inset-left) + 56px)); }
+  #hudRow { display: flex; gap: 6px; align-items: stretch; }
+  #hudRow > * { pointer-events: auto; }
+  .chip { display: flex; flex-direction: column; justify-content: center; padding: 3px 9px 2px; height: 42px; white-space: nowrap; background: var(--paper); border: 3px solid var(--blue); border-radius: var(--cut); }
+  .chip small { font: 700 10px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--blue); }
+  .chip b { font: 17px/1.1 var(--head); font-weight: normal; }
+  .chip.ink { background: var(--blue); color: var(--paper); }
+  .chip.ink small { color: var(--tint); }
+  #fishChip b { display: flex; align-items: center; gap: 5px; }
+  #hudRow .spacer { flex: 1; }
+  .ibtn { width: 42px; height: 42px; display: grid; place-items: center; background: var(--paper); border: 3px solid var(--blue); border-radius: var(--cut); color: var(--blue); }
+  .ibtn.on { background: var(--blue); color: var(--paper); }
+  .ibtn.off { opacity: .45; }
+  #strip { display: block; width: 100%; height: 40px; margin-top: 6px; pointer-events: none; }
+
+  /* ---- flight readouts and the rocket button */
+  #gauges > button { pointer-events: auto; }
+  #gauges { position: fixed; left: max(10px, env(safe-area-inset-left)); bottom: max(10px, env(safe-area-inset-bottom)); z-index: 5; display: flex; gap: 6px; pointer-events: none; }
+  #boost { position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 6; width: 108px; height: 108px; border-radius: 50%;
+    background: var(--red); color: var(--paper); font: 17px/1 var(--head); box-shadow: 0 5px 0 var(--black); display: grid; place-items: center; touch-action: none; }
+  #boost.down { transform: translateY(4px); box-shadow: 0 1px 0 var(--black); }
+  #boost.empty { background: var(--tint); color: var(--blue); }
+  #boost .lbl { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  #boost .key { font: 700 10px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+  #boost svg { position: absolute; inset: -7px; width: calc(100% + 14px); height: calc(100% + 14px); transform: rotate(-90deg); pointer-events: none; }
+  #tapHint { position: fixed; left: 50%; bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px)); transform: translateX(-50%); z-index: 5; pointer-events: none;
+    font: 20px/1 var(--head); color: var(--paper); background: var(--blue); padding: 13px 20px 11px; border-radius: var(--cut); white-space: nowrap; animation: nudge 1.2s ease-in-out infinite; }
+  #tapHint small { font: 700 12px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--tint); margin-left: 8px; }
+  @keyframes nudge { 50% { transform: translateX(-50%) translateY(-5px); } }
+
+  /* ---- big words */
+  #banner { position: fixed; left: 0; right: 0; top: 30%; z-index: 6; display: grid; place-items: center; pointer-events: none; }
+  #banner div { background: var(--blue); color: var(--paper); padding: 14px 26px 10px; border-radius: var(--cut); text-align: center; transform: rotate(-2deg); animation: stamp 2.4s ease-out forwards; }
+  #banner b { font: clamp(28px, 7vw, 54px)/1 var(--head); font-weight: normal; display: block; }
+  #banner small { font: 600 17px/1.2 var(--body); display: block; margin-top: 6px; color: var(--tint); }
+  @keyframes stamp { 0% { transform: rotate(-2deg) scale(1.6); opacity: 0; } 8% { transform: rotate(-2deg) scale(.96); opacity: 1; } 12%, 80% { transform: rotate(-2deg) scale(1); opacity: 1; } 100% { transform: rotate(-2deg) scale(1); opacity: 0; } }
+
+  /* ---- tutorial coach */
+  #coach { position: fixed; z-index: 7; left: 50%; transform: translateX(-50%); top: calc(max(8px, env(safe-area-inset-top)) + 100px); width: min(460px, calc(100% - 20px));
+    padding: 10px 14px 11px; display: flex; gap: 12px; align-items: center; background: var(--paper); border: 3px solid var(--blue); border-radius: var(--cut); box-shadow: 0 4px 0 var(--blue); pointer-events: auto; }
+  #coach canvas { flex: none; }
+  #coach p { margin: 0; font: 500 17px/1.3 var(--body); }
+  #coach p b { color: var(--red); font-weight: 700; }
+  #coach .step { font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--blue); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  #coach .step button { text-decoration: underline; font: inherit; color: var(--blue); }
+  #coach.good { border-color: var(--red); box-shadow: 0 4px 0 var(--red); }
+
+  /* ---- cards */
+  .overlay { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); background: rgba(36, 57, 92, .28); overflow: auto; touch-action: pan-y; overscroll-behavior: contain; }
+  .card { width: min(560px, 100%); padding: 0 0 18px; text-align: center; background: var(--paper); border: 3px solid var(--blue); border-radius: var(--cut); box-shadow: 0 6px 0 var(--blue); position: relative; }
+  .card .head { background: var(--blue); color: var(--paper); padding: 10px 14px 7px; font: 15px/1.1 var(--head); letter-spacing: .02em; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .card .head small { font: 700 12px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--tint); }
+  .card h1 { font: clamp(46px, 13vw, 84px)/.9 var(--head); font-weight: normal; margin: 18px 12px 4px; color: var(--red); text-shadow: 4px 4px 0 var(--blue); letter-spacing: -.01em; }
+  .card h2 { font: 20px/1 var(--head); font-weight: normal; margin: 16px 12px 8px; color: var(--blue); }
+  .card p { margin: 6px 20px; }
+  .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 16px 14px 0; }
+  .card .sub { font: italic 500 19px/1.3 var(--body); color: var(--blue); margin: 2px 20px 8px; }
+  .card .best { font: 700 12px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--blue); margin-top: 12px; }
+  #titleArt { display: block; margin: 8px auto 0; max-width: 100%; }
+  .rules { text-align: left; margin: 10px 20px 0; padding: 0; list-style: none; }
+  .rules li { display: flex; gap: 12px; align-items: center; margin: 8px 0; font: 500 16px/1.3 var(--body); }
+  .rules li .n { flex: none; width: 30px; height: 30px; display: grid; place-items: center; background: var(--blue); color: var(--paper); font: 14px/1 var(--head); border-radius: var(--cut); }
+  .rules li b { color: var(--red); }
+
+  /* the day's report */
+  #report .card { width: min(640px, 100%); }
+  .dist { font: clamp(40px, 11vw, 64px)/1 var(--head); color: var(--blue); margin: 14px 0 0; }
+  .dist.rec { color: var(--red); }
+  .note { font: italic 500 18px/1.3 var(--body); margin: 6px 20px 0; color: var(--black); }
+  .pay { margin: 10px auto 0; width: min(360px, calc(100% - 40px)); text-align: left; }
+  .pay div { display: flex; align-items: baseline; gap: 6px; font: 500 16px/1.5 var(--body); }
+  .pay div i { flex: 1; border-bottom: 2px dotted var(--tint); transform: translateY(-4px); }
+  .pay div b { font: 15px/1 var(--head); font-weight: normal; }
+  .pay .tot { border-top: 3px solid var(--blue); margin-top: 4px; padding-top: 4px; }
+  .pay .tot b { color: var(--red); font-size: 18px; }
+  .shed { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 6px 14px 0; }
+  .item { border: 3px solid var(--blue); border-radius: var(--cut); padding: 6px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; background: var(--paper); }
+  .item .ln { font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--blue); }
+  .item .cur { font: 600 14px/1.15 var(--body); min-height: 2.3em; display: flex; align-items: center; }
+  .item .btn { font-size: 14px; padding: 9px 8px 7px; min-height: 40px; width: 100%; flex-direction: column; gap: 3px; }
+  .item .btn small { font: 600 12px/1.1 var(--body); }
+  .item .btn .p { display: flex; align-items: center; gap: 4px; }
+  .item .pips { display: flex; gap: 3px; }
+  .item .pips i { width: 9px; height: 9px; border: 2px solid var(--blue); border-radius: 2px; }
+  .item .pips i.on { background: var(--red); border-color: var(--red); }
+  .item.hot { animation: hot 1s ease-in-out infinite; }
+  @keyframes hot { 50% { border-color: var(--red); transform: translateY(-3px); } }
+  #nextBtn { min-width: 260px; }
+  .tip { font: italic 500 16px/1.3 var(--body); color: var(--blue); margin: 10px 20px 0; }
+  .fish { display: inline-block; width: 22px; height: 12px; vertical-align: middle; }
+
+  @media (max-width: 560px) {
+    .shed { grid-template-columns: repeat(2, 1fr); }
+    .chip { padding: 3px 7px 2px; }
+    .chip b { font-size: 15px; }
+    #distChip { min-width: 0; }
+    #boost { width: 92px; height: 92px; font-size: 15px; }
+    #nextBtn { min-width: 0; width: calc(100% - 28px); }
+  }
+  @media (max-height: 500px) {
+    #coach { top: calc(max(6px, env(safe-area-inset-top)) + 92px); padding: 6px 10px; }
+    #coach p { font-size: 15px; }
+    #coach canvas { display: none; }
+    .overlay { place-items: start center; }
+    .shed { grid-template-columns: repeat(4, 1fr); }
+    .card h1 { font-size: 44px; margin-top: 10px; }
+    #titleArt { height: 80px; width: auto; }
+    #boost { width: 84px; height: 84px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+
+<div id="hud" hidden>
+  <div id="hudRow">
+    <div class="chip ink" id="dayChip"><small>Day</small><b id="dayN">1</b></div>
+    <div class="chip" id="fishChip"><small>Fish</small><b><svg class="fish" viewBox="0 0 22 12"><path d="M1 6 C5 0 13 0 16 6 C13 12 5 12 1 6 Z M16 6 L21 1 L20 6 L21 11 Z" fill="#17171c"/><circle cx="5" cy="5" r="1.2" fill="#efe5cf"/></svg><span id="fishN">0</span></b></div>
+    <div class="chip" id="distChip"><small id="distLbl">Best</small><b id="distN">0 m</b></div>
+    <div class="spacer"></div>
+    <button class="ibtn" id="muteBtn" aria-label="Sound" title="Sound (M)"><svg width="20" height="18" viewBox="0 0 20 18"><path d="M1 6 H5 L10 1 V17 L5 12 H1 Z" fill="currentColor"/><path id="muteWaves" d="M13 5 Q16 9 13 13 M15.5 2.5 Q20.5 9 15.5 15.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+    <button class="ibtn" id="pauseBtn" aria-label="Pause" title="Pause (Esc)"><svg width="16" height="18" viewBox="0 0 16 18"><rect x="1" y="1" width="5" height="16" fill="currentColor"/><rect x="10" y="1" width="5" height="16" fill="currentColor"/></svg></button>
+  </div>
+  <canvas id="strip"></canvas>
+</div>
+
+<div id="gauges" hidden>
+  <div class="chip"><small>Height</small><b id="altN">0 m</b></div>
+  <div class="chip"><small>Speed</small><b id="spdN">0</b></div>
+  <button class="ibtn" id="ffBtn" aria-label="Fast forward" title="Fast forward (F)"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M1 1 L10 8 L1 15 Z M11 1 L20 8 L11 15 Z" fill="currentColor"/></svg></button>
+</div>
+<button id="boost" hidden aria-label="Boost"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="56" fill="none" stroke="#24395c" stroke-width="7" opacity=".25"/><circle id="fuelRing" cx="60" cy="60" r="56" fill="none" stroke="#24395c" stroke-width="7" stroke-dasharray="352 352"/></svg><span class="lbl">Boost<span class="key">hold · space</span></span></button>
+<div id="tapHint" hidden>Let go!<small>tap · space</small></div>
+<div id="banner"></div>
+<div id="coach" hidden></div>
+
+<div class="overlay" id="title">
+  <div class="card">
+    <div class="head"><span>The Tundra Flying Club</span><small>est. today</small></div>
+    <h1>Pile-Up</h1>
+    <div class="sub">Fling a penguin at the sea. Keep the wreckage.</div>
+    <canvas id="titleArt" width="420" height="120"></canvas>
+    <ol class="rules">
+      <li><span class="n">1</span><span><b>Tap</b> (or Space) to let go of the brake at the top of the ramp.</span></li>
+      <li><span class="n">2</span><span><b>Drag up and down</b> (or ↑ ↓) to tip the beak. Land <b>belly-flat</b> to keep sliding.</span></li>
+      <li><span class="n">3</span><span>Every metre earns <b>fish</b>. Spend them on ramps, wings, rockets and wax.</span></li>
+      <li><span class="n">4</span><span>Nothing is ever cleared away. Every penguin, broken wing and spent rocket <b>stays where it lands</b>, and the heap becomes the ground.</span></li>
+    </ol>
+    <div class="row">
+      <button class="btn" id="startBtn">Start</button>
+      <button class="btn plain" id="newBtn" hidden>New season</button>
+    </div>
+    <div class="best" id="titleBest"></div>
+  </div>
+</div>
+
+<div class="overlay" id="report" hidden>
+  <div class="card">
+    <div class="head"><span id="repHead">Day 1 · Percy</span><small id="repSub">20 km to the sea</small></div>
+    <div class="dist" id="repDist">0 m</div>
+    <div class="note" id="repNote"></div>
+    <div class="pay" id="repPay"></div>
+    <h2>The Shed</h2>
+    <div class="shed" id="shed"></div>
+    <div class="tip" id="repTip" hidden></div>
+    <div class="row"><button class="btn" id="nextBtn">Next day</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="card">
+    <div class="head"><span>Paused</span><small id="pauseSub"></small></div>
+    <h2 style="margin-top:20px">Tea break</h2>
+    <ol class="rules">
+      <li><span class="n">↕</span><span><b>Drag up and down</b> anywhere (or ↑ ↓ / W S) to tip the beak.</span></li>
+      <li><span class="n">⚑</span><span>Point the beak <b>along the flight</b> to cut through the air; with wings, a little <b>nose up</b> glides.</span></li>
+      <li><span class="n">▬</span><span>Land <b>belly-flat</b>, matching the slope, to keep your speed.</span></li>
+      <li><span class="n">✸</span><span><b>Hold Boost</b> (or Space) to burn the rocket.</span></li>
+    </ol>
+    <div class="row">
+      <button class="btn" id="resumeBtn">Back to it</button>
+      <button class="btn plain" id="menuBtn">Title</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="win" hidden>
+  <div class="card">
+    <div class="head"><span>Dispatch from the coast</span><small id="winSub"></small></div>
+    <h1>The Sea!</h1>
+    <div class="sub" id="winNote"></div>
+    <canvas id="winArt" width="420" height="120"></canvas>
+    <div class="row">
+      <button class="btn" id="winGo">Keep flinging</button>
+      <button class="btn plain" id="winNew">New season</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

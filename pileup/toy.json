@@ -1,0 +1,10 @@
+{
+  "title": "Pile-Up",
+  "blurb": "Fling a penguin toward the sea 20 km away, where every crashed penguin, broken glider and spent rocket stays put and becomes the terrain.",
+  "added": "2026-10-25",
+  "category": "games",
+  "tags": ["linocut", "launch", "upgrades", "game"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 50 }
+}
