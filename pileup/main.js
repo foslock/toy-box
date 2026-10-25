@@ -41,13 +41,24 @@ function layout() {
 window.addEventListener('resize', layout);
 
 // ---------------------------------------------------------------- camera
+function coveredTop() {
+  let y = 0;
+  for (const id of ['hud', 'coach']) {
+    const el = $(id);
+    if (!el.hidden) y = Math.max(y, el.getBoundingClientRect().bottom);
+  }
+  return y;
+}
 function camTarget() {
   const { W, H } = painter;
   const big = Math.max(W, H * 0.75);
   if (!run || run.state === 'ready' || (run.state === 'ramp' && run.s < 0.6)) {
     const gm = rampGeom(run ? run.ramp : GEAR.ramp[game.tiers.ramp]);
     const span = gm.L + (W < H ? 14 : 46);
-    const s = clamp(Math.min(W * 0.92 / span, H * 0.5 / (gm.p0[1] + 6)), 2, 30);
+    // keep the top of the ramp (and the penguin on it) below the top bar and any tip card
+    const top = coveredTop() + 40;          // room for the penguin's sprite above the ramp's top
+    const fit = (H * 0.8 - top) / (gm.p0[1] + 2);
+    const s = clamp(Math.min(W * 0.92 / span, H * 0.5 / (gm.p0[1] + 6), fit), 1, 30);
     const x = -gm.L / 2 + (W < H ? 4 : 14);
     return { x, y: game.world.at(x) + H * 0.3 / s - 1, s };
   }
@@ -73,7 +84,8 @@ function updateCamera(dt) {
     const sx = painter.sx(run.x), sy = painter.sy(run.y);
     if (sx > painter.W * 0.85) c.x += (sx - painter.W * 0.85) / c.s;
     if (sx < painter.W * 0.1) c.x -= (painter.W * 0.1 - sx) / c.s;
-    if (sy < H * 0.18) c.y += (H * 0.18 - sy) / c.s;
+    const yTop = Math.min(H * 0.6, Math.max(H * 0.18, coveredTop() + 24));
+    if (sy < yTop) c.y += (yTop - sy) / c.s;
     if (sy > H * 0.9) c.y -= (sy - H * 0.9) / c.s;
   }
 }
@@ -254,11 +266,11 @@ function startDay() {
   for (const id of ['report', 'title', 'pause', 'win']) $(id).hidden = true;
   $('hud').hidden = false;
   shownDist = 0;
-  snapCamera();
   if (game.day === 1) coach('launch', `Day one. ${run.name} is waiting at the top of the ramp. <b>Tap anywhere</b> (or press Space) to let go of the brake.`, { step: 'Lesson one' });
   else if (game.tiers.rocket > 0 && !seen.rocket) coach('rocket', `A rocket! Once you're off the ramp, <b>hold Boost</b> (or Space) to fire. When it burns out it drops off, and stays where it lands.`, { step: 'New gear' });
   else if (game.tiers.wings > 0 && !seen.wings) coach('wings', `Wings! In the air, a little <b>nose up</b> glides; too steep and you'll stall. Let go and they trim themselves.`, { step: 'New gear' });
   else if (game.day === 2) coach('heap', `${game.nameFor(1)} is still out there from yesterday. Nothing gets cleared away: <b>every wreck becomes a bump</b> you can bounce off.`, { dur: 8, step: 'The heap', sleepy: true });
+  snapCamera();
 }
 function launch() {
   if (mode !== 'ready' || !run) return;
@@ -533,7 +545,7 @@ window.addEventListener('keydown', (e) => {
     sound.init();
     if (mode === 'ready') launch();
     else if (mode === 'fly') boostHeld = true;
-    else if (mode === 'report' && k === ' ' && !e.repeat && document.activeElement?.tagName !== 'BUTTON') $('nextBtn').click();
+    else if (mode === 'report' && k === ' ' && !e.repeat && document.activeElement?.tagName !== 'BUTTON') (!$('win').hidden ? $('winGo') : $('nextBtn')).click();
     return;
   }
   if (k === 'ArrowUp' || k === 'w' || k === 'W') { keyTurn.up = true; steered = true; e.preventDefault(); }
