@@ -1,0 +1,10 @@
+{
+  "title": "Reef",
+  "blurb": "Rebuild a coral reef on bare sand, piece by piece. Everything scores from its neighbours, and the real reward is who moves in.",
+  "added": "2026-10-26",
+  "category": "games",
+  "tags": ["cyanotype", "placement", "puzzle", "game"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 50 }
+}

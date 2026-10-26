@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Reef</title>
+<meta name="description" content="Rebuild a coral reef on a bare patch of sea floor, one piece at a time. Every piece scores from its neighbours, and the real reward is who moves in.">
+<meta name="theme-color" content="#173d6e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #efe8d8; --paper2: #e6dcc6; --ink: #163b6b; --coat: #1a4479; --deep: #0f2a4f; --white: #eef4f3; --rust: #b4623a;
+    --head: 'IM Fell English SC', Georgia, serif; --body: 'IM Fell DW Pica', Georgia, serif;
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .38 0 0 0 0 .25 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--coat); color: var(--ink); font: 16px/1.35 var(--body); overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #cv.point { cursor: pointer; }
+
+  /* a paper label: cotton rag, a little grain, laid on the print by hand */
+  .label { background: var(--grain), linear-gradient(180deg, var(--paper), var(--paper2)); border-radius: 1px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.4) inset, 0 6px 16px rgba(4,14,34,.38), 0 1px 2px rgba(4,14,34,.4); }
+  .btn { font: 18px/1 var(--head); color: var(--paper); background: var(--ink); padding: 11px 18px 10px; min-height: 44px; border-radius: 2px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; letter-spacing: .02em; }
+  .btn.alt { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible, .ibtn:focus-visible, .piece:focus-visible, .pack:focus-visible { outline: 2px dashed var(--rust); outline-offset: 3px; }
+  h1, h2, h3 { font-family: var(--head); font-weight: 400; margin: 0; letter-spacing: .02em; }
+  em { font-style: italic; }
+  .rust { color: var(--rust); }
+
+  /* ---- top bar (the Home button owns the first 56px) */
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: flex-start; gap: 8px; pointer-events: none;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 0 max(62px, calc(env(safe-area-inset-left) + 58px)); }
+  #hud > * { pointer-events: auto; }
+  #scoreTag { padding: 6px 12px 7px; min-width: 150px; transform: rotate(-.6deg); }
+  #scoreTag .row { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+  #scoreTag b { font: 26px/1 var(--head); }
+  #scoreTag small { font-size: 13px; opacity: .85; }
+  .n { display: none; }
+  #bar { height: 7px; margin-top: 5px; background: rgba(22,59,107,.16); position: relative; overflow: hidden; border-radius: 1px; }
+  #bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink); transition: width .5s cubic-bezier(.3,.8,.3,1); }
+  #warm { padding: 6px 10px; font-size: 14px; line-height: 1.15; max-width: 170px; transform: rotate(.8deg); color: var(--rust); display: flex; gap: 8px; align-items: center; }
+  #warm svg { flex: none; width: 14px; height: 30px; }
+  #warm b { font: 17px/1 var(--head); display: block; }
+  .spacer { flex: 1; }
+  .ibtn { width: 42px; height: 42px; display: grid; place-items: center; font: 20px/1 var(--head); }
+  .ibtn svg { width: 22px; height: 22px; }
+  .ibtn.off { opacity: .5; }
+  #logBtn { width: auto; padding: 0 12px; font-size: 16px; gap: 6px; display: flex; }
+
+  /* ---- the tray of pieces in hand */
+  #tray { position: fixed; z-index: 5; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: stretch; width: min(560px, calc(100% - 20px)); }
+  #rule { padding: 6px 12px; font-size: 15px; margin: 0 6px -2px; transform: rotate(-.4deg); min-height: 32px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  #rule b { font: 17px/1 var(--head); }
+  #pieces { display: flex; gap: 4px; padding: 6px; justify-content: center; }
+  .piece { flex: 1 1 0; max-width: 78px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 3px; border-radius: 2px; position: relative; }
+  .piece canvas { width: 46px; height: 46px; display: block; border-radius: 1px; box-shadow: 0 0 0 1px rgba(22,59,107,.35); }
+  .piece span { font-size: 12.5px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .piece b { position: absolute; top: 0; right: 4px; font: 17px/1 var(--head); background: var(--paper); padding: 1px 4px; border-radius: 1px; box-shadow: 0 0 0 1px var(--ink); }
+  .piece.on { background: rgba(22,59,107,.13); box-shadow: inset 0 -3px 0 var(--ink); }
+  .piece.empty { opacity: .3; }
+  .piece.empty b { display: none; }
+
+  /* ---- floating words on the print */
+  #toast { position: fixed; z-index: 6; left: 50%; top: calc(max(8px, env(safe-area-inset-top)) + 64px); transform: translateX(-50%) rotate(-1deg);
+    padding: 8px 14px; font-size: 16px; text-align: center; max-width: min(420px, calc(100% - 24px)); opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #toast.on { opacity: 1; }
+  #toast b { font: 19px/1.1 var(--head); display: block; }
+
+  /* ---- cards */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 18px; background: rgba(9,26,52,.45); }
+  .card { width: min(460px, 100%); max-height: calc(100% - 20px); overflow: auto; padding: 22px 22px 18px; position: relative; }
+  .card h1 { font-size: 46px; line-height: .95; }
+  .card h2 { font-size: 27px; line-height: 1.05; margin-bottom: 6px; }
+  .card p { margin: 8px 0; }
+  .card .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .tape { position: absolute; width: 74px; height: 22px; background: rgba(238,232,214,.62); top: -9px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .tape.l { left: 18px; transform: rotate(-5deg); } .tape.r { right: 18px; transform: rotate(4deg); }
+  .plate { display: block; width: 100%; height: auto; margin: 12px 0 4px; box-shadow: 0 0 0 1px rgba(22,59,107,.4); }
+  .caption { font-size: 13px; font-style: italic; opacity: .8; }
+
+  #packs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .pack { text-align: left; padding: 10px 10px 8px; box-shadow: inset 0 0 0 1.5px var(--ink); border-radius: 2px; display: flex; flex-direction: column; gap: 6px; }
+  .pack:hover { background: rgba(22,59,107,.08); }
+  .pack h3 { font-size: 19px; }
+  .pack ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .pack li { display: flex; align-items: center; gap: 7px; font-size: 15px; }
+  .pack li canvas { width: 26px; height: 26px; flex: none; }
+
+  #log ol { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
+  #log li { display: flex; gap: 10px; align-items: center; }
+  #log li canvas { width: 54px; height: 40px; flex: none; box-shadow: 0 0 0 1px rgba(22,59,107,.35); }
+  #log li b { font: 17px/1.1 var(--head); display: block; }
+  #log li small { display: block; font-size: 14px; line-height: 1.2; }
+  #log li.no b { opacity: .55; }
+
+  #endSpecies { font-size: 15px; }
+
+  /* ---- the guide */
+  #coach { position: fixed; z-index: 15; width: min(330px, calc(100% - 24px)); padding: 10px 14px 10px; font-size: 16px; transform: rotate(-.5deg); pointer-events: auto; }
+  #coach .step { font: 13px/1 var(--head); opacity: .7; margin-bottom: 3px; letter-spacing: .05em; }
+  #coach .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  #coach .btn { min-height: 36px; padding: 7px 14px 6px; font-size: 16px; }
+  #ring { position: fixed; z-index: 14; pointer-events: none; border: 2px dashed var(--paper); border-radius: 50%; box-shadow: 0 0 0 3px rgba(9,26,52,.35);
+    animation: ring 1.4s ease-in-out infinite; }
+  @keyframes ring { 50% { transform: scale(1.12); opacity: .7; } }
+
+  @media (max-width: 560px) {
+    #scoreTag { min-width: 0; padding: 5px 9px 6px; }
+    #scoreTag b { font-size: 22px; }
+    #logBtn span { display: none; }
+    .w { display: none; } .n { display: inline; }
+    #warmTxt { display: none; }
+    #warm { padding: 6px 8px; }
+    #warm svg { height: 24px; }
+    .piece canvas { width: 40px; height: 40px; }
+    .piece span { font-size: 11px; }
+    .card h1 { font-size: 40px; }
+    #packs { gap: 8px; }
+    .pack { padding: 8px 7px 6px; }
+    .pack li { font-size: 14px; gap: 5px; }
+  }
+  @media (max-height: 520px) {
+    #tray { left: auto; right: max(10px, env(safe-area-inset-right)); transform: none; width: min(420px, 52%); }
+    .piece canvas { width: 36px; height: 36px; }
+    #rule { font-size: 13.5px; min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div id="scoreTag" class="label">
+    <div class="row"><b id="score">0</b><small id="nextTxt">next pack at 16</small></div>
+    <div id="bar"><i></i></div>
+  </div>
+  <div id="warm" class="label" hidden>
+    <svg viewBox="0 0 14 30" aria-hidden="true"><rect x="4.5" y="1.5" width="5" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="24" r="4.5" fill="currentColor"/><rect x="6" y="9" width="2" height="13" fill="currentColor"/></svg>
+    <div><b id="warmN">Warm water</b><span id="warmTxt">Unshaded corals will bleach</span></div>
+  </div>
+  <div class="spacer"></div>
+  <button id="logBtn" class="label ibtn" title="Reef log (L)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12c3-5 9-6 13-2l5-3-1 5 1 5-5-3c-4 4-10 3-13-2z" fill="currentColor"/><circle cx="7.5" cy="11" r="1.1" fill="#efe8d8"/></svg><span id="logN">0/10</span></button>
+  <button id="soundBtn" class="label ibtn" title="Sound (M)" aria-label="Sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="w" d="M16 8.5c1.5 1.8 1.5 5.2 0 7M18.5 6c2.8 3.3 2.8 8.7 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+  <button id="helpBtn" class="label ibtn" title="How to play" aria-label="How to play">?</button>
+</div>
+
+<div id="tray">
+  <div id="rule" class="label"></div>
+  <div id="pieces" class="label"></div>
+</div>
+
+<div id="toast" class="label"></div>
+<div id="ring" hidden></div>
+<div id="coach" class="label" hidden><div class="step" id="coachStep"></div><div id="coachTxt"></div><div class="btns" id="coachBtns"></div></div>
+
+<div class="veil" id="titleCard" hidden>
+  <div class="card label">
+    <i class="tape l"></i><i class="tape r"></i>
+    <h1>Reef</h1>
+    <p class="caption">Plate I. A patch of sea floor, before.</p>
+    <canvas class="plate" id="titlePlate" width="400" height="150"></canvas>
+    <p>Rebuild a coral reef on bare sand, one piece at a time. Every piece scores from what's beside it, and the reward is who moves in.</p>
+    <div class="btns">
+      <button class="btn" id="startBtn">Begin with a guide</button>
+      <button class="btn alt" id="skipBtn">I know the way</button>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="packCard" hidden>
+  <div class="card label">
+    <i class="tape l"></i>
+    <h2 id="packTitle">The reef is growing</h2>
+    <p id="packSub">Choose a new pack. Whatever you don't plant stays in your hand.</p>
+    <div id="packs"></div>
+  </div>
+</div>
+
+<div class="veil" id="logCard" hidden>
+  <div class="card label" id="log">
+    <i class="tape r"></i>
+    <h2>Reef log</h2>
+    <p class="caption" id="logSub">Who has moved in, and notes on who might.</p>
+    <ol id="logList"></ol>
+    <div class="btns"><button class="btn" id="logClose">Back to the reef</button></div>
+  </div>
+</div>
+
+<div class="veil" id="endCard" hidden>
+  <div class="card label">
+    <i class="tape l"></i><i class="tape r"></i>
+    <h2 id="endTitle">The season is over</h2>
+    <p id="endTxt"></p>
+    <p id="endSpecies"></p>
+    <div class="btns">
+      <button class="btn" id="againBtn">Plant a new reef</button>
+      <button class="btn alt" id="lookBtn">Look at this one</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

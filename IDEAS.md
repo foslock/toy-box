@@ -64,7 +64,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 56. Conductor
 - [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
 - [ ] 58. Unlocked
-- [ ] 59. Reef
+- [x] 59. Reef — [`reef/`](reef/)
 - [ ] 60. Documentary
 - [x] 61. Midnight Golf — [`midnightgolf/`](midnightgolf/)
 
@@ -522,8 +522,10 @@ A single-screen game with 100 achievements, like the old flash game Achievement 
 
 The achievement list is always visible, with ??? for the ones not yet found and a cryptic hint for each. About 30–45 minutes to 100%. Make the banners funny, the unlock sound irresistible and the final achievement a delight. Style: simple, punchy flat vector with lots of juicy little effects, with the list in a side panel on desktop and a pull-up drawer on phones.
 
-## 59. Reef
+## 59. Reef ✅
 *Borrows: Islanders, Dorfromantik · Twist: you're rebuilding a coral reef, and the reward is who moves in*
+
+**Built 2026-10-26 as [`reef/`](reef/).** A top-down 2D hex sea floor rather than a three.js diorama, drawn as a cyanotype print (white photograms on Prussian blue, rust for warm water). Seven pieces, ten species, packs of two to choose from, and one threat: warm water every 13 placements bleaches any coral without a rock or sea fan beside it. Cut: the crown-of-thorns starfish and the storm. A greedy bot lasts about 67 placements and 12 packs.
 
 A calm Islanders-style placement game where you rebuild a coral reef on a bare patch of sea floor. Each turn you're offered a few pieces to place (branching coral, brain coral, sea fans, sponges, anemones, rocks, seagrass), and each scores from its neighbours: anemones near the right coral, sea fans facing the current, seagrass on sand. Reach the score threshold to unlock the next pack. As the reef grows, species arrive when their habitat is right (a school of fish for big branching coral, a turtle for the seagrass, an octopus for rocky crevices), and those arrivals are the real reward.
 
