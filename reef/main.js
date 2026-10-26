@@ -56,7 +56,8 @@ function layout() {
   const aw = right - left, ah = bottom - top;
   const s0 = Math.min(aw / bw, ah / bh), s1 = Math.min(aw / bh, ah / bw);
   V.rot = s1 > s0 * 1.08 ? 1 : 0;
-  V.S = Math.min(V.rot ? s1 : s0, 60);
+  // a window too short for the tray leaves no room at all; draw small rather than with a negative size
+  V.S = Math.max(6, Math.min(V.rot ? s1 : s0, 60));
   V.ox = (left + right) / 2; V.oy = (top + bottom) / 2;
   V.bcx = (b.x0 + b.x1) / 2; V.bcy = (b.y0 + b.y1) / 2;
   sheet = drawSheet(V.W, V.H, V.dpr);
@@ -507,7 +508,9 @@ function openEnd() {
   store.set('best', best);
   const sp = Object.keys(g.species).map(id => SPECIES_BY_ID[id].name);
   $('endTitle').textContent = 'The season is over';
-  $('endTxt').innerHTML = `Your hand ran out before the next pack. The reef scored <b>${g.score}</b> from ${g.placed} pieces${isBest ? ', your best yet.' : `. Your best is ${best}.`}`;
+  const left = handSize(g);
+  const why = left ? `Nowhere was left to plant the ${left} piece${left > 1 ? 's' : ''} in your hand` : 'Your hand ran out';
+  $('endTxt').innerHTML = `${why} before the next pack. The reef scored <b>${g.score}</b> from ${g.placed} pieces${isBest ? ', your best yet.' : `. Your best is ${best}.`}`;
   $('endSpecies').textContent = sp.length ? `Moved in (${sp.length} of ${SPECIES.length}): ${sp.join(', ')}.` : 'Nobody moved in this time.';
   $('endCard').hidden = false;
   save();
@@ -588,7 +591,7 @@ const tut = {
     this.steps = [
       { text: 'A bare patch of sea floor. You’ll rebuild a reef here one piece at a time, and see who moves in.', next: 'Show me' },
       { text: 'Your hand of pieces is down here. Pick the <b>brain coral</b>.', ring: tray('brain'), on: { select: k => k === 'brain' } },
-      { text: touchy ? 'Tap a tile on the sea floor to see what the coral would add to the reef.' : 'Point at a tile on the sea floor to see what the coral would add to the reef.', ring: tileRing(centre), on: { preview: () => true } },
+      { text: touchy ? 'Tap a tile on the sea floor to see what the coral would add to the reef.' : 'Point at a tile on the sea floor to see what the coral would add to the reef.', ring: tileRing(centre), on: { preview: () => true, place: () => { this.i++; return true; } } }, // planted without a preview: skip "plant it"
       { text: touchy ? 'Tap the same tile again to plant it there.' : 'Click to plant it there.', on: { place: () => true } },
       { text: 'Corals like company: each coral beside a brain coral is worth +1 more, to both of them. Plant the second brain coral <b>touching</b> the first.', ring: tileRing(() => first), enter: () => { first = [...g.tiles.values()].find(t => t.piece === 'brain'); }, on: { place: ev => ev.kind === 'brain' } },
       { text: 'Now the <b>anemone</b>. It’s worth +2 for every brain coral it touches, and something likes to live in one.', ring: tray('anemone'), on: { place: ev => ev.kind === 'anemone' } },

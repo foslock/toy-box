@@ -125,6 +125,10 @@
     .piece canvas { width: 40px; height: 40px; }
     .piece span { font-size: 11px; }
     .card h1 { font-size: 40px; }
+    /* tall cards clear the Home button */
+    .veil { padding: max(64px, calc(env(safe-area-inset-top) + 58px)) 12px max(10px, env(safe-area-inset-bottom)); }
+    .card { max-height: 100%; }
+    #log ol { gap: 5px; }
     #packs { gap: 8px; }
     .pack { padding: 8px 7px 6px; }
     .pack li { font-size: 14px; gap: 5px; }
