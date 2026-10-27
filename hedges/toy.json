@@ -1,0 +1,10 @@
+{
+  "title": "Hedges",
+  "blurb": "Wordless line puzzles in a formal garden, where every line you solve is planted as a hedge that walls, splits and counts in the panels around it.",
+  "added": "2026-10-27",
+  "category": "games",
+  "tags": ["canvas", "line puzzle", "wordless", "game"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 45 }
+}

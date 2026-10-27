@@ -19,7 +19,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 11. Marco
 - [ ] 12. Spire Keeper
 - [ ] 13. Pop-Up
-- [ ] 14. Hedges
+- [x] 14. Hedges — [`hedges/`](hedges/)
 - [ ] 15. Lantern
 - [x] 16. Pile-Up — [`pileup/`](pileup/)
 - [ ] 17. Glyphs
@@ -173,8 +173,10 @@ A WarioWare-style run of 3-to-5-second microgames, all set on a cluttered early-
 
 Around 25 microgames that each explain themselves in one word and one image, plus a few that mess with the fake desktop itself: the start menu, the recycle bin, a screensaver kicking in mid-game. Style: early-2000s desktop kitsch (glossy blue taskbar, chunky icons, MIDI bleeps, a green-hill wallpaper) with WarioWare's bold instruction text slammed across it. Everything works with one finger or the mouse.
 
-## 14. Hedges
+## 14. Hedges ✅
 *Borrows: The Witness · Twist: every solved line becomes a hedge that shapes the other puzzles*
+
+**Built 2026-10-27 as [`hedges/`](hedges/).** 26 panels in five rooms (paths, studs, pebbles, flowers, then a centre room ending in one panel over the whole room), not 50. Hedges count as line for every rule, and a line may touch a hedge but never cross it. Panels past the teaching ones come from `gen.mjs`, which checks every room can be finished in order whatever valid line you draw. Each room is its own lattice rather than one shared garden grid. A cracked start circle means "not yet"; the fountain wells up when every open panel is cracked.
 
 A Witness-style line puzzle game set in a formal garden seen from above. Each puzzle is a panel on a grid (draw a line from the start circle to the exit), with symbols the game never explains, only teaches through a sequence of panels: separate the black and white stones, pass through every dot, enclose the shapes. The twist is that all the panels share one big garden grid, and every solved line is planted as a permanent hedge. Hedges from solved panels become walls in the panels that overlap them, so the order you solve in matters. Some panels can only be solved after others have shaped the ground for them, and some get ruined if you solve their neighbours first.
 

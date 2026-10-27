@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Hedges</title>
+<meta name="description" content="Line puzzles laid out in a formal garden. Every line you solve is planted as a hedge, and the hedges shape the puzzles around them.">
+<meta name="theme-color" content="#2d4524">
+<style>
+  :root {
+    --yew: #2b4524; --yew2: #3d5e30; --gravel: #d8ccb0; --gravel2: #c6b896; --stone: #efe8d6; --ink: #24351e; --glow: #fff4cf; --rose: #d9604f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--gravel2); overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+  button:focus-visible { outline: 2px dashed var(--glow); outline-offset: 3px; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* ---- the walk along the bottom: fountain, the rooms, sound. No words anywhere. */
+  #walk { position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 8px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); pointer-events: none; }
+  #walk > * { pointer-events: auto; }
+  .disc { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; position: relative;
+    background: radial-gradient(circle at 40% 35%, #f6f0e2, #ddd2b8 70%, #c9bb98); box-shadow: 0 3px 0 #a99a78, 0 6px 12px rgba(30,40,20,.35); transition: transform .15s, opacity .3s; }
+  .disc:active { transform: translateY(2px); box-shadow: 0 1px 0 #a99a78, 0 3px 8px rgba(30,40,20,.35); }
+  .disc svg { width: 34px; height: 34px; display: block; }
+  .disc.small { width: 44px; height: 44px; }
+  .disc.small svg { width: 26px; height: 26px; }
+  #rooms { display: flex; gap: 8px; padding: 0 4px; }
+  .room { width: 44px; height: 44px; }
+  .room svg { width: 30px; height: 30px; }
+  .room.locked { opacity: .35; pointer-events: none; }
+  .room.here { box-shadow: 0 0 0 3px var(--glow), 0 3px 0 #a99a78, 0 6px 14px rgba(30,40,20,.4); }
+  .room .ring { position: absolute; inset: -1px; width: calc(100% + 2px); height: calc(100% + 2px); pointer-events: none; }
+  #fount.stuck { animation: well 1.4s ease-in-out infinite; }
+  @keyframes well { 0%,100% { box-shadow: 0 3px 0 #a99a78, 0 0 0 0 rgba(255,244,207,.0); } 50% { box-shadow: 0 3px 0 #a99a78, 0 0 0 10px rgba(255,244,207,.75); } }
+  #fount.empty { opacity: .45; }
+  #snd.off .wave { display: none; }
+  #snd:not(.off) .mute { display: none; }
+  .gap { flex: 1; max-width: 40px; }
+
+  /* ---- title: the name is planted in yew on the canvas; this layer only catches the first tap */
+  #title { position: fixed; inset: 0; z-index: 6; cursor: pointer; }
+  #title.going { pointer-events: none; }
+
+  @media (max-width: 420px) {
+    #walk { gap: 6px; }
+    #rooms { gap: 5px; }
+    .room { width: 38px; height: 38px; }
+    .room svg { width: 26px; height: 26px; }
+    .disc { width: 46px; height: 46px; }
+    .disc svg { width: 30px; height: 30px; }
+    .disc.small { width: 38px; height: 38px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<nav id="walk" aria-label="Garden">
+  <button id="fount" class="disc" aria-label="Fountain: lift the last hedge you planted in this room">
+    <svg viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="15" fill="#b7ab8d"/><circle cx="20" cy="20" r="12.5" fill="#5f8f9a"/>
+      <circle cx="20" cy="20" r="8" fill="none" stroke="#a9d2d6" stroke-width="1.4" opacity=".8"/>
+      <circle cx="20" cy="20" r="4" fill="#d9eef0"/><circle cx="20" cy="20" r="1.8" fill="#b7ab8d"/>
+    </svg>
+  </button>
+  <div class="gap"></div>
+  <div id="rooms"></div>
+  <div class="gap"></div>
+  <button id="snd" class="disc small" aria-label="Sound">
+    <svg viewBox="0 0 40 40" aria-hidden="true" fill="none" stroke="#3a4a30" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 26c-3 0-5-1-5-3s2-3 5-3V13l12-3v13c0 2-2 3-5 3s-5-1-5-3 2-3 5-3" fill="none"/>
+      <path class="wave" d="M30 14c2 2 2 8 0 10M33 11c4 4 4 12 0 16" opacity=".7"/>
+      <path class="mute" d="M29 15l7 7M36 15l-7 7"/>
+    </svg>
+  </button>
+</nav>
+<div id="title" role="button" aria-label="Enter the garden" tabindex="0"></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
