@@ -182,6 +182,36 @@ export function findLine(room, panel, H, budget = 100000) {
   if (!open(panel, H, sx, sy) || !inRect(panel.r, ex, ey)) return null;
   const seen = new Set([key(sx, sy)]);
   const path = [[sx, sy]];
+  // A branch is dead once the exit, or a dot no hedge covers, is cut off from the
+  // head, or a flower already has more sides than petals. Without this a whole-room
+  // panel can take tens of millions of steps to prove it has no line.
+  const r = panel.r, ek = key(ex, ey);
+  const dots = (room.dots || []).filter(([x, y]) => inRect(r, x, y) && !H.verts.has(key(x, y))).map(([x, y]) => key(x, y));
+  const petals = (room.petals || []).filter(([cx, cy]) => cellIn(r, cx, cy));
+  const pe = new Set(), reach = new Uint32Array(64 * 64), stack = new Int32Array(64 * 64);
+  const eOn = (k) => pe.has(k) || H.edges.has(k);
+  let stamp = 0;
+  function hopeless(hx, hy) {
+    for (const [cx, cy, n] of petals) {
+      if (eOn(ekey(cx, cy, cx + 1, cy)) + eOn(ekey(cx, cy + 1, cx + 1, cy + 1)) + eOn(ekey(cx, cy, cx, cy + 1)) + eOn(ekey(cx + 1, cy, cx + 1, cy + 1)) > n) return true;
+    }
+    stamp++;
+    let sp = 0;
+    reach[key(hx, hy)] = stamp; stack[sp++] = key(hx, hy);
+    while (sp) {
+      const k0 = stack[--sp], x = k0 & 63, y = k0 >> 6;
+      for (const [dx, dy] of STEP) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < r[0] || nx > r[2] || ny < r[1] || ny > r[3]) continue;
+        const k = key(nx, ny);
+        if (reach[k] === stamp || seen.has(k) || H.edges.has(ekey(x, y, nx, ny))) continue;
+        reach[k] = stamp; stack[sp++] = k;
+      }
+    }
+    if (reach[ek] !== stamp) return true;
+    for (const k of dots) if (reach[k] !== stamp && !seen.has(k)) return true;
+    return false;
+  }
   let steps = 0, found = null;
   (function walk(x, y) {
     if (found || steps > budget) return;
@@ -191,12 +221,14 @@ export function findLine(room, panel, H, budget = 100000) {
       if (judge(room, panel, p, H).ok) found = p;
       return;
     }
+    if (hopeless(x, y)) return;
     for (const [dx, dy] of STEP) {
       const nx = x + dx, ny = y + dy;
       if (!canStep(panel, H, path, seen, nx, ny)) continue;
-      seen.add(key(nx, ny)); path.push([nx, ny]);
+      const e = ekey(x, y, nx, ny);
+      seen.add(key(nx, ny)); path.push([nx, ny]); pe.add(e);
       walk(nx, ny);
-      seen.delete(key(nx, ny)); path.pop();
+      seen.delete(key(nx, ny)); path.pop(); pe.delete(e);
       if (found || steps > budget) return;
     }
   })(sx, sy);

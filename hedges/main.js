@@ -50,9 +50,13 @@ const WALL = 0.62;
 function layout() {
   const W = innerWidth, Hh = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2.5);
   cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
-  const top = 62, bottom = 84;
+  const bottom = 84;
   const mw = room.w + WALL * 2 + 0.9, mh = room.h + WALL * 2 + 1.1;
-  const s = Math.min((W - 16) / mw, (Hh - top - bottom) / mh, 96);
+  const fit = (top) => Math.min((W - 16) / mw, (Hh - top - bottom) / mh, 96);
+  // the band at the top keeps the room off the Home button; a wide, short screen
+  // (a phone held sideways) leaves the room well clear of the corner, so take it back
+  let top = 62, s = fit(top);
+  if ((W - room.w * fit(16)) / 2 - 1.5 * fit(16) > 64) { top = 16; s = fit(top); }
   view = { s, W, H: Hh, dpr, ox: Math.round((W - room.w * s) / 2), oy: Math.round(top + (Hh - top - bottom - room.h * s) / 2 + s * 0.15) };
   bake();
 }
@@ -71,17 +75,42 @@ function refresh() {
   H = hedgeSet(room, save.solved[cur].map((e) => e.path));
   const done = solvedOf(cur);
   stuck = new Set();
+  const unsure = [];
   room.panels.forEach((p, i) => {
     if (done.has(i)) return;
-    if (findLine(room, p, H, 60000) === null) stuck.add(i);
+    const line = findLine(room, p, H, 60000);
+    if (line === null) stuck.add(i);
+    else if (line === undefined) unsure.push(i);
   });
-  // a cracked start just means "not yet"; only when every open panel is cracked
-  // has the order gone wrong, and the fountain wells up
-  const left = room.panels.length - done.size;
-  $('fount').classList.toggle('stuck', left > 0 && stuck.size === left);
+  showStuck();
   $('fount').classList.toggle('empty', !save.solved[cur].length);
   bake();
   renderRooms();
+  // the quick look ran out on a big panel: if it's the last hope, ask the worker
+  const ask = ++stuckAsk;
+  if (worker) { worker.terminate(); worker = null; }
+  const left = room.panels.length - done.size;
+  if (unsure.length && stuck.size + unsure.length === left && typeof Worker !== 'undefined') {
+    try {
+      worker = new Worker(new URL('./stuck.js', import.meta.url), { type: 'module' });
+      worker.onmessage = ({ data }) => {
+        if (data.id !== ask) return;
+        data.dead.forEach((i) => stuck.add(i));
+        showStuck();
+        worker.terminate(); worker = null;
+      };
+      worker.onerror = () => { worker?.terminate(); worker = null; };
+      worker.postMessage({ id: ask, room: cur, paths: save.solved[cur].map((e) => e.path), panels: unsure });
+    } catch { worker = null; }
+  }
+}
+let worker = null, stuckAsk = 0;
+
+// a cracked start just means "not yet"; only when every open panel is cracked
+// has the order gone wrong, and the fountain wells up
+function showStuck() {
+  const left = room.panels.length - solvedOf(cur).size;
+  $('fount').classList.toggle('stuck', left > 0 && stuck.size === left);
 }
 
 function plant(pi, path) {
