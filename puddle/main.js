@@ -324,7 +324,16 @@ const tut = {
     let x = W / 2, y, dir = 'down';
     const rectOf = id => $(id).getBoundingClientRect();
     if (st.at === 'puddleTop') { y = Math.max(V.topSafe + 6, V.cy - V.ry - ch - 14); dir = 'none'; }
-    else if (st.at === 'gauge') { y = Math.min(V.cy + V.ry * 1.1 + 60, innerHeight - ch - 90); dir = 'up'; }
+    else if (st.at === 'gauge') {
+      // under the reel gauge if there's room, else beside it, else up over the puddle; never on top of the bar
+      const gy = Math.min(V.cy + V.ry * 1.1 + 18, V.stripTop - 40), gw = Math.min(V.rx * 1.3, 320);
+      y = gy + 42; dir = 'up';
+      if (y + ch > V.stripTop - 6) {
+        if (W - (V.cx + gw / 2 + 4) >= cw + 22) { x = V.cx + gw / 2 + 18 + cw / 2; y = Math.max(V.topSafe + 6, Math.min(gy - ch / 2, V.stripTop - ch - 8)); }
+        else y = Math.max(V.topSafe + 6, V.cy - V.ry - ch - 14);
+        dir = 'none';
+      }
+    }
     else if (st.at === 'log') { const r = rectOf('logBtn'); x = r.left + r.width / 2; y = r.bottom + 12; dir = 'up'; }
     else if (st.at === 'where') { const r = rectOf('where'); x = r.left + r.width / 2; y = r.bottom + 12; dir = 'up'; }
     else if (st.at === 'strip') { const r = rectOf('strip'); x = r.left + r.width / 2; y = r.top - ch - 12; dir = 'down'; }
