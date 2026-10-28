@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Puddle</title>
+<meta name="description" content="Fish in the puddles after the rain, where the reflections go down a long way and you can catch whatever fell into the upside-down world.">
+<meta name="theme-color" content="#141c30">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700&family=Zen+Antique&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f1e6cd; --paper2: #e8d9b8; --ink: #24212b; --indigo: #2b4470; --night: #141c30; --verm: #c4432f; --verm2: #a9372a; --gold: #d6a33a;
+    --head: 'Zen Antique', 'Hoefler Text', Georgia, serif; --body: 'Shippori Mincho B1', 'Hoefler Text', Georgia, serif;
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.02 .6' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .3 0 0 0 0 .18 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--night); color: var(--ink); font: 16px/1.4 var(--body); overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #cv.aim { cursor: crosshair; }
+
+  /* paper, cut from the margin of the print */
+  .sheet { background: var(--grain), linear-gradient(175deg, var(--paper), var(--paper2)); box-shadow: 0 6px 18px rgba(4,8,20,.45), 0 1px 2px rgba(4,8,20,.5); }
+  /* the cartouche: a title box with a doubled key line */
+  .cart { border: 2px solid var(--ink); outline: 1px solid var(--ink); outline-offset: -6px; }
+  /* a carved seal: vermilion block, paper-coloured letters, edges a little chewed */
+  .seal { font: 17px/1 var(--head); color: var(--paper); background: var(--verm); padding: 11px 16px 10px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    clip-path: polygon(1% 3%, 30% 0, 62% 2%, 99% 0, 100% 40%, 98% 97%, 66% 100%, 35% 98%, 0 100%, 2% 60%); letter-spacing: .03em; }
+  .seal:active { transform: translateY(1px); background: var(--verm2); }
+  .seal.ink { background: var(--ink); }
+  .seal.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); clip-path: none; }
+  button:focus-visible { outline: 2px dashed var(--gold); outline-offset: 3px; }
+  h1, h2, h3 { font-family: var(--head); font-weight: 400; margin: 0; }
+
+  /* ---- top: where you are and what hour it is (the Home button owns the first 56px) */
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: flex-start; gap: 8px; pointer-events: none;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 0 max(62px, calc(env(safe-area-inset-left) + 58px)); }
+  #hud > * { pointer-events: auto; }
+  #where { text-align: left; padding: 7px 12px 7px 12px; display: flex; align-items: center; gap: 10px; min-height: 48px; max-width: calc(100vw - 190px); }
+  #where b { font: 18px/1.05 var(--head); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #where small { font-size: 13px; display: block; white-space: nowrap; opacity: .85; }
+  #where svg { flex: none; width: 26px; height: 26px; }
+  #where .wait { font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding-left: 10px; border-left: 1px solid rgba(36,33,43,.35); line-height: 1; }
+  .spacer { flex: 1; }
+  #logBtn { padding: 8px 12px 7px; min-height: 48px; flex-direction: column; gap: 2px; font-size: 16px; }
+  #logBtn small { font: 12px/1 var(--body); opacity: .9; }
+  #muteBtn { width: 40px; height: 48px; display: grid; place-items: center; color: var(--paper); opacity: .85; }
+  #muteBtn svg { width: 22px; height: 22px; }
+  #muteBtn.off { opacity: .45; }
+
+  /* ---- bottom: the street, puddle by puddle */
+  #strip { position: fixed; z-index: 5; left: 50%; transform: translateX(-50%); bottom: max(10px, env(safe-area-inset-bottom)); width: min(620px, calc(100% - 16px));
+    display: flex; gap: 0; padding: 6px 4px 5px; }
+  .stop { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 1px 3px; position: relative; }
+  .stop i { width: 30px; height: 15px; display: block; background: var(--indigo); border-radius: 50% 46% 52% 44% / 55% 50% 48% 52%; box-shadow: 0 0 0 1.5px var(--ink); }
+  .stop span { font-size: 12.5px; line-height: 1; white-space: nowrap; }
+  .stop.here i { background: var(--verm); }
+  .stop.here span { font-weight: 700; }
+  .stop.here::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: -2px; height: 3px; background: var(--verm); }
+  .stop.locked { opacity: .45; }
+  .stop.locked i { background: transparent; box-shadow: none; border: 1.5px dashed var(--ink); }
+  .stop.fresh i { animation: fresh 1.2s ease-in-out 4; }
+  @keyframes fresh { 50% { transform: scale(1.35); background: var(--gold); } }
+  .stop + .stop { border-left: 1px solid rgba(36,33,43,.2); }
+
+  /* ---- words that float over the print */
+  #say { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%) rotate(-.8deg); padding: 8px 16px; font-size: 16px; text-align: center; max-width: min(380px, calc(100% - 24px));
+    opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #say.on { opacity: 1; }
+  #bang { position: fixed; z-index: 6; width: 46px; height: 46px; margin: -82px 0 0 -23px; font: 32px/46px var(--head); text-align: center; pointer-events: none; padding: 0; min-height: 0; animation: bang .25s ease-out; }
+  @keyframes bang { from { transform: scale(.3) rotate(-20deg); } }
+  #reelHint { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); color: var(--paper); font-size: 14px; text-align: center; pointer-events: none; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+
+  /* ---- tutorial slip */
+  #coach { position: fixed; z-index: 8; width: min(320px, calc(100% - 24px)); padding: 12px 14px 12px; font-size: 16px; line-height: 1.35; pointer-events: auto; }
+  #coach b { font: 18px/1.15 var(--head); display: block; margin-bottom: 4px; }
+  #coach .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+  #coach .row:empty { display: none; }
+  #coach .skip { font-size: 13px; text-decoration: underline; text-underline-offset: 3px; opacity: .75; padding: 8px 4px; }
+  #coach .seal { min-height: 38px; padding: 8px 14px 7px; font-size: 15px; }
+  #coach::after { content: ''; position: absolute; left: var(--ax, 50%); width: 16px; height: 16px; background: var(--paper); transform: translateX(-50%) rotate(45deg); }
+  #coach.up::after { top: -8px; box-shadow: -1px -1px 0 rgba(0,0,0,.1); }
+  #coach.down::after { bottom: -8px; }
+  #coach.none::after { display: none; }
+
+  /* ---- cards */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(8,12,24,.55); }
+  .card { width: min(380px, 100%); max-height: calc(100% - 20px); overflow: auto; padding: 22px 22px 20px; position: relative; text-align: center; }
+  .card h2 { font-size: 27px; line-height: 1.1; }
+  .card p { margin: 10px 0 0; }
+  .card .row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  #catchArt { width: 180px; height: 180px; display: block; margin: 0 auto 8px; animation: rise .9s cubic-bezier(.3,1.4,.5,1); }
+  @keyframes rise { from { transform: translateY(40px) rotate(180deg) scale(.6); opacity: 0; } 40% { opacity: 1; } }
+  #catchCard .tag { position: absolute; top: 16px; right: 16px; font-size: 14px; padding: 7px 9px 6px; min-height: 0; transform: rotate(6deg); }
+  #catchCard .meta { font-size: 13px; opacity: .75; margin-top: 12px; }
+  #catchCard .note { font-size: 17px; font-style: italic; }
+
+  #title .card { padding: 26px 24px 22px; }
+  #title h1 { font-size: 54px; line-height: 1; letter-spacing: .02em; }
+  #title .sub { font-size: 16px; margin-top: 8px; }
+  #title .side { position: absolute; top: 16px; right: 14px; writing-mode: vertical-rl; font: 13px/1 var(--head); padding: 8px 5px; border: 1.5px solid var(--ink); letter-spacing: .1em; }
+  #title .stamp { position: absolute; left: 16px; top: 16px; width: 34px; height: 34px; padding: 0; min-height: 0; font-size: 13px; line-height: 1; transform: rotate(-4deg); }
+  #title canvas { display: block; margin: 12px auto 4px; width: 140px; height: 90px; }
+  #title .how { text-align: left; font-size: 15px; margin: 14px 0 0; padding: 0; list-style: none; }
+  #title .how li { padding: 3px 0 3px 26px; position: relative; }
+  #title .how li::before { content: attr(data-n); position: absolute; left: 0; top: 4px; font: 13px/18px var(--head); width: 18px; height: 18px; text-align: center; background: var(--ink); color: var(--paper); }
+
+  #logCard { width: min(560px, 100%); text-align: left; }
+  #logCard h2 { text-align: center; }
+  #logCard .count { text-align: center; font-size: 14px; opacity: .8; margin-top: 2px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; margin-top: 14px; }
+  .cell { aspect-ratio: 1; display: grid; place-items: center; background: rgba(43,68,112,.08); box-shadow: inset 0 0 0 1px rgba(36,33,43,.25); position: relative; }
+  .cell canvas { width: 80%; height: 80%; }
+  .cell.on { box-shadow: inset 0 0 0 2px var(--verm); background: rgba(196,67,47,.08); }
+  .cell em { position: absolute; right: 3px; bottom: 1px; font: 11px/1 var(--body); font-style: normal; opacity: .7; }
+  #detail { display: flex; gap: 14px; align-items: center; margin-top: 14px; padding: 12px; min-height: 104px; border-top: 1px solid rgba(36,33,43,.3); border-bottom: 1px solid rgba(36,33,43,.3); }
+  #detail canvas { width: 80px; height: 80px; flex: none; }
+  #detail b { font: 19px/1.15 var(--head); display: block; }
+  #detail p { margin: 4px 0 0; font-size: 15px; }
+  #detail small { display: block; font-size: 13px; opacity: .75; margin-top: 5px; }
+
+  #wipe { position: fixed; inset: 0; z-index: 4; background: var(--grain), var(--night); opacity: 0; pointer-events: none; transition: opacity .3s; }
+  #wipe.on { opacity: 1; }
+
+  @media (max-width: 380px) {
+    #where b { font-size: 16px; }
+    #where .wait span { display: none; }
+    .stop span { font-size: 11.5px; }
+  }
+  @media (max-height: 520px) {
+    #strip { width: min(520px, calc(100% - 140px)); }
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="wipe"></div>
+
+<div id="hud" hidden>
+  <button id="where" class="sheet cart" aria-label="Wait an hour">
+    <div><b id="whereName">Under the lamp</b><small id="whereTime">Dusk · Drizzle</small></div>
+    <div class="wait"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10.5" fill="none" stroke="currentColor" stroke-width="2"/><path id="hand" d="M13 13 L13 6" stroke="#c4432f" stroke-width="2.4" stroke-linecap="round"/><path d="M13 13 L17 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>wait</span></div>
+  </button>
+  <div class="spacer"></div>
+  <button id="logBtn" class="seal">Log<small id="logCount">0/30</small></button>
+  <button id="muteBtn" aria-label="Sound on or off"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="waves" d="M16 8.5c1.6 1.8 1.6 5.2 0 7M18.6 6c3 3.2 3 8.8 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+</div>
+
+<nav id="strip" class="sheet" hidden></nav>
+<div id="say" class="sheet"></div>
+<div id="bang" class="seal" hidden>!</div>
+<div id="reelHint" hidden>hold to reel in · let go before the red</div>
+<div id="coach" class="sheet" hidden><b></b><div class="txt"></div><div class="row"></div></div>
+
+<div id="title" class="veil" hidden>
+  <div class="card sheet cart">
+    <div class="side">after the rain</div>
+    <h1>Puddle</h1>
+    <div class="sub">Every puddle is a window into the reflected world.<br>Things fall in. You can fish them out.</div>
+    <canvas id="titleArt" width="280" height="180"></canvas>
+    <ul class="how">
+      <li data-n="1">Tap beside a shadow to cast.</li>
+      <li data-n="2">A nibble is not a bite. When the float goes under, tap.</li>
+      <li data-n="3">Hold to reel. Let go before the line goes red.</li>
+    </ul>
+    <div class="row">
+      <button id="goBtn" class="seal">Go out</button>
+      <button id="tutBtn" class="seal ghost">Show me how</button>
+    </div>
+    <div class="seal stamp">雨</div>
+  </div>
+</div>
+
+<div id="catchVeil" class="veil" hidden>
+  <div id="catchCard" class="card sheet cart">
+    <div class="tag seal" id="catchTag">New</div>
+    <canvas id="catchArt" width="360" height="360"></canvas>
+    <h2 id="catchName"></h2>
+    <p class="note" id="catchNote"></p>
+    <div class="meta" id="catchMeta"></div>
+    <div class="row"><button id="catchOk" class="seal">Into the log</button></div>
+  </div>
+</div>
+
+<div id="logVeil" class="veil" hidden>
+  <div id="logCard" class="card sheet cart">
+    <h2>Logbook</h2>
+    <div class="count" id="logTotal"></div>
+    <div id="detail"></div>
+    <div id="grid"></div>
+    <div class="row"><button id="logClose" class="seal">Back to the puddle</button><button id="logTitle" class="seal ghost">Title</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

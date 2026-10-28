@@ -1,0 +1,10 @@
+{
+  "title": "Puddle",
+  "blurb": "Fish in the puddles after rain, where the reflections go down a long way and you can catch whatever fell into the upside-down world.",
+  "added": "2026-10-28",
+  "category": "games",
+  "tags": ["woodblock", "fishing", "cosy", "game"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 45 }
+}

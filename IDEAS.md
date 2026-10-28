@@ -58,7 +58,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 50. Moonrise Manor
 - [x] 51. Spaghetti Bridge — [`spaghetti/`](spaghetti/)
 - [ ] 52. Are We There Yet
-- [ ] 53. Puddle
+- [x] 53. Puddle — [`puddle/`](puddle/)
 - [ ] 54. Cube
 - [ ] 55. Last Checkout
 - [ ] 56. Conductor
@@ -480,8 +480,10 @@ FTL meets Oregon Trail in a 1980s station wagon. A family of five is driving acr
 
 A run is a trip of about 15 stops and 20 minutes, different every time, with a few families to unlock. Very funny and a bit tender. Style: a sun-faded 1980s family-photo palette, a wood-panelled car shown in cutaway with everyone in their seats, a road map with a felt-tip route, and a car radio playing era-flavoured synth tunes.
 
-## 53. Puddle
+## 53. Puddle ✅
 *Borrows: cosy fishing games · Twist: you fish in the reflections in puddles, and catch what fell into the reflected world*
+
+**Built 2026-10-28 as [`puddle/`](puddle/).** Thirty catches across six puddles rather than fifty, a shin-hanga woodblock look (flat blocks, bokashi skies, long straight rain) rather than soft painterly, and a looking-down view of one puddle at a time with a street strip to walk between them instead of a walking figure.
 
 A small, dreamy fishing game where you fish in puddles after the rain. A city street at dusk is dotted with puddles, each reflecting the sky, the buildings and the street lamps above it, upside down and slightly wrong. Cast your line into a puddle and you're fishing in the reflection, where you can catch things that fell into the reflected world: a lost balloon, a kite, a paper boat, a pigeon (who's fine), a street lamp's glow, a cloud and eventually the moon. Each catch goes into a little illustrated logbook with a one-line note.
 
