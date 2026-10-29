@@ -76,6 +76,10 @@ The `?.` keeps the toy working when it's opened straight from its folder, where 
 
 Screenshots are taken locally and committed, so the Render build never needs a browser. The build adds Open Graph tags to the home page and every toy page, pointing at `https://theboxof.toys`; a toy without an `og.jpg` uses the home page's image.
 
+## Analytics
+
+The build also adds Google Analytics (`G-YPR5S60RRR`) to the home page and every toy page. It only runs on theboxof.toys, so local previews aren't counted, and toys don't need to do anything for it. Visitors whose device's time zone puts them in the EU, EEA, UK or Switzerland (or who hide their time zone) get a small ask at the bottom of the page, and Analytics doesn't load until they allow it. As a backstop, Google's consent mode starts visitors it places in those countries with analytics cookies off. The answer is saved for the whole site, and **Cookie choices** in the home page footer brings the ask back to change it.
+
 ## Deploy on Render
 
 In the Render dashboard choose **New → Blueprint** and pick this repo. `render.yaml` creates a static site that runs `npm run build` and publishes `dist/`. Pushes to `main` redeploy automatically.

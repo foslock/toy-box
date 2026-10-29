@@ -72,8 +72,9 @@ const loader = `
   // that frame: until then the screen keeps the old picture, bar still creeping.
   window.toyboxReady = () => { if (!settled) { settled = true; el.remove(); } };
   // A script that fails to load, or throws while starting, would otherwise leave the bar creeping forever.
+  // A missing font or image isn't fatal, and nor is a script marked data-optional (analytics an ad blocker stopped).
   addEventListener('error', e => {
-    if (settled || !(e instanceof ErrorEvent || e.target instanceof HTMLScriptElement)) return;   // a missing font or image isn't fatal
+    if (settled || !(e instanceof ErrorEvent || e.target instanceof HTMLScriptElement) || e.target.hasAttribute?.('data-optional')) return;
     settled = true;
     el.classList.add('is-failed'); el.setAttribute('role', 'alert');
     el.querySelector('.toybox-loader-label').textContent = 'This toy didn’t load.';
@@ -149,13 +150,104 @@ function toyShareTags(t) {
     alt: own ? `A screenshot of ${t.title}, with its name on a label-maker tape` : 'TOY BOX on a red label-maker tape, stuck to a pegboard',
   });
 }
-// The tags go right after the page's <title>, or at the top of its <head>.
-function addShareTags(file, tags) {
+// Those tags and the analytics below go right after the page's <title>, or at the top of its <head>.
+function addToHead(file, snippet) {
   const html = readFileSync(file, 'utf8'), title = html.match(/<\/title>/i), head = html.match(/<head[^>]*>/i), anchor = title || head;
-  if (!anchor) throw new Error(`${file} has no <title> or <head> for the link-preview tags`);
+  if (!anchor) throw new Error(`${file} has no <title> or <head> for the link-preview tags and analytics`);
   const at = anchor.index + anchor[0].length;
-  writeFileSync(file, html.slice(0, at) + tags + html.slice(at));
+  writeFileSync(file, html.slice(0, at) + snippet + html.slice(at));
 }
+
+// Google Analytics on the home page and every toy page, counting visits to the live site only (not local previews).
+// Visitors who look to be in the EU, EEA, UK or Switzerland get a small ask at the bottom of the page first, and the
+// tag only loads once they say yes. A static site has no server to tell it their country, so this goes by the time
+// zone their device reports; a hidden or spoofed one gets the ask too. Google's consent mode backs that up for anyone
+// whose clock doesn't give them away: it starts visitors it places in those countries with analytics cookies off.
+// The answer is kept in localStorage for the whole site, and the home page footer's "Cookie choices" button (anything
+// with data-toybox-consent) brings the ask back to change it. Ad features stay off for everyone; the site has no ads.
+const GA_ID = 'G-YPR5S60RRR';
+const CONSENT_REGIONS = [
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
+  'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'IS', 'LI', 'NO', 'GB', 'CH',
+  'AX', 'GF', 'GP', 'MQ', 'MF', 'RE', 'YT', 'GI', 'GG', 'JE', 'IM',   // territories that geolocate under their own codes
+];
+const analytics = String.raw`
+<script>
+(() => {
+  if (!('.' + location.hostname).endsWith('.${new URL(SITE_URL).hostname}')) return;
+  const KEY = 'toybox-analytics';
+  let saved = null, tz = '';
+  try { saved = localStorage.getItem(KEY); } catch {}
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch {}
+  const askFirst = !tz || /^(Europe|Arctic|Etc)\/|^(UTC|GMT|WET|CET|MET|EET|GB|GB-Eire|Eire|Portugal|Poland|Iceland)$|^Atlantic\/(Azores|Canary|Faroe|Madeira|Reykjavik)$|^Asia\/(Nicosia|Famagusta)$|^Africa\/Ceuta$|^America\/(Cayenne|Guadeloupe|Martinique|Marigot)$|^Indian\/(Reunion|Mayotte)$/.test(tz);
+
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { dataLayer.push(arguments); };
+  const noAds = { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' };
+  gtag('consent', 'default', { ...noAds, analytics_storage: 'denied', region: ${JSON.stringify(CONSENT_REGIONS)} });
+  gtag('consent', 'default', { ...noAds, analytics_storage: 'granted' });
+  if (saved === 'granted') gtag('consent', 'update', { analytics_storage: 'granted' });
+
+  let loaded = false;
+  const load = () => {
+    if (loaded) return;
+    loaded = true;
+    gtag('js', new Date());
+    gtag('config', '${GA_ID}');
+    const s = document.createElement('script');
+    s.async = true; s.dataset.optional = ''; s.src = 'https://www.googletagmanager.com/gtag/js?id=${GA_ID}';
+    document.head.append(s);
+  };
+  // Saying no after a yes also clears the cookies Analytics already set.
+  const forget = () => document.cookie.split(';').map(c => c.trim().split('=')[0]).filter(n => n.startsWith('_ga'))
+    .forEach(n => ['', '; domain=.' + location.hostname.replace(/^www\./, '')].forEach(d => { document.cookie = n + '=; max-age=0; path=/' + d; }));
+  const choose = yes => {
+    try { localStorage.setItem(KEY, yes ? 'granted' : 'denied'); } catch {}
+    gtag('consent', 'update', { analytics_storage: yes ? 'granted' : 'denied' });
+    if (yes) load(); else forget();
+  };
+
+  // Shown on its own the ask leaves focus where it is, so a game keeps its keys; opened from a button it takes focus.
+  const ask = opener => {
+    if (document.getElementById('toybox-consent')) return;
+    const el = document.createElement('div');
+    el.id = 'toybox-consent'; el.className = 'toybox-consent';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Analytics cookies');
+    el.innerHTML = '<p class="toybox-consent-text">Can Toy Box use Google Analytics cookies to see which toys get played?</p>'
+      + '<span class="toybox-consent-choices"><button type="button" value="no">No thanks</button><button type="button" value="yes">Allow</button></span>';
+    el.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      choose(b.value === 'yes');
+      el.remove();
+      opener?.focus();
+    });
+    document.body.append(el);
+    if (opener) el.querySelector('button').focus();
+  };
+  const ready = () => {
+    for (const b of document.querySelectorAll('[data-toybox-consent]')) { b.hidden = false; b.addEventListener('click', () => ask(b)); }
+    if (askFirst && !saved) ask();
+  };
+  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', ready); else ready();
+  if (saved === 'granted' || (!saved && !askFirst)) load();
+})();
+</script>
+<style>
+  .toybox-consent { position: fixed; z-index: 1001; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    box-sizing: border-box; width: max-content; max-width: min(460px, calc(100vw - 28px)); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 14px;
+    padding: 10px 10px 10px 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(16, 12, 20, .8); color: rgba(255, 255, 255, .92);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 12px 32px -12px rgba(0, 0, 0, .55);
+    font: 400 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: normal; text-transform: none; text-align: left; text-shadow: none;
+    cursor: auto; pointer-events: auto; -webkit-user-select: none; user-select: none; }
+  .toybox-consent-text { flex: 1 1 24ch; margin: 0; }
+  .toybox-consent-choices { display: flex; gap: 8px; }
+  .toybox-consent button { margin: 0; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .12);
+    color: #fff; font: 500 12.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; cursor: pointer; }
+  .toybox-consent button:hover { background: rgba(255, 255, 255, .22); }
+  .toybox-consent button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+</style>
+`;
 
 function card(t, i) {
   const color = tapeColor(t, i);
@@ -189,7 +281,7 @@ for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
   versionScripts(join(DIST, t.slug), t.entry);
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
-  addShareTags(join(DIST, t.slug, t.entry), toyShareTags(t));
+  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + analytics);
   if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
@@ -201,6 +293,7 @@ const filters = cats.length ? `<div class="filters" role="group" aria-label="Sho
   `<button class="pill" type="button" data-category="${c}" aria-pressed="false">${esc(CATEGORIES[c])}</button>`).join('')}</div>` : '';
 const html = readFileSync(join(SITE, 'index.html'), 'utf8')
   .replace('<!--SHARE_TAGS-->', shareTags({ title: 'Toy Box', description: 'A pegboard of small, self-contained browser experiments.', path: '', image: HOME_IMAGE, alt: 'TOY BOX on a red label-maker tape, stuck to a pegboard' }).trim())
+  .replace('<!--ANALYTICS-->', () => analytics.trim())
   .replace('<!--HEADER_TAPE-->', tape('Toy Box', 'tape--xl'))
   .replace('<!--COUNT-->', count)
   .replace('<!--FILTERS-->', filters)

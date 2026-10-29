@@ -6,6 +6,7 @@
 <title>Toy Box</title>
 <meta name="description" content="A pegboard of small, self-contained browser experiments.">
 <!--SHARE_TAGS-->
+<!--ANALYTICS-->
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -208,9 +209,10 @@
   .foot > * { position: relative; isolation: isolate; }
   .foot > *::before { content: ""; position: absolute; z-index: -1; inset: -8px -14px; border-radius: 24px; background: var(--board); filter: blur(10px); opacity: .94; }
   .foot small { font-size: inherit; }
-  .foot a { color: inherit; text-underline-offset: 3px; }
-  .foot a:hover { color: var(--ink); }
-  .foot a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
+  .foot a, .foot button { color: inherit; text-underline-offset: 3px; }
+  .foot button { margin: 0; padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: underline; cursor: pointer; }
+  .foot a:hover, .foot button:hover { color: var(--ink); }
+  .foot a:focus-visible, .foot button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
     .toy a, .shot img, .tape, .pill, .search, .search input { transition: none; }
@@ -570,6 +572,7 @@
     <footer class="foot">
       <small>&copy; 2026 <a href="https://www.fosterlockwood.com">James Foster Lockwood</a></small>
       <a href="https://github.com/foslock/toy-box">Source on GitHub</a>
+      <button type="button" data-toybox-consent hidden>Cookie choices</button>
     </footer>
   </main>
 </body>
