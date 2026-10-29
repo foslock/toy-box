@@ -1,0 +1,10 @@
+{
+  "title": "Pop-Up",
+  "blurb": "Three-second microgames on a cluttered 2003 desktop: close the real pop-up, punch the monkey, save before the blue screen. It keeps getting faster.",
+  "added": "2026-10-29",
+  "category": "games",
+  "tags": ["canvas", "microgames", "y2k", "game"],
+  "tape": "blue",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 50 }
+}

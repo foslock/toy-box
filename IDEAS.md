@@ -18,7 +18,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 10. Draw Ahead — [`drawahead/`](drawahead/)
 - [ ] 11. Marco
 - [ ] 12. Spire Keeper
-- [ ] 13. Pop-Up
+- [x] 13. Pop-Up — [`popup/`](popup/)
 - [x] 14. Hedges — [`hedges/`](hedges/)
 - [ ] 15. Lantern
 - [x] 16. Pile-Up — [`pileup/`](pileup/)
@@ -166,8 +166,10 @@ You're the keeper of a Spire, and a hero with a Slay the Spire-style deck, HP an
 
 Give the hero a readable AI that plays sensibly but has habits you can learn and exploit, plus a pool of about 30 cards, 15 enemies and 15 relics, so you can reason about how a fight will go. A fake stream chat scrolls beside the fight and reacts to it ("it's over", "WE'RE SO BACK", a flood of emotes at a clutch block). Style: chunky hand-drawn cards and monsters in a dark stone tower, with a stream overlay in the corner. A run is about 15 floors and 15 minutes.
 
-## 13. Pop-Up
+## 13. Pop-Up ✅
 *Borrows: WarioWare, 2000s web nostalgia · Twist: every microgame happens on a cluttered 2003 desktop*
+
+**Built 2026-10-29 as [`popup/`](popup/).** 22 microgames and 2 bosses (VIRUS ALERT!, POP-UP STORM!) on a made-up desktop OS called Meadow, with a Setup Wizard tutorial, a Practice folder of found games and a blue-screen game over. Speed rises every 5 tasks; every 15th is a boss that gives a disk back. Cut: DIAL IN plays a single squeal rather than a modem duet, no screensaver interrupting other games, no MIDI soundtrack per game (one shared backing loop).
 
 A WarioWare-style run of 3-to-5-second microgames, all set on a cluttered early-2000s desktop (think XP). Each one is a single frantic instruction: CLOSE IT (the real pop-up among ten fakes), PUNCH (the monkey in the banner ad), DEFRAG (sort the coloured blocks), DIAL IN (match the modem's squeal), CLEAR COOKIES (actual cookies), DRAG (the paperclip assistant off screen), SAVE (before the blue screen). They get faster and faster, with four lives and a boss game every 15 rounds.
 
