@@ -198,7 +198,7 @@ def({
     g.cells = [];
     const n = g.cols * g.rows;
     for (let i = 0; i < n; i++) g.cells.push(i < n * .62 ? 0 : 2);
-    const reds = 3 + Math.min(g.d, 4);
+    const reds = 3 + Math.min(g.d, 3);
     const idx = g.shuffle([...Array(n).keys()]).slice(0, reds);
     idx.forEach(i => g.cells[i] = 1);
     g.left = reds;
@@ -1066,11 +1066,15 @@ def({
   init(g) {
     g.need = 3 + (g.d >= 2 ? 1 : 0); g.got = 0; g.bxp = 240; g.items = [];
     g.vy = 190 + 20 * Math.min(g.d, 3);
-    const span = g.dur * .72;
-    const n = g.need + 2;
-    for (let i = 0; i < n; i++) g.items.push({ t: .15 + i * span / n, x: g.ri(50, W - 50), kind: g.pick(['doc', 'image', 'music']), y: -30, state: 0 });
+    // every file lands (y 400) with a little time left on the clock, and each one drops within reach of the last
+    const n = g.need + 2, fall = 430 / g.vy, span = g.dur - .45 - fall - .15;
+    let x = g.ri(50, W - 50);
+    for (let i = 0; i < n; i++) {
+      if (i) x = clamp(x + g.ri(-220, 220), 50, W - 50);
+      g.items.push({ t: .15 + i * span / (n - 1), x, kind: g.pick(['doc', 'image', 'music']), y: -30, state: 0 });
+    }
     const bugs = Math.min(g.d, 2);
-    for (let i = 0; i < bugs; i++) g.items.push({ t: .5 + (i + .5) * span / (bugs + 1), x: g.ri(50, W - 50), kind: 'bug', y: -30, state: 0 });
+    for (let i = 0; i < bugs; i++) g.items.push({ t: .5 + (i + .5) * g.dur * .72 / (bugs + 1), x: g.ri(50, W - 50), kind: 'bug', y: -30, state: 0 });
     g.ow = 50;
   },
   tick(g, dt) {
@@ -1121,7 +1125,7 @@ boss({
   tick(g, dt) {
     if (g.dead != null) return;
     const [tx, ty] = g.to;
-    const d = dist(tx, ty, g.vxp, g.vyp), sp = (200 + 25 * g.d) * dt;
+    const d = dist(tx, ty, g.vxp, g.vyp), sp = (200 + 25 * Math.min(g.d, 3)) * dt;
     if (d < sp) g.to = [g.ri(60, W - 60), g.ri(140, H - 60)];
     else { g.vxp += (tx - g.vxp) / d * sp; g.vyp += (ty - g.vyp) / d * sp; }
     g.wob = Math.max(0, g.wob - dt * 4);
@@ -1152,7 +1156,7 @@ boss({
   bot(g) {
     const cover = topPopAt(g.pops, g.vxp, g.vyp);
     if (cover >= 0) { const r = g.pops[cover].L.close; return { tap: [cx(r), cy(r)] }; }
-    const [tx, ty] = g.to, d = dist(tx, ty, g.vxp, g.vyp) || 1, s = (200 + 25 * g.d) * .05;
+    const [tx, ty] = g.to, d = dist(tx, ty, g.vxp, g.vyp) || 1, s = (200 + 25 * Math.min(g.d, 3)) * .05;
     return { tap: [g.vxp + (tx - g.vxp) / d * s, g.vyp + (ty - g.vyp) / d * s] };
   },
 });

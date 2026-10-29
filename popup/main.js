@@ -357,7 +357,7 @@ function drawFolder() {
   const b = L.body;
   c.fillStyle = '#fff'; c.fillRect(b.x, b.y + 36, b.w, b.h - 36);
   font(c, 14); c.fillStyle = C.ink; c.textAlign = 'left'; c.textBaseline = 'middle';
-  c.fillText(fitText(c, `Tap a task to practise it. Found ${save.seen.length} of ${all.length}; play to find the rest.`, b.w - 20), b.x + 10, b.y + 18);
+  c.fillText(fitText(c, `Tap a task to practise it. Found ${save.seen.length} of ${all.length}${save.seen.length < all.length ? '; play to find the rest' : ''}.`, b.w - 20), b.x + 10, b.y + 18);
   const ox = b.x + (b.w - cols * cell) / 2;
   all.forEach((d, i) => {
     const x = ox + (i % cols) * cell + cell / 2, y = b.y + 36 + 8 + Math.floor(i / cols) * cell + cell * .36;
