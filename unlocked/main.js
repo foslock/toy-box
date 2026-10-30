@@ -24,6 +24,7 @@ function blank() {
 }
 let S = blank();
 if (!DEMO) try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.got)) S = Object.assign(blank(), s); } catch {}
+if (S.ball === 'carry') S.ball = 'shelf'; // P.carry isn't saved, so a ball in hand goes back on its shelf
 let got = new Set(S.got);
 const returning = got.size > 0;
 const has = id => got.has(id);
@@ -127,7 +128,7 @@ function unlock(id) {
   got.add(id);
   born[id] = T;
   buildRoom();
-  queue.push(id);
+  queue.push([id, got.size]);
   if (id === 'still') S.bird = 'head';
   if (id === 'hat') sayInit();
   if (id === 'deed') { squareSay = 'my ball! thank you!'; squareSayT = T + 4; }
@@ -424,9 +425,9 @@ let bannerBusy = 0;
 function pumpBanners() {
   const now = performance.now() / 1000;
   if (bannerBusy > now || !queue.length) return;
-  const id = queue.shift(), i = INDEX[id], a = ACH[i];
+  const [id, n] = queue.shift(), i = INDEX[id], a = ACH[i];
   const b = document.createElement('div'); b.className = 'banner';
-  b.innerHTML = `<div class="medal"></div><div><div class="kicker">Achievement unlocked · ${got.size}/${ACH.length}</div><div class="title"></div><div class="desc"></div></div>`;
+  b.innerHTML = `<div class="medal"></div><div><div class="kicker">Achievement unlocked · ${n}/${ACH.length}</div><div class="title"></div><div class="desc"></div></div>`;
   const m = b.querySelector('.medal'); m.textContent = i + 1; m.style.background = medalCol(i); if (i % 3 === 1) m.style.color = COL.paper;
   b.querySelector('.title').textContent = a.name;
   b.querySelector('.desc').textContent = a.desc;
@@ -474,7 +475,7 @@ function begin() {
 document.getElementById('start').addEventListener('click', begin);
 document.getElementById('keep').addEventListener('click', () => document.getElementById('end').hidden = true);
 document.getElementById('again').addEventListener('click', wipe);
-if (TOUCH) document.getElementById('keyhelp').innerHTML = 'Use the buttons under the room: <b>◀ ▶</b> move, <b>▲</b> jump, <b>▼</b> duck.';
+if (TOUCH) document.getElementById('keyhelp').innerHTML = 'Use the buttons: <b>◀ ▶</b> move, <b>▲</b> jump, <b>▼</b> duck.';
 if (returning) document.getElementById('start').textContent = `Continue · ${got.size}/${ACH.length}`;
 
 // ---- drawing
