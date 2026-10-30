@@ -1,0 +1,10 @@
+{
+  "title": "Unlocked",
+  "blurb": "One room and 33 achievements, where every one you earn changes the room: a shelf, a spring, a hat, a friend, a door.",
+  "added": "2026-10-30",
+  "category": "games",
+  "tags": ["canvas", "platformer", "achievements", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 50 }
+}

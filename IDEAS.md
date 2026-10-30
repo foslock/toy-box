@@ -63,7 +63,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 55. Last Checkout
 - [ ] 56. Conductor
 - [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
-- [ ] 58. Unlocked
+- [x] 58. Unlocked — [`unlocked/`](unlocked/)
 - [x] 59. Reef — [`reef/`](reef/)
 - [ ] 60. Documentary
 - [x] 61. Midnight Golf — [`midnightgolf/`](midnightgolf/)
@@ -521,8 +521,10 @@ A mischief stealth game where you're the ghost of an old house and a new family 
 
 Several families across a few houses, each with members who react differently (the sceptical teenager, the parent with a torch, the dog who can see you, the toddler who thinks it's all hilarious), and a to-do list of specific scares to discover, in the spirit of Untitled Goose Game. Funny, never gory. Style: a top-down cutaway of the house in a soft storybook style, candlelight, a mischievous harpsichord score and lots of little sound effects.
 
-## 58. Unlocked
+## 58. Unlocked ✅
 *Borrows: Achievement Unlocked (flash) · Twist: every achievement changes the world, and later ones need earlier ones*
+
+**Built 2026-10-30 as [`unlocked/`](unlocked/).**
 
 A single-screen game with 100 achievements, like the old flash game Achievement Unlocked. You're a small creature on one screen of platforms, and every achievement (jump ten times, touch every wall, stand still for 30 seconds, die in a silly way, find the secret) pops a satisfying banner and permanently changes the screen: a new platform appears, you get a hat that lets you bounce, gravity flips, the screen shrinks, a new character turns up who wants something. Some achievements only become possible because of earlier ones, and some are about undoing them.
 

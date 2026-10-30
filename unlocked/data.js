@@ -1,0 +1,40 @@
+// The 33 achievements, in list order. `hint` shows when you tap a locked one;
+// `desc` is the joke on the banner and in the list once it's yours.
+
+export const ACH = [
+  { id: 'hello',      name: 'Hello',          hint: 'Go on. Either way.',                        desc: 'You moved. The room noticed.' },
+  { id: 'up',         name: 'Up',             hint: 'Defy something.',                           desc: 'Gravity 0, you 1.' },
+  { id: 'duck',       name: 'Duck',           hint: 'The opposite of up.',                       desc: 'Low profile achieved.' },
+  { id: 'highground', name: 'High Ground',    hint: 'The top shelf on the right.',               desc: 'It’s over. You have it.' },
+  { id: 'boing',      name: 'Boing',          hint: 'Yellow and coiled.',                        desc: 'Spring has sprung.' },
+  { id: 'headbutt',   name: 'Headbutt',       hint: 'The ceiling looks soft.',                   desc: 'It was not soft.' },
+  { id: 'longway',    name: 'Long Way Down',  hint: 'What goes up…',                        desc: '…must come down. Confirmed.' },
+  { id: 'shard',      name: 'Shiny',          hint: 'Triangles are worth having.',               desc: 'One down.' },
+  { id: 'fullset',    name: 'Full Set',       hint: 'All the triangles.',                        desc: 'Five of five. Something clicked open.' },
+  { id: 'walls',      name: 'Wall to Wall',   hint: 'Shake hands with both sides.',              desc: 'Left wall, meet right wall.' },
+  { id: 'ouch',       name: 'Ouch',           hint: 'Red and pointy. Touch it.',                 desc: 'The colour was a warning.' },
+  { id: 'topsy',      name: 'Topsy-Turvy',    hint: 'Duck on the arrow.',                       desc: 'The ceiling is a floor now.' },
+  { id: 'hat',        name: 'Hat Trick',      hint: 'Something is stuck to the ceiling.',        desc: 'Party hat: you can jump twice.' },
+  { id: 'rightway',   name: 'Right Way Up',   hint: 'There\u2019s an arrow up there too.',                            desc: 'Blood returns to your feet.' },
+  { id: 'double',     name: 'Double Jump',    hint: 'Jump. Then jump again, in the air.',        desc: 'Two jumps, one hat.' },
+  { id: 'dressed',    name: 'Dressed for It', hint: 'Go out in style.',                          desc: 'At least you looked festive.' },
+  { id: 'hatless',    name: 'Hat Stand',      hint: 'Hang it up for a bit.',                     desc: 'Walk past again to take it back.' },
+  { id: 'still',      name: 'Still Life',     hint: 'Do absolutely nothing for ten seconds.',    desc: 'A bird thought you were furniture.' },
+  { id: 'shoo',       name: 'Shoo',           hint: 'Your passenger needs to leave.',            desc: 'The bird has other plans.' },
+  { id: 'deed',       name: 'Good Deed',      hint: 'Square lost something up high.',            desc: 'Square is thrilled. A door opens.' },
+  { id: 'door',       name: 'Out the Door',   hint: 'Leave. Briefly.',                           desc: 'The room is round, apparently.' },
+  { id: 'lightsout',  name: 'Lights Out',     hint: 'Pull the cord.',                            desc: 'Who turned out the lights? You did.' },
+  { id: 'lightson',   name: 'Lights On',      hint: 'Pull it again.',                            desc: 'Ah. That’s better.' },
+  { id: 'glow',       name: 'Glow',           hint: 'Some things only shine in the dark.',       desc: 'Found the star nobody could see.' },
+  { id: 'drop',       name: 'Drop',           hint: 'Thin floors are only floors from above.',   desc: 'Straight through.' },
+  { id: 'sprint',     name: 'Sprint',         hint: 'Wall to wall, quickly.',                    desc: 'Under four seconds, door to door.' },
+  { id: 'mash',       name: 'Button Masher',  hint: 'Jump jump jump jump jump…',            desc: 'Ten in two seconds. Easy, tiger.' },
+  { id: 'flyer',      name: 'Frequent Flyer', hint: 'Jump fifty times.',                         desc: 'Fifty jumps. Your knees disagree.' },
+  { id: 'setbacks',   name: 'Setbacks',       hint: 'Die five times. It builds character.',      desc: 'Character: built.' },
+  { id: 'lookup',     name: 'Look It Up',     hint: 'You just did it.',                          desc: 'Reading the hints counts. Everything counts.' },
+  { id: 'back',       name: 'Welcome Back',   hint: 'Close the page. Come back later.',          desc: 'You came back! It remembered.' },
+  { id: 'stroll',     name: 'Stroll',         hint: 'Walk 400 metres. No rush.',                 desc: '400 metres, all in one room.' },
+  { id: 'unlocked',   name: 'Unlocked',       hint: 'Everything else first.',                    desc: 'Every last one. The poster is finished.' },
+];
+
+export const INDEX = Object.fromEntries(ACH.map((a, i) => [a.id, i]));
