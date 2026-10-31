@@ -548,7 +548,9 @@ function drawHud() {
     text(c, name, h.x, y, p, AMBER, { dim: DIM }); y += 9 * p;
     const p2 = Math.min(2, fitPitch(sub, h.w, 2)); text(c, sub, h.x, y, p2, '#c88a3a'); y += 10 * p2;
     Lo.cap.y = y + 14;
-    drawScore(h.x, Lo.gy + Lo.gh - 60, h.w, false);
+    // the score sits under the soundcheck caption when that runs long on short screens
+    const cap = capBox(), sy = Lo.gy + Lo.gh - 60;
+    drawScore(h.x, cap ? Math.min(VH - sa.b - 58, Math.max(sy, cap.y + cap.h + 12)) : sy, h.w, false);
   } else {
     const room = h.w - 92;
     const p = Math.min(2.5, fitPitch(name, room, 2.5));
@@ -662,19 +664,24 @@ function drawRack() {
   }
 }
 
-function drawCaption() {
+function capBox() {
   const T = S.tut, C = Lo.cap, g = S.g;
-  if (!T || !g.tutorial) return;
+  if (!T || !g.tutorial) return null;
   const inner = C.w - 24, subW = inner - 70, sub = T.sub + (T.progress() ? '  ' + T.progress() : '');
-  // shrink the type until the box fits above the floor
-  const room = Lo.side ? VH - C.y - 20 : Lo.gy - Lo.ts * .35 - 8 - (Lo.hud.y + 40);
+  // shrink the type until the box fits above the floor (or, beside it, above the score)
+  const room = Lo.side ? VH - sa.b - 70 - C.y : Lo.gy - Lo.ts * .35 - 8 - (Lo.hud.y + 40);
   let p = Lo.side ? Math.min(2.5, Math.max(1.5, C.w / 120)) : 2, h = 0;
   for (;;) {
     h = Math.max(blockH(T.msg, p, inner) + 6 * p + blockH(sub, p * .8, subW) + 28, 13 * p + 56);
     if (h <= room || p <= 1) break;
     p -= .25;
   }
-  const y = Lo.side ? C.y : Lo.gy - Lo.ts * .35 - 8 - h;
+  return { p, h, inner, subW, sub, y: Lo.side ? C.y : Lo.gy - Lo.ts * .35 - 8 - h };
+}
+function drawCaption() {
+  const T = S.tut, C = Lo.cap, B = capBox();
+  if (!B) return;
+  const { p, h, inner, subW, sub, y } = B;
   c.fillStyle = 'rgba(20,12,14,.95)'; rr(c, C.x, y, C.w, h, 8); c.fill();
   c.strokeStyle = '#6a3a14'; c.lineWidth = 2; c.stroke();
   let yy = y + 12;

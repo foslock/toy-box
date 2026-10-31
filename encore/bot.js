@@ -53,12 +53,13 @@ export function choose(g, o = {}) {
   const scored = [];
   for (const a of CHOICES) {
     const c = g.clone(); c.resolve(c.next, a);
-    let v;
-    if (c.status !== 'play') v = value(c, tgt, dmap);
-    else {
+    const v1 = value(c, tgt, dmap);
+    let v = v1;
+    if (c.status === 'play') {
       v = -Infinity;
       for (const b of CHOICES) { const c2 = c.clone(); c2.resolve(c2.next, b); v = Math.max(v, value(c2, tgt, dmap) - 40); }
     }
+    v += v1 * .01; // take a pickup or the stairs now rather than a beat later, or it waits forever
     if (a === null) v -= 6; // keep the groove going
     scored.push([a, v]);
     if (v > bv) { bv = v; best = a; }

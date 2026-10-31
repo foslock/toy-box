@@ -27,7 +27,7 @@ export const FOE = {
 };
 
 export const FLOORS = [
-  { name: 'CLOAKROOM', bpm: 100, foes: { snare: 3, shaker: 1 }, relic: 'bass', blocks: 5 },
+  { name: 'CLOAKROOM', bpm: 100, foes: { snare: 2, shaker: 1 }, relic: 'bass', blocks: 5 },
   { name: 'BASEMENT',  bpm: 104, foes: { snare: 3, shaker: 2, tom: 2 }, relic: 'hats', tape: 1, blocks: 6 },
   { name: 'MAIN ROOM', bpm: 108, foes: { snare: 3, shaker: 2, tom: 1, horn: 2 }, relic: 'lead', tape: 1, blocks: 6 },
   { name: 'VIP BOOTH', bpm: 112, foes: { snare: 3, shaker: 3, tom: 2, horn: 2 }, relic: 'choir', tape: 1, blocks: 7 },
