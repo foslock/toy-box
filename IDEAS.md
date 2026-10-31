@@ -32,7 +32,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 24. Try Finger
 - [x] 25. Floodplain — [`floodplain/`](floodplain/)
 - [ ] 26. Still Life
-- [ ] 27. Encore
+- [x] 27. Encore — [`encore/`](encore/)
 - [x] 28. Dam Day — [`damday/`](damday/)
 - [x] 29. Liar's Table — [`liars/`](liars/)
 - [ ] 30. Customs of the Dead
@@ -278,8 +278,10 @@ A Golden Idol-style deduction puzzle set in one frozen moment: a wedding recepti
 
 Make it three or four linked scenes (earlier that day, the frozen reception, the morning after) with about 12 characters, each with a clear motive and a hidden relationship, solvable with care in about an hour. Style: bold, flat colours with thick outlines, characters caught mid-gesture, a jazz-age palette. Everything clickable at phone size.
 
-## 27. Encore
+## 27. Encore ✅
 *Borrows: Crypt of the NecroDancer · Twist: every relic adds an instrument to the song, and each instrument is a power*
+
+**Built 2026-10-31 as [`encore/`](encore/).** Five single-screen floors (9×11 light-up disco floor), four relics (bass shove, hi-hat dash, lead zap, choir halo) on top of the kick, and a four-piece band boss (drums, fuzz bass, guitar, vocals) whose parts drop out of the song as each one falls. Snarelings, shakers, toms and horns each play their own part while they're on the floor. The kick cracks once before the music stops, and a lost part bounces off for nine beats so you can grab it back; demo tapes restore faded ones. An 8-step rack shows which beats each power fires on. Phones tap above, below or beside the dancer. Cut: multi-room floors, more enemy types and unlockable characters. Style: amber LED dot-matrix signs and marquee bulbs over a 1970s glass dance floor, with a hand-built 5×7 dot font for every word.
 
 A rhythm roguelike where you move on the beat through a small dungeon, like Crypt of the NecroDancer, but the music is yours. You start with just a kick drum, and every relic you find adds an instrument to the song: a bassline, hi-hats, a lead synth, a choir. Each instrument gives you a power that fires on that part's rhythm (the bass knocks enemies back, the hats let you dash, the lead shoots), and enemies work the same way: each type moves to one part of the music, so you can read the room by listening. Take a hit and you lose the most recent instrument.
 

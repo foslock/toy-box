@@ -1,0 +1,10 @@
+{
+  "title": "Encore",
+  "blurb": "A rhythm dungeon on a light-up disco floor, where every relic adds a part to the song and every part is a power you lose when you're hit.",
+  "added": "2026-10-31",
+  "category": "games",
+  "tags": ["canvas", "rhythm", "webaudio", "game"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 50 }
+}
