@@ -98,11 +98,14 @@ export function makeSoul(day, r, o = {}) {
       const pool = cfg.faults.filter(f => applicable(f, s));
       const weighted = pool.flatMap(f => (cfg.fresh || []).includes(f) ? [f, f, f] : [f]);
       if (weighted.length) faults.push(pick(r, weighted));
+      for (const f of faults) applyFault(r, s, f);
+      // a second fault only touches papers the first one left on the desk
       if (day >= 8 && r() < .15) {
-        const more = pool.filter(f => !faults.includes(f) && f !== 'missing');
-        if (more.length) faults.push(pick(r, more));
+        const more = cfg.faults.filter(f => !faults.includes(f) && f !== 'missing' && applicable(f, s));
+        if (more.length) applyFault(r, s, pick(r, more));
       }
     }
+    faults = [];
   }
   for (const f of faults) applyFault(r, s, f);
   if (o.cord) applyFault(r, s, 'cord');
@@ -111,8 +114,11 @@ export function makeSoul(day, r, o = {}) {
 }
 
 function applicable(f, s) {
-  if (f === 'nocatform' || f === 'catowner') return s.pet === 'cat';
-  if (f === 'early') return !!s.docs.summons;
+  const d = s.docs;
+  if (f === 'nocatform') return !!d.catform && !s.missing;
+  if (f === 'catowner') return !!d.catform;
+  if (f === 'early') return !!d.summons;
+  if (f === 'died' || f === 'cause' || f === 'seal') return !!d.cert;
   return true;
 }
 

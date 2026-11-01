@@ -474,6 +474,8 @@ function placeCoach() {
   if (big) { top = Math.min(innerHeight - ch - 12, Math.max(12, r.top + 20)); below = null; }
   else if (st.top || r.top > innerHeight * .5) { top = r.top - ch - 16; below = false; }
   else { top = r.bottom + 16; below = true; }
+  // no room above (a short screen): drop below rather than cover the target
+  if (below === false && top < 8 && r.bottom + 16 + ch <= innerHeight - 8) { top = r.bottom + 16; below = true; }
   top = Math.max(8, Math.min(innerHeight - ch - 8, top));
   const left = Math.max(12, Math.min(innerWidth - cw - 12, r.left + r.width / 2 - cw / 2));
   Object.assign(coachEl.style, { left: left + 'px', top: top + 'px' });
