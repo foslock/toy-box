@@ -35,7 +35,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 27. Encore — [`encore/`](encore/)
 - [x] 28. Dam Day — [`damday/`](damday/)
 - [x] 29. Liar's Table — [`liars/`](liars/)
-- [ ] 30. Customs of the Dead
+- [x] 30. Customs of the Dead — [`customs/`](customs/)
 - [ ] 31. Sonar
 - [x] 32. Snowball — [`snowball/`](snowball/)
 - [ ] 33. Invader
@@ -305,8 +305,10 @@ Liar's dice against three strange AI opponents in a smoky back room. Everyone ro
 
 Make the opponents vivid characters with lines and small animations (a lizard in a waistcoat, an old ship's captain, a nervous clown), and a tournament of a few tables with tougher opponents at each. Tension matters more than anything: the slow lift of a cup on a call, the swinging table lamp. Style: a dim, warm three.js scene from your seat at the table, candlelight and smoke. Tap to bid on phones.
 
-## 30. Customs of the Dead
+## 30. Customs of the Dead ✅
 *Borrows: Papers, Please · Twist: you're the border officer at the gate to the afterlife*
+
+**Built 2026-11-01 as [`customs/`](customs/).** Ten days, three stamps (ORCHARD, STAIR, RETURN), and a rule book that grows daily: matching names and dates, photo against the face at the window, causes of death, summons dates, the Mercy Amendment, cat forms, silver cords on the living, a rotating registrar seal. INSPECT draws a red thread between two details that disagree, and the soul confesses. Night ledger pays rent, food, heat, medicine and a candle for the family. Story: Ignacio who keeps coming back, a bribe, El Gallo's red-marigold cousins, Ossa's wife, Abuela Cuca at your window if she dies, and Inspector Huesos's question on day 10, for four endings. Cut: dragging papers freely (they deal onto a grid instead), itineraries and letters as checkable documents, interrogation. Style: Día de Muertos calaveras in chunky pixel art on a constructivist red-and-marigold poster palette, Tiny5 and Silkscreen.
 
 Papers, Please at the gate to the afterlife. You're a customs clerk in a cramped booth between this world and the next, and every day a queue of the newly dead walks up with their paperwork: a death certificate, a record of deeds, an itinerary, sometimes a letter from a relative. Stamp them through to the right destination or send them back, while the regulations change daily ("No souls who died before their appointment," "Cats need a separate form," "Ghosts of the living are not permitted"). Catching discrepancies pays; mistakes are docked from your wages, and your family back on earth depends on those wages, which is somehow worse when you're already dead.
 

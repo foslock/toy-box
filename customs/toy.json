@@ -1,0 +1,10 @@
+{
+  "title": "Customs of the Dead",
+  "blurb": "Papers, please, at the gate of the afterlife: check the newly dead's papers and stamp them up to the Orchard, down the Stair, or back.",
+  "added": "2026-11-01",
+  "category": "games",
+  "tags": ["paperwork", "pixel art", "story", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 40 }
+}
