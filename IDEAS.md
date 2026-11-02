@@ -10,7 +10,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 2. Ten of Me — [`tenofme/`](tenofme/)
 - [x] 3. Moonshot — [`moonshot/`](moonshot/)
 - [x] 4. Please Stay on This Page — [`staypage/`](staypage/)
-- [ ] 5. Grip
+- [x] 5. Grip — [`grip/`](grip/)
 - [x] 6. Horde — [`horde/`](horde/)
 - [ ] 7. Lost Property
 - [x] 8. Gumball Landlord — [`gumball/`](gumball/)
@@ -106,8 +106,10 @@ A Stanley Parable-style narrative game about a very simple web page: a single bu
 
 Aim for around ten endings that each take a few minutes to find, with an ending tracker saved in localStorage that the narrator also knows about ("You've been here before. You pressed the button last time. Why not this time?"). The page's look should change with the path: clean and corporate at first, then peeling back to reveal its own scaffolding, a broken 1998 version of itself, a page that is only a comments section. Funny and a bit melancholy, never mean to the player.
 
-## 5. Grip
+## 5. Grip ✅
 *Borrows: Getting Over It, Jump King · Twist: each thumb is one of the climber's hands*
+
+**Built 2026-11-02 as [`grip/`](grip/).** About 80 holds over 80 m. The climber faces the wall, seen from behind, and there are no foot holds to place. Desktop uses the two mouse buttons (or F and J) as hands: the mouse moves whichever hand is free and pulls only when every held hand is gripping. The lunge keeps its launch speed if you let go up to about 0.3 s after the pull, so a person can time it. A wind gust pushes a falling climber much less than one hanging on. Cut: the swinging rope on the mast (there's one rope, on the cliff) and any foot placement. Style: a screen-printed travel poster (concentric sunset rings, flat sea and paper grain) with a chalk-white climber, and a climbing guidebook page for the menus, with a topo drawing and a dry narrator who signs off as "the guide".
 
 A climbing rage game made for phones first: each of your two thumbs is one of a climber's hands. Hold a thumb down to grip, drag to reach, lift it to let go. The body swings under whichever hand is holding, and if both let go, gravity wins. On desktop, find an equivalent that feels as good (say, two keys for the hands and the mouse to reach). Falling costs you nothing but height, and it's one long continuous climb with no checkpoints, in the Foddian tradition.
 

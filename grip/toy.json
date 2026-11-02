@@ -1,0 +1,10 @@
+{
+  "title": "Grip",
+  "blurb": "Each thumb is one of a climber's hands. One long climb up a sea cliff, a lighthouse and a radio mast in a storm, with no checkpoints.",
+  "added": "2026-11-02",
+  "category": "games",
+  "tags": ["canvas", "climbing", "physics", "game"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 45 }
+}
