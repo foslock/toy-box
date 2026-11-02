@@ -26,7 +26,8 @@ let save = { tut: false, said: {}, muted: false, bestTime: 0, snap: null };
 try { Object.assign(save, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
 function persist() {
   if (DEMO || AUTO) return;
-  save.snap = climb.snapshot();
+  const s = climb.snapshot(), o = save.snap;
+  save.snap = !s.pos && o ? { ...s, a: o.a, b: o.b, stand: o.stand, px: o.px } : s;
   try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {}
 }
 if (!DEMO && !AUTO && save.snap) climb.restore(save.snap);
@@ -908,7 +909,8 @@ function updateCamera(dt) {
   const half = W / 2 / S, lim = Math.max(0, 250 - half);
   const tx = Math.max(-lim, Math.min(lim, P.x * 0.8));
   const fast = climb.airborne && climb.V.y < -400;
-  const ty = Math.max(H / 2 / S - 130, P.y + 50);
+  // on short screens sit the climber lower, so the next holds up stay clear of the altimeter
+  const ty = Math.max(H / 2 / S - 130, P.y + 50, P.y + 260 - (H / 2 - 84) / S);
   const k = 1 - Math.exp(-(fast ? 9 : 4.5) * dt);
   camX += (tx - camX) * k; camY += (ty - camY) * k;
 }

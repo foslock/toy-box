@@ -357,8 +357,18 @@ export class Climb {
   // what to save so a reload puts you back where you were
   snapshot() {
     const gr = this.hands.map(h => h.state === 'grip' && h.hold.t !== 'rope' ? h.hold.id : -1);
+    // hanging on one hand (mid-move): put the other on the nearest hold it could share
+    const one = gr[0] >= 0 ? 0 : gr[1] >= 0 ? 1 : -1;
+    if (one >= 0 && gr[1 - one] < 0) {
+      const A = this.holds[gr[one]]; let near = null, nd = 100;
+      for (const H of this.holds) { if (H === A || H.broken || H.t === 'rope' || H.t === 'top' || H.t === 'crumble') continue; const d = Math.hypot(H.x - A.x, H.y - A.y); if (d < nd) { nd = d; near = H; } }
+      gr[1 - one] = near ? near.id : -1;
+      if (!near) gr[one] = -1;
+    }
+    const stand = this.stand ? this.ledges.indexOf(this.stand) : -1;
+    // falling or swinging on the rope: no place to put you back, so the last one is kept (pos: false)
     return { best: this.best, falls: this.falls, lost: this.lost, time: this.climbTime, a: gr[0], b: gr[1], summit: this.summit,
-      stand: this.stand ? this.ledges.indexOf(this.stand) : -1, px: this.P.x };
+      stand, px: this.P.x, pos: (gr[0] >= 0 && gr[1] >= 0) || stand >= 0 };
   }
   restore(s) {
     if (!s) return;

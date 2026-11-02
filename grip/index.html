@@ -87,6 +87,8 @@
   .link.sure { color: var(--rust); }
   .foot { margin-top: 14px; font-size: 13px; color: var(--mute); font-style: italic; }
   .summit h1 { font-size: 64px; }
+  /* keep the guidebook clear of the Home button when it reaches the top-left corner */
+  @media (max-width: 620px), (max-height: 520px) { .book { margin-top: 64px; } }
   @media (max-width: 480px) {
     .book { padding: 18px 18px 20px; }
     .head h1 { font-size: 64px; }
