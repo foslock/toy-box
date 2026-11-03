@@ -38,7 +38,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 30. Customs of the Dead — [`customs/`](customs/)
 - [ ] 31. Sonar
 - [x] 32. Snowball — [`snowball/`](snowball/)
-- [ ] 33. Invader
+- [x] 33. Invader — [`invader/`](invader/)
 - [ ] 34. Night Bus
 - [x] 35. Starter — [`starter/`](starter/)
 - [x] 36. Pinball Over It — [`overit/`](overit/)
@@ -336,7 +336,7 @@ A Katamari Damacy game where you're a snowball rolling down a mountain. You star
 
 The mountain has routes to choose between: forests full of small stuff, a cliff drop with a jump, a busy piste, an ice field where you can't steer. The snowball's handling changes as it grows, heavier and wider in the turns. About ten mountains with size targets, and a tally at the end of everything you picked up. Style: bright, cartoony three.js, the snowball lumpy with things sticking out of it, a chase camera behind, and a frantic, cheerful soundtrack that builds. Drag or tilt to steer on phones.
 
-## 33. Invader
+## 33. Invader ✅
 *Borrows: Elden Ring invasions, Hidden in Plain Sight · Twist: you're disguised as one of the enemies, and the host is watching for whoever acts wrong*
 
 You're an invader in another player's world, disguised as one of the dozens of shambling soldiers who patrol it. The host (an AI player) is working through the area, killing enemies as they go, and watching for the one that doesn't act like the others: walking slightly off its route, standing still too long, turning to look at them. Your goal is to get close enough to backstab the host without being spotted. If they spot you, it's a straight duel you'll probably lose.

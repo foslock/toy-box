@@ -1,0 +1,10 @@
+{
+  "title": "Invader",
+  "blurb": "Disguised as one of the hollow soldiers in someone else's world, copy the crowd and get behind the host before their eye fills.",
+  "added": "2026-11-03",
+  "category": "games",
+  "tags": ["canvas", "stealth", "linocut", "game"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 45 }
+}

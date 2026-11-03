@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Invader</title>
+<meta name="description" content="A stealth game: disguised as one of the hollow soldiers in someone else's world, copy the crowd and get behind the host before they notice you.">
+<meta name="theme-color" content="#15120f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya:ital,wght@0,400;0,600;1,400;1,500&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #15120f; --bone: #ebe3d0; --bone2: #ddd3bd; --torch: #e8892b; --blood: #c0392b; --mute: #6f665a; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ink); color: var(--ink); overflow: hidden; font: 17px/1.4 'Alegreya', Georgia, serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+    touch-action: none; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .sc { font-family: 'Alegreya SC', Georgia, serif; font-weight: 500; letter-spacing: .06em; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+
+  /* paper, printed with ink; the rough edge comes from an SVG displacement on a backing layer */
+  .print { position: relative; isolation: isolate; }
+  .print::before { content: ''; position: absolute; inset: 0; background: var(--bone); filter: url(#rough); z-index: -1; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hud.off { display: none; }
+  #area { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+    padding: 5px 12px 6px 14px; white-space: nowrap; }
+  #area .n { font-family: 'Uncial Antiqua', serif; font-size: 20px; line-height: 1; }
+  #area .t { display: flex; flex-direction: column; line-height: 1.05; }
+  #area .nm { font-family: 'Alegreya SC'; font-weight: 700; font-size: 16px; letter-spacing: .05em; }
+  #area .hn { font-style: italic; font-size: 13px; color: var(--mute); }
+  #bell { width: 30px; height: 30px; display: grid; place-items: center; border-left: 1.5px solid var(--ink); padding-left: 8px; margin-left: 2px; }
+  #bell svg { width: 24px; height: 24px; transform-origin: 50% 10%; }
+  #bell.warn svg { animation: swing .35s ease-in-out infinite alternate; }
+  #bell.ring svg { animation: swing .5s ease-in-out infinite alternate; }
+  #bell.ring svg path { fill: var(--torch); }
+  @keyframes swing { from { transform: rotate(-22deg); } to { transform: rotate(22deg); } }
+  #pauseB { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: 44px; height: 44px; pointer-events: auto; display: grid; place-items: center; }
+  #pauseB svg { width: 20px; height: 20px; }
+
+  #pad { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; gap: 14px; align-items: flex-end; pointer-events: auto; }
+  .act { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; align-content: center; gap: 0; touch-action: none; }
+  .act::before { border-radius: 50%; }
+  .act .l { font-family: 'Alegreya SC'; font-weight: 700; font-size: 18px; letter-spacing: .05em; line-height: 1; }
+  .act .k { font-size: 12px; font-style: italic; color: var(--mute); margin-top: 3px; }
+  .act.held { transform: scale(.94); }
+  .act.held::before { background: var(--bone2); }
+  #stab { width: 70px; height: 70px; opacity: .35; transition: opacity .15s; }
+  #stab.live { opacity: 1; animation: throb .7s ease-in-out infinite alternate; }
+  #stab.live::before { background: var(--torch); }
+  @keyframes throb { from { transform: scale(1); } to { transform: scale(1.1); } }
+  body.coarse .act .k { display: none; }
+
+  #tut { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 58px); transform: translate(-50%, -8px); width: min(460px, calc(100% - 32px));
+    padding: 10px 16px 12px; box-sizing: border-box; opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; }
+  #tut.in { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  #tut .k { display: flex; justify-content: space-between; align-items: baseline; font-family: 'Alegreya SC'; font-size: 13px; letter-spacing: .1em; color: var(--blood); }
+  #tut .skip { color: var(--mute); text-decoration: underline; text-underline-offset: 3px; padding: 6px 0 6px 12px; margin: -6px 0; font-family: 'Alegreya SC'; letter-spacing: .06em; }
+  #tut p { margin: 3px 0 0; font-size: 18px; line-height: 1.3; }
+  #tut p b { font-family: 'Alegreya SC'; font-weight: 700; letter-spacing: .03em; }
+  #tut .go { display: none; margin-top: 8px; }
+  #tut.ask .go { display: inline-block; }
+
+  #stamp { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%) rotate(-4deg) scale(1.3); opacity: 0; pointer-events: none;
+    font-family: 'Uncial Antiqua', serif; font-size: clamp(34px, 9vw, 64px); color: var(--bone); white-space: nowrap; text-align: center;
+    padding: 6px 22px 10px; border: 4px solid var(--bone); transition: opacity .25s, transform .25s; }
+  #stamp.in { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+  #stamp.red { color: var(--blood); border-color: var(--blood); background: rgba(21, 18, 15, .6); }
+  #stamp.gold { color: var(--torch); border-color: var(--torch); background: rgba(21, 18, 15, .6); }
+
+  /* sheets: title, pause, the end of a try */
+  .page { position: fixed; inset: 0; display: none; place-items: center; background: rgba(21, 18, 15, .6); z-index: 10; overflow-y: auto; touch-action: pan-y; }
+  .page.on { display: grid; }
+  .sheet { width: min(560px, calc(100% - 28px)); margin: 18px 0; padding: 20px 24px 22px; box-sizing: border-box; }
+  .sheet::after { content: ''; position: absolute; inset: 9px; border: 1.5px solid var(--ink); pointer-events: none; }
+  .run { display: flex; justify-content: space-between; font-family: 'Alegreya SC'; font-size: 13px; letter-spacing: .12em; color: var(--mute); border-bottom: 1.5px solid var(--ink); padding: 4px 4px 6px; }
+  h1 { font-family: 'Uncial Antiqua', serif; font-weight: 400; font-size: 66px; line-height: 1; margin: 12px 0 0; letter-spacing: .01em; }
+  h2 { font-family: 'Uncial Antiqua', serif; font-weight: 400; font-size: 42px; line-height: 1.05; margin: 12px 0 0; }
+  .lede { margin: 8px 0 0; font-size: 18px; line-height: 1.38; }
+  #plate { display: block; width: 100%; height: 96px; margin: 10px 0 4px; background: var(--ink); }
+  .areas { list-style: none; margin: 12px 0 0; padding: 0; border-top: 1.5px solid var(--ink); }
+  .areas li { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; padding: 9px 2px; border-bottom: 1px solid rgba(21, 18, 15, .35); }
+  .areas .n { font-family: 'Uncial Antiqua'; font-size: 24px; text-align: center; }
+  .areas .nm { font-family: 'Alegreya SC'; font-weight: 700; font-size: 18px; letter-spacing: .04em; line-height: 1.1; }
+  .areas .sub { font-size: 14.5px; font-style: italic; color: var(--mute); line-height: 1.2; }
+  .areas li.locked { opacity: .5; }
+  .btn { display: inline-block; font-family: 'Alegreya SC'; font-weight: 700; font-size: 16px; letter-spacing: .06em; padding: 8px 16px 9px; position: relative; isolation: isolate; color: var(--bone); }
+  .btn::before { content: ''; position: absolute; inset: 0; background: var(--ink); filter: url(#rough); z-index: -1; }
+  .btn:active { transform: translate(1px, 1px); }
+  .btn.ghost { color: var(--ink); }
+  .btn.ghost::before { background: transparent; border: 2px solid var(--ink); }
+  .btn[disabled] { opacity: .35; pointer-events: none; }
+  .how { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; font-size: 15px; line-height: 1.3; }
+  .how b { font-family: 'Alegreya SC'; font-weight: 700; letter-spacing: .03em; display: block; font-size: 14px; color: var(--blood); }
+  .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1.5px solid var(--ink); font-size: 15px; }
+  .foot button { font-family: 'Alegreya SC'; letter-spacing: .05em; text-decoration: underline; text-underline-offset: 3px; padding: 6px 0; }
+  .why { font-style: italic; font-size: 18px; margin: 8px 0 0; }
+  .stats { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 12px 0 0; font-size: 16px; }
+  .stats dt { font-family: 'Alegreya SC'; letter-spacing: .06em; color: var(--mute); }
+  .stats dd { margin: 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  @media (max-width: 440px) {
+    h1 { font-size: 54px; }
+    .sheet { padding: 16px 18px 18px; }
+    .how { grid-template-columns: 1fr; }
+    .lede { font-size: 17px; }
+  }
+  @media (max-height: 500px) and (orientation: landscape) {
+    #tut { left: auto; right: 74px; transform: translate(0, -8px); width: min(380px, calc(100% - 300px)); top: calc(max(10px, env(safe-area-inset-top)) + 4px); }
+    #tut.in { transform: translate(0, 0); }
+    #tut p { font-size: 16px; }
+    #area { left: 64px; transform: none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="5"/></filter>
+</svg>
+<canvas id="cv"></canvas>
+
+<div id="hud" class="off">
+  <div id="area" class="print">
+    <span class="n" id="aN">I</span>
+    <span class="t"><span class="nm" id="aName">The Graveyard</span><span class="hn" id="aHost">Sir Aldous Venn</span></span>
+    <span id="bell" title="The bell"><svg viewBox="0 0 24 24"><path d="M12 2.5c.8 0 1.3.6 1.3 1.3v.6c3 .7 4.7 3.3 4.7 6.6v4.3l2 2.4v1.1H4v-1.1l2-2.4V11c0-3.3 1.7-5.9 4.7-6.6v-.6c0-.7.5-1.3 1.3-1.3zM9.6 20h4.8a2.4 2.4 0 0 1-4.8 0z" fill="#15120f"/></svg></span>
+  </div>
+  <button id="pauseB" class="print" aria-label="Pause"><svg viewBox="0 0 20 20"><rect x="4" y="3" width="4" height="14" fill="#15120f"/><rect x="12" y="3" width="4" height="14" fill="#15120f"/></svg></button>
+  <div id="tut" class="print"><div class="k"><span id="tutN">Lesson 1 of 5</span><button class="skip" id="tutSkip">skip lessons</button></div><p id="tutP"></p><button class="btn go" id="tutGo">Got it</button></div>
+  <div id="pad">
+    <button id="stab" class="act print" aria-label="Stab"><span class="l" id="stabL">Stab</span><span class="k">F</span></button>
+    <button id="act" class="act print" aria-label="Kneel"><span class="l" id="actL">Kneel</span><span class="k">Space</span></button>
+  </div>
+  <div id="stamp"></div>
+</div>
+
+<div id="title" class="page">
+  <div class="sheet print">
+    <div class="run"><span>A stealth game</span><span>Three areas, three hosts</span></div>
+    <h1>Invader</h1>
+    <p class="lede">Someone is playing through their world, cutting down the hollow soldiers who wander it. You’ve slipped in disguised as one of them. Shuffle with the crowd, do what they do, and get close enough to put a knife in the host’s back.</p>
+    <canvas id="plate"></canvas>
+    <ul class="areas" id="areas"></ul>
+    <div class="how">
+      <div><b>Walk</b><span class="h-walk">Hold a finger where you want to go.</span></div>
+      <div><b>The bell</b><span class="h-bell">When it tolls, everyone stops to kneel, bow or sing. Hold the button with them.</span></div>
+      <div><b>The eye</b>Fills when the host sees you act wrong: off the paths, standing alone, walking straight at them.</div>
+      <div><b>Stab</b><span class="h-stab">From behind, when the button lights up.</span></div>
+    </div>
+    <div class="foot"><button id="lessons">Lessons again</button><button id="sndT">Sound: on</button></div>
+  </div>
+</div>
+
+<div id="pauseP" class="page">
+  <div class="sheet print">
+    <div class="run"><span id="pRun">The Graveyard</span><span>Paused</span></div>
+    <h2>A breath</h2>
+    <p class="lede" id="pHabit"></p>
+    <div class="row"><button class="btn" id="resume">Carry on</button><button class="btn ghost" id="restart">Start the area again</button><button class="btn ghost" id="toAreas">Areas</button></div>
+    <div class="foot"><span></span><button id="sndP">Sound: on</button></div>
+  </div>
+</div>
+
+<div id="endP" class="page">
+  <div class="sheet print">
+    <div class="run"><span id="eRun">The Graveyard</span><span id="eTag">Slain</span></div>
+    <h2 id="eHead">The host is slain</h2>
+    <p class="why" id="eWhy"></p>
+    <dl class="stats" id="eStats"></dl>
+    <div class="row" id="eRow"></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
