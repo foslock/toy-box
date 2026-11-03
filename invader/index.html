@@ -101,6 +101,10 @@
   .stats dt { font-family: 'Alegreya SC'; letter-spacing: .06em; color: var(--mute); }
   .stats dd { margin: 0; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  @media (max-width: 640px) {
+    /* the sheet runs edge to edge here, so start it below the Home button */
+    .sheet { margin-top: 66px; }
+  }
   @media (max-width: 440px) {
     h1 { font-size: 54px; }
     .sheet { padding: 16px 18px 18px; }

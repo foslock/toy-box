@@ -220,6 +220,7 @@ export class Game {
     const p = this.player, h = this.host;
     p.lunge = 0.35;
     h.state = 'dying'; h.dying = 0;
+    this.spare();
     this.outcome = 'win';
     this.emit('stab');
   }
@@ -411,11 +412,15 @@ export class Game {
     return false;
   }
 
+  // whoever the host was winding up on gets up and walks on
+  spare() { for (const n of this.npcs) if (n.state === 'doomed') n.state = 'walk'; }
+
   foundOut(why) {
     const h = this.host, p = this.player;
     this.mode = 'duel';
     this.why = why;
     h.sus = 100; h.state = 'chase'; h.timer = 0.9; h.hp = 3; h.target = null;
+    this.spare();
     p.gest = false;
     this.emit('found');
   }

@@ -36,6 +36,7 @@ function resize() {
   cam.s = m / (m < 600 ? 420 : 540);
   lightCv.width = Math.ceil(W / 4); lightCv.height = Math.ceil(H / 4);
   if (level) bake();
+  if ($('title').classList.contains('on')) drawPlate();
 }
 function bake() {
   let k = Math.min(2, cam.s * dpr);
@@ -72,6 +73,8 @@ const KEYMOVE = { KeyW: [0, -1], ArrowUp: [0, -1], KeyS: [0, 1], ArrowDown: [0, 
 addEventListener('keydown', e => {
   snd.init();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (running) togglePause(); return; }
+  // let Space and Enter press a focused button on the title, pause and end sheets
+  if ((e.code === 'Space' || e.code === 'Enter') && e.target.closest?.('.page')) return;
   if (KEYMOVE[e.code]) { input.keys.add(e.code); input.walkTo = null; e.preventDefault(); }
   if (e.code === 'Space') { input.gestureKey = true; e.preventDefault(); }
   if (e.code === 'KeyF' || e.code === 'KeyE' || e.code === 'Enter') { input.stab = true; e.preventDefault(); }
@@ -312,13 +315,13 @@ function handleEvents() {
       case 'windup': snd.windup(); break;
       case 'slash': snd.slash(); slashes.push({ x: game.host.x, y: game.host.y, a: game.host.face, t: 0 }); break;
       case 'kill': snd.kill(); dust(e.x, e.y, 14); shake = Math.max(shake, 3); break;
-      case 'stab': snd.stab(); dust(game.host.x, game.host.y, 30); shake = 8; stamp('The host is slain', 'gold'); break;
+      case 'stab': snd.stab(); dust(game.host.x, game.host.y, 30); shake = 8; stamp('The host is slain', 'gold'); hideTut(); break;
       case 'found': snd.found(); shake = 6; stamp('Found out', 'red');
         $('actL').textContent = 'Roll'; $('stabL').textContent = 'Strike'; hideTut(); break;
       case 'roll': snd.roll(); break;
       case 'parry': snd.parry(); break;
       case 'hit': snd.hit(); dust(e.x, e.y, 12); shake = 5; break;
-      case 'cut': snd.cut(); shake = 9; stamp('Cut down', 'red'); break;
+      case 'cut': snd.cut(); shake = 9; stamp('Cut down', 'red'); hideTut(); break;
       case 'tell': snd.tell(); break;
     }
   }
@@ -335,6 +338,7 @@ function draw(t, dt) {
   let follow = DEMO || !running ? { x: h.entered ? h.x * 0.6 + p.x * 0.4 : p.x, y: h.entered ? h.y * 0.6 + p.y * 0.4 : p.y } : p;
   // keep yourself clear of the lesson slip
   if (tut && running && H > W) follow = { x: follow.x, y: follow.y - 70 / cam.s };
+  else if (tut && running && H <= 500) follow = { x: follow.x + 110 / cam.s, y: follow.y };
   cam.x += (follow.x - cam.x) * Math.min(1, dt * 4);
   cam.y += (follow.y - cam.y) * Math.min(1, dt * 4);
   const vw = W / cam.s, vh = H / cam.s;
@@ -462,10 +466,13 @@ function draw(t, dt) {
     drawEye(ex, ey, h.sus, Math.atan2(p.y - h.y, p.x - h.x), h.state === 'curious', t, h.state === 'tell' || h.state === 'glance' || h.state === 'bless');
     const tags = g.mode === 'sneak' ? g.reasons : [];
     ctx.font = '700 13px "Alegreya SC", Georgia, serif'; ctx.textAlign = 'center';
+    // keep the reasons on screen and off the buttons when the eye is pinned to an edge
+    const up = ey > H - 160;
     tags.forEach((r, i) => {
-      const txt = r[0], w = ctx.measureText(txt).width + 12, y = ey + 26 + i * 18;
-      ctx.fillStyle = BLOOD; ctx.fillRect(ex - w / 2, y - 11, w, 16);
-      ctx.fillStyle = BONE; ctx.fillText(txt, ex, y + 1);
+      const txt = r[0], w = ctx.measureText(txt).width + 12, y = up ? ey - 30 - i * 18 : ey + 26 + i * 18;
+      const tx = Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, ex));
+      ctx.fillStyle = BLOOD; ctx.fillRect(tx - w / 2, y - 11, w, 16);
+      ctx.fillStyle = BONE; ctx.fillText(txt, tx, y + 1);
     });
   }
   // in a lesson, say what would give you away even when nobody's looking
