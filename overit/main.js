@@ -10,6 +10,7 @@ import { makeBot, botStep } from './bot.js';
 const params = new URLSearchParams(location.search);
 const DEMO = params.has('demo'), DEBUG = params.has('debug'), AUTO = DEBUG && params.has('autoplay');
 const GAP = 90, METRES = 3;  // each table is "3 m" of tower
+const METER = 117;  // DMD columns left of the little tower meter
 const LAST = TABLES.length - 1;
 const KEY = 'overit.v1';
 
@@ -48,9 +49,9 @@ function enterTable(i, how) {
   looks[i] = G.table;
   G.camY = off(i);
   if (how === 'arrive') placeBall(G.table, ARRIVE.x, ARRIVE.y, ARRIVE.vx, 0);
-  else if (how === 'fall') placeBall(G.table, G.table.gate.x, 16, 0, 320);
+  else if (how === 'fall') placeBall(G.table, G.table.gate.x, 16, (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 70), 320);  // never the same line twice, and never straight down the middle
   else if (how === 'park') { placeBall(G.table, ARRIVE.x, ARRIVE.y, 0, 0); G.table.ball.live = false; }
-  save.table = i;
+  if (!G.tut) save.table = i;
   persist();
 }
 
@@ -69,12 +70,26 @@ function layout() {
   if (dx + dw > vw - 8) { dw = vw - 8 - dx; dh = dw / 4; }
   dmdRect = { x: dx, y: safeT, w: dw, h: dh };
   const top = safeT + dh + 8;
-  const s = Math.min(vw / W, (vh - top - safeB) / H);
+  let s = Math.min(vw / W, (vh - top - safeB) / H);
+  const tall = (vh - safeT - safeB) / H, gutter = (vw - W * tall) / 2 - 24;
+  if (landscape && s < 0.75 && gutter >= 150) {
+    // a short, wide screen: the table takes the full height and the sign moves beside it, below the Home button
+    s = tall;
+    const tw = W * s, y = safeT + 52;
+    view = { x: (vw - tw) / 2, y: safeT, s, w: tw, h: H * s };
+    dw = Math.min(560, gutter); dh = dw / 4;
+    dmdRect = { x: 8 + (gutter - dw) / 2, y, w: dw, h: dh };
+    const ch = Math.min(vh - y - dh - 22, gutter * 1.5), cw = ch / 1.5;
+    const rh = Math.min(vh - safeT - safeB, gutter * 1.5), rw = rh / 1.5;
+    sideRects = ch >= 110 ? [{ x: 8 + (gutter - cw) / 2, y: y + dh + 14, w: cw, h: ch }, { x: view.x + tw + 16 + (gutter - rw) / 2, y: safeT, w: rw, h: rh }] : null;
+    statics.clear();
+    return;
+  }
   const tw = W * s, th = H * s;
   view = { x: (vw - tw) / 2, y: top + Math.max(0, (vh - top - safeB - th) / 2), s, w: tw, h: th };
   const room = (vw - tw) / 2 - 24;
   sideRects = room >= 150 ? (() => {
-    const w = Math.min(260, room), h = w * 1.5;
+    const h = Math.min(Math.min(260, room) * 1.5, vh - view.y - 28), w = h / 1.5;
     return [{ x: view.x - 16 - w, y: view.y + 20, w, h }, { x: view.x + tw + 16, y: view.y + 20, w, h }];
   })() : null;
   statics.clear();
@@ -88,7 +103,7 @@ function staticFor(i) {
 // ---- input -----------------------------------------------------------------------------------
 const keys = { l: false, r: false };
 const pointers = new Map();
-let lastInput = 'mouse';
+let lastInput = window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse';
 const held = () => {
   let l = keys.l, r = keys.r;
   for (const p of pointers.values()) { if (p.side < 0) l = true; else if (p.side > 0) r = true; }
@@ -186,13 +201,16 @@ function drawDmd(dt) {
     if (k === 0) {
       dmd.text(`TABLE ${G.ti + 1}`, 2, 2);
       const nm = TABLES[G.ti].name;
-      if (textWidth(nm, 2) <= 124) dmd.center(nm, 14, 2); else dmd.center(nm, 17, 1);
+      const big = textWidth(nm, 2) <= METER ? 2 : 1;
+      dmd.text(nm, Math.floor((METER - textWidth(nm, big)) / 2), big === 2 ? 14 : 17, big);
     } else if (k === 1) {
       dmd.text('HEIGHT', 2, 2); dmd.text(`${ht.toFixed(1)} M`, 2, 12, 2);
-      dmd.text(`BEST ${Math.max(save.best, G.ti) + 1}`, 82, 2);
+      const bs = `BEST ${Math.max(save.best, G.ti) + 1}`;
+      dmd.text(bs, METER - textWidth(bs), 2);
     } else {
       dmd.text('FALLEN', 2, 2); dmd.text(`${save.fallen * METRES} M`, 2, 12, 2);
-      dmd.text(`${save.falls} DRAINS`, 72, 2);
+      const ds = `${save.falls} DRAINS`;
+      dmd.text(ds, METER - textWidth(ds), 2);
     }
     // the tower: ten little floors, the ball on its own floor
     for (let i = 0; i <= LAST; i++) {
@@ -242,7 +260,8 @@ function goUp() {
 }
 function goDown(x) {
   snd.down();
-  save.falls++;
+  queue.length = 0;
+  if (!G.tut) save.falls++;
   if (G.ti === 0) {
     G.trans = { dir: 0, t: 0, dur: 1.1, path: null, cam0: G.camY, cam1: G.camY, to: 0 };
     G.mode = 'trans';
@@ -264,8 +283,8 @@ function finishTrans() {
     if (newBest) save.best = tr.to;
     persist();
     if (G.streak > 0) G.streak = 0;
-    if (G.tut && G.tut.step === 'gate') { tutStep('done'); return; }
-    if (newBest) say(`NEW HEIGHT!  TABLE ${tr.to + 1}: ${TABLES[tr.to].name}.  ${TABLES[tr.to].trick}`, 5, { prio: 2 });
+    if (G.tut) { tutStep('done'); return; }
+    if (newBest) { say(`NEW HEIGHT!  TABLE ${tr.to + 1}: ${TABLES[tr.to].name}`, 2.5, { prio: 2 }); later(TABLES[tr.to].trick, 3.5); }
     else say(`TABLE ${tr.to + 1}: ${TABLES[tr.to].name}`, 2.5, { prio: 1 });
   } else if (tr.dir === -1) {
     save.fallen++;
@@ -278,6 +297,7 @@ function finishTrans() {
     // drained on the ground floor
     snd.ground();
     G.streak = 0;
+    persist();
     placeBall(G.table, ARRIVE.x, ARRIVE.y, ARRIVE.vx, 0);
     G.table.tilted = false; G.table.tiltMeter = 0;
     if (!G.tut) say('GROUND FLOOR. THE BALL COMES BACK.', 2.5, { prio: 1 });
@@ -289,6 +309,7 @@ function win() {
   save.best = LAST;
   const tm = save.time;
   if (!save.bestTime || tm < save.bestTime) save.bestTime = tm;
+  save.table = 0;  // the climb is over: nothing to continue after a reload
   persist();
   snd.win();
   G.mode = 'won';
@@ -299,7 +320,9 @@ function win() {
 // ---- tutorial --------------------------------------------------------------------------------
 // Steps on the ground floor: left, right, catch, nudge, then shoot through the gate.
 function startTutorial() {
-  G.tut = { step: '', t: 0, nudged: false, okL: false, okR: false };
+  // the lesson is on the ground floor, whatever floor the climb is on: back is where to return to
+  G.tut = { step: '', t: 0, nudged: false, okL: false, okR: false, back: G.tut ? G.tut.back : save.table };
+  G.trans = null;
   enterTable(0, 'park');
   G.mode = 'play';
   tutStep('left');
@@ -310,7 +333,14 @@ function tutStep(s) {
   if (s === 'catch') { placeBall(G.table, ARRIVE.x, ARRIVE.y, ARRIVE.vx, 0); tu.cradle = 0; }
   if (s === 'done') {
     G.tut = null;
-    save.tut = true; persist();
+    save.tut = true;
+    if (tu.back > 0) {
+      enterTable(tu.back, 'arrive');
+      say(`BACK TO TABLE ${tu.back + 1}: ${TABLES[tu.back].name}`, 3, { prio: 3 });
+      return;
+    }
+    save.table = G.ti; persist();
+    if (!G.table.ball.live) placeBall(G.table, ARRIVE.x, ARRIVE.y, ARRIVE.vx, 0);
     say('DRAIN HERE AND YOU FALL BACK DOWN A TABLE. NO LIVES. NO CHECKPOINTS.', 5, { prio: 3 });
     later(lastInput === 'touch' ? 'TAP THIS SIGN ANY TIME FOR THE MENU.' : 'ESC OR A CLICK ON THIS SIGN OPENS THE MENU.', 3.5);
     later('GOOD LUCK.', 2);
@@ -353,7 +383,7 @@ function showOverlay(kind) {
   if (kind === 'title') {
     lines = [['PINBALL', 2], ['OVER IT', 2], ['', 1], ['TEN PINBALL TABLES, STACKED. SHOOT THROUGH THE GATE TO CLIMB. DRAIN AND YOU FALL A TABLE.', 1], ['', 1]];
     if (save.table > 0 || save.tut) {
-      if (save.table > 0) items.push({ label: `CONTINUE  ${save.table + 1}/10`, act: () => { closeOverlay(); enterTable(save.table, 'arrive'); G.mode = 'play'; say(`TABLE ${save.table + 1}: ${TABLES[save.table].name}`, 2.5); } });
+      if (save.table > 0) items.push({ label: `RESUME ${save.table + 1}/10`, act: () => { closeOverlay(); enterTable(save.table, 'arrive'); G.mode = 'play'; say(`TABLE ${save.table + 1}: ${TABLES[save.table].name}`, 2.5); } });
       items.push({ label: save.table > 0 ? 'NEW CLIMB' : 'PLAY', act: () => { closeOverlay(); newClimb(); } });
       items.push({ label: 'HOW TO PLAY', act: () => { closeOverlay(); startTutorial(); } });
     } else items.push({ label: 'PLAY', act: () => { closeOverlay(); startTutorial(); } });
@@ -361,8 +391,10 @@ function showOverlay(kind) {
     lines = [['PAUSED', 2], ['', 1], [`TABLE ${G.ti + 1} OF 10`, 1], [`BEST: TABLE ${save.best + 1}`, 1], [`FALLEN: ${save.fallen * METRES} M`, 1], [`TIME: ${fmtTime(save.time)}`, 1], ['', 1]];
     items.push({ label: 'RESUME', act: closeOverlay });
     items.push({ label: () => `SOUND: ${snd.on ? 'ON' : 'OFF'}`, act: () => { snd.on = !snd.on; save.sound = snd.on; persist(); } });
-    items.push({ label: 'HOW TO PLAY', act: () => { closeOverlay(); startTutorial(); } });
-    items.push({ label: () => G.overlay.confirm ? 'SURE? TAP AGAIN' : 'START OVER', act: () => { if (G.overlay.confirm) { closeOverlay(); newClimb(); } else G.overlay.confirm = true; } });
+    items.push(G.tut
+      ? { label: 'SKIP LESSON', act: () => { closeOverlay(); G.trans = null; G.mode = 'play'; tutStep('done'); } }
+      : { label: 'HOW TO PLAY', act: () => { closeOverlay(); startTutorial(); } });
+    items.push({ label: () => G.overlay.confirm ? 'SURE? AGAIN' : 'START OVER', act: () => { if (G.overlay.confirm) { closeOverlay(); newClimb(); } else G.overlay.confirm = true; } });
   } else if (kind === 'won') {
     lines = [['YOU GOT', 2], ['OVER IT', 2], ['', 1], ['THE TOP OF THE TOWER.', 1], [`TIME: ${fmtTime(save.time)}`, 1], [`FALLEN: ${save.fallen * METRES} M`, 1], [`DRAINS: ${save.falls}`, 1], ['', 1]];
     items.push({ label: 'CLIMB AGAIN', act: () => { closeOverlay(); msg = null; newClimb(); } });
@@ -374,7 +406,7 @@ function openMenu() { if (G.mode === 'title' || G.mode === 'won' || DEMO) return
 function newClimb() {
   const keep = { tut: save.tut, sound: save.sound, wins: save.wins, bestTime: save.bestTime };
   save = { ...fresh(), ...keep };
-  G.streak = 0;
+  G.streak = 0; G.tut = null;
   if (!save.tut) { startTutorial(); return; }
   enterTable(0, 'arrive');
   G.mode = 'play';
@@ -425,8 +457,11 @@ function drawOverlay() {
     rowsUsed.push([y, 13]);
     y += 16;
   });
-  const w = Math.min(view.w * 0.92, 440), pitch = w / pane.cols, h = rows * pitch;
-  const x = (vw - w) / 2, top = Math.max(dmdRect.y + dmdRect.h + 8, view.y + (view.h - h) * 0.42);
+  // as wide as the table where that fits, and otherwise as big as the screen allows
+  const w = view.w >= 300 ? Math.min(view.w * 0.92, 440) : Math.min(440, vw * 0.92, (vh - 16) * pane.cols / rows), pitch = w / pane.cols, h = rows * pitch;
+  const x = (vw - w) / 2;
+  let top = Math.max(dmdRect.y + dmdRect.h + 8, view.y + (view.h - h) * 0.42);
+  if (top + h > vh - 8) top = Math.max(8, (vh - h) / 2);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#ff7a1a';
   ctx.fillRect((x - 3) * dpr, (top - 3) * dpr, (w + 6) * dpr, (h + 6) * dpr);
@@ -450,9 +485,9 @@ function drawSides() {
   side.render(ctx, a.x * dpr, a.y * dpr, a.w * dpr, a.h * dpr);
 
   side2.clear();
-  side2.center('THE', 2); side2.center('TOWER', 11);
+  side2.center('THE TOWER', 2);
   for (let i = 0; i <= LAST; i++) {
-    const yy = 88 - i * 6.6;
+    const yy = 91 - i * 8;
     const cur = i === G.ti;
     const v = cur ? 1 : i <= save.best ? 0.55 : 0.18;
     side2.rect(14, Math.round(yy) - 4, 36, 5, v, cur);
@@ -469,6 +504,7 @@ function update(dt) {
   if (G.shake > 0) G.shake -= dt;
   if (G.flash > 0) G.flash -= dt;
   if (G.tutDone > 0) G.tutDone -= dt;
+  if (G.overlay) return;  // the menu pauses everything
   if (G.mode === 'play') {
     const t = G.table;
     if (DEMO || AUTO) botStep(G.bot || (G.bot = makeBot({})), t, dt);
@@ -482,7 +518,7 @@ function update(dt) {
       lastFlip[i] = h;
     }
     step(t);
-    if (!DEMO) save.time += dt;
+    if (!DEMO && !G.tut) save.time += dt;
     for (const e of t.events.splice(0)) handle(e);
     tutUpdate(dt);
   } else if (G.mode === 'trans') {
@@ -512,7 +548,7 @@ function handle(e) {
   }
 }
 
-function render() {
+function render(dt = 1 / 60) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#0c0907';
   ctx.fillRect(0, 0, cv.width, cv.height);
@@ -559,7 +595,7 @@ function render() {
   }
   ctx.restore();
   if (G.tut && G.mode === 'play') drawTutorialCard();
-  drawDmd(1 / 60);
+  drawDmd(dt);
   drawSides();
   drawOverlay();
 }
@@ -618,11 +654,13 @@ function frame(ts) {
     acc += dt;
     while (acc >= STEP) { try { update(STEP); } catch (err) { console.error(err); } acc -= STEP; }
   }
-  try { render(); } catch (err) { console.error(err); }
+  try { render(dt); } catch (err) { console.error(err); }
 }
 
 // ---- boot ---------------------------------------------------------------------------------
 window.addEventListener('resize', layout);
+window.addEventListener('pagehide', persist);
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
 layout();
 if (DEMO) {
   const ti = +(params.get('table') ?? 4);
