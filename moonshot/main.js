@@ -52,7 +52,7 @@ function setScene(s) {
   show('keys', s === 'play' || s === 'school');
   show('coach', s === 'school');
   show('end', false); show('pause', false); show('back', false);
-  paused = false; cpu = null; drag = null;
+  paused = false; cpu = null; drag = null; endTimer = 0;
   $('banner').classList.remove('on'); $('toast').classList.remove('on');
 }
 
@@ -339,8 +339,8 @@ function showEnd() {
   else who = `${TEAMS[w].name} Squadron holds the moons.`;
   $('endWho').textContent = who;
   const lost = voidLost;
-  $('endStats').textContent = `${game.turnNo} chapters · ${lost ? lost + ' lost to the void' : 'nobody lost to the void'}`;
-  if (game.mode === 'cpu') { const r = store.get('record', { w: 0, l: 0 }); if (w === 0) r.w++; else r.l++; store.set('record', r); }
+  $('endStats').textContent = `${game.turnNo} chapter${game.turnNo === 1 ? '' : 's'} · ${lost ? lost + ' lost to the void' : 'nobody lost to the void'}`;
+  if (game.mode === 'cpu') { const r = store.get('record', { w: 0, l: 0 }); if (w === 0) r.w++; else if (w === 1) r.l++; store.set('record', r); }
   show('end', true);
   if (w >= 0) snd.win();
 }

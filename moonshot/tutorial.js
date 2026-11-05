@@ -65,7 +65,7 @@ function steps(s) {
     },
     {
       text: 'The <b>Jetpack</b> aims like a shot, but you are the shell. Pick it and fly over to the green world. (You can still fire after you land.)',
-      retry: 'Not quite. Try again: Flight School has plenty of fuel.',
+      retry: 'Not quite. Aim wide of the green world with plenty of power, and let its pull bring you in. Flight School has plenty of fuel.',
       glow: ['jet'],
       begin() { const q = s.at(C, s.toward(C, A) - 0.4); this.ring = q; g.weapon = 'jet'; },
       mark() { return [{ kind: 'ring', x: this.ring.x, y: this.ring.y, r: 26 }]; },

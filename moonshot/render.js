@@ -377,6 +377,7 @@ export class View {
       const extra = 12 + Math.abs(u.x) * (wtx / 2) / this.s;
       let [nx, ny] = at(44 + b + extra);
       nx = Math.max(wtx / 2 + 6, Math.min(this.w - wtx / 2 - 6, nx));
+      ny = Math.max(this.inset.top + 8, ny);          // stay out from under the squad bars
       c.lineWidth = 3.5; c.strokeStyle = INK; c.strokeText(t.name, nx, ny);
       c.fillStyle = team.color; c.fillText(t.name, nx, ny);
     }

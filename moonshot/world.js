@@ -4,6 +4,7 @@
 export const CELL = 2;                 // world units per terrain cell
 export const TROOP_R = 8;              // astronaut body radius
 export const STRAY_T = 6;              // seconds of flight before a shell counts as "in orbit"
+const JET_T = 20;                      // a jetpack that still hasn't landed by now has run out of air
 const G = 84;                          // surface gravity of an untouched planetoid ≈ G·π ≈ 264 u/s²
 
 export function rng(seed) {
@@ -232,7 +233,7 @@ export function stepProj(world, p, dt, troops, live) {
   }
   p.x = nx; p.y = ny;
   const M = 360;
-  if (p.x < -M || p.y < -M || p.x > world.W + M || p.y > world.H + M) return { ev: 'lost' };
+  if (p.x < -M || p.y < -M || p.x > world.W + M || p.y > world.H + M || (p.kind === 'jet' && p.t > JET_T)) return { ev: 'lost' };
   if (!p.stray && p.t > STRAY_T && p.kind !== 'jet') return { ev: 'stray' };
   return null;
 }

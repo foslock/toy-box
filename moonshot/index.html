@@ -38,10 +38,10 @@
 
   /* ---- chapter card at the start of each turn */
   #banner { position: fixed; z-index: 6; left: 50%; top: calc(max(8px, var(--safe-t)) + 52px); transform: translate(-50%, -8px) rotate(-1.5deg); opacity: 0; transition: opacity .25s, transform .25s;
-    background: var(--cream); color: var(--ink); padding: 4px 16px 6px; text-align: center; pointer-events: none; box-shadow: 4px 4px 0 var(--ink); border: 2px solid var(--ink); max-width: calc(100vw - 40px); box-sizing: border-box; }
+    background: var(--cream); color: var(--ink); padding: 4px 16px 6px; text-align: center; pointer-events: none; box-shadow: 4px 4px 0 var(--ink); border: 2px solid var(--ink); width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box; }
   #banner.on { opacity: 1; transform: translate(-50%, 0) rotate(-1.5deg); }
   #banner .k { font-size: 12px; color: var(--red); letter-spacing: .18em; }
-  #banner .t { font-size: 21px; font-style: italic; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #banner .t { font-size: 21px; font-style: italic; line-height: 1.1; }
   #toast { position: fixed; z-index: 6; left: 50%; bottom: calc(max(8px, var(--safe-b)) + 104px); transform: translateX(-50%); max-width: calc(100vw - 28px); box-sizing: border-box;
     font-style: italic; font-size: 19px; text-align: center; padding: 3px 14px 5px; background: rgba(26, 15, 46, .88); border: 1px solid rgba(247, 234, 208, .4); pointer-events: none; opacity: 0; transition: opacity .3s; }
   #toast.on { opacity: 1; }
@@ -93,6 +93,19 @@
   .btn.ghost { background: transparent; color: var(--cream); border-color: var(--cream); box-shadow: none; font-size: 17px; padding: 4px 14px; }
   #cover .record { font-size: 14px; color: var(--dim); font-style: italic; text-shadow: 0 1px 3px #0b0a2a; }
 
+  /* a phone held sideways: a smaller title and the buttons side by side, or half the menu is off the page */
+  @media (max-height: 560px) {
+    #cover h1 { font-size: clamp(40px, 16vh, 72px); }
+    #cover .titleblock { margin-top: 2px; }
+    #cover .tag { font-size: 16px; margin-top: 6px; }
+    #cover .by { display: none; }
+    #cover .menu { flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: flex-end; gap: 8px 10px; padding-bottom: 12px; }
+    #cover .menu .btn:not(.ghost) { min-width: 0; font-size: 18px; padding: 5px 14px 6px; }
+    #cover .menu .btn.ghost { min-width: 0; font-size: 15px; }
+    #cover .record { align-self: center; }
+  }
+  @media (max-height: 340px) { #cover .tag { display: none; } }
+
   /* ---- back cover (rules), pause menu and THE END: cream pages */
   .page { margin: auto; background: var(--cream); color: var(--ink); width: min(560px, calc(100vw - 28px)); max-height: calc(100% - 20px); overflow: auto; box-sizing: border-box; padding: 18px 22px 20px;
     border: 2px solid var(--ink); box-shadow: 8px 8px 0 rgba(0,0,0,.55); position: relative; touch-action: pan-y; }
@@ -106,6 +119,7 @@
   .page .btn { min-width: 0; font-size: 19px; }
   .page .btn.ghost { color: var(--ink); border-color: var(--ink); }
   .scrim { position: fixed; inset: 0; z-index: 0; background: rgba(11, 10, 42, .55); }
+  @media (max-width: 640px) { #back { padding-top: max(58px, var(--safe-t)); } }   /* the rules fill the page: start them below the Home button */
   #end h2 { font-size: clamp(44px, 12vw, 72px); text-align: center; color: var(--ink); transform: rotate(-3deg); text-shadow: 3px 3px 0 var(--yellow), 5px 5px 0 var(--red); margin: 6px 0 10px; }
   #end .who { text-align: center; font-size: 21px; font-style: italic; }
   #end .stats { text-align: center; font-size: 15px; color: var(--ink2); margin-top: 6px; }

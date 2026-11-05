@@ -177,13 +177,15 @@ export class Game {
         if (e) this.onProj(p, e);
       }
       const active = this.proj.some(p => !p.stray);
-      if (!active && (this.flyT > 1.6 || !this.proj.length)) { this.phase = 'settle'; this.settleT = 0; }
+      if (this.phase === 'fly' && !active && (this.flyT > 1.6 || !this.proj.length)) { this.phase = 'settle'; this.settleT = 0; }
     }
     for (const t of this.troops) if (!t.dead && !t.flying) this.troopPhysics(t, dt);
     // mines go off when someone walks onto them
     for (const wl of w.wells.slice()) for (const t of this.troops) {
       if (!t.dead && !t.flying && Math.hypot(t.x - wl.x, t.y - wl.y) < 13) { this.detonateWell(wl); break; }
     }
+    // a mine or a long fall can end things between shots: hand the turn on rather than waiting on a dead hand
+    if (this.phase === 'aim' && this.mode !== 'tutorial' && (this.cur.dead || !this.alive(0).length || !this.alive(1).length)) { this.phase = 'settle'; this.settleT = 0; }
     if (this.phase === 'settle') {
       this.settleT += dt;
       const still = this.troops.every(t => t.dead || !t.air);
@@ -215,7 +217,8 @@ export class Game {
         t.air = false;
         if (e.speed > FALL_SAFE + 60) this.hurt(t, Math.round((e.speed - FALL_SAFE - 60) * 0.2));
         this.fx.push({ type: 'land', x: t.x, y: t.y });
-        if (!t.dead) { this.phase = 'aim'; this.weapon = this.ammoOf('shell') ? 'shell' : this.weapon; this.fx.push({ type: 'landed', troop: t }); }
+        if (this.mode === 'tutorial') { this.phase = 'aim'; this.jetUsed = false; this.fx.push({ type: 'again' }); }   // wrong moon: the lesson needs the jetpack back
+        else if (!t.dead) { this.phase = 'aim'; this.weapon = this.ammoOf('shell') ? 'shell' : this.weapon; this.fx.push({ type: 'landed', troop: t }); }
         else { this.phase = 'settle'; this.settleT = 0; }
         break;
       }
@@ -243,6 +246,7 @@ export class Game {
     w.carve(x, y, W.R, true);
     this.fx.push({ type: 'boom', x, y, R: W.R, planet: w.planets.reduce((b, q) => Math.hypot(q.x - x, q.y - y) - q.r < Math.hypot(b.x - x, b.y - y) - b.r ? q : b, w.planets[0]) });
     const reach = W.R * 1.7;
+    const kbScale = Math.min(1, Math.sqrt(Math.min(w.W, w.H) / 600));   // small screens get small moons, with less gravity to hold on with
     for (const t of this.troops) {
       if (t.dead || t.flying) continue;
       const dx = t.x - x, dy = t.y - y, d = Math.max(0, Math.hypot(dx, dy) - TROOP_R);
@@ -250,7 +254,7 @@ export class Game {
       const f = 1 - d / reach;
       if (this.mode === 'tutorial' && t.team === 0) { t.air = true; t.vx += (dx / (d + 1)) * 40 * f; t.vy += (dy / (d + 1)) * 40 * f; continue; }
       const dmg = Math.round(W.dmg * (0.25 + 0.75 * f));
-      const m = Math.hypot(dx, dy) || 1, u = w.up(t.x, t.y), kb = W.kb * f;
+      const m = Math.hypot(dx, dy) || 1, u = w.up(t.x, t.y), kb = W.kb * f * kbScale;
       t.vx += (dx / m * 0.75 + u.x * 0.45) * kb; t.vy += (dy / m * 0.75 + u.y * 0.45) * kb;
       t.air = true; t.airT = 0;
       t.x += u.x; t.y += u.y;
@@ -316,11 +320,15 @@ export class Game {
 
   endTurn() {
     if (this.mode !== 'tutorial') {
-      for (const p of this.proj.slice()) if (p.stray && --p.strayTurns <= 0) { this.proj.splice(this.proj.indexOf(p), 1); this.fx.push({ type: 'burnup', x: p.x, y: p.y }); }
-      for (const wl of this.world.wells.slice()) if (this.turnNo > wl.born && --wl.turns <= 0) {
-        this.detonateWell(wl);
-        this.phase = 'settle'; this.settleT = 0;
-        return;
+      if (this.agedTurn !== this.turnNo) {           // once a turn, even if a spent mine sends us back through settle
+        this.agedTurn = this.turnNo;
+        for (const p of this.proj.slice()) if (p.stray && --p.strayTurns <= 0) { this.proj.splice(this.proj.indexOf(p), 1); this.fx.push({ type: 'burnup', x: p.x, y: p.y }); }
+        const spent = this.world.wells.filter(wl => this.turnNo > wl.born && --wl.turns <= 0);
+        if (spent.length) {
+          for (const wl of spent) this.detonateWell(wl);
+          this.phase = 'settle'; this.settleT = 0;
+          return;
+        }
       }
     }
     if (this.mode === 'tutorial') {
