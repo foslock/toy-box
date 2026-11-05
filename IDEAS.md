@@ -43,7 +43,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 35. Starter — [`starter/`](starter/)
 - [x] 36. Pinball Over It — [`overit/`](overit/)
 - [ ] 37. Hotline
-- [ ] 38. Regulars
+- [x] 38. Regulars — [`regulars/`](regulars/)
 - [x] 39. Crossfire — [`crossfire/`](crossfire/)
 - [ ] 40. Dollhouse
 - [x] 41. Shared Deck — [`harrowing/`](harrowing/)
@@ -373,8 +373,10 @@ A co-op game for two people and two screens. One player has the machine: a 1970s
 
 Each session comes from a short seed code that both players type in, so the manual and the machine match with no backend. About eight kinds of module, a few minutes on the clock, and harder levels that add modules and more contradictory memos. Style: the machine in chunky, tactile three.js with satisfying clacks; the manual as typewritten pages with coffee rings, margin scribbles and sticky notes.
 
-## 38. Regulars
+## 38. Regulars ✅
 *Borrows: Papa's Pizzeria, Coffee Talk · Twist: you serve the same six regulars for twenty years, and their orders tell their lives*
+
+**Built 2026-11-05 as [`regulars/`](regulars/).**
 
 A time-management diner game in the spirit of Papa's Pizzeria: take the order, make it (pour, flip, plate, toast, all tactile little steps) and serve it before the customer gets impatient. The twist is that each day is a year, and the diner has the same six regulars for twenty years. Their orders change with their lives: the kid's chocolate milk becomes black coffee before an exam, a couple's two slices of pie become one, then two again plus a high chair, an old man's order gets simpler until one day he stops coming. You learn who they are from what they ask for and the snatches of conversation at the counter.
 

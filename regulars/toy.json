@@ -1,0 +1,10 @@
+{
+  "title": "Regulars",
+  "blurb": "Run a diner counter for twenty years, one day a year, while six regulars' orders quietly tell you how their lives are going.",
+  "added": "2026-11-05",
+  "category": "games",
+  "tags": ["canvas", "time management", "story", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 30 }
+}

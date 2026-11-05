@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Regulars</title>
+<meta name="description" content="A diner game where each day is a year. Serve the same six regulars for twenty years, and learn their lives from what they order.">
+<meta name="theme-color" content="#c9453a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fontdiner+Swanky&family=Jost:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Over+the+Rainbow&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #2a2420; --paper: #f4ead4; --paper2: #fbf6e8; --tomato: #c9453a; --teal: #3c8f88; --must: #d9a53a; --note: #fff0a6; --mute: #6f6456; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--tomato); color: var(--ink); overflow: hidden; font: 17px/1.4 Jost, 'Futura', sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .swank { font-family: 'Fontdiner Swanky', serif; }
+  .hand { font-family: 'Over the Rainbow', cursive; }
+
+  #hud { position: fixed; top: max(5px, env(safe-area-inset-top)); left: 0; right: 0; height: 40px; pointer-events: none; }
+  #hud.off { display: none; }
+  .chip { position: absolute; top: 3px; height: 32px; padding: 0 11px; display: flex; align-items: center; background: var(--paper2); border: 1.5px solid var(--ink); border-radius: 3px 7px 4px 6px; }
+  #yr { left: 50%; transform: translateX(-50%); font-family: 'Fontdiner Swanky', serif; font-size: 22px; gap: 8px; white-space: nowrap; }
+  #yr small { font: 500 12px Jost, sans-serif; color: var(--mute); }
+  #till { right: 56px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #menuB { right: 8px; width: 40px; height: 40px; top: -1px; justify-content: center; padding: 0; pointer-events: auto; }
+  #menuB i { display: block; width: 16px; height: 2px; background: var(--ink); box-shadow: 0 -5px 0 var(--ink), 0 5px 0 var(--ink); }
+  @media (max-width: 400px) { #yr small { display: none; } }
+
+  #cap { position: fixed; display: flex; align-items: baseline; align-content: center; flex-wrap: nowrap; gap: 8px; box-sizing: border-box; padding: 2px 12px; font-size: 16px; line-height: 1.22; pointer-events: none; }
+  #cap b { font-weight: 600; color: var(--tomato); white-space: nowrap; }
+  #cap span { align-self: center; } #cap b { align-self: center; }
+  #cap.nar { font-style: italic; color: #5c5044; }
+  #cap span { opacity: 1; }
+  #cap.new span, #cap.new b { animation: rise .22s ease-out; }
+  @keyframes rise { from { transform: translateY(5px); opacity: 0; } }
+
+  #note { position: fixed; box-sizing: border-box; padding: 9px 14px 11px; background: var(--note); color: #3b3020; font-family: 'Over the Rainbow', cursive; font-size: 21px; line-height: 1.12;
+    transform: rotate(-.7deg); border: 1.3px solid var(--ink); pointer-events: none; opacity: 0; transition: opacity .25s; z-index: 4; }
+  #note.in { opacity: 1; }
+  #note.low { bottom: max(14px, env(safe-area-inset-bottom)) !important; }
+  #note .skip { pointer-events: auto; float: right; font: 500 13px Jost, sans-serif; color: var(--mute); text-decoration: underline; padding: 8px 2px 8px 12px; margin: -6px -4px 0 0; }
+  #note.noskip .skip { display: none; }
+
+  .sheet { position: fixed; inset: 0; display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; z-index: 10; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); box-sizing: border-box; background: rgba(42,36,32,.42); }
+  .sheet.on { display: flex; }
+  @media (max-width: 560px) { .sheet { padding-top: max(60px, calc(env(safe-area-inset-top) + 56px)); } }
+  .page { position: relative; margin: auto; width: min(460px, 100%); box-sizing: border-box; padding: 24px 24px 22px; isolation: isolate; }
+  .page::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--paper2); transform: translate(3px, 3px); }
+  .page::after { content: ''; position: absolute; inset: 0; z-index: -1; border: 1.6px solid var(--ink); border-radius: 2px 5px 3px 6px / 5px 2px 6px 3px; }
+  h1, h2 { font-family: 'Fontdiner Swanky', serif; font-weight: 400; margin: 0; line-height: 1; }
+  h1 { font-size: clamp(50px, 15vw, 70px); line-height: 1.2; color: var(--tomato); text-align: center; margin: 4px 0 6px; }
+  h2 { font-size: 46px; }
+  .sub { text-align: center; color: var(--mute); margin: 0 0 16px; }
+  .lede { margin: 12px 0; }
+  .btns { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+  .btn { position: relative; min-height: 50px; padding: 10px 16px; font-weight: 600; font-size: 18px; text-align: center; isolation: isolate; }
+  .btn::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--must); transform: translate(3px, 3px); }
+  .btn::after { content: ''; position: absolute; inset: 0; z-index: -1; border: 1.6px solid var(--ink); border-radius: 3px 8px 4px 7px / 7px 4px 8px 3px; }
+  .btn.main::before { background: var(--tomato); } .btn.main { color: #fffaf0; }
+  .btn.quiet::before { background: var(--paper); } .btn.quiet { font-weight: 500; }
+  .btn:active { transform: translate(2px, 2px); }
+  .btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1.3px dashed #b9ab92; gap: 12px; }
+  .row:last-child { border: 0; }
+  .sw { min-width: 62px; min-height: 36px; font-weight: 600; border: 1.5px solid var(--ink); border-radius: 3px 7px 4px 6px; background: var(--paper); }
+  .sw[aria-pressed=true] { background: var(--teal); color: #fffaf0; }
+  .bea { background: var(--note); border: 1.3px solid var(--ink); padding: 10px 14px 12px; margin: 14px 0; font-family: 'Over the Rainbow', cursive; font-size: 22px; line-height: 1.14; transform: rotate(-.6deg); }
+  .newi { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 500; }
+  .newi canvas { width: 40px; height: 40px; }
+  .led { width: 100%; border-collapse: collapse; margin: 12px 0 6px; font-variant-numeric: tabular-nums; }
+  .led td { padding: 5px 0; border-bottom: 1.2px solid #b7d6cf; } .led td:last-child { text-align: right; font-weight: 600; }
+  .led tr.t td { border-bottom: 2.4px double var(--tomato); }
+  .over { max-height: 42vh; overflow-y: auto; touch-action: pan-y; margin-top: 8px; font-size: 15.5px; line-height: 1.28; }
+  .over p { margin: 0 0 7px; } .over b { color: var(--tomato); font-weight: 600; } .over i { color: #5c5044; }
+  .lab { font-weight: 600; font-size: 12.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); margin-top: 14px; }
+  .file { display: grid; gap: 2px; } .file .row { padding: 7px 0; font-size: 15.5px; } .file .row b { font-weight: 600; } .file .row span { text-align: right; color: var(--mute); }
+  #choice { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(350px, calc(100% - 36px)); z-index: 8; display: none; }
+  #choice.on { display: block; }
+  #choice .page { width: 100%; padding: 16px 18px 16px; }
+  #choice .btns { flex-direction: row; margin-top: 12px; } #choice .btn { flex: 1; font-size: 16px; }
+  .sign { text-align: right; margin-top: 8px; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud" class="off">
+  <div class="chip" id="yr"></div>
+  <div class="chip" id="till">$0.00</div>
+  <button class="chip" id="menuB" aria-label="Menu"><i></i></button>
+</div>
+<div id="cap"></div>
+<div id="note"></div>
+<div id="choice"><div class="page"><div id="choiceT"></div><div class="btns"><button class="btn quiet" id="chTake">Ring it up</button><button class="btn main" id="chHouse">On the house</button></div></div></div>
+<div class="sheet" id="sheet"><div class="page" id="sheetP"></div></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>
