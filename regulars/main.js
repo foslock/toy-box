@@ -43,11 +43,13 @@ function syncCaption() {
   const name = c.who === 'stranger' ? 'Customer' : NAMES[c.who];
   el.className = c.who ? 'new' : 'nar new'; el.innerHTML = '';
   if (c.who) { const b = document.createElement('b'); b.textContent = name; el.append(b); }
-  const s = document.createElement('span'); s.textContent = c.text; el.append(s);
+  const s = document.createElement('span'); s.textContent = c.text; el.style.fontSize = ''; el.append(s);
+  for (const px of [15, 14, 13]) { if (s.offsetHeight <= el.clientHeight) break; el.style.fontSize = px + 'px'; } // a long line on a small shelf
 }
 
 // ——— starting a day ———
 function startShift(year, { tutorial = false } = {}) {
+  dropChoice();
   const def = yearDef(year); menu = menuFor(year);
   S = new Shift(def, { easy: save.easy, flags: save.flags, seed: (Number(Q.get('seed')) || 0) + year * 7 + 1 });
   view.year = year; view.actors.clear(); view.backdrop = null; ui.sel = null; ui.drag = null; ui.dragTo = null; pours.clear();
@@ -59,7 +61,8 @@ function startShift(year, { tutorial = false } = {}) {
 
 // ——— the interactive first morning ———
 const NOTEFOR = { urn: () => [view.R.urn.levers[0]], toaster: () => [view.R.toaster], griddle: () => [view.R.griddle.bins[0], ...view.R.griddle.slots], fount: () => [view.R.fount], pie: () => [view.R.pie.apple], stool: (i) => [{ x: view.L.sx + i * view.L.sw, y: view.L.scene.y + 12, w: view.L.sw, h: view.L.counterY + view.L.counterH - view.L.scene.y - 12 }] };
-function showNote(text, skip = true, low = false) { const n = $('note'); n.classList.toggle('low', low && view.L.mode === 'tall'); n.innerHTML = (skip ? '<button class="skip" id="skipT">Skip the notes</button>' : '') + ''; n.append(document.createTextNode(text)); n.classList.toggle('noskip', !skip); n.classList.add('in'); if (skip) $('skipT').onclick = endTutorial; }
+let noteTimer = 0;
+function showNote(text, skip = true, low = false, up = false) { clearTimeout(noteTimer); const n = $('note'); n.classList.toggle('low', low && view.L.mode === 'tall'); n.classList.toggle('up', up && view.L.mode !== 'tall'); n.innerHTML = (skip ? '<button class="skip" id="skipT">Skip the notes</button>' : '') + ''; n.append(document.createTextNode(text)); n.classList.toggle('noskip', !skip); n.classList.add('in'); if (skip) $('skipT').onclick = endTutorial; }
 const hideNote = () => $('note').classList.remove('in');
 const arrive = (p) => { S.sit({ kind: 'reg', ...p }, p.seat, p.who.length); };
 
@@ -71,7 +74,7 @@ function beginTutorial() {
 }
 function tutStep(name) {
   tut.name = name; const t = tut;
-  const set = (note, pulse, allow) => { showNote(note, true, name !== 'pie'); view.pulse = pulse; t.allow = allow; };
+  const set = (note, pulse, allow) => { showNote(note, true, name !== 'pie', name === 'clear'); view.pulse = pulse; t.allow = allow; };
   if (name === 'coffee') set(NOTES.coffee, NOTEFOR.urn, h => h.st === 'urn' && h.kind === 'coffee');
   if (name === 'serve') set(NOTES.serve, () => [view.R.urn], h => h.t === 'item' || h.t === 'stool');
   if (name === 'toast') set(NOTES.toast, NOTEFOR.toaster, h => h.t === 'toast' || h.ref?.at === 'toaster' || h.t === 'stool');
@@ -81,7 +84,7 @@ function tutStep(name) {
   if (name === 'fount') { arrive({ who: ['dot', 'danny'], seat: 0, order: ['choc', 'straw'], say: ['dot|Chocolate milk. He wants strawberry, but it’s for his sister.', 'danny|It’s for my sister.'], eat: ['dot|I’m Dot. I’m nine. I will never get tired of this.'] }); set(NOTES.fount, NOTEFOR.fount, h => h.st === 'fount' || (h.t === 'item' && h.ref?.at === 'fount') || h.t === 'stool'); }
   if (name === 'pie') { arrive({ who: ['frank', 'helen'], seat: 3, order: ['apple', 'apple'], say: ['helen|Two slices of apple, please. We’re just married.', 'frank|She tells everybody.'], eat: ['frank|Is it always this quiet?'] }); set(NOTES.pie, NOTEFOR.pie, h => h.ref?.at === 'pie' || h.t === 'stool'); }
   if (name === 'tidy') { set('Clear those places when they go. Then see who’s back.', null, h => h.t === 'stool'); }
-  if (name === 'usual') { arrive({ who: ['gus'], seat: 2, order: ['coffee'], hush: 1, hushFor: 9999, say: [], eat: ['gus|Well. You can be taught.'] }); S.stats.usualChances--; set(NOTES.usual, () => [view.R.urn], h => h.st === 'urn' && h.kind === 'coffee' || h.t === 'item' || h.t === 'stool'); }
+  if (name === 'usual') { arrive({ who: ['gus'], seat: 2, order: ['coffee'], hush: 1, hushFor: 9999, say: [], eat: ['gus|Well. You can be taught.'] }); set(NOTES.usual, () => [view.R.urn], h => h.st === 'urn' && h.kind === 'coffee' || h.t === 'item' || h.t === 'stool'); }
   if (name === 'rush') { endTutorial(true); }
 }
 function tutTick() {
@@ -97,13 +100,13 @@ function tutTick() {
   else if (n === 'fount' && S.stats.served >= 5) tutStep('pie');
   else if (n === 'pie' && S.stats.served >= 7) tutStep('tidy');
   else if (n === 'tidy' && !S.parties.length && !S.stools.some(s => s.dirty) && !S.cap && !S.captions.length) tutStep('usual');
-  else if (n === 'usual' && S.stats.usuals >= 1) { tutStep('rush'); }
+  else if (n === 'usual' && S.stats.served >= 8) { tutStep('rush'); }
 }
 function endTutorial(natural) {
   if (!tut) return; tut = null; view.pulse = null;
   S.noClock = false; S.noPatience = false;
   if (natural !== true) { for (const p of [...S.parties]) { S.walkOut(p); S.stats.walked--; } for (let i = 0; i < STOOLS; i++) S.stools[i].dirty = null; S.captions.length = 0; S.cap = null; }
-  showNote(NOTES.rush, false); setTimeout(hideNote, 5200);
+  showNote(NOTES.rush, false); noteTimer = setTimeout(hideNote, 5200);
 }
 
 // ——— input ———
@@ -112,7 +115,7 @@ function act(hit, e) {
   if (!S || paused || (mode !== 'shift' && !lastCup)) return;
   snd.init();
   if (!hit) { ui.sel = null; return; }
-  if (tut && tut.allow && !tut.allow(hit)) return;
+  if (tut && tut.allow && !tut.allow(hit) && hit.t !== 'bin' && hit.ref?.at !== 'pass') return; // a stray plate can always be moved or binned
   if (lastCup && !(hit.st === 'urn' && hit.kind === 'coffee')) return;
   if (hit.t === 'pour') { if (S.pourStart(hit.st, hit.kind)) { pours.set(e.pointerId, hit.st); snd.pour(true); } return; }
   if (hit.t === 'griddle+') { if (S.griddleAdd(hit.kind) === false) snd.fx('nope'); return; }
@@ -120,7 +123,7 @@ function act(hit, e) {
   if (hit.t === 'toast') { if (S.toast() === false) snd.fx('nope'); return; }
   if (hit.t === 'item') { const it = S.peek(hit.ref); if (!it) return; ui.drag = { ref: hit.ref, kind: it.kind, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false, id: e.pointerId }; return; }
   if (hit.t === 'stool') {
-    if (ui.sel) { const r = S.serveTo(ui.sel, hit.i); if (r !== 'none') ui.sel = null; return; }
+    if (ui.sel) { const r = S.serveTo(ui.sel, hit.i); if (r !== 'none') { ui.sel = null; return; } }
     const s = S.stools[hit.i]; if (s.dirty) S.clear(hit.i); return;
   }
   if (hit.t === 'bin') { if (ui.sel) { S.bin(ui.sel); ui.sel = null; } return; }
@@ -162,13 +165,14 @@ addEventListener('keydown', (e) => {
   const sheet = $('sheet').classList.contains('on');
   if (e.key === 'Escape' && (mode === 'shift')) { sheet ? closePause() : openPause(); return; }
   if (sheet || $('choice').classList.contains('on')) { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { const f = document.activeElement; if (f?.tagName === 'BUTTON') return; const b = document.querySelector('.sheet.on .btn.main, #choice.on .btn.main'); if (b) { e.preventDefault(); b.click(); } } return; }
+  if (mode === 'ending' && ending?.phase === 1 && !e.repeat && e.key.toLowerCase() === 'c' && S.pourStart('urn', 'coffee')) { snd.init(); pours.set('kc', 'urn'); snd.pour(true); return; }
   if (e.repeat || !S || paused || mode !== 'shift') return; snd.init();
   const k = e.key.toLowerCase();
   if (tut && !['c', ' ', 't', 'e', 'b', 'n', 'p', '1', '2', '3', '4', '5'].includes(k)) return;
   if (KEYS[k]) { const [st, kind] = KEYS[k]; if (kind === 'cola' && !menu.includes('cola')) return; if (S.pourStart(st, kind)) { pours.set('k' + k, st); snd.pour(true); } return; }
   if (k === 't') { S.toast(); return; } if (k === 'e') { S.griddleAdd('eggs'); return; } if (k === 'r' && menu.includes('burger')) { S.griddleAdd('burger'); return; }
   if (k === 'p' || k === 'o') { const kind = k === 'p' ? 'apple' : 'cherry'; if (menu.includes(kind)) tapItem({ at: 'pie', kind }); return; }
-  if (k === ' ') { e.preventDefault(); if (S.cap && !S.nextReady()) { S.skipCaption(); return; } const n = S.nextReady(); if (!n) { const i = S.stools.findIndex(s => s.dirty); if (i >= 0) S.clear(i); return; } if ('griddle' in n) S.griddleTap(n.griddle); else tapItem(n); return; }
+  if (k === ' ') { e.preventDefault(); if (S.cap && !S.nextReady()) { S.skipCaption(); return; } const n = S.nextReady(); const idle = n && !('griddle' in n) && !S.target(S.peek(n).kind); if (!n || idle) { const i = S.stools.findIndex(s => s.dirty); if (i >= 0) { S.clear(i); return; } if (!n) return; } if ('griddle' in n) S.griddleTap(n.griddle); else tapItem(n); return; }
   if (k >= '1' && k <= '5') { const i = +k - 1; const n = S.nextReady(); if (ui.sel) { if (S.serveTo(ui.sel, i) !== 'none') ui.sel = null; } else if (S.stools[i].dirty) S.clear(i); else if (n && !('griddle' in n)) S.serveTo(n, i); }
 });
 addEventListener('keyup', (e) => { const id = 'k' + e.key.toLowerCase(); const st = pours.get(id); if (st) { pours.delete(id); if (S) S.pourStop(st); if (!pours.size) snd.pour(false); } });
@@ -182,7 +186,7 @@ function drain() {
     switch (e.type) {
       case 'sit': snd.fx('door', { reg: e.reg }); break;
       case 'serve': { if (e.from) { const [x, y] = view.refCentre(e.from); view.flyItem(e.kind, x, y, sx + ((e.party?.n || 1) - 1) * L.sw / 2, L.counterY + L.counterH * .4); } snd.fx('plate');
-        if (e.party?.reg) save.cards[e.party.who[0]] = e.party.order; break; }
+        if (e.party?.reg && mode === 'shift') save.cards[e.party.who[0]] = e.party.order; break; }
       case 'usual': if (!e.party.usual) { view.float('The usual!', sx + (e.party.n - 1) * L.sw / 2, cy - 30, '#c9453a', true); snd.fx('usual'); } break; // Danny's glass gets no fanfare
       case 'nope': view.float('not that', sx, cy - 8, '#6f6456'); snd.fx('nope'); break;
       case 'clear': if (e.amt) { view.float('+' + money(e.amt), sx + (e.n - 1) * L.sw / 2, cy, '#3c8f88'); } snd.fx(e.reg ? 'till' : 'coin'); $('till').textContent = money(S.stats.takings); break;
@@ -198,6 +202,7 @@ function drain() {
   S.ev.length = 0;
 }
 
+function dropChoice() { $('choice').classList.remove('on'); }
 function ask(choice, seat) {
   if (paused) return; S.hold = true; $('choiceT').textContent = choice.text; $('choice').classList.add('on');
   const done = (house) => { $('choice').classList.remove('on'); S.hold = false; if (house) { const d = S.stools[seat].dirty; if (d) d.onHouse = true; save.flags.comped = (save.flags.comped || 0) + 1; } S.say(house ? '|You wave it off. He looks at the counter a while, and nods once.' : '|He pushes the coins across, one at a time.'); };
@@ -214,7 +219,7 @@ function frame(now) {
 function step(dt, real) {
   if (!S || !view.L) return;
   if (!paused && !DEBUG_HOLD) { for (let i = 0, n = Math.ceil(dt / .05); i < n; i++) { const d = dt / n; S.tick(d); if (bot && !S.hold) bot.tick(d); } }
-  tutTick(); drain(); syncCaption();
+  tutTick(); drain(); syncCaption(); if (ui.sel && !S.peek(ui.sel)) ui.sel = null;
   view.frame(S, menu, ui, real ?? dt);
   if (mode === 'shift' && S.done) endShift();
   if (mode === 'title') { S.captions.length = 0; S.cap = null; S.ev.length = 0; if (S.done) backstage(); }
@@ -233,7 +238,11 @@ function backstage() {
   view.actors.clear(); view.backdrop = null; for (let i = 0; i < 300; i++) { S.tick(.05); bot.tick(.05); } S.ev.length = 0; S.captions.length = 0; S.cap = null;
 }
 function title() {
-  mode = 'title'; $('hud').classList.add('off'); hideNote(); backstage();
+  mode = 'title'; paused = false; $('hud').classList.add('off'); hideNote(); backstage();
+  if (save.ending && !DEMO && !AUTO) { // left during the last scene: it's still three o'clock
+    sheet(`<h1>Regulars</h1><p class="sub">The Sunny Side, 1971</p><div class="btns"><button class="btn main" id="go">Three o’clock</button></div>`);
+    wire('go', () => { hideSheet(); S = null; beginEnding(); }); return;
+  }
   const has = save.year > 1952 && save.year <= 1971;
   const finished = save.year > 1971;
   sheet(`<h1>Regulars</h1><p class="sub">The Sunny Side, 1952 to 1971</p>
@@ -241,7 +250,8 @@ function title() {
     <div class="btns">${has ? `<button class="btn main" id="go">Open up in ${save.year}</button><button class="btn quiet" id="restart">Start again from 1952</button>` : `<button class="btn main" id="restart">${finished ? 'Open up again' : 'Open up'}</button>`}
     <button class="btn quiet" id="easyB">Easy shifts: ${save.easy ? 'on' : 'off'}</button></div>`);
   wire('go', () => dayCard(save.year));
-  wire('restart', () => { const k = { easy: save.easy, sound: save.sound }; save = { ...fresh(), ...k }; persist(); dayCard(1952); });
+  let sure = !has;
+  wire('restart', () => { if (!sure) { sure = true; $('restart').textContent = `Lose ${save.year}? Tap again to start over`; return; } const k = { easy: save.easy, sound: save.sound }; save = { ...fresh(), ...k }; persist(); dayCard(1952); });
   wire('easyB', () => { save.easy = !save.easy; persist(); title(); });
 }
 
@@ -264,7 +274,7 @@ function endShift() {
   mode = 'ledger'; snd.stopMusic();
   const st = S.stats, year = S.year, T = save.totals;
   for (const k of ['takings', 'served', 'walked', 'usuals', 'usualChances', 'cups', 'perfect', 'pours']) T[k] = (T[k] || 0) + st[k];
-  save.year = year + 1; persist();
+  save.year = year + 1; if (year === 1971) save.ending = true; persist();
   if (year === 1971) return beginEnding();
   if (AUTO) { window.__log = window.__log || []; window.__log.push({ year, ...st }); return dayCard(year + 1); }
   const lines = S.overheard.filter(l => l.who !== 'stranger').map(l => l.who ? `<p><b>${NAMES[l.who]}:</b> ${l.text}</p>` : `<p><i>${l.text}</i></p>`).join('');
@@ -289,8 +299,8 @@ function openPause() {
   wire('back', closePause);
   wire('sw1', () => { snd.setOn(!snd.on); save.sound = snd.on; persist(); paused = false; openPause(); });
   wire('sw2', () => { save.easy = !save.easy; S.easy = save.easy; persist(); paused = false; openPause(); });
-  wire('redo', () => { const y = S.year; tut = null; view.pulse = null; hideSheet(); dayCard(y); });
-  wire('out', () => { tut = null; view.pulse = null; snd.stopMusic(); S = null; title(); });
+  wire('redo', () => { const y = S.year; tut = null; view.pulse = null; dropChoice(); hideSheet(); dayCard(y); });
+  wire('out', () => { tut = null; view.pulse = null; dropChoice(); snd.stopMusic(); S = null; title(); });
 }
 function closePause() { hideSheet(); paused = false; }
 
@@ -315,7 +325,7 @@ function tickEnding() {
 function endPour() { view.pulse = () => [view.R.urn]; showNote('Hold it till the line. One more.', false); }
 
 function lastPage() {
-  const T = save.totals; snd.stopMusic(2); ending = null; mode = 'done';
+  const T = save.totals; snd.stopMusic(2); ending = null; mode = 'done'; save.ending = false; persist();
   const pct = T.usualChances ? Math.round(T.usuals / T.usualChances * 100) : 0;
   sheet(`<div class="bea" style="transform:rotate(.5deg);margin-top:4px">Danny —<br>Hold it till the line. Don’t get fancy.<br>Regulars won’t tell you what they want. You’ll know.<br>Paint the place if you must. Don’t move the stools.<br>Leave the clock alone.<div class="sign">— Sunny</div></div>
     <table class="led"><tr><td>Years</td><td>20</td></tr><tr><td>Cups of coffee</td><td>${T.cups}</td></tr><tr><td>Plates and cups served</td><td>${T.served}</td></tr><tr><td>Usuals remembered</td><td>${T.usuals} of ${T.usualChances} (${pct}%)</td></tr><tr class="t"><td>Takings</td><td>${money(T.takings)}</td></tr></table>

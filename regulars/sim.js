@@ -63,7 +63,7 @@ export class Shift {
     if (this.t >= def.dur && !this.closed) { this.closed = true; this.emit('closed'); }
     // arrivals
     while (this.plan.length && !this.closed && this.plan[0].at <= this.t && !frozen) { this.door.push(this.plan.shift()); }
-    this.seatDoor();
+    this.seatDoor(dt);
     this.tickStations(dt);
     this.tickParties(dt, frozen);
     this.tickCaptions(dt);
@@ -80,8 +80,12 @@ export class Shift {
     if (!this.cap && this.captions.length) { this.cap = this.captions.shift(); this.capT = 0; this.emit('line', { who: this.cap.who }); }
   }
 
-  freeRun(n, from) { // n adjacent free stools at or nearest `from`
-    const ok = i => { for (let k = 0; k < n; k++) { const s = this.stools[i + k]; if (!s || s.party || s.dirty || s.ghost) return false; } return true; };
+  freeRun(n, from, keep = 0) { // n adjacent free stools at or nearest `from`, leaving `keep` adjacent stools for whoever's due
+    const open = i => { const s = this.stools[i]; return s && !s.party && !s.dirty && !s.ghost; };
+    const ok = i => { for (let k = 0; k < n; k++) if (!open(i + k)) return false;
+      if (!keep) return true;
+      for (let j = 0; j + keep <= STOOLS; j++) { let fits = true; for (let k = j; k < j + keep; k++) if (!open(k) || (k >= i && k < i + n)) fits = false; if (fits) return true; }
+      return false; };
     if (from != null && ok(from)) return from;
     const opts = []; for (let i = 0; i + n <= STOOLS; i++) if (ok(i)) opts.push(i);
     if (!opts.length) return -1;
@@ -90,22 +94,23 @@ export class Shift {
     return opts[0];
   }
 
-  seatDoor() {
-    // regulars first; they will wait at the door. Strangers give up after a few seconds.
+  seatDoor(dt) {
+    // regulars first; they will wait at the door, and nobody takes a stool from under them. Strangers give up after a few seconds.
     this.door.sort((a, b) => (a.kind === 'reg' ? 0 : 1) - (b.kind === 'reg' ? 0 : 1));
     for (let i = 0; i < this.door.length; i++) {
       const p = this.door[i]; const n = p.kind === 'reg' ? p.who.length : (p.pair ? 2 : 1);
-      if (p.kind === 'stranger') { // leave room for a regular who is due
+      let keep = 0;
+      if (p.kind === 'stranger') { // leave room for a regular who is here or due
+        if (this.door.some(q => q.kind === 'reg')) continue;
         const soon = this.plan.find(q => q.kind === 'reg' && q.at - this.t < 7);
-        p.waited = (p.waited || 0) + 1 / 60;
-        if (soon && this.stools.filter(s => !s.party && !s.dirty && !s.ghost).length <= soon.who.length) continue;
+        if (soon) keep = soon.who.length;
       }
-      const seat = this.freeRun(n, p.seat);
+      const seat = this.freeRun(n, p.seat, keep);
       if (seat < 0) continue;
       this.door.splice(i--, 1); this.sit(p, seat, n);
     }
-    for (const p of this.door) if (p.kind === 'stranger') p.gone = (p.gone || 0) + 1 / 60;
-    this.door = this.door.filter(p => !(p.kind === 'stranger' && p.gone > 9));
+    for (const p of this.door) if (p.kind === 'stranger') p.gone = (p.gone || 0) + dt;
+    this.door = this.door.filter(p => !(p.kind === 'stranger' && p.gone > 14));
   }
 
   sit(def, seat, n) {
@@ -139,10 +144,13 @@ export class Shift {
         }
       } else if (p.state === 'eat') {
         p.eatT -= dt;
-        if (p.eatT <= 0 && !(p.talks && (this.captions.length || this.cap))) this.finish(p);
+        p.held = p.eatT <= 0 && !!p.until && this.expected(p.until); // done eating, but staying for someone
+        if (p.eatT <= 0 && !p.held && !(p.talks && (this.captions.length || this.cap))) this.finish(p);
       }
     }
   }
+
+  expected(who) { const has = q => q.who?.includes(who); return (!this.closed && this.plan.some(has)) || this.door.some(has) || this.parties.some(has); }
 
   walkOut(p) {
     p.state = 'gone'; this.parties.splice(this.parties.indexOf(p), 1);
@@ -273,7 +281,7 @@ export class Shift {
     const it = this.peek(ref); if (!it) return 'none';
     const st = this.stools[seat]; const p = st.party;
     if (!p) {
-      if (st.ghost && it.kind === 'coffee' && !st.ghostCup) { this.consume(ref); st.ghostCup = true; this.flags.gusCup = true; this.say('|You set it down at the third stool, and leave it there. Nobody asks who it\u2019s for.'); this.say('|You don’t answer. Ray nods, and leaves a dime beside it.'); this.emit('serve', { seat, kind: it.kind }); return 'served'; }
+      if (st.ghost && it.kind === 'coffee' && !st.ghostCup) { this.consume(ref); st.ghostCup = true; this.flags.gusCup = true; this.say('|You set it down at the third stool, and leave it there. Nobody asks who it\u2019s for.'); if (this.parties.some(q => q.who?.includes('ray'))) this.say('|You don’t answer. Ray nods, and leaves a dime beside it.'); this.emit('serve', { seat, kind: it.kind }); return 'served'; }
       return 'none';
     }
     if (p.state === 'hush') {

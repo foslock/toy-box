@@ -43,6 +43,8 @@
   #note.low { bottom: max(14px, env(safe-area-inset-bottom)) !important; }
   #note .skip { pointer-events: auto; float: right; font: 500 13px Jost, sans-serif; color: var(--mute); text-decoration: underline; padding: 8px 2px 8px 12px; margin: -6px -4px 0 0; }
   #note.noskip .skip { display: none; }
+  #note:not(.in) .skip { pointer-events: none; }
+  #note.up { bottom: auto !important; top: 60px; }
 
   .sheet { position: fixed; inset: 0; display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; z-index: 10; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); box-sizing: border-box; background: rgba(42,36,32,.42); }
   .sheet.on { display: flex; }
@@ -82,6 +84,8 @@
   #choice .page { width: 100%; padding: 16px 18px 16px; }
   #choice .btns { flex-direction: row; margin-top: 12px; } #choice .btn { flex: 1; font-size: 16px; }
   .sign { text-align: right; margin-top: 8px; }
+  @media (max-height: 460px) { h1 { font-size: 38px; margin: 0; } .page { padding: 14px 20px 14px; } .sub { margin-bottom: 4px; } .lede { margin: 6px 0; font-size: 15px; line-height: 1.25; }
+    .sheet .btns { flex-direction: row; flex-wrap: wrap; margin-top: 10px; gap: 8px; } .btn { flex: 1 1 40%; min-height: 42px; padding: 6px 10px; font-size: 16px; } .page { width: min(560px, 100%); } }
 </style>
 </head>
 <body>

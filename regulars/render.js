@@ -183,7 +183,7 @@ export class View {
       const moving = Math.abs(m.tx - m.x) > 3;
       if (a.leaving && !moving) { this.actors.delete(a.p.id); continue; }
       const st = a.p.state; let mood = a.p.mood || 'idle';
-      if (st === 'eat' && Math.sin(this.t * 7 + a.phase) > .45 && !a.p.talks) mood = 'eat';
+      if (st === 'eat' && Math.sin(this.t * 7 + a.phase) > .45 && !a.p.talks && !a.p.held) mood = 'eat';
       if (st === 'hush') mood = 'idle'; if (a.leaving) mood = mood === 'cross' ? 'cross' : 'idle';
       const blink = !a.leaving && ((this.t + a.phase * 3) % 3.7) < .12;
       const key = `${m.key}|${mood}|${m.dir}|${blink ? 1 : 0}`;
@@ -376,7 +376,10 @@ export class View {
     c.drawImage(this.backdrop, sx, y * dpr, sw, (L.counterH + 2) * dpr, L.scene.x, y, L.scene.w, L.counterH + 2);
   }
 
-  float(text, x, y, col = TEAL, big = false) { this.fx.push({ text, x, y, col, t: 0, d: big ? 1.9 : 1.2, font: big ? `25px "Fontdiner Swanky", serif` : '600 16px Jost, sans-serif' }); }
+  float(text, x, y, col = TEAL, big = false) {
+    const font = big ? `25px "Fontdiner Swanky", serif` : '600 16px Jost, sans-serif', S = this.L.scene; this.c.font = font; const hw = this.c.measureText(text).width / 2 + 4; // stay on the wall at the end stools
+    this.fx.push({ text, x: Math.max(S.x + hw, Math.min(S.x + S.w - hw, x)), y, col, t: 0, d: big ? 1.9 : 1.2, font });
+  }
   flyItem(kind, x0, y0, x1, y1) { this.fly.push({ kind, x0, y0, x1, y1, t: 0, d: .24 }); }
 
   drawStreet(S) {
