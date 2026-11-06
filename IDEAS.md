@@ -61,7 +61,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 53. Puddle — [`puddle/`](puddle/)
 - [ ] 54. Cube
 - [ ] 55. Last Checkout
-- [ ] 56. Conductor
+- [x] 56. Conductor — [`conductor/`](conductor/)
 - [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
 - [x] 58. Unlocked — [`unlocked/`](unlocked/)
 - [x] 59. Reef — [`reef/`](reef/)
@@ -513,8 +513,10 @@ A cashier job sim at a small-town supermarket, and the meteor hits in seven days
 
 Seven shifts of about five minutes, a few customers who come back so you can follow their stories, and choices about what you let slide (do you charge them? take the IOU?). The store gets emptier and stranger, and the sky outside gets brighter. Style: fluorescent-lit, slightly grimy realism in three.js from your seat at the till, with the beep of the scanner as the game's heartbeat. Tap or click and drag to handle items.
 
-## 56. Conductor
+## 56. Conductor ✅
 *Borrows: Rhythm Heaven · Twist: you conduct an orchestra with your finger, and it follows you, mistakes and all*
+
+**Built 2026-11-06 as [`conductor/`](conductor/).** Six pieces plus an encore, all out-of-copyright tunes (Yankee Doodle, Blue Danube, Brahms's Lullaby, Bizet's Habanera, Mountain King, Ode to Joy, Can-can), loosely arranged and synthesised live. The band plays each beat when your hand turns a corner and waits for you between beats, so phone audio latency doesn't matter. Pointing (sweep up into the stage, tap, or keys 1–7) answers cues and fixes troubles: dragging strings, a rushing drummer, a sleeping tuba, a rogue soloist. Results come as a review in the local paper. Cut: any way to lose outright (a bad night just gets a worse review), and full scores: each piece is its main theme with a simple arrangement. Style: a Victorian toy theatre, engraved and hand-tinted paper puppets on brass fasteners, with a wood-type playbill for the menus.
 
 A rhythm game where you conduct a small, chaotic orchestra. Draw the beat pattern with your finger or mouse (down-up for two, a triangle for three, a cross for four), and the orchestra plays at the tempo and volume you conduct: big gestures make them loud, small ones soft. Cue each section when it comes in by pointing at it (the brass, the strings, the lone triangle player). The players' personalities make it hard: the drummer rushes, the violins drag, the tuba falls asleep in the slow movements, and the soloist goes rogue.
 

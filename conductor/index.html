@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Conductor</title>
+<meta name="description" content="A toy-theatre rhythm game. Draw the beat with your finger and a small, chaotic orchestra follows your hand, mistakes and all.">
+<meta name="theme-color" content="#1b0e0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gravitas+One&family=Holtwood+One+SC&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Six+Caps&family=Sancreek&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #2b1d14; --paper: #f1e4c6; --paper2: #fbf3e0; --verm: #c33d27; --crim: #7c1f22; --gold: #c79f45; --mute: #6c5844; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #1b0e0b; color: var(--ink); overflow: hidden; font: 18px/1.32 'Old Standard TT', Georgia, serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  .off { display: none !important; }
+  .grain { background-color: var(--paper); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .13 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  /* the playbill */
+  #bill { position: fixed; inset: 0; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; padding: max(14px, env(safe-area-inset-top)) 10px 28px; box-sizing: border-box; z-index: 5; }
+  .sheet { position: relative; max-width: 560px; margin: 44px auto 0; padding: 20px 20px 22px; text-align: center; box-sizing: border-box; box-shadow: 0 2px 0 #0007, 0 14px 40px #000a; border: 1px solid #0003; }
+  .sheet::before { content: ''; position: absolute; inset: 7px; border: 3px double var(--ink); pointer-events: none; }
+  .rule { height: 0; border: 0; border-top: 1.5px solid var(--ink); margin: 9px 34px; }
+  .small { font-size: 14px; letter-spacing: .02em; font-style: italic; }
+  .caps { font-family: 'Six Caps', 'Old Standard TT', serif; font-size: clamp(30px, 9.6vw, 44px); line-height: .98; letter-spacing: .05em; }
+  .slab { font-family: 'Holtwood One SC', serif; font-size: clamp(17px, 5.1vw, 25px); line-height: 1.1; }
+  .tus { font-family: 'Sancreek', serif; color: var(--verm); font-size: clamp(25px, 8vw, 39px); line-height: 1.05; }
+  h1 { font-family: 'Gravitas One', serif; font-weight: 400; font-size: clamp(36px, 11.2vw, 66px); line-height: .96; margin: 2px 0 4px; letter-spacing: -.01em; }
+  #prog { margin: 8px 8px 0; text-align: left; }
+  .row { display: grid; grid-template-columns: 58px 1fr auto; gap: 2px 8px; align-items: center; width: 100%; text-align: left; padding: 9px 4px 10px; border-top: 1px solid #2b1d1466; min-height: 62px; box-sizing: border-box; }
+  .row .n { font-family: 'Gravitas One', serif; font-size: 21px; color: var(--crim); text-align: center; }
+  .row .n.enc { font-size: 12px; }
+  .row b { font-family: 'Holtwood One SC', serif; font-weight: 400; font-size: 16px; line-height: 1.12; display: block; }
+  .row i { font-size: 14px; line-height: 1.15; display: block; color: #4b392a; }
+  .row .bq { min-width: 54px; display: flex; gap: 0; justify-content: flex-end; }
+  .row .bq img { width: 20px; height: 26px; margin-left: -3px; }
+  .row:not(:disabled):hover, .row:not(:disabled):focus-visible { background: #c33d2722; outline: none; }
+  .row:disabled { opacity: .46; cursor: default; }
+  .big { display: inline-block; font-family: 'Holtwood One SC', serif; background: var(--crim); color: #f7e6c0; padding: 11px 18px 12px; font-size: 18px; line-height: 1.1; border: 1.5px solid var(--ink); box-shadow: 2px 3px 0 var(--ink); }
+  .big:active { transform: translate(1px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .plain { font-style: italic; text-decoration: underline; padding: 10px 8px; font-size: 16px; }
+  .foot { font-size: 13.5px; font-style: italic; margin-top: 10px; }
+
+  /* the tip card on the score */
+  #tip { position: fixed; z-index: 3; box-sizing: border-box; padding: 7px 11px 8px; font-size: 16.5px; line-height: 1.2; pointer-events: none; background: var(--paper2); border: 1.3px solid var(--ink); box-shadow: 2px 2px 0 #2b1d1466; transform: rotate(-.35deg); }
+  #tip b { font-family: 'Holtwood One SC', serif; font-weight: 400; font-size: 13.5px; color: var(--crim); display: block; margin-bottom: 1px; letter-spacing: .02em; }
+  #tip .skip { pointer-events: auto; float: right; font-style: italic; text-decoration: underline; font-size: 14px; padding: 6px 2px 6px 12px; margin: -6px -4px 0 0; color: var(--mute); }
+  @media (max-height: 640px) { #tip { font-size: 15px; } }
+
+  /* house controls */
+  #menuB { position: fixed; top: max(6px, env(safe-area-inset-top)); right: 6px; width: 42px; height: 42px; z-index: 2; display: flex; align-items: center; justify-content: center; }
+  #menuB i { display: block; width: 18px; height: 2.2px; background: #efd28a; box-shadow: 0 -6px 0 #efd28a, 0 6px 0 #efd28a; }
+  #pause, #notice { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: #150806cc; padding: 12px; box-sizing: border-box; }
+  #pause .sheet { margin: 0; min-width: 280px; padding: 26px 24px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+
+  /* the morning paper */
+  #notice { touch-action: pan-y; overflow-y: auto; align-items: flex-start; }
+  .paper { max-width: 520px; width: 100%; margin: auto; padding: 14px 18px 16px; box-sizing: border-box; transform: rotate(-.5deg); box-shadow: 0 10px 30px #000b; text-align: left; }
+  .mast { font-family: 'Gravitas One', serif; font-size: clamp(22px, 7.2vw, 33px); text-align: center; line-height: 1; }
+  .date { text-align: center; font-size: 12.5px; font-style: italic; border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); padding: 2px 0 3px; margin: 6px 0 9px; }
+  .head { font-family: 'Holtwood One SC', serif; text-align: center; font-size: clamp(17px, 5vw, 22px); line-height: 1.12; margin-bottom: 7px; }
+  .body { font-size: 16.5px; line-height: 1.27; text-align: justify; hyphens: auto; }
+  .body p { margin: 0 0 7px; text-indent: 1em; }
+  .body p:first-child { text-indent: 0; }
+  .marks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 9px 0 6px; font-size: 12.5px; text-align: center; font-style: italic; }
+  .marks b { display: block; font: 400 20px 'Gravitas One', serif; font-style: normal; }
+  .toss { display: flex; justify-content: center; min-height: 44px; margin: 4px 0; align-items: center; font-style: italic; font-size: 15px; }
+  .toss img { width: 34px; height: 44px; margin: 0 -2px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: center; align-items: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<button id="menuB" class="off" aria-label="Pause"><i></i></button>
+<div id="tip" class="off"></div>
+<div id="pause" class="off"><div class="sheet grain">
+  <div class="tus">An Interval</div>
+  <button class="big" id="pResume">Resume</button>
+  <button class="plain" id="pRestart">Start this piece again</button>
+  <button class="plain" id="pQuit">Back to the programme</button>
+  <button class="plain" id="pSound">Sound: on</button>
+</div></div>
+<div id="notice" class="off"></div>
+<div id="bill"><div class="sheet grain">
+  <div class="small">By Permission of the Worshipful the Mayor</div>
+  <div class="slab">Theatre Royal, Little Wickering</div>
+  <hr class="rule">
+  <div class="small">Owing to the sudden indisposition of Herr Doktor Spohrmann</div>
+  <div class="caps">THE LITTLE WICKERING<br>PHILHARMONIC IS WITHOUT A</div>
+  <h1>Conductor</h1>
+  <div class="small">and the baton will this evening be taken by</div>
+  <div class="tus">A Member of the Public</div>
+  <div class="small" id="billLine">(that is to say, you)</div>
+  <hr class="rule">
+  <div id="start" style="margin:11px 0 12px"></div>
+  <div class="caps" style="font-size:34px">Programme</div>
+  <div id="prog"></div>
+  <hr class="rule">
+  <div class="foot">Doors at Seven. Carriages at Ten. Gentlemen are requested not to whistle.<br>Headphones improve the strings. Nothing improves the tuba.<br>At a desk the mouse is your baton, and the keys 1 to 7 point at the sections.</div>
+</div></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

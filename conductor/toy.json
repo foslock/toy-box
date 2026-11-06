@@ -1,0 +1,10 @@
+{
+  "title": "Conductor",
+  "blurb": "The conductor is indisposed, so draw the beat yourself while a toy-theatre orchestra follows your hand, mistakes and all.",
+  "added": "2026-11-06",
+  "category": "games",
+  "tags": ["canvas", "rhythm", "music", "game"],
+  "tape": "#7c1f22",
+  "capture": { "width": 1200, "height": 900, "wait": 3500, "query": "?demo" },
+  "share": { "y": 28 }
+}
