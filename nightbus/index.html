@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Night Bus</title>
+<meta name="description" content="The last bus home, the same seat, the same stretch of road. If anything has changed, ring the bell and get off. If nothing has, stay on.">
+<meta name="theme-color" content="#0b1310">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tiny5&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  :root { --p0: #0b1310; --p1: #1c3a2e; --p2: #4e7a5a; --p3: #b4c68a; --p4: #efe6b4; --amb: #ffb43a; --red: #d8402c; --red0: #5c1712; --led: #070806; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--p0); color: var(--p4); overflow: hidden; font: 16px/1.35 'Tiny5', monospace;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .off { display: none !important; }
+  #cv { position: fixed; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; cursor: grab; outline: 2px solid #000; box-shadow: 0 0 0 6px var(--p1); }
+  #cv.zoomed { cursor: move; }
+
+  /* dot-matrix LED panels */
+  .led { position: relative; background: var(--led); color: var(--amb); text-shadow: 0 0 6px #ff8a00aa, 0 0 1px var(--amb); overflow: hidden; }
+  .led::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle at 1.5px 1.5px, transparent 0 .9px, var(--led) 1.35px); background-size: 3px 3px; opacity: .62; }
+  .led.red { color: #ff5a3c; text-shadow: 0 0 6px #ff2a00aa; }
+
+  #top { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 60px; right: 56px; height: 40px; display: flex; gap: 8px; align-items: stretch; }
+  #board { flex: 1; display: flex; align-items: center; gap: 12px; padding: 0 10px; font-size: 24px; line-height: 1; white-space: nowrap; border: 2px solid #000; box-shadow: 0 0 0 2px var(--p1); }
+  #board b { font-weight: 400; }
+  #board span { overflow: hidden; text-overflow: clip; }
+  #pips { display: flex; align-items: center; gap: 4px; padding: 0 9px; border: 2px solid #000; box-shadow: 0 0 0 2px var(--p1); }
+  #pips i { width: 7px; height: 16px; background: #2a1a08; }
+  #pips i.on { background: var(--amb); box-shadow: 0 0 6px #ff8a00; }
+  #pips i.home { width: 11px; }
+  @media (max-width: 560px) { #board { font-size: 16px; gap: 8px; padding: 0 8px; } #pips { gap: 3px; padding: 0 6px; } #pips i { width: 5px; height: 12px; } #pips i.home { width: 8px; } }
+  #menuB { position: fixed; top: max(6px, env(safe-area-inset-top)); right: 8px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; z-index: 4; }
+  #menuB i { display: block; width: 18px; height: 3px; background: var(--p3); box-shadow: 0 -6px 0 var(--p3), 0 6px 0 var(--p3); }
+
+  #tabs { position: fixed; display: flex; gap: 6px; }
+  #tabs button { font-family: 'Silkscreen', monospace; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; padding: 0 6px; height: 40px; flex: 1;
+    background: var(--p1); color: var(--p3); border: 2px solid #000; box-shadow: inset 0 -3px 0 #0006; min-width: 0; }
+  #tabs button.on { background: var(--p3); color: var(--p0); }
+  #tabs.col { flex-direction: column; }
+  #tabs.col button { flex: none; height: 50px; }
+  #acts { position: fixed; display: flex; gap: 14px; align-items: center; justify-content: center; }
+  #acts.col { flex-direction: column-reverse; }
+  #doze { font-family: 'Silkscreen', monospace; font-size: 13px; height: 52px; padding: 0 14px; background: var(--p1); color: var(--p3); border: 2px solid #000; box-shadow: inset 0 -3px 0 #0006; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+  #doze small, #bell small { font-family: 'Tiny5'; font-size: 11px; opacity: .55; }
+  #doze:disabled { opacity: .35; cursor: default; }
+  #bell { width: 84px; height: 84px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #a52a1c, #5c1712 70%); border: 3px solid #000; box-shadow: 0 0 0 5px #c9b98a, 0 0 0 7px #000, inset 0 -6px 0 #0005;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-size: 17px; color: #f5c6b6; }
+  #bell:active { transform: translateY(2px); }
+  #bell.lit { background: radial-gradient(circle at 50% 40%, #ff8a66, #e2412b 60%, #8b1e12); color: #fff3e8; box-shadow: 0 0 0 5px #c9b98a, 0 0 0 7px #000, 0 0 30px 6px #ff3a1e88; }
+  #bell:disabled { filter: grayscale(.6) brightness(.6); cursor: default; }
+  @media (hover: none) { #doze small, #bell small { display: none; } }
+
+  /* notices: the card pinned under the view, the title, the menu */
+  #card { position: fixed; z-index: 3; box-sizing: border-box; background: var(--p1); border: 2px solid #000; box-shadow: 0 0 0 2px var(--p2), 0 8px 30px #0009; pointer-events: auto; }
+  #card .hd { font-size: 24px; line-height: 1; padding: 8px 10px 7px; }
+  #card .bd { padding: 10px 12px 4px; font-size: 18px; line-height: 1.3; color: var(--p4); }
+  #card .bd p { margin: 0 0 8px; }
+  #card .bd em { font-style: normal; color: var(--amb); }
+  #card .bd .k { color: var(--p3); }
+  #card .bt { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 2px 10px 10px; }
+  #card.mini .bd { padding-bottom: 8px; }
+  .chk { display: inline-block; margin-right: 14px; color: var(--p2); }
+  .chk.on { color: var(--p3); }
+  .chk.on::before { content: '\25A0 '; color: var(--amb); }
+  .chk::before { content: '\25A1 '; }
+  .btn { font-family: 'Silkscreen', monospace; font-size: 15px; min-height: 44px; padding: 0 16px; background: var(--p4); color: var(--p0); border: 2px solid #000; box-shadow: inset 0 -4px 0 #0003, 0 0 0 2px var(--p0); }
+  .btn.alt { background: var(--p1); color: var(--p3); box-shadow: inset 0 -4px 0 #0004, 0 0 0 2px var(--p2); }
+  .btn:active { transform: translateY(2px); }
+  .btn:focus-visible, #tabs button:focus-visible, #bell:focus-visible, #doze:focus-visible { outline: 2px dashed var(--amb); outline-offset: 3px; }
+
+  .screen { position: fixed; inset: 0; z-index: 5; overflow-y: auto; touch-action: pan-y; background: #0b1310e6; box-sizing: border-box; padding: max(60px, env(safe-area-inset-top)) 14px 30px; }
+  .sheet { max-width: 520px; margin: 0 auto; }
+  .blind { border: 3px solid #000; box-shadow: 0 0 0 3px var(--p2), 0 0 0 6px #000; padding: 14px 16px 12px; display: flex; align-items: center; gap: 18px; }
+  .blind .num { font-size: 72px; line-height: .9; }
+  .blind .dest { font-size: 24px; line-height: 1.15; }
+  .screen h2 { font-family: 'Silkscreen', monospace; font-weight: 400; font-size: 13px; color: var(--p3); letter-spacing: .1em; margin: 22px 0 8px; }
+  .screen p { font-size: 18px; margin: 0 0 10px; }
+  .screen p em { font-style: normal; color: var(--amb); }
+  .menu { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 6px; }
+  .menu .btn { min-height: 52px; font-size: 17px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .menu .btn small { font-family: 'Tiny5'; font-size: 14px; opacity: .7; }
+  .stats { color: var(--p3); font-size: 16px; margin-top: 16px; }
+  .log { list-style: none; padding: 0; margin: 8px 0 0; font-size: 16px; }
+  .log li { padding: 6px 0; border-top: 1px dashed var(--p1); color: var(--p4); }
+  .log li.no { color: var(--p2); }
+  .log li b { font-weight: 400; color: var(--amb); margin-right: 8px; }
+  .fine { font-size: 14px !important; color: var(--p2); }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<header id="top">
+  <div class="led" id="board"><b>N23</b><span id="bText">LARKHILL ROAD</span></div>
+  <div class="led" id="pips"></div>
+</header>
+<button id="menuB" aria-label="Menu"><i></i></button>
+<nav id="tabs">
+  <button data-v="0">Window</button><button data-v="1" class="on">Ahead</button><button data-v="2">Behind</button>
+</nav>
+<div id="acts">
+  <button id="doze" aria-label="Doze to the next stop">Doze<small>Z</small></button>
+  <button id="bell" aria-label="Ring the bell"><span>STOP</span><small>space</small></button>
+</div>
+<div id="card" class="off"><div class="hd led"></div><div class="bd"></div><div class="bt"></div></div>
+
+<section id="title" class="screen">
+  <div class="sheet">
+    <div class="blind led"><div class="num">N23</div><div class="dest">LARKHILL ROAD<br>LAST BUS</div></div>
+    <h2>NIGHT BUS</h2>
+    <p>It's always this bus, this seat, this stretch of road. The same people, the same adverts, the same shops going by in the rain.</p>
+    <p>If <em>anything</em> has changed, ring the bell and get off. If nothing has, stay on. Get eight stops right in a row and you're home. Get one wrong and you're back at the depot.</p>
+    <div class="menu" id="tMenu"></div>
+    <div class="stats" id="tStats"></div>
+    <ul class="log off" id="tLog"></ul>
+    <p class="fine">Best with sound. Swipe or use the arrow keys to look around, double-tap or scroll to look closer.</p>
+  </div>
+</section>
+<section id="pause" class="screen off">
+  <div class="sheet">
+    <div class="blind led"><div class="num">N23</div><div class="dest">PAUSED</div></div>
+    <div class="menu" id="pMenu"></div>
+  </div>
+</section>
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "title": "Night Bus",
+  "blurb": "The last bus home loops the same stretch of road. If anything has changed, ring the bell and get off; get eight stops right to reach home.",
+  "added": "2026-11-07",
+  "category": "games",
+  "tags": ["canvas", "anomalies", "horror-ish", "game"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" },
+  "share": { "y": 40 }
+}

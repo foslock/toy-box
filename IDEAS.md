@@ -39,7 +39,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 31. Sonar
 - [x] 32. Snowball — [`snowball/`](snowball/)
 - [x] 33. Invader — [`invader/`](invader/)
-- [ ] 34. Night Bus
+- [x] 34. Night Bus — [`nightbus/`](nightbus/)
 - [x] 35. Starter — [`starter/`](starter/)
 - [x] 36. Pinball Over It — [`overit/`](overit/)
 - [ ] 37. Hotline
@@ -343,8 +343,10 @@ You're an invader in another player's world, disguised as one of the dozens of s
 
 The soldiers have readable routines (patrol loops, idle animations, a gesture they all make when a bell rings), and blending in means copying them while edging into position. Each level is a different area with a different crowd (a graveyard of the dead, a market of hunched merchants, a cathedral choir) and a host with different habits of suspicion, shown as a subtle eye icon over their head. Style: top-down, moody dark fantasy, with the host's torchlight cutting through the crowd. On phones, tap to walk and hold to copy whatever the crowd is doing.
 
-## 34. Night Bus
+## 34. Night Bus ✅
 *Borrows: The Exit 8 · Twist: it's the last bus home, and you ring the bell when something's wrong*
+
+**Built 2026-11-07 as [`nightbus/`](nightbus/).** A 2D canvas bus in one-point perspective rather than three.js, ordered-dithered down to fluorescent greens with an amber dot-matrix LED and red STOP lights. Three directions to look (window, ahead, behind) plus pinch/double-tap to lean in, 34 anomalies (three of them only appear partway through a ride), 28-second rides with a Doze button to skip a ride you're sure of, and a "show me" after a miss. Cut: the city passing outside the windscreen as anything more than lamps, and the reflection-only-at-a-moment tricks beyond two.
 
 An anomaly-spotting game like The Exit 8, on a night bus. You're riding home on the last bus, in the same seat, and the same stretch of route keeps repeating: the same passengers, the same ads, the same shops sliding past the windows. If nothing is different, stay on and wait for the next stop. If anything has changed (a passenger whose eyes were closed now has them open, an ad with one word altered, a shop sign mirrored, the driver gone, one person too many), ring the bell and get off. Get it right eight times in a row and you reach your stop; one mistake and you're back at the start of the line.
 
