@@ -355,12 +355,12 @@ function buildLog() {
     li.className = seen ? '' : 'no'; li.innerHTML = `<b>${VIEWS[a.view].toUpperCase()}</b>${seen ? a.text : '- - - - - - - -'}`; l.appendChild(li);
   }
 }
-function toTitle() { G.mode = 'title'; hideCard(); $('pause').classList.add('off'); $('title').classList.remove('off'); $('tLog').classList.add('off'); buildTitle(); setView(1, true); unzoom(true); G.t = .42; G.anom = null; G.rang = false; G.kind = 'real'; G.phase = 'ride'; updateHud(); }
+function toTitle() { G.mode = 'title'; G.progress = 0; G.paused = false; hideCard(); $('pause').classList.add('off'); $('title').classList.remove('off'); $('tLog').classList.add('off'); buildTitle(); setView(1, true); unzoom(true); G.t = .42; G.anom = null; G.rang = false; G.kind = 'real'; G.phase = 'ride'; updateHud(); }
 function buildPause() {
   const m = $('pMenu'); m.innerHTML = '';
   menuBtn(m, 'Carry on', '', () => pause(false));
   menuBtn(m, 'Sound', sound.on ? 'on' : 'off', toggleSound, true);
-  if (G.mode === 'ride' && !blocking()) menuBtn(m, 'How it works', '', () => { pause(false); card('HOW IT WORKS', `<p>Every ride should look exactly like the practice ride. <em>Ring the bell</em> (STOP, or Space) if anything has changed, in any direction, and you’ll get off at the next stop. If nothing has changed, stay on, or <em>Doze</em> (Z) to skip ahead.</p><p>Eight right in a row and you’re home. One wrong and it’s back to the depot. Some things only change partway through a ride.</p>`, [{ label: 'Got it', fn: () => { hideCard(); G.mode = G.t >= 1 ? 'card' : 'ride'; } }]); G.mode = 'card'; });
+  if (G.mode === 'ride' && !blocking()) menuBtn(m, 'How it works', '', () => { pause(false); card('HOW IT WORKS', `<p>Every ride should look exactly like the practice ride. <em>Ring the bell</em> (STOP, or Space) if anything has changed, in any direction, and you’ll get off at the next stop. If nothing has changed, stay on, or <em>Doze</em> (Z) to skip ahead.</p><p>Eight right in a row and you’re home. One wrong and it’s back to the depot. Some things only change partway through a ride.</p>`, [{ label: 'Got it', fn: () => { hideCard(); G.mode = 'ride'; } }]); G.mode = 'card'; });
   menuBtn(m, 'Get off and go home', 'back to the title', () => toTitle(), true);
 }
 function pause(on) {
