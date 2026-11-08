@@ -267,7 +267,8 @@ function hint() {
   return 'I think you know. Fill in the WHO? card. Two names.';
 }
 function setPriya(text, flash = true) {
-  const n = $('priya'); n.querySelector('.txt').textContent = text;
+  // the words to type go in the terminal's own face: the handwriting turns BIRD into BI?D and SEAVIEW into SEAJIEW
+  const n = $('priya'); n.querySelector('.txt').innerHTML = esc(text).replace(/\b(BIRD|LIST|BIRTHDAY|ST AGNES|PENHALE|SEAVIEW)\b/g, '<b class="kw">$1</b>');
   if (flash) { n.classList.remove('wr'); void n.offsetWidth; n.classList.add('wr'); }
 }
 const DEFAULT_NOTE = 'Maureen left a note taped to the screen: work out the bird lady, then fill in the WHO? card. Stuck? Ask me for a hint.';
@@ -320,6 +321,7 @@ function fileIt() {
 }
 
 function win() {
+  if ($('end').classList.contains('on')) return;
   S.solved = true; save(); renderStatus(); setPriya(hint(), false);
   showPanel('end');
   const el = $('endOut');
@@ -348,7 +350,7 @@ function win() {
   let t = 300, i = 0;
   sound.bell();
   const step = () => {
-    if (i >= L.length) { $('endBack')?.addEventListener('click', () => { showPanel(null); boot(); }); return; }
+    if (i >= L.length) { $('endBack')?.addEventListener('click', () => { q.value = ''; showPanel(null); boot(); moveCaret(); }); return; }
     const [txt, cls, pause = 0] = L[i++];
     const d = document.createElement('div');
     if (cls === 'raw') d.innerHTML = txt; else { d.className = `ln ${cls}`; d.innerHTML = txt || '&nbsp;'; }
@@ -375,18 +377,23 @@ function placeTut() {
   if (narrow()) { if (el.parentElement !== $('monitor')) $('monitor').appendChild(el); $('priya').style.display = ''; }
   else { if (el.parentElement !== pad) $('priya').before(el); $('priya').style.display = on ? 'none' : ''; }
 }
+// on a phone the note is stuck over the bottom of the screen: let the results scroll up clear of it
+function padOut() {
+  const el = $('tut'), on = narrow() && el.classList.contains('on');
+  out.style.paddingBottom = on ? Math.round(el.getBoundingClientRect().height) + 'px' : '';
+}
 function tutTo(n) {
   S.tut = n; save();
   const el = $('tut');
   document.querySelectorAll('.glow').forEach(g => g.classList.remove('glow'));
-  if (n >= TUT.length) { el.classList.remove('on'); $('priya').style.display = ''; setPriya(DEFAULT_NOTE); return; }
+  if (n >= TUT.length) { el.classList.remove('on'); padOut(); $('priya').style.display = ''; setPriya(DEFAULT_NOTE); return; }
   placeTut();
-  el.querySelector('.txt').innerHTML = esc(TUT[n]()).replace(/\b(UMBRELLA|PIN|WHO\?)/g, '<b>$1</b>') + '<span class="sig"> &mdash; Priya</span>';
+  el.querySelector('.txt').innerHTML = esc(TUT[n]()).replace(/\b(UMBRELLA|PIN|WHO\?)/g, (m, w) => w === 'UMBRELLA' ? `<b class="kw">${w}</b>` : `<b>${w}</b>`) + '<span class="sig"> &mdash; Priya</span>';
   el.querySelector('.step').textContent = `${n + 1} of ${TUT.length}`;
   const skip = $('tutSkip');
   skip.textContent = n === TUT.length - 1 ? 'got it' : 'skip';
   skip.classList.toggle('big', n === TUT.length - 1);
-  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); padOut();
   if (n === 0) { $('qwrap').parentElement.classList.add('glow'); if (!touch) q.focus({ preventScroll: true }); }
   if (n === 3 && narrow()) $('padTab').classList.add('glow');
   if (n === 4) $(narrow() ? 'padTab' : 'bWho').classList.add('glow');
@@ -408,12 +415,13 @@ addEventListener('keydown', ev => {
   }
   if (ev.key === '/' || (ev.key.length === 1 && /[a-z0-9]/i.test(ev.key) && !ev.metaKey && !ev.ctrlKey && !ev.altKey && !document.querySelector('.panel.on'))) {
     if (ev.key === '/') ev.preventDefault();
-    else if (document.activeElement?.closest('#pad')) return;
+    // a pad button keeps focus after a click (a hint, a pin): typing should still reach the prompt
+    if (pad.classList.contains('open')) closePad();
     q.focus(); if (ev.key === '/') return;
   }
 });
 addEventListener('pointerdown', () => sound.start(), { once: true });
-addEventListener('resize', () => { moveCaret(); placeTut(); if (!narrow()) closePad(); });
+addEventListener('resize', () => { moveCaret(); placeTut(); padOut(); if (!narrow()) closePad(); });
 document.fonts?.ready.then(moveCaret);
 
 // ---------- start ----------
