@@ -1,0 +1,10 @@
+{
+  "title": "Lost Property",
+  "blurb": "Search forty years of a seaside lost-property ledger, five entries at a time, to find who kept handing things in on purpose.",
+  "added": "2026-11-08",
+  "category": "games",
+  "tags": ["mystery", "search", "story", "game"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 35 }
+}

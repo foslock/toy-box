@@ -12,7 +12,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 4. Please Stay on This Page — [`staypage/`](staypage/)
 - [x] 5. Grip — [`grip/`](grip/)
 - [x] 6. Horde — [`horde/`](horde/)
-- [ ] 7. Lost Property
+- [x] 7. Lost Property — [`lostproperty/`](lostproperty/)
 - [x] 8. Gumball Landlord — [`gumball/`](gumball/)
 - [ ] 9. Mirror Knight
 - [x] 10. Draw Ahead — [`drawahead/`](drawahead/)
@@ -124,8 +124,10 @@ A reverse Vampire Survivors. A single hero stands in a field auto-attacking with
 
 Between rounds you unlock monster types with different jobs: cheap swarmers, tanky brutes, things that explode, bats that dodge, a healer, a shield-bearer. Each round's hero is a different character with a build path you can learn to counter. Hundreds of enemies on screen at once should stay smooth. Style: crisp, gothic, top-down 16-bit fantasy with the genre's satisfying damage numbers and gem pops. A round lasts five minutes.
 
-## 7. Lost Property
+## 7. Lost Property ✅
 *Borrows: Her Story · Twist: the database is a lost-property ledger*
+
+**Built 2026-11-08 as [`lostproperty/`](lostproperty/).**
 
 A Her Story-style mystery told entirely through a search box. You're the new clerk at a seaside town's lost-property office, and you've inherited the old terminal: about 250 ledger entries spanning 40 years (the item, where it was found, who handed it in, who collected it, and a clerk's note). Type any word and you see only the first five matching entries, in date order. Hidden across the entries is a story (someone kept losing things on purpose, and the clerks noticed), and you piece it together by following names, places and odd items from one search to the next.
 

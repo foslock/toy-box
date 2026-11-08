@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Lost Property</title>
+<meta name="description" content="Forty years of a seaside lost-property ledger, one search at a time. Somebody kept handing things in on purpose, and the clerks noticed.">
+<meta name="theme-color" content="#1c140e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Reenie+Beanie&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ph: #7dffa0; --ph2: #48d873; --dim: #2f8f4f; --faint: #1b5a31; --bg0: #04100a; --bg1: #0b2013;
+    --glow: 0 0 1px rgba(170,255,190,.9), 0 0 6px rgba(70,255,120,.45), 0 0 16px rgba(40,220,90,.18);
+    --note: #f7e47c; --note2: #f3d95c; --biro: #24358a; --wood: #24180f; --bez: #d3cab2;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--wood); color: var(--ph); font: 22px/1.18 VT323, monospace; overflow: hidden;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .hand { font-family: 'Reenie Beanie', cursive; }
+
+  /* ---------- the desk ---------- */
+  #desk { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; gap: 34px; padding: 24px 28px;
+    background:
+      radial-gradient(ellipse 60% 55% at 78% 8%, rgba(255,196,110,.28), transparent 70%),
+      radial-gradient(ellipse 90% 70% at 40% 45%, rgba(255,170,90,.08), transparent 70%),
+      repeating-linear-gradient(97deg, rgba(0,0,0,.0) 0 22px, rgba(0,0,0,.12) 23px 24px, rgba(255,220,180,.03) 25px 61px),
+      linear-gradient(180deg, #2c1e13, #1a110b); }
+  #monitor { position: relative; flex: 0 1 900px; height: min(88vh, 820px); min-width: 0; }
+  #bezel { position: absolute; inset: 0; border-radius: 26px 26px 30px 30px; padding: 30px 32px 58px;
+    background: linear-gradient(180deg, #e1d9c3, #c9bfa4 60%, #b5aa8d);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.55), inset 0 -4px 10px rgba(0,0,0,.25), 0 30px 60px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.4); }
+  #badge { position: absolute; left: 0; right: 0; bottom: 14px; height: 30px; display: flex; align-items: center; justify-content: center; gap: 14px;
+    color: #6f6650; font-size: 18px; letter-spacing: .32em; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+  #badge i { width: 9px; height: 9px; border-radius: 50%; background: #5dff7a; box-shadow: 0 0 6px #5dff7a, 0 0 1px #000; }
+  #screen { position: relative; width: 100%; height: 100%; border-radius: 22px / 26px; overflow: hidden; background: radial-gradient(ellipse at 50% 45%, var(--bg1), var(--bg0) 75%);
+    box-shadow: inset 0 0 0 3px #1a1712, inset 0 0 30px rgba(0,0,0,.9), 0 0 0 6px #8d8469, 0 0 0 7px #6e6650; }
+  #fx { position: absolute; inset: 0; pointer-events: none; z-index: 5; border-radius: inherit;
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.06), transparent 22%),
+      radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(0,0,0,.55) 100%),
+      repeating-linear-gradient(180deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.28) 2px 3px);
+    animation: flick 5s steps(1) infinite; }
+  @keyframes flick { 0%, 100% { opacity: 1 } 47% { opacity: .93 } 48% { opacity: 1 } 81% { opacity: .96 } 82% { opacity: 1 } }
+  #fx::after { content: ''; position: absolute; left: 0; right: 0; height: 18%; top: -20%; background: linear-gradient(180deg, transparent, rgba(120,255,160,.035), transparent); animation: roll 9s linear infinite; }
+  @keyframes roll { to { top: 110%; } }
+
+  #crt { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 16px 20px 10px; text-shadow: var(--glow); }
+  #crt.off { visibility: hidden; }
+  #top { display: flex; justify-content: space-between; gap: 12px; color: var(--ph2); font-size: 20px; letter-spacing: .04em; white-space: nowrap; }
+  #top span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .rule { color: var(--faint); overflow: hidden; white-space: nowrap; margin: 2px 0; }
+  .rule::before { content: '════════════════════════════════════════════════════════════════════════════════════════════════════════════'; }
+  #f { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 2px; padding: 2px 0 2px 4px; }
+  #f label { color: var(--ph2); flex: none; }
+  #qwrap { position: relative; flex: 1; min-width: 0; }
+  #q { width: 100%; font: inherit; font-size: 26px; color: var(--ph); background: transparent; border: 0; outline: 0; padding: 0; caret-color: transparent; text-shadow: var(--glow); text-transform: uppercase; letter-spacing: .03em; }
+  #q::placeholder { color: var(--faint); opacity: 1; }
+  #caret { position: absolute; top: 3px; width: 12px; height: 22px; background: var(--ph); box-shadow: 0 0 8px rgba(80,255,130,.6); animation: blink 1s steps(1) infinite; pointer-events: none; }
+  #q:not(:focus) ~ #caret { opacity: .35; animation: none; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #go { flex: none; padding: 2px 10px; border: 1px solid var(--dim); color: var(--ph2); font-size: 20px; }
+  #go:hover, #go:focus-visible { background: rgba(125,255,160,.12); outline: 0; }
+  #hist { display: flex; gap: 8px; flex-wrap: nowrap; overflow: hidden; color: var(--dim); font-size: 18px; min-height: 22px; white-space: nowrap; }
+  #hist button { color: var(--dim); }
+  #hist button:hover { color: var(--ph); }
+  #hist b { font-weight: 400; color: var(--faint); }
+
+  #out { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; margin-top: 4px; padding-right: 6px; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: var(--faint) transparent; }
+  #out::-webkit-scrollbar { width: 6px; } #out::-webkit-scrollbar-thumb { background: var(--faint); }
+  .ln { white-space: pre-wrap; word-break: break-word; }
+  .ln.d { color: var(--dim); }
+  .ln.b { color: var(--ph2); }
+  .pr { animation: pr .01s both; }
+  @keyframes pr { from { visibility: hidden; } }
+  .row { display: grid; grid-template-columns: 4ch 11ch minmax(0,1fr) 1ch; gap: 0 14px; width: 100%; text-align: left; padding: 3px 4px; margin: 1px 0; border-radius: 2px; }
+  .row:hover, .row:focus-visible { background: rgba(125,255,160,.08); outline: 0; }
+  .row .no { color: var(--dim); } .row .dt { color: var(--ph2); white-space: nowrap; }
+  .row .it { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .sn { color: var(--dim); text-align: right; }
+  .row.open { background: var(--ph); color: var(--bg0); text-shadow: none; }
+  .row.open .no, .row.open .dt, .row.open .sn { color: var(--bg0); }
+  .card { margin: 2px 0 12px; padding: 10px 14px 12px; border: 1px solid var(--dim); border-top: 0; box-shadow: inset 0 0 20px rgba(60,255,110,.05); }
+  .card .f { display: grid; grid-template-columns: 11ch 1fr; gap: 0 10px; margin: 1px 0; }
+  .card .k { color: var(--dim); white-space: nowrap; overflow: hidden; }
+  .card .v { word-break: break-word; }
+  .card .note .v { color: #b6ffc8; }
+  .w { cursor: pointer; border-radius: 2px; }
+  .w:hover { background: rgba(125,255,160,.22); }
+  .w.hit { text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+  .acts { display: flex; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--ph2); padding: 1px 12px; color: var(--ph); }
+  .btn:hover, .btn:focus-visible { background: var(--ph); color: var(--bg0); text-shadow: none; outline: 0; }
+  .btn.on { background: rgba(125,255,160,.16); }
+  #status { display: flex; justify-content: space-between; gap: 10px; color: var(--dim); font-size: 18px; padding-top: 4px; border-top: 1px solid var(--faint); white-space: nowrap; }
+  #status button { color: var(--dim); } #status button:hover { color: var(--ph); }
+  #padTab { display: none; }
+
+  /* in-screen panels: the WHO form, the ending, the menu */
+  .panel { position: absolute; inset: 0; z-index: 4; display: none; flex-direction: column; padding: 22px 26px; background: radial-gradient(ellipse at 50% 45%, var(--bg1), var(--bg0) 80%); text-shadow: var(--glow); overflow-y: auto; touch-action: pan-y; }
+  .panel.on { display: flex; }
+  .panel h2 { font: inherit; font-size: 30px; margin: 0 0 4px; color: var(--ph); letter-spacing: .06em; }
+  .panel p { margin: 8px 0; max-width: 60ch; }
+  .panel .fld { display: flex; flex-direction: column; gap: 2px; margin: 12px 0 6px; max-width: 34ch; }
+  .panel .fld span { color: var(--ph2); }
+  .panel input { font: inherit; font-size: 26px; color: var(--ph); background: rgba(125,255,160,.05); border: 0; border-bottom: 1px dashed var(--dim); outline: 0; padding: 2px 6px; text-transform: uppercase; text-shadow: var(--glow); border-radius: 0; }
+  .panel input:focus { border-bottom-color: var(--ph); background: rgba(125,255,160,.1); }
+  #whoMsg { min-height: 1.3em; color: #b6ffc8; }
+  #endOut .ln { max-width: 68ch; }
+  .bx { display: grid; grid-template-columns: 5ch 1fr; color: var(--ph2); max-width: 68ch; }
+
+  /* ---------- the pad ---------- */
+  #pad { position: relative; flex: 0 0 300px; height: min(88vh, 820px); display: flex; flex-direction: column; gap: 14px; color: var(--biro); font-family: 'Reenie Beanie', cursive; text-shadow: none; }
+  .sticky { position: relative; background: linear-gradient(180deg, var(--note), var(--note2)); box-shadow: 0 1px 1px rgba(0,0,0,.25), 0 10px 18px rgba(0,0,0,.35); padding: 14px 16px 16px; font-size: 25px; line-height: 1.02; color: var(--biro); }
+  .sticky::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 18px; background: linear-gradient(180deg, rgba(0,0,0,.06), transparent); }
+  #priya { transform: rotate(-1.6deg); flex: none; }
+  #priya .sig { display: block; text-align: right; margin-top: 4px; }
+  #priya.wr .txt { animation: inkin .5s ease-out; }
+  @keyframes inkin { from { opacity: 0; filter: blur(2px); } }
+  #tools { display: flex; gap: 10px; flex: none; }
+  #tools button { flex: 1; font-size: 26px; padding: 6px 4px 4px; background: #efe7d2; color: #3a2d22; box-shadow: 0 6px 12px rgba(0,0,0,.35); transform: rotate(.8deg); }
+  #tools button:nth-child(2) { transform: rotate(-1.2deg); background: #f7c7b8; }
+  #tools button:nth-child(3) { transform: rotate(1.6deg); background: #c9e2f0; }
+  #tools button:hover { filter: brightness(1.06); }
+  #pins { flex: 1; min-height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 6px 10px; touch-action: pan-y; scrollbar-width: none; }
+  #pins::-webkit-scrollbar { display: none; }
+  #pins .empty { color: rgba(247,228,124,.55); font-size: 24px; text-align: center; padding: 14px 6px; }
+  .pin { position: relative; text-align: left; background: #fbf3c4; color: var(--biro); padding: 8px 30px 8px 12px; font-size: 23px; line-height: 1; box-shadow: 0 5px 10px rgba(0,0,0,.35); flex: none; }
+  .pin:nth-child(3n+1) { transform: rotate(-.8deg); } .pin:nth-child(3n+2) { transform: rotate(.9deg); margin-left: 8px; } .pin:nth-child(3n) { transform: rotate(-.3deg); margin-right: 6px; }
+  .pin small { display: block; font-size: 19px; opacity: .75; }
+  .pin .x { position: absolute; right: 4px; top: 2px; width: 26px; height: 26px; font-size: 22px; opacity: .55; }
+  .pin .x:hover { opacity: 1; }
+  #jot { flex: 0 0 auto; height: 190px; transform: rotate(.6deg); padding: 0; background: #fbf8ee; box-shadow: 0 10px 18px rgba(0,0,0,.35); }
+  #jot textarea { width: 100%; height: 100%; resize: none; border: 0; outline: 0; padding: 6px 14px 8px 40px; font: 25px/26px 'Reenie Beanie', cursive; color: var(--biro); background:
+     linear-gradient(90deg, transparent 30px, rgba(220,80,80,.5) 30px 31px, transparent 31px),
+     repeating-linear-gradient(180deg, transparent 0 25px, rgba(60,110,200,.28) 25px 26px); background-attachment: local; }
+  #jot textarea::placeholder { color: rgba(36,53,138,.45); }
+  #padX { display: none; }
+
+  /* ---------- tutorial note, stuck to the monitor ---------- */
+  #tut { position: relative; z-index: 8; flex: none; transform: rotate(-1.6deg); display: none; }
+  #tut.on { display: block; animation: stick .3s ease-out; }
+  @keyframes stick { from { transform: rotate(6deg) translateY(-14px); opacity: 0; } }
+  #tut .sig { display: block; text-align: right; }
+  #tut .row2 { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; gap: 10px; }
+  #tut button { font-family: 'Reenie Beanie', cursive; font-size: 24px; color: var(--biro); text-decoration: underline; text-underline-offset: 3px; padding: 4px 2px; }
+  #tut button.big { text-decoration: none; border: 2px solid var(--biro); padding: 2px 12px 0; border-radius: 40% 30% 45% 35% / 50% 40% 50% 45%; }
+  #tut .step { font-size: 20px; opacity: .6; }
+  .glow { box-shadow: 0 0 0 1px var(--ph), 0 0 16px rgba(80,255,130,.5) !important; }
+
+  /* ---------- phones and narrow windows ---------- */
+  @media (max-width: 920px) {
+    #desk { padding: 0; gap: 0; display: block; }
+    #monitor { position: absolute; inset: 0; height: auto; }
+    #bezel { border-radius: 0; padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(36px, calc(env(safe-area-inset-bottom) + 30px)) max(6px, env(safe-area-inset-left)); }
+    #badge { bottom: max(4px, env(safe-area-inset-bottom)); height: 26px; font-size: 15px; justify-content: flex-start; padding-left: 16px; letter-spacing: .2em; }
+    #screen { border-radius: 14px / 16px; }
+    #crt { padding: 10px 12px 6px; font-size: 20px; }
+    #top { padding-left: 50px; font-size: 18px; }
+    #top > span:first-child { display: none; }
+    #q { font-size: 22px; } #caret { height: 19px; width: 10px; }
+    .row { grid-template-columns: 11ch minmax(0,1fr) 1ch; gap: 0 8px; }
+    .row .no { display: none; }
+    .card { padding: 8px 10px 10px; }
+    .card .f { grid-template-columns: 1fr; }
+    .card .k { font-size: 17px; }
+    #status { font-size: 17px; }
+    #padTab { display: flex; position: absolute; right: 10px; bottom: max(3px, env(safe-area-inset-bottom)); height: 28px; align-items: center; gap: 6px; padding: 0 14px; background: var(--note); color: var(--biro); font: 24px/1 'Reenie Beanie', cursive; box-shadow: 0 3px 8px rgba(0,0,0,.4); transform: rotate(-1deg); z-index: 3; }
+    #pad { position: fixed; left: 0; right: 0; bottom: 0; height: min(82dvh, 640px); padding: 18px 16px max(16px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, #2c1e13, #1a110b); box-shadow: 0 -10px 40px rgba(0,0,0,.6); z-index: 20; transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); border-radius: 14px 14px 0 0; }
+    #pad.open { transform: none; }
+    #padX { display: block; position: absolute; right: 12px; top: 4px; font: 26px 'Reenie Beanie', cursive; color: var(--note); padding: 6px 8px; z-index: 2; }
+    #priya { margin-right: 40px; }
+    #jot { height: 150px; }
+    #tut { position: fixed; right: 10px; left: auto; top: auto; transform: rotate(1.2deg); bottom: max(44px, calc(env(safe-area-inset-bottom) + 40px)); width: min(290px, calc(100vw - 30px)); font-size: 22px; }
+    .panel { padding: 16px 16px; padding-top: 50px; }
+  }
+  @media (max-width: 920px) and (max-height: 520px) { #tut { bottom: 40px; width: 260px; font-size: 21px; } }
+  #scrim { display: none; }
+  @media (max-width: 920px) { #scrim.on { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 19; } }
+  @media (prefers-reduced-motion: reduce) { #fx, #fx::after { animation: none; } .pr { animation: none; } }
+</style>
+</head>
+<body>
+<div id="desk">
+  <div id="monitor">
+    <div id="bezel">
+      <div id="screen">
+        <div id="crt" class="off">
+          <div id="top"><span>GULLHAVEN BOROUGH LOST PROPERTY</span><span>LEDGER 1961&ndash;2001 &middot; <span id="nEnt">168</span> ENTRIES</span></div>
+          <div class="rule"></div>
+          <form id="f" autocomplete="off">
+            <label for="q">SEARCH&gt;</label>
+            <div id="qwrap"><input id="q" name="q" maxlength="40" spellcheck="false" autocapitalize="characters" autocorrect="off" enterkeyhint="search" placeholder="TYPE A WORD"><span id="caret"></span></div>
+            <button id="go" type="submit" aria-label="Search">ENTER</button>
+          </form>
+          <div id="hist"></div>
+          <div id="out" aria-live="polite"></div>
+          <div id="status"><span id="stRead">READ 0/168</span><span><button id="stSnd">SOUND ON</button> &middot; <button id="stHelp">HELP</button></span></div>
+        </div>
+        <div class="panel" id="who">
+          <h2>FORM LP/9 &mdash; CLOSING A FILE</h2>
+          <p class="ln d">Fill in both lines. The ledger will tell you if it agrees.</p>
+          <label class="fld"><span>1. WHO WAS HANDING THINGS IN ON PURPOSE?</span><input id="a1" maxlength="30" autocomplete="off" spellcheck="false" autocapitalize="characters"></label>
+          <label class="fld"><span>2. WHO WERE THEY FOR?</span><input id="a2" maxlength="30" autocomplete="off" spellcheck="false" autocapitalize="characters"></label>
+          <p id="whoMsg"></p>
+          <div class="acts"><button class="btn" id="whoGo">FILE IT</button><button class="btn" id="whoX">BACK TO THE LEDGER</button></div>
+        </div>
+        <div class="panel" id="help">
+          <h2>HOW THE LEDGER WORKS</h2>
+          <p>Forty years of things the people of Gullhaven lost, and the clerks who wrote them down.</p>
+          <p>&gt; Type any word. The terminal shows the <b>first five</b> entries that contain it, oldest first, and how many more there are.</p>
+          <p>&gt; Two words find entries with both. Open an entry and tap any word in it to search for that word.</p>
+          <p>&gt; Pin what matters to your pad and jot notes there. Everything is kept for next time.</p>
+          <p>&gt; Somebody kept handing things in on purpose. When you know who, and who it was all for, fill in the <b>WHO?</b> card on the pad.</p>
+          <div class="acts"><button class="btn" id="helpX">BACK TO THE LEDGER</button><button class="btn" id="helpTut">SHOW ME AGAIN</button><button class="btn" id="helpWipe">WIPE MY DESK</button></div>
+        </div>
+        <div class="panel" id="end"><div id="endOut"></div></div>
+        <div id="fx"></div>
+      </div>
+      <div id="badge"><i></i>GBC&nbsp;2100</div>
+      <button id="padTab">pad <span id="padN"></span></button>
+    </div>
+    <div id="tut" class="sticky hand"><div class="txt"></div><div class="row2"><button id="tutSkip">skip</button><span class="step"></span></div></div>
+  </div>
+  <div id="scrim"></div>
+  <aside id="pad">
+    <button id="padX" aria-label="Close pad">close</button>
+    <div id="priya" class="sticky"><span class="txt"></span><span class="sig">&mdash; P.</span></div>
+    <div id="tools"><button id="bWho">who?</button><button id="bHint">a hint</button><button id="bHelp">help</button></div>
+    <div id="pins"></div>
+    <div id="jot"><textarea id="jotT" placeholder="your notes..." spellcheck="false"></textarea></div>
+  </aside>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>
