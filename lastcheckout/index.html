@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Last Checkout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bowlby+One&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1f1b26; --paper: #fbf8ef; --green: #24614a; --red: #d23a2f; --ticket: #f6d34a; --lam: #d5dacb; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--lam); color: var(--ink); font: 400 17px/1.35 "Atkinson Hyperlegible", "Trebuchet MS", sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #c { position: fixed; inset: 0; display: block; touch-action: none; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+  .head { font-family: "Bowlby One", "Arial Black", sans-serif; font-weight: 400; letter-spacing: .01em; }
+  .till { font-family: "DotGothic16", "Courier New", monospace; }
+
+  .veil { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; padding: 22px 16px; box-sizing: border-box; background: rgba(31,27,38,.45); overflow: auto; }
+  /* thermal receipt paper with torn zigzag ends */
+  .paper { position: relative; background: var(--paper); width: min(370px, calc(100vw - 32px)); box-sizing: border-box; padding: 22px 22px 20px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.35); margin: 10px 0; }
+  .paper::before, .paper::after { content: ""; position: absolute; left: 0; right: 0; height: 9px; }
+  .paper::before { top: -9px; background: conic-gradient(from 135deg at top, var(--paper) 90deg, transparent 0) 0 0 / 14px 100% repeat-x; }
+  .paper::after { bottom: -9px; background: conic-gradient(from -45deg at bottom, var(--paper) 90deg, transparent 0) 0 0 / 14px 100% repeat-x; }
+  .veil > .paper { margin: auto; flex: none; }
+  .paper.tilt { transform: rotate(-1deg); }
+  .storehead { text-align: center; font-size: 14px; line-height: 1.3; letter-spacing: .06em; }
+  .storehead b { display: block; font-family: "Bowlby One", sans-serif; font-weight: 400; font-size: 22px; color: var(--green); letter-spacing: .02em; }
+  .rule { border-top: 2px dashed rgba(31,27,38,.35); margin: 12px 0; }
+  .ln { display: flex; justify-content: space-between; gap: 10px; font-family: "DotGothic16", monospace; font-size: 15px; line-height: 1.6; }
+  .ln.head { font-family: "DotGothic16", monospace; }
+  .ln .small { font-size: 13px; opacity: .75; text-align: right; }
+  .dale { font-size: 17px; line-height: 1.35; margin-top: 4px; }
+  .dale::before { content: "DALE SAYS: "; font-family: "DotGothic16", monospace; font-size: 13px; color: var(--red); display: block; }
+
+  h1 { margin: 6px 0 0; font-family: "Bowlby One", sans-serif; font-weight: 400; font-size: 46px; line-height: .92; color: var(--red); letter-spacing: -.01em; }
+  .tag { margin: 10px 0 0; font-size: 18px; }
+  .burst { position: absolute; right: -18px; top: -26px; width: 104px; height: 104px; display: grid; place-items: center; text-align: center;
+    background: var(--ticket); transform: rotate(10deg); font-family: "Bowlby One", sans-serif; font-size: 14px; line-height: 1; color: var(--red);
+    clip-path: polygon(50% 0%, 59% 13%, 75% 6%, 76% 22%, 93% 25%, 86% 40%, 100% 50%, 86% 60%, 93% 75%, 76% 78%, 75% 94%, 59% 87%, 50% 100%, 41% 87%, 25% 94%, 24% 78%, 7% 75%, 14% 60%, 0% 50%, 14% 40%, 7% 25%, 24% 22%, 25% 6%, 41% 13%); }
+  .burst span { font-size: 30px; display: block; }
+
+  /* shelf-edge ticket buttons */
+  .btns { display: grid; gap: 10px; margin-top: 18px; }
+  .tk { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 50px; padding: 6px 14px 6px 22px; box-sizing: border-box;
+    background: var(--ticket); border: 2.5px solid var(--ink); border-radius: 5px; box-shadow: 0 3px 0 var(--ink); text-align: left;
+    font-family: "Bowlby One", sans-serif; font-size: 18px; line-height: 1.05; }
+  .tk::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; background: var(--red); border-radius: 2px 0 0 2px; }
+  .tk small { font-family: "DotGothic16", monospace; font-size: 13px; }
+  .tk.alt { background: var(--paper); }
+  .tk.alt::before { background: var(--green); }
+  .tk:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .small { font-size: 14px; opacity: .8; }
+  .note { margin-top: 14px; font-size: 14px; opacity: .75; text-align: center; }
+
+  .dayname { font-family: "Bowlby One", sans-serif; font-size: 44px; line-height: 1; color: var(--green); margin-top: 4px; }
+  .dayleft { display: inline-block; margin-top: 8px; padding: 3px 10px; background: var(--red); color: var(--paper); font-family: "DotGothic16", monospace; font-size: 15px; transform: rotate(-2deg); }
+  .intro { margin: 14px 0 0; font-size: 18px; line-height: 1.4; }
+
+  .rules { margin: 10px 0 0; padding: 0; list-style: none; counter-reset: r; }
+  .rules li { counter-increment: r; position: relative; padding: 7px 0 7px 36px; border-bottom: 1px dashed rgba(31,27,38,.25); font-size: 15.5px; line-height: 1.3; }
+  .rules li::before { content: counter(r); position: absolute; left: 0; top: 7px; width: 26px; height: 26px; display: grid; place-items: center; background: var(--ticket); border: 2px solid var(--ink); border-radius: 50%; font-family: "Bowlby One", sans-serif; font-size: 13px; }
+  .keys { font-family: "DotGothic16", monospace; font-size: 13px; margin-top: 10px; line-height: 1.6; }
+  .end p { font-size: 17px; line-height: 1.45; margin: 10px 0 0; }
+  .thanks { text-align: center; font-family: "DotGothic16", monospace; font-size: 15px; letter-spacing: .08em; margin-top: 14px; }
+  .barcode { height: 34px; margin: 12px auto 0; width: 70%; background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px, var(--ink) 4px 5px, transparent 5px 8px, var(--ink) 8px 11px, transparent 11px 12px); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="veil" id="title" hidden>
+  <div class="paper tilt">
+    <div class="burst">ONLY<span>7</span>DAYS</div>
+    <div class="storehead"><b>BELLAMY'S</b>FOODSTORE · HIGH ST · TILL 2</div>
+    <div class="rule"></div>
+    <h1>LAST<br>CHECKOUT</h1>
+    <p class="tag">A week on the till at a little supermarket. Scan, weigh, bag, count the change. The rock lands on Sunday.</p>
+    <div class="btns">
+      <button class="tk" id="newweek">Start Monday <small>with training</small></button>
+      <button class="tk alt" id="continue" hidden>Carry on <small>…</small></button>
+      <div class="row2">
+        <button class="tk alt" id="skiptut">Skip training</button>
+        <button class="tk alt" id="howto-open">How it works</button>
+      </div>
+    </div>
+    <div class="note">Sound on, if you can. The beep is half the job.</div>
+  </div>
+</div>
+
+<div class="veil" id="howto" hidden>
+  <div class="paper">
+    <div class="storehead"><b>STAFF CARD</b>TILL PROCEDURE · PLEASE READ</div>
+    <ol class="rules">
+      <li><b>Scan</b>: drag each thing over the scanner glass. The barcode is always on the back, so tap a thing to turn it over first.</li>
+      <li><b>Weigh</b>: loose fruit and veg has no barcode. Put it on the glass, then pick what it is on the till.</li>
+      <li><b>Bag</b>: drop it in the bag. Things stack up, so heavy at the bottom: tins and milk will squash eggs, crisps, bread and flowers.</li>
+      <li><b>Park</b>: the counter holds things while you wait to bag them. When a bag's full, <b>hand it over</b> and start another.</li>
+      <li><b>Total</b>: when it's all in a bag, press TOTAL. Cards pay themselves. For cash, tap coins and notes to make up the change, then GIVE.</li>
+      <li>Some customers will ask for things. There's no wrong answer. It's the end of the world.</li>
+    </ol>
+    <div class="keys">KEYS · F or SPACE turn over · ENTER total / give · 1–8 lookup or coins · H hand over · ESC pause · M sound</div>
+    <div class="btns"><button class="tk" id="howto-close">Got it</button></div>
+  </div>
+</div>
+
+<div class="veil" id="daycard" hidden>
+  <div class="paper tilt">
+    <div class="storehead">BELLAMY'S FOODSTORE · STAFF ROTA</div>
+    <div class="rule"></div>
+    <div class="dayname" id="dayname">Monday</div>
+    <div class="dayleft" id="dayleft">7 DAYS LEFT</div>
+    <p class="intro" id="dayintro"></p>
+    <div class="btns"><button class="tk" id="opentill">Open the till</button></div>
+  </div>
+</div>
+
+<div class="veil" id="receipt" hidden>
+  <div class="paper">
+    <div class="storehead"><b>BELLAMY'S</b>END OF SHIFT · <span id="rc-day"></span></div>
+    <div class="rule"></div>
+    <div id="rc-lines"></div>
+    <div class="rule"></div>
+    <div class="dale" id="rc-dale"></div>
+    <div class="btns"><button class="tk" id="rc-next">Next</button></div>
+  </div>
+</div>
+
+<div class="veil" id="pause" hidden>
+  <div class="paper">
+    <div class="storehead"><b>ON BREAK</b>BACK IN 5 MINS</div>
+    <div class="btns">
+      <button class="tk" id="resume">Back to the till</button>
+      <button class="tk alt" id="p-howto">How it works</button>
+      <button class="tk alt" id="restartday">Start today again</button>
+      <div class="row2">
+        <button class="tk alt" id="mutebtn">Sound: on</button>
+        <button class="tk alt" id="quit">Title</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="ending" hidden style="background: rgba(255,240,215,.35)">
+  <div class="paper end">
+    <div class="storehead"><b>BELLAMY'S</b>LAST CHECKOUT · SUNDAY</div>
+    <div class="rule"></div>
+    <div id="end-lines"></div>
+    <div class="rule"></div>
+    <p>You hang your tabard on its peg. Out on the high street the light is everywhere at once, warm as a bath.</p>
+    <p>Up on Gallows Hill, a line of little flames is starting, one after another, all the way along.</p>
+    <div class="thanks">THANK YOU FOR SHOPPING WITH US</div>
+    <div class="barcode"></div>
+    <div class="btns"><button class="tk" id="again">Work the week again</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -60,7 +60,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 52. Are We There Yet
 - [x] 53. Puddle — [`puddle/`](puddle/)
 - [ ] 54. Cube
-- [ ] 55. Last Checkout
+- [x] 55. Last Checkout — [`lastcheckout/`](lastcheckout/)
 - [x] 56. Conductor — [`conductor/`](conductor/)
 - [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
 - [x] 58. Unlocked — [`unlocked/`](unlocked/)
@@ -510,8 +510,10 @@ A Zelda-like dungeon where the whole dungeon is a 3×3×3 cube of rooms, and you
 
 Three or four dungeons of increasing complexity. A 3D view of the cube shows which room you're in and what's around it, with a clear animation when a layer turns (you included, if you're in it). Layers can only be turned from control rooms inside the dungeon, so rotating is part of the puzzle, not a menu. Style: chunky, colourful low-poly with each layer in a different colour of stone so you can track them, and a little adventurer seen from above.
 
-## 55. Last Checkout
+## 55. Last Checkout ✅
 *Borrows: Supermarket Simulator and other job sims · Twist: the last week of shifts before the meteor hits*
+
+**Built 2026-11-09 as [`lastcheckout/`](lastcheckout/).** Top-down 2D canvas rather than three.js, styled as shelf-edge tickets and thermal till receipts. Seven short shifts of 3–6 customers; bagging is a stacking puzzle in a side-on bag (weight squashes eggs, crisps, bread, flowers). Choices (coupon, Milo's 40p, the wedding fizz, Jas's chicken) decide who comes back on Sunday. Cut: the IOU tab, change ever being wrong in the customer's favour, the store visibly emptying.
 
 A cashier job sim at a small-town supermarket, and the meteor hits in seven days. Each shift, customers unload their trolleys onto your belt. You scan each item (find the barcode), weigh the produce, bag things so nothing gets crushed (a small physics packing puzzle: eggs on top, cans at the bottom), take the cash and count out change. It's a satisfying, tactile job, and it's also the end of the world, so the shopping changes through the week: panic buyers, a man buying fifty candles, a kid who wants one last ice cream, a couple getting married on Thursday, people buying ingredients for a final dinner, and a manager who still cares about the coupon policy.
 
