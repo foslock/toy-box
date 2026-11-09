@@ -73,6 +73,9 @@ function resize() {
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   makeLayout();
   for (const it of S.items) clampItem(it);
+  // the belt is a different length now: keep things on it from piling into each other
+  const belt = beltItems();
+  for (let i = 1; i < belt.length; i++) belt[i].x = Math.min(belt[i].x, belt[i - 1].x - 6 - iw(belt[i]));
 }
 const inRect = (r, x, y) => r && x >= r[0] && y >= r[1] && x <= r[0] + r[2] && y <= r[1] + r[3];
 
@@ -232,6 +235,8 @@ function handOver() {
 function returnItem(it, from) {
   Object.assign(it, from);
   if (it.zone === 'drag') { it.zone = 'hold'; it.x = 10; it.y = 20; clampItem(it); }
+  // loose produce put back on the glass still needs looking up
+  if (it.zone === 'scan' && it.def.produce && !it.scanned) S.scanner.lookup = it;
 }
 
 function readyForTotal() {
@@ -361,7 +366,10 @@ function finishCustomer() {
 }
 
 // ------------------------------------------------------------------ customers and days
-function startDay(d) {
+function startDay(d, again = false) {
+  // starting the same day again shouldn't count its customers or choices twice
+  if (again && S.dayStart && S.dayStart.day === d) { S.week = { ...S.dayStart.week }; S.flags = { ...S.dayStart.flags }; }
+  S.dayStart = { day: d, week: { ...S.week }, flags: { ...S.flags } };
   S.day = d; S.ci = -1; S.items = []; S.bags = 0; S.stats = freshStats();
   S.till = { lines: [], total: 0 };
   S.customers = DAYS[d].customers.filter((c) => !c.when || (c.when[0] === '!' ? !S.flags[c.when.slice(1)] : S.flags[c.when]));
@@ -1332,7 +1340,10 @@ function startEnding() {
   try { localStorage.removeItem('lastcheckout.v1'); } catch (e) {}
 }
 
-function pause() { if (S.mode !== 'shift') return; S.mode = 'paused'; setBelt(false); show('pause'); }
+function pause() {
+  if (S.mode !== 'shift') return;
+  if (S.drag) { returnItem(S.drag.item, S.drag.from); S.drag = null; }
+  S.mode = 'paused'; setBelt(false); show('pause'); }
 function resume() { hideAll(); S.mode = 'shift'; }
 function toggleMute() { setMuted(!isMuted()); const b = $('mutebtn'); if (b) b.textContent = isMuted() ? 'Sound: off' : 'Sound: on'; }
 
@@ -1345,7 +1356,7 @@ $('opentill').onclick = () => { unlock(); hideAll(); startDay(S.pendingDay); };
 $('rc-next').onclick = () => showDayCard(S.day + 1);
 $('resume').onclick = resume;
 $('p-howto').onclick = () => show('howto');
-$('restartday').onclick = () => { hideAll(); S.skipTutorial = S.skipTutorial || S.day > 0; startDay(S.day); };
+$('restartday').onclick = () => { hideAll(); S.skipTutorial = S.skipTutorial || S.day > 0; startDay(S.day, true); };
 $('quit').onclick = () => { showTitle(); };
 $('mutebtn').onclick = toggleMute;
 $('mutebtn').textContent = isMuted() ? 'Sound: off' : 'Sound: on';
