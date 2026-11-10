@@ -1,0 +1,9 @@
+{
+  "title": "Mirror Knight",
+  "blurb": "A one-boss duel against a knight that learns: each time you die it takes up your weapon and copies your habits, so you win by changing how you fight.",
+  "added": "2026-11-10",
+  "category": "games",
+  "tags": ["canvas", "boss fight", "souls-like", "game"],
+  "tape": "black",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}

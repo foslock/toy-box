@@ -14,7 +14,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 6. Horde — [`horde/`](horde/)
 - [x] 7. Lost Property — [`lostproperty/`](lostproperty/)
 - [x] 8. Gumball Landlord — [`gumball/`](gumball/)
-- [ ] 9. Mirror Knight
+- [x] 9. Mirror Knight — [`mirrorknight/`](mirrorknight/)
 - [x] 10. Draw Ahead — [`drawahead/`](drawahead/)
 - [ ] 11. Marco
 - [ ] 12. Spire Keeper
@@ -142,7 +142,7 @@ A Luck be a Landlord-style roguelite, but the slot machine is a big glass gumbal
 
 The physics is the fun: combos from gumballs landing together, a magnet that pulls coins toward it, a bomb that clears its neighbours, a cat that eats any fish it touches, a paid nudge that tilts the tray. Aim for about 40 symbols with interactions you can learn, and runs of about 20 minutes. Style: glossy candy colours, a chrome and red-enamel machine, rattly clacky sound effects and number pops.
 
-## 9. Mirror Knight
+## 9. Mirror Knight ✅
 *Borrows: Elden Ring bosses · Twist: the boss learns from you*
 
 A single Elden Ring-style boss fight, top-down: you against the Mirror Knight in a round arena. Before each attempt you pick a weapon (straight sword, greatsword, spear, bow, or a sacred seal with a spell), then fight with light and heavy attacks, a dodge, stamina and a few flasks. The twist: the knight learns from you. After each attempt it takes up the weapon you used last time and copies your habits. If you always dodged left and attacked twice, it starts doing that too. Beating it means keeping it guessing, which means changing how you play.

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Mirror Knight</title>
+<meta name="description" content="A one-boss duel against a knight that learns from you: it takes up your weapon and copies your habits, so you win by changing how you fight.">
+<meta name="theme-color" content="#050505">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #050505; --ink2: #151513; --bone: #ebe5d6; --dim: #8c877b; --blood: #c02a1d; --acc: #e4472b;
+    --sc: 'IM Fell English SC', Georgia, serif; --fell: 'IM Fell English', Georgia, serif;
+    --top: max(8px, env(safe-area-inset-top)); --bot: max(10px, env(safe-area-inset-bottom));
+    --l: max(10px, env(safe-area-inset-left)); --r: max(10px, env(safe-area-inset-right));
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ink); color: var(--bone); font: 18px/1.35 var(--fell); overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+  canvas#field { position: fixed; inset: 0; touch-action: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 2px solid var(--bone); outline-offset: 3px; }
+  kbd { font: 15px/1 var(--sc); border: 1px solid var(--dim); border-bottom-width: 2px; padding: 2px 6px 1px; border-radius: 3px; color: var(--bone); white-space: nowrap; }
+
+  /* ---------- buttons: a knife-cut slab */
+  .btn { font: 22px/1 var(--sc); letter-spacing: .04em; padding: 12px 26px 11px; border: 1.5px solid var(--bone); position: relative; background: var(--ink); min-height: 48px; }
+  .btn::before, .btn::after { content: ''; position: absolute; top: 50%; width: 14px; height: 1.5px; background: var(--bone); }
+  .btn::before { left: -20px; } .btn::after { right: -20px; }
+  .btn:hover, .btn.hot { background: var(--bone); color: var(--ink); }
+  .btn.quiet { border-color: transparent; font-size: 18px; color: var(--dim); padding: 10px 14px; }
+  .btn.quiet::before, .btn.quiet::after { display: none; }
+  .btn.quiet:hover { background: none; color: var(--bone); }
+
+  /* ---------- screens */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    padding: calc(var(--top) + 10px) var(--r) calc(var(--bot) + 10px) var(--l); background: rgba(5,5,5,.86); overflow-y: auto; }
+  .rule { width: min(360px, 70vw); height: 1px; background: linear-gradient(90deg, transparent, var(--bone), transparent); margin: 14px auto; opacity: .7; }
+  #title h1 { font: clamp(54px, 13vw, 112px)/.9 var(--sc); margin: 0; letter-spacing: .02em; }
+  #title h1 .nw { white-space: nowrap; }
+  #title h1 .mir { display: inline-block; transform: scaleX(-1); opacity: .35; }
+  #title .sub { font: italic 22px/1.3 var(--fell); color: var(--dim); margin: 6px 0 4px; }
+  #title .menu { display: flex; flex-direction: column; gap: 14px; align-items: center; margin-top: 26px; }
+  #title .rec { font: italic 16px/1.4 var(--fell); color: var(--dim); margin-top: 18px; min-height: 1.4em; }
+
+  /* ---------- arms */
+  #arms { justify-content: flex-start; padding-top: calc(var(--top) + 54px); }
+  #arms h2 { font: 34px/1 var(--sc); margin: 0 0 4px; }
+  .knows { width: min(640px, 100%); border-top: 1px solid #3a3833; border-bottom: 1px solid #3a3833; padding: 10px 6px 12px; margin: 10px 0 14px; text-align: left; }
+  .knows .head { font: 16px/1.2 var(--sc); color: var(--dim); letter-spacing: .06em; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .knows .head b { color: var(--bone); font-weight: normal; }
+  .knows ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+  .knows li { font: 17px/1.3 var(--fell); padding-left: 22px; position: relative; }
+  .knows li::before { content: ''; position: absolute; left: 3px; top: 5px; width: 9px; height: 12px; border-left: 1.5px solid var(--bone); transform: skewX(-25deg); border-right: 1.5px solid var(--bone); }
+  .knows li i { color: var(--dim); display: block; font-size: 15px; }
+  .knows .none { font: italic 17px/1.3 var(--fell); color: var(--dim); margin-top: 6px; }
+  .weps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: min(860px, 100%); }
+  .wep { border: 1.5px solid #3a3833; padding: 12px 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; background: var(--ink); position: relative; }
+  .wep svg { width: 74px; height: 74px; }
+  .wep b { font: 20px/1 var(--sc); font-weight: normal; }
+  .wep span { font: italic 15px/1.25 var(--fell); color: var(--dim); }
+  .wep .bar { position: absolute; left: -1.5px; right: -1.5px; top: -1.5px; height: 4px; background: var(--c); opacity: .5; }
+  .wep.on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c) inset; }
+  .wep.on .bar { opacity: 1; }
+  .wep.on span { color: var(--bone); }
+  .wep .k { position: absolute; top: 8px; right: 8px; font: 13px var(--sc); color: #55524a; }
+  #arms .go { margin-top: 18px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  @media (max-width: 720px) {
+    .weps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .wep { padding: 8px 4px; gap: 3px; } .wep svg { width: 50px; height: 50px; } .wep b { font-size: 17px; } .wep span { font-size: 13px; }
+    .wep .k { display: none; }
+    #arms h2 { font-size: 28px; }
+    .knows li { font-size: 15px; } .knows li i { font-size: 13px; }
+  }
+
+  /* ---------- HUD */
+  #hud { position: fixed; z-index: 3; top: var(--top); left: 64px; right: var(--r); display: flex; align-items: flex-start; gap: 12px; pointer-events: none; }
+  .bars { display: grid; gap: 5px; width: min(260px, 52vw); padding-top: 6px; }
+  .bar { height: 10px; border: 1px solid #6d695f; background: #0f0f0e; position: relative; overflow: hidden; }
+  .bar i { position: absolute; inset: 0; transform-origin: left; background: var(--bone); }
+  .bar i.lag { background: #7d2018; }
+  .bar.st { height: 6px; } .bar.st i { background: #8c877b; }
+  .bar.st.low i { background: #e9a23b; }
+  .flasks { display: flex; gap: 6px; margin-top: 2px; }
+  .flask { width: 12px; height: 17px; position: relative; }
+  .flask::before { content: ''; position: absolute; left: 3.5px; top: 0; width: 5px; height: 5px; border: 1.2px solid var(--bone); border-bottom: 0; }
+  .flask::after { content: ''; position: absolute; left: 0; bottom: 0; width: 12px; height: 12px; border-radius: 50%; border: 1.2px solid var(--bone); background: #e9a23b; box-sizing: border-box; }
+  .flask.gone::after { background: transparent; opacity: .4; } .flask.gone::before { opacity: .4; }
+  #pauseBtn { margin-left: auto; pointer-events: auto; width: 44px; height: 44px; border: 1.5px solid #6d695f; border-radius: 50%; display: grid; place-items: center; }
+  #pauseBtn b { display: block; width: 12px; height: 14px; border-left: 3.5px solid var(--bone); border-right: 3.5px solid var(--bone); }
+
+  #boss { position: fixed; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(var(--bot) + 10px); width: min(720px, calc(100% - 28px)); pointer-events: none; }
+  #boss .nm { display: flex; align-items: baseline; gap: 10px; font: 22px/1 var(--sc); margin-bottom: 6px; text-shadow: 0 1px 4px #000; }
+  #boss .nm small { font: italic 15px/1 var(--fell); color: var(--c, var(--acc)); margin-left: auto; }
+  #boss .cracks { display: inline-flex; gap: 2px; }
+  #boss .cracks i { width: 7px; height: 13px; border-left: 1.5px solid var(--bone); transform: skewX(-25deg); opacity: .8; }
+  #boss .bar { height: 12px; }
+  #boss .bar i { background: #a58f62; }
+  #boss .bar i.lag { background: var(--bone); }
+  #boss .bar .tick { position: absolute; top: 0; bottom: 0; width: 1.5px; background: #050505; }
+  body.touch #boss { bottom: calc(var(--bot) + 180px); width: min(720px, calc(100% - 24px)); }
+  body.touch #boss .nm { font-size: 19px; }
+
+  /* ---------- touch pad */
+  #pad { position: fixed; inset: 0; z-index: 2; touch-action: none; display: none; }
+  body.touch #pad.on { display: block; }
+  #stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border: 1.5px solid rgba(235,229,214,.35); border-radius: 50%; pointer-events: none; opacity: .5; }
+  #stick b { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(235,229,214,.25); border: 1.5px solid var(--bone); }
+  #stick.live { opacity: 1; }
+  .pb { position: absolute; border-radius: 50%; border: 1.5px solid var(--bone); background: rgba(5,5,5,.6); display: grid; place-items: center; font: 15px/1 var(--sc); letter-spacing: .04em; pointer-events: none; }
+  .pb.dn { background: var(--bone); color: var(--ink); }
+  #bLight { width: 84px; height: 84px; right: calc(var(--r) + 6px); bottom: calc(var(--bot) + 10px); font-size: 18px; border-color: var(--c, var(--acc)); border-width: 2.5px; }
+  #bHeavy { width: 64px; height: 64px; right: calc(var(--r) + 20px); bottom: calc(var(--bot) + 104px); }
+  #bRoll { width: 70px; height: 70px; right: calc(var(--r) + 102px); bottom: calc(var(--bot) + 10px); }
+  #bFlask { width: 52px; height: 52px; right: calc(var(--r) + 100px); bottom: calc(var(--bot) + 96px); font-size: 13px; color: #e9a23b; border-color: #e9a23b; }
+  #stickHint { position: absolute; left: calc(var(--l) + 20px); bottom: calc(var(--bot) + 30px); font: italic 15px/1.3 var(--fell); color: var(--dim); pointer-events: none; }
+
+  /* ---------- tutorial card */
+  #tut { position: fixed; z-index: 4; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 64px); width: min(520px, calc(100% - 24px)); text-align: center;
+    background: rgba(5,5,5,.88); border-top: 1px solid var(--bone); border-bottom: 1px solid var(--bone); padding: 10px 14px 12px; pointer-events: none; }
+  #tut .step { font: 13px/1 var(--sc); color: var(--dim); letter-spacing: .14em; }
+  #tut h3 { font: 26px/1.05 var(--sc); margin: 6px 0 4px; font-weight: normal; }
+  #tut p { margin: 0; font: 17px/1.35 var(--fell); }
+  #tut .how { margin-top: 8px; font: italic 16px/1.6 var(--fell); color: var(--dim); }
+  #tut .prog { margin-top: 6px; display: flex; gap: 6px; justify-content: center; }
+  #tut .prog i { width: 10px; height: 10px; border: 1.2px solid var(--bone); transform: rotate(45deg); }
+  #tut .prog i.on { background: var(--bone); }
+  #tut .acts { margin-top: 10px; display: flex; gap: 14px; justify-content: center; pointer-events: auto; }
+  #tutSkip { position: fixed; z-index: 4; right: var(--r); top: calc(var(--top) + 52px); font: 16px var(--sc); color: var(--dim); padding: 8px 10px; }
+  body.touch #tut { top: calc(var(--top) + 56px); }
+
+  /* ---------- banners */
+  #banner { position: fixed; z-index: 6; left: 0; right: 0; top: 42%; transform: translateY(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .8s; }
+  #banner.on { opacity: 1; }
+  #banner .band { background: linear-gradient(90deg, transparent, rgba(0,0,0,.8) 20%, rgba(0,0,0,.8) 80%, transparent); padding: 18px 0 14px; }
+  #banner h2 { font: clamp(46px, 11vw, 96px)/1 var(--sc); margin: 0; letter-spacing: .05em; color: var(--blood); font-weight: normal; }
+  #banner h2.bone { color: var(--bone); }
+  #banner p { font: italic 20px/1.3 var(--fell); margin: 8px 0 0; color: var(--dim); }
+  #say { position: fixed; z-index: 5; left: 0; right: 0; top: 26%; text-align: center; font: italic clamp(20px, 4.5vw, 28px)/1.2 var(--fell); pointer-events: none; opacity: 0; transition: opacity .6s; text-shadow: 0 2px 8px #000; }
+  #say.on { opacity: 1; }
+
+  /* ---------- learned */
+  #learned h2 { font: 30px/1.1 var(--sc); margin: 0; font-weight: normal; }
+  #learned .lines { margin: 16px 0 6px; display: grid; gap: 10px; max-width: 560px; }
+  #learned .lines div { font: italic 21px/1.3 var(--fell); opacity: 0; transform: translateY(6px); transition: opacity .7s, transform .7s; }
+  #learned .lines div.on { opacity: 1; transform: none; }
+  #learned .lines .forgot { color: var(--dim); }
+  #learned .lines .wep { all: unset; font: italic 21px/1.3 var(--fell); color: var(--c); opacity: 0; transition: opacity .7s; }
+  #learned .lines .wep.on { opacity: 1; }
+  #learned .tally { font: 15px/1.4 var(--sc); color: var(--dim); letter-spacing: .08em; margin-top: 10px; }
+  #learned .acts { margin-top: 22px; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+  #won h2 { font: clamp(40px, 9vw, 72px)/1 var(--sc); margin: 0; font-weight: normal; }
+  #won p { font: italic 20px/1.4 var(--fell); color: var(--dim); max-width: 520px; margin: 10px auto; }
+  #won .acts { margin-top: 20px; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+
+  /* ---------- pause */
+  #pause h2 { font: 40px/1 var(--sc); margin: 0 0 10px; font-weight: normal; }
+  #pause .menu { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .controls { display: grid; grid-template-columns: auto auto; gap: 8px 16px; text-align: left; font: 17px/1.3 var(--fell); margin: 8px auto 18px; align-items: center; }
+  .controls dt { text-align: right; } .controls dd { margin: 0; color: var(--dim); font-style: italic; }
+  .t-only, body.touch .k-only { display: none; } body.touch .t-only { display: revert; }
+  #foot { position: fixed; z-index: 11; bottom: calc(var(--bot) + 4px); right: var(--r); font: italic 14px var(--fell); color: #55524a; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="field"></canvas>
+
+<div id="hud" hidden>
+  <div class="bars">
+    <div class="bar hp"><i class="lag" id="hpLag"></i><i id="hpFill"></i></div>
+    <div class="bar st" id="stBar"><i id="stFill"></i></div>
+    <div class="flasks" id="flasks"></div>
+  </div>
+  <button id="pauseBtn" aria-label="Pause"><b></b></button>
+</div>
+<div id="boss" hidden>
+  <div class="nm"><span>The Mirror Knight</span><span class="cracks" id="cracks"></span><small id="bossWep">Straight Sword</small></div>
+  <div class="bar"><i class="lag" id="bLag"></i><i id="bFill"></i><span class="tick" style="left:33.3%"></span><span class="tick" style="left:66.6%"></span></div>
+</div>
+
+<div id="pad">
+  <div id="stick"><b></b></div>
+  <div id="stickHint">drag here to move</div>
+  <div class="pb" id="bFlask">Flask</div>
+  <div class="pb" id="bHeavy">Heavy</div>
+  <div class="pb" id="bRoll">Roll</div>
+  <div class="pb" id="bLight">Strike</div>
+</div>
+
+<div id="tut" hidden>
+  <div class="step" id="tutStep">Practice · 1 of 5</div>
+  <h3 id="tutHead">Walk</h3>
+  <p id="tutText"></p>
+  <div class="how" id="tutHow"></div>
+  <div class="prog" id="tutProg"></div>
+  <div class="acts" id="tutActs" hidden><button class="btn" id="tutDone">Choose your arms</button></div>
+</div>
+<button id="tutSkip" hidden>Skip practice</button>
+
+<div id="say"></div>
+<div id="banner"><div class="band"><h2 id="bannerH">YOU DIED</h2><p id="bannerP"></p></div></div>
+
+<section class="screen" id="title">
+  <h1>Mirror <span class="nw"><span class="mir">K</span>night</span></h1>
+  <div class="sub">It fights the way you fight.</div>
+  <div class="rule"></div>
+  <div class="menu">
+    <button class="btn hot" id="tFight">Enter</button>
+    <button class="btn quiet" id="tPractice">Practice first</button>
+    <button class="btn quiet" id="tForget" hidden>Make it forget you</button>
+  </div>
+  <div class="rec" id="tRec"></div>
+</section>
+
+<section class="screen" id="arms" hidden>
+  <h2>Choose your arms</h2>
+  <div class="knows" id="knows"></div>
+  <div class="weps" id="weps"></div>
+  <div class="go">
+    <button class="btn quiet" id="aBack">Back</button>
+    <button class="btn hot" id="aGo">Enter the ring</button>
+  </div>
+</section>
+
+<section class="screen" id="learned" hidden>
+  <h2>The Mirror Knight has learned&hellip;</h2>
+  <div class="lines" id="lLines"></div>
+  <div class="tally" id="lTally"></div>
+  <div class="acts">
+    <button class="btn hot" id="lAgain">Rise again</button>
+  </div>
+</section>
+
+<section class="screen" id="won" hidden>
+  <h2>The Mirror Shatters</h2>
+  <div class="rule"></div>
+  <p id="wText"></p>
+  <div class="acts">
+    <button class="btn hot" id="wAgain">Face it again</button>
+    <button class="btn quiet" id="wForget">Make it forget you</button>
+  </div>
+</section>
+
+<section class="screen" id="pause" hidden>
+  <h2>Paused</h2>
+  <dl class="controls">
+    <dt class="k-only"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd class="k-only">move (you always face the knight)</dd>
+    <dt class="k-only"><kbd>J</kbd> or click</dt><dd class="k-only">strike &mdash; tap again for a string</dd>
+    <dt class="k-only"><kbd>K</kbd> or right-click</dt><dd class="k-only">heavy blow</dd>
+    <dt class="k-only"><kbd>Space</kbd></dt><dd class="k-only">roll &mdash; you can&rsquo;t be hit mid-roll</dd>
+    <dt class="k-only"><kbd>E</kbd></dt><dd class="k-only">drink a flask</dd>
+    <dt class="t-only">Left thumb</dt><dd class="t-only">drag anywhere on the left to move</dd>
+    <dt class="t-only">Right thumb</dt><dd class="t-only">Strike, Heavy, Roll, Flask</dd>
+  </dl>
+  <div class="menu">
+    <button class="btn hot" id="pResume">Resume</button>
+    <button class="btn quiet" id="pSound">Sound: on</button>
+    <button class="btn quiet" id="pQuit">Leave the ring</button>
+  </div>
+</section>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
