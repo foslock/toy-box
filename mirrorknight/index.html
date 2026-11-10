@@ -38,6 +38,8 @@
   /* ---------- screens */
   .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
     padding: calc(var(--top) + 10px) var(--r) calc(var(--bot) + 10px) var(--l); background: rgba(5,5,5,.86); overflow-y: auto; }
+  /* centre when it fits, scroll from the top when it doesn't */
+  .screen { justify-content: flex-start; } .screen::before, .screen::after { content: ''; flex: 1 0 0; } #arms::before { flex: 0 0 0; }
   .rule { width: min(360px, 70vw); height: 1px; background: linear-gradient(90deg, transparent, var(--bone), transparent); margin: 14px auto; opacity: .7; }
   #title h1 { font: clamp(54px, 13vw, 112px)/.9 var(--sc); margin: 0; letter-spacing: .02em; }
   #title h1 .nw { white-space: nowrap; }
@@ -76,6 +78,13 @@
     .knows li { font-size: 15px; } .knows li i { font-size: 13px; }
   }
 
+  @media (max-height: 560px) {
+    #title h1 { font-size: min(13vw, 72px); }
+    #arms { padding-top: calc(var(--top) + 12px); }
+    #arms h2 { font-size: 26px; } .knows { margin: 4px 0 8px; padding: 6px 6px 8px; }
+    .wep { padding: 8px 6px; gap: 3px; } .wep svg { width: 44px; height: 44px; } .wep b { font-size: 17px; } .wep span { font-size: 13px; }
+    #arms .go { margin-top: 8px; position: sticky; bottom: calc(-10px - var(--bot)); padding: 6px 0 calc(var(--bot) + 6px); width: 100%; background: linear-gradient(transparent, #050505 35%); }
+  }
   /* ---------- HUD */
   #hud { position: fixed; z-index: 3; top: var(--top); left: 64px; right: var(--r); display: flex; align-items: flex-start; gap: 12px; pointer-events: none; }
   .bars { display: grid; gap: 5px; width: min(260px, 52vw); padding-top: 6px; }
@@ -103,6 +112,7 @@
   #boss .bar .tick { position: absolute; top: 0; bottom: 0; width: 1.5px; background: #050505; }
   body.touch #boss { bottom: calc(var(--bot) + 180px); width: min(720px, calc(100% - 24px)); }
   body.touch #boss .nm { font-size: 19px; }
+  @media (orientation: landscape) and (max-height: 560px) { body.touch #boss { bottom: calc(var(--bot) + 10px); width: min(440px, calc(100% - 400px)); } }
 
   /* ---------- touch pad */
   #pad { position: fixed; inset: 0; z-index: 2; touch-action: none; display: none; }

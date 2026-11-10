@@ -28,7 +28,9 @@ setTouch(touchMode);
 
 function layout() {
   const w = innerWidth, h = innerHeight;
-  const top = mode === 'tutorial' ? (touchMode ? 210 : 190) : 70, bot = touchMode ? 240 : 64;
+  // phones held upright keep the thumb pad under the arena; held sideways the pad sits beside it
+  const side = touchMode && w > h * 1.2;
+  const top = mode === 'tutorial' ? (touchMode ? 210 : 190) : 70, bot = touchMode && !side ? 240 : 64;
   view.resize(w, h, Math.min(2, devicePixelRatio || 1), { t: mode === 'fight' || mode === 'tutorial' ? top : 0, b: mode === 'fight' || mode === 'tutorial' ? bot : 0 });
 }
 addEventListener('resize', layout);
@@ -65,7 +67,7 @@ const GLYPH = {
 
 function toArms() {
   mode = 'arms'; show('arms'); hud(false); $('tut').hidden = true; $('tutSkip').hidden = true; $('pad').classList.remove('on');
-  if (!g || g.tutorial || g.over) { g = idleGame(); bot = new Bot(g, { seed: 9, skill: .8 }); }
+  if (!g || g.tutorial || g.over || !bot) { g = idleGame(); bot = new Bot(g, { seed: 9, skill: .8 }); }
   layout();
   const H = save.habits, kw = WEAPONS[save.knightWeapon];
   const known = HABIT_KEYS.filter(k => H[k]);

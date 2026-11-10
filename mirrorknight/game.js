@@ -389,7 +389,7 @@ export class Game {
 
   dmgOf(f, def) {
     if (f.side === 'p') return def.dmg;
-    const mul = def.kind === 'shot' || def.kind === 'volley' || def.kind === 'pillars' ? .95 : f.w.id === 'spear' ? 1.25 : KNIGHT.dmgMul;
+    const mul = def.homing ? .8 : def.kind === 'shot' || def.kind === 'volley' || def.kind === 'pillars' ? .95 : f.w.id === 'spear' ? 1.25 : KNIGHT.dmgMul;
     return def.dmg * mul * (this.phase === 1 ? 1 : this.phase === 2 ? 1.1 : 1.2);
   }
 
@@ -599,7 +599,7 @@ export class Game {
         const pl = H.range === 'far' ? .9 : .45 + .15 * this.phase;
         if (d < 250 && d > reach + 50 && this.rand() < pl * dt * 3) return this.knightAct('lunge', d);
       } else {
-        if (d < 70) { return this.rand() < .5 ? this.knightAct('bash', d) : (this.knightDodge('back'), void (B.queue = ['light'])); }
+        if (d < 105) { return this.rand() < .5 ? this.knightAct('bash', d) : (this.knightDodge('back'), void (B.queue = ['light'])); }
         if (d < 330) {
           const r = this.rand();
           if (r < sp) return this.knightAct('special', d);
@@ -614,7 +614,7 @@ export class Game {
     B.strafeT -= dt;
     if (H.circle) B.strafe = H.circle === 'cw' ? 1 : -1;
     else if (B.strafeT <= 0) { B.strafe = this.rand() < .5 ? 1 : -1; B.strafeT = 1.5 + this.rand() * 2.5; }
-    let want = ranged ? (H.range === 'close' ? 140 : 200) : (H.range === 'close' ? reach * .6 : B.cd > .35 ? reach + 55 : reach * .8);
+    let want = ranged ? (H.range === 'close' || p.w.range < 150 ? 140 : 200) : (H.range === 'close' ? reach * .6 : B.cd > .35 ? reach + 55 : reach * .8);
     const radial = clamp((d - want) / 40, -1, 1);
     const ux = dx / (d || 1), uy = dy / (d || 1);
     let mx = ux * radial + -uy * B.strafe * .55, my = uy * radial + ux * B.strafe * .55;
