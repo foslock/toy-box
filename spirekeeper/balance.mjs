@@ -11,25 +11,25 @@ function playRun(strategy, seed) {
   while (!run.over) {
     const rooms = offerRooms(run);
     const room = strategy(run, rooms);
-    run.hype -= HYPE.roomDecay;
+    run.hype = Math.max(0, run.hype - HYPE.roomDecay);   // the page never lets hype go under 0
     if (room.kind === 'monster') {
       const en = makeEnemy(room.key, run.floor);
       const start = run.hero.hp;
       const res = fight(run.hero, en, run.R.int(1e9));
       for (const e of res.events) run.hype = Math.min(HYPE.max, run.hype + hypeForEvent(e, run.hero.maxHp));
-      for (const s of hypeSettle(res, start, run.hero.maxHp, en)) run.hype += s.amt;
-      run.hype = Math.min(HYPE.max, run.hype);
+      const settle = hypeSettle(res, start, run.hero.maxHp, en);
+      for (const s of settle) run.hype = Math.max(0, Math.min(HYPE.max, run.hype + s.amt));
       run.hero.hp = res.hp;
       if (!res.won) { run.over = true; run.outcome = 'died'; }
       else {
-        if (res.minHp / run.hero.maxHp <= 0.15) run.clutches++;
-        if (run.hero.relics.includes('kettle')) run.hero.hp = Math.min(run.hero.maxHp, run.hero.hp + 6);
+        if (settle.some(s => s.why === 'CLUTCH')) run.clutches++;
+        if (run.hero.relics.includes('kettle') && run.floor < FLOORS) run.hero.hp = Math.min(run.hero.maxHp, run.hero.hp + 6);
         if (run.floor < FLOORS) cardReward(run);
       }
       trace.push(`${run.floor}:${room.key}(${start}->${res.hp}) h${Math.round(run.hype)}`);
     } else {
       const r = resolveRoom(run, room);
-      run.hype = Math.min(HYPE.max, run.hype + r.hype);
+      run.hype = Math.max(0, Math.min(HYPE.max, run.hype + r.hype));
       trace.push(`${run.floor}:${room.key} h${Math.round(run.hype)}`);
     }
     viewersAfter(run);

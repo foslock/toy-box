@@ -104,7 +104,7 @@
   .card .cost { position: absolute; top: -10px; left: -10px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--yellow); background: var(--slate2); font: 700 15px/20px var(--sketch); text-align: center; color: var(--yellow); }
   .card .cn { font: 700 15px/1.05 var(--sketch); padding-left: 14px; }
   .card .ct { color: var(--dim); }
-  .card .badge { margin-top: auto; align-self: center; display: inline-flex; align-items: center; gap: 2px; font: 700 20px/1 var(--sketch); padding-bottom: 2px; }
+  .card .badge { margin-top: auto; align-self: center; display: inline-flex; align-items: center; gap: 2px; font: 700 20px/1 var(--sketch); padding-bottom: 2px; white-space: nowrap; }
   .card .badge canvas { width: 26px; height: 26px; }
   .card.atk .cn { color: var(--orange); } .card.def .cn { color: var(--blue); } .card.pow .cn { color: var(--yellow); } .card.curse .cn { color: var(--lilac); }
   .card.gone { transform: translateY(-80px) scale(.8); opacity: 0; }
@@ -128,6 +128,7 @@
     padding: calc(var(--top) + 10px) var(--r) calc(var(--bot) + 10px) var(--l); }
   .screen::before, .screen::after { content: ''; flex: 1 0 0; }
   .screen.dim { background: rgba(29, 36, 32, .9); }
+  #end.dim { background: rgba(29, 36, 32, .95); }
   #title h1 { font: 700 clamp(56px, 12vw, 120px)/.9 var(--sketch); margin: 0; color: var(--chalk); }
   #title h1 em { font-style: normal; color: var(--yellow); }
   #title .sub { font-size: clamp(18px, 2.6vw, 22px); color: var(--dim); max-width: 560px; margin: 12px auto 4px; }
@@ -190,7 +191,7 @@
     #pickInfo { font-size: 14px; gap: 4px 10px; min-height: 48px; }
     .hand { gap: 3px; min-height: 92px; }
     .card { width: 66px; height: 86px; font-size: 10.5px; padding: 0; border-width: 8px; border-image-width: 9px; }
-    .card .cn { font-size: 11px; padding: 9px 0 0; text-align: center; overflow-wrap: break-word; }
+    .card .cn { font-size: 11px; padding: 9px 0 0; margin: 0 -6px; text-align: center; overflow-wrap: break-word; }
     .card .cost { width: 18px; height: 18px; font-size: 12px; line-height: 14px; top: -8px; left: -8px; }
     .card .ct { display: none; }
     .card .badge { font-size: 16px; } .card .badge canvas { width: 20px; height: 20px; }
@@ -204,7 +205,8 @@
   @media (max-height: 520px) and (orientation: landscape) {
     body { font-size: 14px; }
     #app { grid-template-columns: minmax(0, 1fr) 210px; gap: 2px 8px; }
-    #top { min-height: 40px; gap: 10px; }
+    #top { min-height: 40px; gap: 10px; flex-wrap: nowrap; }
+    #hypeBox { flex-basis: 110px; }
     #hypeBox .lab, #floorBox { font-size: 16px; } #hypeBar { height: 18px; }
     #habits { display: none; }
     #cam { aspect-ratio: 16 / 8; }
@@ -215,10 +217,15 @@
     .room .moves canvas { width: 14px; height: 14px; }
     .room .kind { font-size: 10px; }
     #dock { min-height: 150px; }
-    #pickInfo { min-height: 44px; font-size: 13px; }
+    #stage { min-height: 120px; }
+    #pickInfo { min-height: 44px; font-size: 13px; flex-wrap: nowrap; gap: 10px; text-align: left; line-height: 1.2; }
+    #pickInfo .say { flex: 1 1 auto; max-width: none; } #pickInfo .say:only-child { text-align: center; }
+    #pickInfo .btn { flex: none; white-space: nowrap; min-height: 40px; padding: 2px 12px; }
+    #title h1 { font-size: clamp(44px, 16vh, 120px); } #title .spacer { height: 22vh; }
+    #title .sub { font-size: 16px; margin: 6px auto 0; } #title .menu { margin-top: 8px; } #title .rec { margin-top: 4px; font-size: 14px; }
     .hand { min-height: 84px; }
     .card { width: 66px; height: 80px; font-size: 10px; padding: 0; border-width: 8px; border-image-width: 9px; }
-    .card .cn { font-size: 11px; padding: 9px 0 0; text-align: center; overflow-wrap: break-word; }
+    .card .cn { font-size: 11px; padding: 9px 0 0; margin: 0 -6px; text-align: center; overflow-wrap: break-word; }
     .card .cost { width: 18px; height: 18px; font-size: 12px; line-height: 14px; top: -8px; left: -8px; }
     .card .ct { display: none; }
     .card .badge { font-size: 15px; } .card .badge canvas { width: 18px; height: 18px; }

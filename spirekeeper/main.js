@@ -196,6 +196,7 @@ $('eTitleBtn').onclick = () => toTitle();
 
 function startRun(withTutorial) {
   run = S.newRun();
+  paused = false; holdFight = false;
   hypeShown = run.hype; viewersShown = run.viewers; hypeFloat = [];
   D = { hero: { ...run.hero, block: 0 }, foe: null, intent: null };
   chat.clear(); chat.system('Pip went live: "tower run, day 1. keeper be nice"');
@@ -246,7 +247,7 @@ function renderRooms() {
       });
       b.append(mv);
       const death = Math.round(f.death * 100);
-      const range = f.hi - f.lo >= 3 ? ` <span style="color:var(--dim)">(${f.lo}–${f.hi})</span>` : '';
+      const range = f.hi - f.lo >= 3 ? ` <span style="color:var(--dim)">(${Math.max(0, f.lo)}–${f.hi})</span>` : '';
       const fc = el('span', 'fc', f.mid > 0 ? `Pip loses <b>~${f.mid}</b>${range}` + (death > 0 ? ` <span class="skull">${death}% death</span>` : '') : 'Pip barely notices it');
       b.append(fc);
     } else if (r.kind === 'treasure') {
@@ -505,16 +506,18 @@ function finishFight() {
     return;
   }
   const lost = hpStart - res.hp;
-  if (res.minHp / run.hero.maxHp <= 0.15) {
+  if (settle.some(s => s.why === 'CLUTCH')) {
     run.clutches++; chat.say('clutch', 8, {}, 2); snd.cheer(1); mood('yay', 2.5);
   } else if ((hpStart - res.minHp) / run.hero.maxHp > 0.25) { chat.say('winHard', 3); snd.cheer(0.5); mood('yay', 1.4); }
   else if (settle.some(s => s.why === 'snooze')) { chat.say('snooze', 4, {}, 1.5); mood('sleepy', 1.5); }
   else chat.say('win', 2);
   if (!run.best || res.minHp < run.best.hp) run.best = { hp: res.minHp, floor: run.floor, name: en.name };
   run.history.push({ floor: run.floor, key: en.key, lost, low: res.minHp });
-  lines.push(lost > 0 ? `Pip lost ${lost} HP${res.minHp < res.hp ? ` and dipped to ${res.minHp}` : ''}. ${res.hp}/${run.hero.maxHp} left.` : `Pip didn't take a scratch. ${res.hp}/${run.hero.maxHp} HP.`);
+  lines.push(lost > 0 ? `Pip lost ${lost} HP${res.minHp < res.hp ? ` and dipped to ${res.minHp}` : ''}. ${res.hp}/${run.hero.maxHp} left.`
+    : res.dmgTaken > 0 ? `Pip healed back everything she lost. ${res.hp}/${run.hero.maxHp} HP.` : `Pip didn't take a scratch. ${res.hp}/${run.hero.maxHp} HP.`);
   if (res.pillow) lines.push('The Lucky Pillow saved her!');
-  if (run.hero.relics.includes('kettle')) { const b = run.hero.hp; run.hero.hp = Math.min(run.hero.maxHp, run.hero.hp + 6); if (run.hero.hp > b) lines.push(`The Kettle healed ${run.hero.hp - b}.`); D.hero.hp = run.hero.hp; }
+  // not after the boss: the stream ends on the HP she won with, or the Kettle would undo a Legendary finish
+  if (run.hero.relics.includes('kettle') && run.floor < FLOORS) { const b = run.hero.hp; run.hero.hp = Math.min(run.hero.maxHp, run.hero.hp + 6); if (run.hero.hp > b) lines.push(`The Kettle healed ${run.hero.hp - b}.`); D.hero.hp = run.hero.hp; }
   let reward = null;
   if (run.floor < FLOORS) {
     reward = S.cardReward(run);
@@ -576,6 +579,7 @@ function addHype(d, quiet) {
 function endRun(outcome, enemy) {
   if (mode === 'end') return;
   mode = 'end';
+  closeSheet();
   const f = Math.min(run.floor, FLOORS);
   const peak = run.peak;
   save.runs++; save.best = Math.max(save.best, peak); if (outcome === 'legend') save.legends++;
@@ -596,7 +600,11 @@ function endRun(outcome, enemy) {
 }
 
 // ---------------------------------------------------------------- effects
-function fxNum(x, y, text, color, size = 1) { fx.push({ k: 'num', x: x + (Math.random() - 0.5) * 16, y, text, color, size, life: 1.1, max: 1.1, seed: (Math.random() * 999) | 0 }); }
+function fxNum(x, y, text, color, size = 1) {
+  // two labels landing on the same spot in the same beat ("Weak 2" on "Vulnerable 2") stack instead of overprinting
+  for (const f of fx) if (f.k === 'num' && f.max - f.life < 0.3 && Math.abs(f.x - x) < 70 && Math.abs(f.y - y) < 14) y -= Math.max(18, 24 * size);
+  fx.push({ k: 'num', x: x + (Math.random() - 0.5) * 16, y, text, color, size, life: 1.1, max: 1.1, seed: (Math.random() * 999) | 0 });
+}
 function fxSlash(x, y) { fx.push({ k: 'slash', x, y, life: 0.35, max: 0.35, seed: (Math.random() * 999) | 0 }); }
 function fxDust(x, y, n) { for (let i = 0; i < n; i++) fx.push({ k: 'dust', x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 60, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 60, life: 0.8 + Math.random() * 0.8, max: 1.6 }); }
 function mood(m, t) { face.mood = m; face.t = t; }
@@ -687,7 +695,8 @@ function drawStage(boil) {
     drawSprite(D.foeKey, fx2, gy, sz, vis.foe, boil);
     if (vis.foe.dead < 1) {
       drawBars(p, fx2, gy, sz, D.foe, false);
-      if (mode === 'fight' && D.intent && vis.foe.dead === 0) drawIntent(p, fx2, gy - sz * 0.95 * (CREATURE_SCALE[D.foeKey] || 1) - 14, D.intent, D.hero);
+      // tall foes on a short stage: keep the intent on the board, not up under the hype bar
+      if (mode === 'fight' && D.intent && vis.foe.dead === 0) drawIntent(p, fx2, Math.max(stageR.y + 20, gy - sz * 0.95 * (CREATURE_SCALE[D.foeKey] || 1) - 14), D.intent, D.hero);
     }
   } else if (roomDoodle) {
     drawSprite(roomDoodle, fx2, gy, sz * 0.9, null, boil);
@@ -852,7 +861,7 @@ function drawRing(r, boil) {
 function drawTitle(boil) {
   const sp = document.querySelector('#title .spacer');
   const r = rectOf(sp);
-  const gy = r.y + r.h * 0.96, sz = Math.min(r.h * 0.75, 170);
+  const gy = r.y + r.h * 0.96, sz = Math.min(r.h * 0.75, 170, W * 0.9 / 5 * 1.45);   // narrow phones: don't pile the cast on top of each other
   const keys = ['bats', 'mimic', 'hero', 'brute', 'eye'];
   const span = Math.min(W * 0.9, sz * 5.4);
   keys.forEach((k, i) => {
@@ -872,6 +881,7 @@ addEventListener('keydown', e => {
   if (k === 'm') { $('sndBtn').click(); return; }
   if (!$('sheet').hidden) { if (k === 'escape' || k === 'enter' || k === ' ') { e.preventDefault(); closeSheet(); } return; }
   if (!$('coach').hidden && !$('coachNext').hidden && (k === 'enter' || k === ' ')) { e.preventDefault(); $('coachNext').click(); return; }
+  if (!$('blocker').hidden) return;   // the coach is talking: no picking rooms or opening the deck behind it
   if (mode === 'title' && (k === 'enter' || k === ' ') && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); $('tGo').click(); return; }
   if (mode === 'choose') {
     if (['1', '2', '3'].includes(k)) { const b = document.querySelector(`.room[data-i="${+k - 1}"]`); if (b && !b.classList.contains('off')) pick(+k - 1); }
@@ -915,7 +925,7 @@ function startTutorial() {
       tutAllow = 'rat'; renderRooms();
       const w1 = coach('Each floor you play one of three rooms. Under each monster is a guess at what it will cost Pip. Start gentle: pick the <b>Gutter Rat</b>.', target('.room[data-i="0"]'), { button: '', hint: touch ? 'Tap the rat' : 'Click the rat' });
       await sig('picked'); T0.resolveWait(); await w1; alive();
-      const w2 = coach('Read it over, then send it in.', target('#go'), { button: '', hint: '' });
+      const w2 = coach('Read it over, then send it in.', target('#go'), { button: '', hint: '', side: 'top' });
       await sig('fightStart'); T0.resolveWait(); await w2; alive();
       holdFight = true;
       await coach('Above the rat is its next move: a bite for 5. Pip plays her own cards. You just watch, and plan the next floor.', () => { const sz = spriteSize(); return { x: foeX() - 50, y: groundY() - sz * 0.95 - 36, w: 100, h: 40 }; }, { button: 'Watch', side: 'above' });
@@ -930,7 +940,7 @@ function startTutorial() {
       await coach('Pip has <b>habits</b> you can use. Above half HP she never blocks. Every card goes into hitting.', habitsVisible ? target('#habits') : target('#pipBtn'));
       const w3 = coach('The <b>Bone Lad</b> swings for 11, and greedy Pip won\'t put a shield up. Send it in.', target('.room[data-i="0"]'), { button: '', hint: touch ? 'Tap the Bone Lad' : 'Click the Bone Lad' });
       await sig('picked'); T0.resolveWait(); await w3; alive();
-      const w4 = coach('Send it in.', target('#go'), { button: '' });
+      const w4 = coach('Send it in.', target('#go'), { button: '', side: 'top' });
       await sig('fightStart'); T0.resolveWait(); await w4; alive();
       await sig('result'); alive();
       await coach('Real hits, real hype. But Pip\'s HP doesn\'t come back by itself. <b>Campfires</b> heal her and <b>treasure</b> makes her stronger. If she dies, the stream dies.', () => { const sz = spriteSize(); return { x: heroX() - sz * 0.5, y: groundY(), w: sz, h: sz * 0.3 }; });
@@ -951,11 +961,18 @@ $('coachSkip').onclick = () => { endTutorial(); };
 function placeCoach() {
   const c = $('coach');
   if (c.hidden) return;
+  if (!$('app').hidden) stageR = rectOf($('stage'));   // the first coach can open before a frame has measured the stage
   const r = tut && tut.ring ? tut.ring() : null;
   const cw = c.offsetWidth, ch = c.offsetHeight;
   let x = W / 2 - cw / 2, y = H * 0.3;
   if (r && tut.side === 'above' && r.y - ch - 24 > 8) {
     y = r.y - ch - 24; x = clamp(r.x + r.w / 2 - cw / 2, 8, W - cw - 8);
+  } else if (r && tut.side === 'above') {
+    // no room above (a phone held sideways): sit over the empty hand, not on the monster being pointed at
+    y = H - ch - 8; x = clamp(stageR.x + stageR.w / 2 - cw / 2, 8, W - cw - 8);
+  } else if (r && tut.side === 'top') {
+    // pointing at the Send button: stay up on the stage so the room's write-up can be read
+    y = stageR.y + 6; x = clamp(stageR.x + stageR.w / 2 - cw / 2, 8, W - cw - 8);
   } else if (r && tut.side === 'right' && r.x + r.w + 30 + cw < W) {
     x = r.x + r.w + 30; y = clamp(r.y + r.h / 2 - ch / 2, 8, H - ch - 8);
   } else if (r) {

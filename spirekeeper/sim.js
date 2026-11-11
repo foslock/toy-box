@@ -287,8 +287,9 @@ export function hypeSettle(res, hpStart, maxHp, enemy) {
   const lowFrac = res.minHp / maxHp;
   const dip = (hpStart - res.minHp) / maxHp;
   if (!res.won) return out;
-  if (lowFrac <= 0.15) out.push({ amt: 22, why: 'CLUTCH' });
-  else if (lowFrac <= 0.3) out.push({ amt: 10, why: 'close call' });
+  // a fight that never touched her is no nail-biter, however low she walked in
+  if (dip >= 0.06 && lowFrac <= 0.15) out.push({ amt: 22, why: 'CLUTCH' });
+  else if (dip >= 0.06 && lowFrac <= 0.3) out.push({ amt: 10, why: 'close call' });
   if (dip < 0.06) out.push({ amt: -12, why: 'snooze' });
   else if (dip < 0.12) out.push({ amt: -5, why: 'one-sided' });
   if (enemy.elite && dip > 0.12) out.push({ amt: 6, why: 'elite down' });
