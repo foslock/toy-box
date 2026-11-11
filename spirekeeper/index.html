@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Spire Keeper</title>
+<meta name="description" content="You build the tower a streamer is climbing live. Pick every monster, treasure and campfire, keep chat hyped, and don't let Pip die.">
+<meta name="theme-color" content="#262e2a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --chalk: #f2efe6; --dim: #a9aea6; --faint: #6f7a73; --yellow: #f4d775; --pink: #f4a3b8; --blue: #93cdf2; --green: #a9e39d;
+    --orange: #f6ad62; --red: #f27c6c; --lilac: #c9adf2; --slate: #262e2a; --slate2: #1d2420;
+    --sketch: 'Cabin Sketch', 'Comic Sans MS', cursive; --hand: 'Kalam', 'Comic Sans MS', cursive;
+    --top: max(8px, env(safe-area-inset-top)); --bot: max(8px, env(safe-area-inset-bottom));
+    --l: max(10px, env(safe-area-inset-left)); --r: max(10px, env(safe-area-inset-right));
+    --frame: none; --frameY: none; --frameP: none; --frameB: none; --frameR: none; --frameD: none; --grain: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--slate); color: var(--chalk); font: 400 17px/1.3 var(--hand); overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+  canvas#board { position: fixed; inset: 0; z-index: 0; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 2px dashed var(--yellow); outline-offset: 3px; }
+  b { font-weight: 700; }
+
+  /* chalk dust on everything drawn with the hand font */
+  .dust { -webkit-mask-image: var(--grain); mask-image: var(--grain); -webkit-mask-size: 128px; mask-size: 128px; }
+  .box { border: 13px solid transparent; border-image: var(--frame) 30 / 13px round; }
+  .box.y { border-image-source: var(--frameY); } .box.p { border-image-source: var(--frameP); } .box.b { border-image-source: var(--frameB); }
+  .box.r { border-image-source: var(--frameR); } .box.d { border-image-source: var(--frameD); }
+
+  .btn { font: 700 22px/1 var(--sketch); letter-spacing: .02em; padding: 8px 18px 7px; min-height: 52px; color: var(--chalk); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:hover { color: var(--yellow); }
+  .btn.go { color: var(--yellow); }
+  .btn.small { font-size: 17px; min-height: 42px; padding: 4px 10px; }
+  .btn[disabled] { opacity: .35; cursor: default; }
+  kbd { font: 700 13px/1 var(--hand); border: 1.5px solid var(--faint); border-radius: 4px; padding: 2px 5px 1px; color: var(--dim); }
+  body.touch kbd { display: none; }
+
+  /* ---------- the layout: one big blackboard */
+  #app { position: fixed; inset: 0; z-index: 1; display: grid; padding: var(--top) var(--r) var(--bot) var(--l);
+    grid-template-columns: minmax(0, 1fr) 290px; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top top" "stage side" "dock side"; gap: 4px 12px; }
+  #top { grid-area: top; display: flex; align-items: center; gap: 14px; padding-left: 54px; min-height: 52px; flex-wrap: wrap; }
+  #stage { grid-area: stage; min-height: 160px; position: relative; }
+  #side { grid-area: side; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  #dock { grid-area: dock; min-height: 0; }
+
+  #hypeBox { display: flex; align-items: center; gap: 8px; flex: 1 1 220px; max-width: 420px; }
+  #hypeBox .lab { font: 700 20px/1 var(--sketch); color: var(--yellow); }
+  #hypeBar { flex: 1; height: 26px; position: relative; }
+  #floorBox { font: 700 20px/1 var(--sketch); display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+  #floorBox small { font: 400 15px var(--hand); color: var(--dim); }
+  #live { display: flex; align-items: center; gap: 6px; font: 700 16px/1 var(--hand); white-space: nowrap; }
+  #live .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--red); box-shadow: 0 0 6px var(--red); animation: blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  #top .tools { margin-left: auto; display: flex; gap: 2px; }
+
+  /* cam + habits + chat */
+  #cam { position: relative; aspect-ratio: 16 / 10; width: 100%; flex: none; }
+  #cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #habits { flex: none; padding: 2px 4px; font-size: 14px; line-height: 1.2; color: var(--dim); }
+  #habits h3, .sheet h3 { font: 700 17px/1 var(--sketch); color: var(--chalk); margin: 0 0 4px; }
+  #habits p { margin: 0 0 4px; } #habits p b { color: var(--yellow); font-weight: 700; }
+  #chatBox { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 2px 4px; }
+  #chatBox h3 { font: 700 15px/1 var(--sketch); color: var(--dim); margin: 0 0 4px; display: flex; justify-content: space-between; }
+  #chat { flex: 1; min-height: 0; overflow: hidden; font-size: 15px; line-height: 1.25; display: flex; flex-direction: column; justify-content: flex-end; }
+  #chat .msg { padding: 1px 0; overflow-wrap: anywhere; animation: pop .25s ease-out; }
+  #chat .msg b { font-weight: 700; }
+  #chat .msg.sys { color: var(--yellow); font-style: italic; }
+  #chat .emote { font-style: normal; font-weight: 700; color: var(--pink); border: 1.5px dashed var(--pink); border-radius: 6px; padding: 0 3px; font-size: 13px; }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } }
+
+  /* the dock: room cards, the hand, results */
+  #dock { display: flex; flex-direction: column; justify-content: flex-end; min-height: 262px; }
+  .dockrow { display: flex; gap: 10px; justify-content: center; align-items: stretch; }
+  .room { flex: 1 1 0; max-width: 250px; min-width: 0; position: relative; text-align: left; padding: 2px 4px 4px; display: flex; flex-direction: column; gap: 1px; transition: transform .15s; }
+  .room:hover { transform: translateY(-3px); }
+  .room.sel { transform: translateY(-8px); }
+  .room.off { opacity: .3; pointer-events: none; }
+  .room .kind { font: 700 13px/1 var(--hand); color: var(--dim); text-transform: uppercase; letter-spacing: .06em; display: flex; justify-content: space-between; }
+  .room .kind .k { color: var(--faint); }
+  .room canvas { width: 100%; height: 76px; display: block; }
+  .room .nm { font: 700 20px/1 var(--sketch); }
+  .room .hp { font-size: 14px; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .room .moves { display: flex; gap: 3px; flex-wrap: wrap; align-items: center; font: 700 14px/1 var(--hand); }
+  .room .moves span { display: inline-flex; align-items: center; }
+  .room .moves img, .room .moves canvas { width: 18px; height: 18px; }
+  .room .moves .then { color: var(--faint); }
+  .room .fc { font-size: 15px; line-height: 1.15; margin-top: 2px; }
+  .room .fc b { color: var(--orange); }
+  .room .fc .skull { color: var(--red); font-weight: 700; }
+  .room .txt { font-size: 15px; line-height: 1.2; color: var(--chalk); }
+  .room .txt i { color: var(--dim); font-style: normal; }
+  #pickInfo { text-align: center; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 16px; color: var(--dim); }
+  #pickInfo .say { max-width: 520px; }
+
+  .hand { display: flex; gap: 6px; justify-content: center; min-height: 128px; align-items: flex-end; }
+  .card { width: 98px; height: 128px; position: relative; padding: 2px 4px; font-size: 13px; line-height: 1.15; display: flex; flex-direction: column; gap: 2px; transition: transform .35s ease-out, opacity .35s; }
+  .card .cost { position: absolute; top: -10px; left: -10px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--yellow); background: var(--slate2); font: 700 15px/20px var(--sketch); text-align: center; color: var(--yellow); }
+  .card .cn { font: 700 15px/1.05 var(--sketch); padding-left: 14px; }
+  .card .ct { color: var(--dim); }
+  .card .badge { margin-top: auto; align-self: center; display: inline-flex; align-items: center; gap: 2px; font: 700 20px/1 var(--sketch); padding-bottom: 2px; }
+  .card .badge canvas { width: 26px; height: 26px; }
+  .card.atk .cn { color: var(--orange); } .card.def .cn { color: var(--blue); } .card.pow .cn { color: var(--yellow); } .card.curse .cn { color: var(--lilac); }
+  .card.gone { transform: translateY(-80px) scale(.8); opacity: 0; }
+  .card.disc { transform: translateY(30px) rotate(6deg); opacity: 0; }
+  .card.pick { transform: translateY(-6px); }
+  .card.pick::after { content: ''; position: absolute; inset: -16px; border: 13px solid transparent; border-image: var(--frameY) 30 / 13px round; }
+  #fightBar { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 48px; color: var(--dim); font-size: 15px; }
+  #fightBar .energy { color: var(--yellow); font: 700 18px var(--sketch); }
+
+  #result { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 4px 0; }
+  #result h2 { font: 700 30px/1 var(--sketch); margin: 0; }
+  #result .lines { font-size: 17px; max-width: 640px; }
+  #result .lines p { margin: 2px 0; }
+  #result .hype { display: flex; gap: 8px 14px; flex-wrap: wrap; justify-content: center; font-size: 16px; }
+  #result .hype .up { color: var(--yellow); } #result .hype .down { color: var(--red); }
+  #result .reward { display: flex; gap: 14px; justify-content: center; margin: 14px 0 4px; }
+  #result .reward .card { transform: none; }
+
+  /* overlays: title, sheet, end, coach */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; text-align: center; overflow-y: auto;
+    padding: calc(var(--top) + 10px) var(--r) calc(var(--bot) + 10px) var(--l); }
+  .screen::before, .screen::after { content: ''; flex: 1 0 0; }
+  .screen.dim { background: rgba(29, 36, 32, .9); }
+  #title h1 { font: 700 clamp(56px, 12vw, 120px)/.9 var(--sketch); margin: 0; color: var(--chalk); }
+  #title h1 em { font-style: normal; color: var(--yellow); }
+  #title .sub { font-size: clamp(18px, 2.6vw, 22px); color: var(--dim); max-width: 560px; margin: 12px auto 4px; }
+  #title .menu { display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 18px; }
+  #title .rec { font-size: 16px; color: var(--faint); margin-top: 10px; min-height: 1.3em; }
+  #title .spacer { height: min(30vh, 260px); flex: none; }
+
+  .sheet { width: min(760px, 100%); text-align: left; padding: 10px 14px; background: var(--slate); }
+  .sheet h2 { font: 700 34px/1 var(--sketch); margin: 0 0 8px; }
+  .sheet .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+  .sheet p { margin: 0 0 6px; font-size: 16px; } .sheet p b { color: var(--yellow); }
+  .sheet .deck { display: flex; flex-wrap: wrap; gap: 14px 10px; padding: 10px 6px; }
+  .sheet .deck .card { width: 88px; height: 112px; }
+  .sheet .deck .n { position: absolute; bottom: -12px; right: -10px; font: 700 16px var(--sketch); color: var(--yellow); }
+  .sheet .deck .card .ct { display: block; }
+  .sheet .relic { margin: 0 0 4px; font-size: 15px; } .sheet .relic b { color: var(--orange); }
+  .sheet .close { display: flex; justify-content: center; margin-top: 6px; }
+
+  #end h2 { font: 700 clamp(44px, 9vw, 84px)/.95 var(--sketch); margin: 0 0 6px; }
+  #end .why { font-size: 19px; color: var(--dim); max-width: 560px; margin: 0 auto 12px; }
+  #end .stats { display: grid; grid-template-columns: repeat(3, auto); gap: 6px 26px; justify-content: center; margin: 6px 0 10px; }
+  #end .stats div { display: flex; flex-direction: column; }
+  #end .stats b { font: 700 32px/1 var(--sketch); color: var(--yellow); }
+  #end .stats span { font-size: 14px; color: var(--dim); }
+  #end .moment { font-size: 17px; max-width: 520px; margin: 6px auto 12px; }
+  #end .menu { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  #coach { position: fixed; z-index: 20; width: min(340px, calc(100vw - 24px)); padding: 6px 10px; background: rgba(29, 36, 32, .96); font-size: 17px; line-height: 1.3; }
+  #coach p { margin: 0 0 4px; }
+  #coach .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  #coach .skip { font-size: 14px; color: var(--faint); padding: 8px 4px; min-height: 40px; }
+  #coach .hint { font-size: 14px; color: var(--yellow); }
+  .blocker { position: fixed; inset: 0; z-index: 15; }
+
+  /* ---------- phones held upright */
+  @media (max-width: 760px) and (orientation: portrait) {
+    body { font-size: 15px; }
+    #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) 104px auto; grid-template-areas: "top" "stage" "side" "dock"; gap: 4px; }
+    #top { gap: 4px 10px; padding-left: 52px; min-height: 48px; }
+    #hypeBox { order: 5; flex: 1 1 100%; max-width: none; }
+    #hypeBox .lab { font-size: 17px; } #hypeBar { height: 22px; }
+    #floorBox { font-size: 18px; } #live { font-size: 14px; }
+    #top .tools .btn { font-size: 15px; min-height: 36px; padding: 2px 6px; }
+    .wide { display: none; }
+    #side { flex-direction: row; gap: 6px; }
+    #cam { width: auto; height: 100%; }
+    #habits { display: none; }
+    #chat { font-size: 13px; }
+    #chatBox h3 { display: none; }
+    #dock { min-height: 240px; }
+    .dockrow { gap: 4px; }
+    .room { padding: 0 2px 2px; }
+    .room .kind { font-size: 11px; }
+    .room .kind .k { display: none; }
+    .room canvas { height: 54px; }
+    .room .nm { font-size: 16px; }
+    .room .hp, .room .moves { font-size: 12px; } .room .moves canvas { width: 15px; height: 15px; }
+    .room .fc, .room .txt { font-size: 13px; }
+    .room .blurb { display: none; }
+    #pickInfo { font-size: 14px; gap: 4px 10px; min-height: 48px; }
+    .hand { gap: 3px; min-height: 92px; }
+    .card { width: 66px; height: 86px; font-size: 10.5px; padding: 0; border-width: 8px; border-image-width: 9px; }
+    .card .cn { font-size: 11px; padding: 9px 0 0; text-align: center; overflow-wrap: break-word; }
+    .card .cost { width: 18px; height: 18px; font-size: 12px; line-height: 14px; top: -8px; left: -8px; }
+    .card .ct { display: none; }
+    .card .badge { font-size: 16px; } .card .badge canvas { width: 20px; height: 20px; }
+    .card .cost { width: 20px; height: 20px; font-size: 13px; line-height: 16px; top: -9px; left: -9px; }
+    #result h2 { font-size: 24px; } #result .lines { font-size: 15px; } #result .hype { font-size: 14px; }
+    #result .reward { gap: 8px; margin-top: 12px; }
+    .sheet .cols { grid-template-columns: 1fr; }
+    .btn { font-size: 20px; }
+  }
+  /* ---------- phones held sideways */
+  @media (max-height: 520px) and (orientation: landscape) {
+    body { font-size: 14px; }
+    #app { grid-template-columns: minmax(0, 1fr) 210px; gap: 2px 8px; }
+    #top { min-height: 40px; gap: 10px; }
+    #hypeBox .lab, #floorBox { font-size: 16px; } #hypeBar { height: 18px; }
+    #habits { display: none; }
+    #cam { aspect-ratio: 16 / 8; }
+    #chat { font-size: 12.5px; }
+    .room canvas { height: 40px; }
+    .room .nm { font-size: 16px; } .room .blurb { display: none; }
+    .room .hp, .room .moves, .room .fc, .room .txt { font-size: 12px; }
+    .room .moves canvas { width: 14px; height: 14px; }
+    .room .kind { font-size: 10px; }
+    #dock { min-height: 150px; }
+    #pickInfo { min-height: 44px; font-size: 13px; }
+    .hand { min-height: 84px; }
+    .card { width: 66px; height: 80px; font-size: 10px; padding: 0; border-width: 8px; border-image-width: 9px; }
+    .card .cn { font-size: 11px; padding: 9px 0 0; text-align: center; overflow-wrap: break-word; }
+    .card .cost { width: 18px; height: 18px; font-size: 12px; line-height: 14px; top: -8px; left: -8px; }
+    .card .ct { display: none; }
+    .card .badge { font-size: 15px; } .card .badge canvas { width: 18px; height: 18px; }
+    .btn { min-height: 44px; font-size: 18px; }
+    #result { gap: 0; } #result h2 { font-size: 20px; } #result .lines { font-size: 13px; } #result .lines p { margin: 0; }
+    #result .hype { font-size: 13px; } #result .reward { display: none; } #result > p { margin: 2px 0 4px; font-size: 13px; }
+    #result .btn { min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
+    .room { padding-bottom: 0; } .room .fc { margin-top: 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="board"></canvas>
+
+<div id="app" hidden>
+  <header id="top">
+    <div id="floorBox" class="dust">Floor <span id="floorN">1</span><small>/ 15</small></div>
+    <div id="hypeBox"><span class="lab dust">Hype</span><div id="hypeBar"></div></div>
+    <div id="live" class="dust"><span class="dot"></span><span id="viewers">140</span><span class="wide">&nbsp;watching</span></div>
+    <div class="tools">
+      <button class="btn small dust" id="pipBtn" title="Pip's deck, relics and habits (D)"><span class="wide">Pip's&nbsp;</span>Deck</button>
+      <button class="btn small dust" id="sndBtn" title="Sound (M)">Mute</button>
+    </div>
+  </header>
+  <div id="stage"></div>
+  <aside id="side">
+    <div id="cam"><canvas id="camCv"></canvas></div>
+    <div id="habits" class="dust">
+      <h3>Pip's habits</h3>
+      <div id="habitList"></div>
+    </div>
+    <div id="chatBox" class="box d dust"><h3><span>Stream chat</span></h3><div id="chat"></div></div>
+  </aside>
+  <section id="dock"></section>
+</div>
+
+<section id="title" class="screen" hidden>
+  <div class="spacer"></div>
+  <h1 class="dust">Spire <em>Keeper</em></h1>
+  <p class="sub dust">Pip is climbing your tower, live on stream. You choose every monster, treasure and campfire. Keep chat on the edge of their seats, and keep Pip alive.</p>
+  <div class="menu">
+    <button class="btn go box y dust" id="tGo">Go live</button>
+    <button class="btn small dust" id="tTut" hidden>Play the tutorial again</button>
+  </div>
+  <div class="rec dust" id="tRec"></div>
+</section>
+
+<section id="sheet" class="screen dim" hidden>
+  <div class="sheet box dust">
+    <h2>Pip's deck</h2>
+    <div class="cols">
+      <div><h3>Habits</h3><div id="sHabits"></div></div>
+      <div><h3>Relics</h3><div id="sRelics"></div></div>
+    </div>
+    <h3 style="margin-top:10px">Cards <span id="sCount" style="color:var(--dim)"></span></h3>
+    <div class="deck" id="sDeck"></div>
+    <div class="close"><button class="btn box y" id="sClose">Back to the tower</button></div>
+  </div>
+</section>
+
+<section id="end" class="screen dim" hidden>
+  <h2 class="dust" id="eTitle">Stream over</h2>
+  <p class="why dust" id="eWhy"></p>
+  <div class="stats dust">
+    <div><b id="eFloor">0</b><span>floors</span></div>
+    <div><b id="ePeak">0</b><span>peak viewers</span></div>
+    <div><b id="eClutch">0</b><span>clutches</span></div>
+  </div>
+  <p class="moment dust" id="eMoment"></p>
+  <div class="menu">
+    <button class="btn go box y dust" id="eAgain">Go live again</button>
+    <button class="btn small dust" id="eTitleBtn">Title</button>
+  </div>
+</section>
+
+<div id="blocker" class="blocker" hidden></div>
+<div id="coach" class="box y dust" hidden>
+  <p id="coachText"></p>
+  <div class="row"><button class="skip" id="coachSkip">Skip tutorial</button><span class="hint" id="coachHint"></span><button class="btn small go" id="coachNext">Next</button></div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

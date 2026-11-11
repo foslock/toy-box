@@ -1,0 +1,10 @@
+{
+  "title": "Spire Keeper",
+  "blurb": "You build the tower a streamer climbs live, picking every monster, treasure and campfire to keep chat on the edge of its seat without letting Pip die.",
+  "added": "2026-11-11",
+  "category": "games",
+  "tags": ["cards", "auto-battler", "chalk", "game"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" },
+  "share": { "y": 22 }
+}

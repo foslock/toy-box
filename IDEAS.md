@@ -17,7 +17,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 9. Mirror Knight — [`mirrorknight/`](mirrorknight/)
 - [x] 10. Draw Ahead — [`drawahead/`](drawahead/)
 - [ ] 11. Marco
-- [ ] 12. Spire Keeper
+- [x] 12. Spire Keeper — [`spirekeeper/`](spirekeeper/)
 - [x] 13. Pop-Up — [`popup/`](popup/)
 - [x] 14. Hedges — [`hedges/`](hedges/)
 - [ ] 15. Lantern
@@ -163,7 +163,7 @@ A first-person walk across a foggy moor to find a friend by sound. You got separ
 
 Five or six short chapters across different ground (heather moor, a stone circle, a ruined farm, a river valley, the ridge at dusk), each with a small puzzle, like guiding your friend across the river by calling directions from a tower. Tender and funny, with replies full of personality. Style: soft, realistic three.js fog and grass, first person with no visible body. Best with headphones.
 
-## 12. Spire Keeper
+## 12. Spire Keeper ✅
 *Borrows: Slay the Spire, streamer culture · Twist: you build the Spire, and you're scored on drama*
 
 You're the keeper of a Spire, and a hero with a Slay the Spire-style deck, HP and relics is about to climb it live on stream. Before each floor you choose which enemy they fight, which relic sits in the treasure room and which event they walk into, then watch the fight play out automatically, card by card. You don't want the hero to die, and you don't want them to cruise. The hype meter climbs when they're in real danger and pull through, and drains when fights are dull or one-sided. A death ends the stream; reaching the top on 1 HP is a legendary broadcast.
