@@ -228,7 +228,7 @@ function tickDrive(s, dt) {
   const dp = dt * speed / TUNE.legSeconds;
   L.prog += dp;
   s.clock += dt * TUNE.legHours / TUNE.legSeconds;
-  s.gas -= dp * (L.road === 'interstate' ? TUNE.gasInter : TUNE.gasScenic);
+  s.gas = Math.max(0, s.gas - dp * (L.road === 'interstate' ? TUNE.gasInter : TUNE.gasScenic));
   if (s.gas <= 0 && !L.outGas) {
     L.outGas = true; s.gas = 0.12; s.clock += 1.5; addMorale(s, -10);
     const pay = Math.min(s.cash, 10); s.cash -= pay;

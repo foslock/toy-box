@@ -122,6 +122,7 @@ function mapPointer() {
     if (s.mode === 'stop') for (const ed of G.nextEdges(s)) { const n = s.map.nodes[ed.b], d = Math.hypot(n.x - x, n.y - y); if (d < Math.max(bd, 26)) { bd = d; best = ed; } }
     selectEdge(best);
   });
+  mapc.addEventListener('pointercancel', () => { down = null; mapPan = null; });
 }
 
 function selectEdge(e) {
@@ -135,10 +136,11 @@ function selectEdge(e) {
     attraction: () => `${n.place}! $${n.sight.price * 2} for the family.`, motel: () => `${n.place}: $${n.motel.price} a night. ${n.motel.note}`,
     event: () => 'Nothing on the map but a dot. Who knows?', summit: () => 'Sawtooth Pass, 9,240 ft. Steep. Hope the radiator holds.', grandma: () => 'GRANDMA’S HOUSE. Cake at 7 PM, Sunday (day 4).',
   }[n.type]();
-  const sp = (G.driverOf(s)?.speed || 1) * (e.road === 'interstate' ? 1.1 : 0.85);
-  const hrs = G.TUNE.legHours / sp;
+  const dirt = !!s.flags.shortcut;
+  const sp = (G.driverOf(s)?.speed || 1) * (dirt ? 0.8 : e.road === 'interstate' ? 1.1 : 0.85);
+  const hrs = G.TUNE.legHours * (dirt ? 0.7 : 1) / sp;
   const eta = G.fmtClock(s.clock + hrs);
-  const road = e.road === 'interstate' ? `Interstate ${e.num}: fast, flat and boring.` : `Route ${e.num}: slow, scenic, nobody gets bored.`;
+  const road = dirt ? 'The farmer’s dirt road: shorter, and rough on the car.' : e.road === 'interstate' ? `Interstate ${e.num}: fast, flat and boring.` : `Route ${e.num}: slow, scenic, nobody gets bored.`;
   const why = G.canLeave(s);
   box.innerHTML = `<h3>${n.town}</h3><p>${what}</p><p>${road} About ${hrs.toFixed(1)} hrs, there by ${eta}.</p>`
     + (why ? `<p class="hand">${why}</p>` : '')
@@ -263,7 +265,7 @@ function bayGeom(w, h) {
   const shore = land ? { x: w * 0.4, y: h * 0.62, w: w * 0.6, h: h * 0.38 } : { x: 0, y: h * 0.74, w, h: h * 0.26 };
   const k = Math.min((bay.w - 12) / A.BAY_W, (bay.h - 12) / A.BAY_H);
   const n = s.bd ? s.bd.problems.length : 3;
-  const cw = Math.min(160, (cards.w - 12) / n - 8), ch = Math.min(cards.h - 14, cw * 1.35);
+  const cw = Math.min(160, (cards.w - 12) / n - 8), ch = Math.min(cards.h - 14, Math.max(cw * 1.35, 120));
   const slotR = Math.max(14, Math.min(cw * 0.2, ch * 0.15, 30));
   const hr = Math.max(16, Math.min(30, shore.h * 0.3, shore.w / 12, slotR * 1.15));
   return { land, bay, cards, shore, k, ox: bay.x + (bay.w - A.BAY_W * k) / 2, oy: bay.y + (bay.h - A.BAY_H * k) / 2, n, cw, ch, slotR, hr };
@@ -487,7 +489,7 @@ function renderHud() {
 $('tape').onclick = () => { S.unlock(); if (!s || s.mode === 'end') return; G.cycleTape(s); S.setTape(s.tapeId); tutEvent('tape'); };
 $('pull').onclick = () => {
   S.unlock();
-  if (s.mode === 'breakdown') { if (G.tow(s)) S.play('horn'); return; }
+  if (s.mode === 'breakdown') { if (s.bd.t > 0.8 && G.tow(s)) S.play('horn'); return; } // a tap aimed at PULL OVER as the car dies doesn't buy a tow
   if (G.pullOver(s)) { toast('Everybody out. Bathroom break.', 'info'); tutEvent('pull'); }
 };
 $('mute').onclick = () => { S.unlock(); S.setMuted(!S.isMuted()); $('mute').classList.toggle('off', S.isMuted()); };
@@ -607,6 +609,7 @@ function placeCoach() {
 function hideCoach() { $('coach').hidden = true; $('ring').hidden = true; coachStep = null; }
 function advanceTut() {
   if (coachExtra) { coachExtra = null; hideCoach(); s.paused = false; return; }
+  if (tut == null) { hideCoach(); s.paused = false; return; }
   hideCoach(); s.paused = false;
   tut++; tutT = 0;
   if (tut >= TUT.length) { endTutorial(); return; }
@@ -644,11 +647,12 @@ addEventListener('keydown', e => {
   if (!s || e.repeat) return;
   S.unlock();
   const k = e.key.toLowerCase();
-  if ($('title').hidden === false && (k === 'enter' || k === ' ')) { e.preventDefault(); $('go').click(); return; }
+  if ($('title').hidden === false) { if (k === 'enter' || k === ' ') { e.preventDefault(); $('go').click(); } return; }
+  if ($('end').hidden === false) { if ((k === 'enter' || k === ' ') && $('again')) { e.preventDefault(); $('again').click(); } return; }
   if (s.mode === 'drive' && /^[1-5]$/.test(k)) { const id = IDS[+k - 1], p = s.people[id]; if (G.giveSnack(s, id)) { toast(`${p.name} gets a snack.`, 'good'); } return; }
   if (s.mode === 'stop' && /^[1-4]$/.test(k)) { const b = document.querySelector(`[data-ch="${+k - 1}"]`); if (b && !b.disabled) b.click(); return; }
   if (k === 't') $('tape').click();
-  if (k === ' ' || k === 'p') { e.preventDefault(); $('pull').click(); }
+  if (k === ' ' || k === 'p') { e.preventDefault(); if (s.mode !== 'breakdown') $('pull').click(); }
   if (k === 'm' && narrow) { document.body.classList.toggle('showAtlas'); layout(); }
   if (k === 'enter' && mapSel) { const b = $('driveBtn'); if (b && !b.disabled) b.click(); }
   if (k === 'escape') { selectEdge(null); hidePcard(); }
@@ -689,6 +693,8 @@ function drawFamilyRow(canvas, mood) {
 function start(withTut) {
   S.unlock();
   $('title').hidden = true; $('end').hidden = true; overShown = false;
+  hideCoach(); coachExtra = null; drag = null; sel = null; mapSel = null; $('mapInfo').hidden = true; hidePcard();
+  document.body.classList.remove('showAtlas');
   const seed = params.has('seed') ? +params.get('seed') : (Math.random() * 1e9) | 0;
   s = G.newGame(seed);
   lastPolaroids = 0; lastMode = null; mapBase = null; propRegion = -1; traffic = [];
