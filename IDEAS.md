@@ -57,7 +57,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 49. Chairlift — [`chairlift/`](chairlift/)
 - [ ] 50. Moonrise Manor
 - [x] 51. Spaghetti Bridge — [`spaghetti/`](spaghetti/)
-- [ ] 52. Are We There Yet
+- [x] 52. Are We There Yet — [`arewethereyet/`](arewethereyet/)
 - [x] 53. Puddle — [`puddle/`](puddle/)
 - [ ] 54. Cube
 - [x] 55. Last Checkout — [`lastcheckout/`](lastcheckout/)
@@ -487,8 +487,10 @@ A Poly Bridge-style bridge-building physics game at a school science fair, where
 
 About 20 levels, with stress colouring on each piece under load, slow-motion snapping (pasta bits flying) when it fails, and a judges' score that rewards cheap, elegant bridges. Style: bright, chunky classroom illustration, the pasta looking tasty, a hand-lettered poster board for the menu, and a cheerful soundtrack of crunches and applause. Drag to build on phones and desktop.
 
-## 52. Are We There Yet
+## 52. Are We There Yet ✅
 *Borrows: FTL, Oregon Trail · Twist: the ship is a family station wagon on a summer road trip*
+
+**Built 2026-11-12 as [`arewethereyet/`](arewethereyet/).** A 2D canvas road atlas plus a top-down cutaway wagon rather than a side cutaway, drawn as a faded 1986 snapshot with highway-sign buttons. One fixed family (Mom, Dad, Tina, Kevin, Jo), four tapes, 13 stops over four days with motels every third stop, a mountain-pass breakdown as the boss, and a photo album as the score. Cut: unlockable families, a family dog, and the car radio (tapes only).
 
 FTL meets Oregon Trail in a 1980s station wagon. A family of five is driving across the country to Grandma's, and you run the car like a starship. Assign family members to stations (driving, navigating, snacks, entertainment, keeping the kids apart), manage fuel, snacks, money, morale and the car's health, and choose the route across a map of towns, motels, diners, roadside attractions and tempting shortcuts. Events at each stop are FTL-style choices with consequences ("A hitchhiker with a guitar." "The dog is missing." "Someone wants to see the World's Largest Ball of Twine."). Breakdowns are the boss fights: a real-time scramble under the hood with everyone at a station.
 

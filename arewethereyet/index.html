@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Are We There Yet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Covered+By+Your+Grace&family=Overpass:ital,wght@0,400;0,600;0,800;0,900;1,600;1,800&family=Overpass+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #2b2420; --paper: #f3e8cc; --cream: #fbf5e4; --red: #c8372d; --sign: #1d6a47; --sign-dk: #124a31; --amber: #ff8a2a; --wood: #6e4325; --wood-dk: #4a2c17; --teal: #2f8a87; --mustard: #d9a43a;
+    --hand: "Covered By Your Grace", "Comic Sans MS", cursive; --signf: "Overpass", "Helvetica Neue", Arial, sans-serif; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #3a2a20; color: var(--ink); font: 400 16px/1.35 var(--signf); overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  .hand { font-family: var(--hand); }
+
+  /* ------------------------------------------------ layout */
+  #app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr); }
+  #atlas { position: relative; overflow: hidden; background: #e9dcb8; box-shadow: inset -10px 0 18px rgba(0,0,0,.25); }
+  #mapc { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #carside { position: relative; display: flex; flex-direction: column; min-height: 0; background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 3px, transparent 3px 9px), linear-gradient(#7a4a2a, #5a341c); }
+  body.narrow #app { grid-template-columns: minmax(0, 1fr); }
+  body.narrow #atlas { position: fixed; inset: 0; z-index: 30; display: none; }
+  body.narrow.showAtlas #atlas { display: block; }
+  #atlasClose { display: none; }
+  body.narrow #atlasClose { display: block; position: absolute; right: 10px; top: max(10px, env(safe-area-inset-top)); z-index: 2; }
+  #atlasHead { position: absolute; left: 62px; top: 10px; pointer-events: none; display: flex; gap: 10px; align-items: baseline; }
+  .atlasTitle { font: 900 13px var(--signf); letter-spacing: .28em; color: rgba(70,40,30,.75); text-transform: uppercase; }
+  #atlasHint { font: 20px var(--hand); color: var(--red); }
+
+  /* ------------------------------------------------ dashboard */
+  #hud { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 62px; padding-top: max(8px, env(safe-area-inset-top));
+    background: linear-gradient(#3b2a20, #241913); border-bottom: 3px solid #120c09; color: #efe3c4; }
+  .dial { position: relative; width: 52px; flex: none; text-align: center; }
+  .face { position: relative; width: 46px; height: 30px; margin: 0 auto; overflow: hidden; }
+  .face::before { content: ""; position: absolute; left: 0; top: 0; width: 46px; height: 46px; border-radius: 50%; box-sizing: border-box; border: 2px solid #b8a37a;
+    background: radial-gradient(circle at 50% 50%, #1a1411 0 52%, transparent 53%), conic-gradient(from -90deg, var(--red) 0 30deg, #e9dcb8 30deg 180deg, transparent 180deg); }
+  .needle { position: absolute; left: 22px; bottom: -6px; width: 2px; height: 27px; background: var(--amber); transform-origin: 50% 100%; border-radius: 2px; transition: transform .4s; box-shadow: 0 0 4px rgba(255,138,42,.6); }
+  .dial b { display: block; font: 800 9.5px var(--signf); letter-spacing: .14em; margin-top: 1px; color: #cbb98f; }
+  .dial .lo, .dial .hi { position: absolute; top: 14px; font: 800 8px var(--signf); color: #cbb98f; }
+  .dial .lo { left: 0; } .dial .hi { right: 0; }
+  .odo { flex: 1; min-width: 0; overflow: hidden; text-align: right; font-family: "Overpass Mono", monospace; line-height: 1.25; }
+  #clock { font-size: 15px; color: var(--amber); text-shadow: 0 0 6px rgba(255,138,42,.45); white-space: nowrap; }
+  #money { font-size: 12.5px; color: #e9dcb8; white-space: nowrap; }
+  #mute { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 2px solid #8b7553; color: #e9dcb8; font: 800 13px var(--signf); }
+  #mute.off { opacity: .45; text-decoration: line-through; }
+
+  /* ------------------------------------------------ the snapshot of the car */
+  #photo { position: relative; flex: 1 1 auto; min-height: 140px; margin: 10px 12px 6px; padding: 9px 9px 30px; background: #f7f1e1; border-radius: 3px;
+    box-shadow: 0 8px 22px rgba(0,0,0,.45); transform: rotate(-.4deg); }
+  #carc { width: 100%; height: 100%; display: block; touch-action: none; border-radius: 1px; background: #c9b46a; }
+  #stamp { position: absolute; right: 22px; bottom: 40px; font: 600 15px "Overpass Mono", monospace; color: var(--amber); opacity: .9; letter-spacing: .06em;
+    text-shadow: 0 0 3px rgba(255,120,30,.9), 0 0 9px rgba(255,120,30,.5); pointer-events: none; }
+  #caption { position: absolute; left: 14px; right: 14px; bottom: 3px; font: 21px/1 var(--hand); color: #3a3a6a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+
+  /* ------------------------------------------------ tape deck + pull over */
+  #deck { flex: none; display: flex; gap: 10px; padding: 4px 12px 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); align-items: stretch; }
+  #tape { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; text-align: left;
+    background: linear-gradient(#2a2420, #171210); border: 2px solid #8b7553; box-shadow: inset 0 0 0 1px #000, 0 3px 0 #120c09; color: #efe3c4; }
+  #tape:active { transform: translateY(2px); box-shadow: inset 0 0 0 1px #000, 0 1px 0 #120c09; }
+  .cass { flex: none; width: 58px; height: 38px; border-radius: 4px; background: #3a3530; position: relative; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
+  .cass::before { content: ""; position: absolute; left: 6px; right: 6px; top: 6px; height: 16px; border-radius: 2px; background: var(--lab, #555); }
+  .cass::after { content: ""; position: absolute; left: 14px; right: 14px; top: 11px; height: 7px; border-radius: 4px; background: radial-gradient(circle at 4px 50%, #222 0 3px, transparent 3.5px), radial-gradient(circle at calc(100% - 4px) 50%, #222 0 3px, transparent 3.5px), #f0e6cf; }
+  .cass.spin::after { animation: reel .6s linear infinite; }
+  @keyframes reel { 50% { filter: brightness(.8); } }
+  .tapetext { min-width: 0; }
+  .tapetext b { display: block; font: 800 14px/1.15 var(--signf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tapetext small { display: block; font: 600 12px/1.3 var(--signf); color: #cbb98f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tapetext small .lv { color: #ff8fb1; } .tapetext small .ht { color: #9fb7c7; }
+  #pull { flex: none; width: 104px; border-radius: 8px; background: linear-gradient(#d84a3a, #a8281e); color: #fff6e6; border: 2px solid #5a140e; box-shadow: 0 4px 0 #5a140e;
+    font: 900 14px/1.05 var(--signf); letter-spacing: .04em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px; }
+  #pull:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a140e; }
+  #pull .tri { width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 18px solid #fff6e6; position: relative; }
+  #pull.blink .tri { animation: blink .5s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  #pull[disabled] { filter: grayscale(.8) brightness(.8); cursor: default; }
+  #pull small { font: 700 10.5px var(--signf); letter-spacing: 0; opacity: .85; }
+
+  /* ------------------------------------------------ highway sign buttons */
+  .sign { position: relative; display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 7px 14px; box-sizing: border-box; border-radius: 7px; text-align: left;
+    background: var(--sign); color: #fff; border: 2px solid var(--sign-dk); box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px var(--sign), 0 3px 0 var(--sign-dk);
+    font: 800 16px/1.1 var(--signf); }
+  .sign:active:not([disabled]) { transform: translateY(2px); box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px var(--sign), 0 1px 0 var(--sign-dk); }
+  .sign .arr { font: 900 20px var(--signf); margin-left: auto; }
+  .sign small { display: block; font: 600 12.5px/1.2 var(--signf); opacity: .85; margin-top: 2px; }
+  .sign[disabled] { background: #6b7a70; box-shadow: inset 0 0 0 2px #e6e2d6, inset 0 0 0 4px #6b7a70, 0 3px 0 #4a554e; border-color: #4a554e; cursor: default; }
+  .sign.done { background: #8a7a5a; border-color: #5a4a30; box-shadow: inset 0 0 0 2px #f3e8cc, inset 0 0 0 4px #8a7a5a, 0 3px 0 #5a4a30; }
+  .sign.brown { background: #7a4a24; border-color: #4a2a12; box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px #7a4a24, 0 3px 0 #4a2a12; }
+  .sign.small { min-height: 38px; font-size: 14px; padding: 6px 12px; }
+  .sign.big { min-height: 56px; font-size: 20px; justify-content: center; }
+
+  /* ------------------------------------------------ the postcard at each stop */
+  #card { flex: none; max-height: 56%; overflow: auto; margin: 0 12px 12px; margin-bottom: max(12px, env(safe-area-inset-bottom)); background: var(--cream); border-radius: 4px; box-shadow: 0 10px 26px rgba(0,0,0,.5);
+    background-image: linear-gradient(90deg, transparent calc(100% - 1px), rgba(0,0,0,0) 0); position: relative; }
+  #card.min .cbody { display: none; }
+  .chead { position: sticky; top: 0; z-index: 1; display: flex; align-items: flex-end; gap: 10px; padding: 10px 12px 8px; cursor: pointer;
+    background: linear-gradient(135deg, #e7593a, #f0a33a 55%, #3a8fb0); color: #fff; }
+  .greet { min-width: 0; flex: 1; }
+  .greet small { display: block; font: 21px/1 var(--hand); color: #fff8e0; text-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  .greet b { display: block; font: italic 900 27px/1 var(--signf); letter-spacing: -.01em; color: #fff6dc; text-transform: uppercase;
+    -webkit-text-stroke: 1.5px #5a1e10; paint-order: stroke fill; text-shadow: 3px 3px 0 #5a1e10; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 2px 4px 2px 0; }
+  .stampbox { flex: none; width: 46px; height: 54px; border: 2px dashed rgba(255,255,255,.75); display: grid; place-items: center; font: 800 9px/1.1 var(--signf); text-align: center; color: #fff; letter-spacing: .05em; }
+  .collapse { flex: none; font: 900 16px var(--signf); width: 26px; text-align: center; }
+  .cbody { padding: 10px 14px 14px; }
+  .placeline { font: 800 12.5px var(--signf); letter-spacing: .12em; text-transform: uppercase; color: #7a5a3a; }
+  .evtext { margin: 6px 0 10px; font-size: 16px; line-height: 1.4; }
+  .result { margin: 6px 0 10px; font: 21px/1.25 var(--hand); color: #2a3a7a; }
+  .note { margin: 6px 0; font: 19px/1.2 var(--hand); color: var(--red); }
+  .btns { display: grid; gap: 8px; margin-top: 8px; }
+  .btns.two { grid-template-columns: 1fr 1fr; }
+  .leave { margin-top: 12px; padding-top: 10px; border-top: 2px dashed rgba(90,60,40,.3); display: grid; gap: 8px; }
+  .leave p { margin: 0; font: 20px/1.15 var(--hand); color: var(--red); }
+
+  /* ------------------------------------------------ atlas popup */
+  #mapInfo { position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%) rotate(.5deg); width: min(420px, calc(100% - 28px)); box-sizing: border-box;
+    background: var(--cream); border-radius: 4px; padding: 12px 14px; box-shadow: 0 10px 26px rgba(0,0,0,.4); z-index: 3; }
+  #mapInfo h3 { margin: 0; font: italic 900 22px/1.05 var(--signf); text-transform: uppercase; }
+  #mapInfo p { margin: 4px 0 0; font-size: 14.5px; line-height: 1.35; }
+  #mapInfo .hand { font-size: 20px; color: var(--red); line-height: 1.1; }
+  #mapInfo .btns { margin-top: 10px; }
+
+  /* ------------------------------------------------ notes that pop up */
+  #toasts { position: fixed; z-index: 25; left: 0; right: 0; top: 64px; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  body:not(.narrow) #toasts { left: auto; width: calc(100% / 2.35 * 1); right: 0; }
+  .toast { max-width: min(380px, 88vw); padding: 7px 14px 6px; background: #f3ecd6; font: 600 14.5px/1.3 var(--signf); box-shadow: 0 4px 12px rgba(0,0,0,.35); transform: rotate(-.6deg);
+    border-left: 6px solid var(--ink); animation: tin .25s ease-out; }
+  .toast.bad { border-left-color: var(--red); }
+  .toast.good { border-left-color: var(--sign); }
+  .toast.out { opacity: 0; transition: opacity .4s; }
+  @keyframes tin { from { transform: translateY(-10px) rotate(-.6deg); opacity: 0; } }
+
+  /* ------------------------------------------------ Mom's sticky note (the tutorial) */
+  #coach { position: fixed; z-index: 28; pointer-events: none; width: min(300px, calc(100vw - 32px)); padding: 12px 14px 12px; box-sizing: border-box; background: #fbe77a; box-shadow: 0 8px 18px rgba(0,0,0,.35);
+    transform: rotate(-1.2deg); font: 22px/1.15 var(--hand); color: #2a2a4a; }
+  #coach::before { content: ""; position: absolute; left: 50%; top: -9px; width: 80px; height: 20px; margin-left: -40px; background: rgba(240,235,220,.75); transform: rotate(2deg); }
+  #coach .from { display: block; font: 800 10.5px var(--signf); letter-spacing: .16em; color: rgba(60,50,20,.6); margin-bottom: 4px; }
+  #coach .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 10px; }
+  #coach button { pointer-events: auto; }
+  #coach .skip { font: 700 12px var(--signf); color: rgba(60,50,20,.7); text-decoration: underline; }
+  #coach .ok { font: 800 14px var(--signf); background: #2a2a4a; color: #fbe77a; padding: 7px 14px; border-radius: 4px; }
+  #ring { position: fixed; z-index: 27; border: 4px solid var(--red); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 3px rgba(255,255,255,.6);
+    animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.12); } }
+
+  /* ------------------------------------------------ who's who card */
+  #pcard { position: fixed; z-index: 26; width: 230px; background: #f7f1e1; padding: 8px 8px 10px; box-shadow: 0 8px 22px rgba(0,0,0,.45); transform: rotate(1deg); font-size: 13.5px; }
+  #pcard canvas { width: 64px; height: 64px; float: left; margin: 0 8px 4px 0; background: #9fc4c9; }
+  #pcard h4 { margin: 2px 0 0; font: italic 900 20px/1 var(--signf); }
+  #pcard .age { font: 18px var(--hand); color: #7a5a3a; }
+  #pcard dl { clear: both; margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; }
+  #pcard dt { font: 800 10.5px/1.6 var(--signf); letter-spacing: .1em; color: #7a5a3a; text-transform: uppercase; }
+  #pcard dd { margin: 0; font-weight: 600; }
+  #pcard p { margin: 6px 0 0; font: 17px/1.15 var(--hand); color: #3a3a6a; }
+
+  /* ------------------------------------------------ title, end, game over */
+  .veil { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; overflow: auto; padding: 18px 16px; box-sizing: border-box;
+    background: radial-gradient(ellipse at 50% 30%, #5a3a24, #2a1a10); }
+  .veil > .sheet { margin: auto; flex: none; }
+  .cover { position: relative; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 18px 20px 20px; background: #b8302a; color: #fff6e0;
+    border-radius: 4px 10px 10px 4px; box-shadow: inset 10px 0 0 #8a221d, inset 12px 0 0 #d8584a, 0 18px 40px rgba(0,0,0,.55);
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 2px, transparent 2px 6px); }
+  .cover .kicker { font: 800 12px var(--signf); letter-spacing: .3em; text-transform: uppercase; opacity: .85; padding-left: 10px; }
+  .bigsign { margin: 12px 0 0 10px; padding: 14px 14px 12px; background: var(--sign); border-radius: 10px; box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 6px var(--sign), 0 6px 0 rgba(0,0,0,.3); text-align: center; }
+  .bigsign h1 { margin: 0; font: 900 46px/.95 var(--signf); letter-spacing: -.01em; color: #fff; }
+  .bigsign .exit { display: inline-block; margin-bottom: 8px; padding: 2px 10px; background: #fff; color: var(--sign); font: 900 13px var(--signf); letter-spacing: .1em; border-radius: 3px; }
+  .bigsign .miles { margin-top: 8px; font: 800 15px var(--signf); letter-spacing: .06em; opacity: .95; }
+  #famc { display: block; width: calc(100% - 10px); height: 96px; margin: 14px 0 0 10px; }
+  .tagline { margin: 10px 0 0 10px; font: 23px/1.15 var(--hand); color: #fff3cf; }
+  .cover .btns { margin: 16px 0 0 10px; }
+  .cover .linkish { margin: 10px 0 0 10px; font: 700 13px var(--signf); text-decoration: underline; opacity: .85; text-align: left; }
+  .rules { margin: 14px 0 0 10px; padding: 10px 12px; background: rgba(0,0,0,.18); border-radius: 4px; font-size: 14px; line-height: 1.4; }
+  .rules b { font-weight: 800; }
+  .rules ul { margin: 4px 0 0; padding-left: 18px; }
+  .keys { margin-top: 6px; font: 600 12px "Overpass Mono", monospace; opacity: .8; }
+
+  .album { width: min(720px, calc(100vw - 32px)); box-sizing: border-box; padding: 20px 18px 22px; background: #2c3a32;
+    background-image: radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px); background-size: 6px 6px; border-radius: 6px; box-shadow: 0 18px 40px rgba(0,0,0,.55); color: #f3ecd6; }
+  .album h2 { margin: 0; font: 38px/1 var(--hand); color: #fbe77a; text-align: center; }
+  .album .verdict { margin: 4px 0 0; text-align: center; font: italic 900 26px/1.05 var(--signf); text-transform: uppercase; }
+  .album .why { margin: 4px 0 0; text-align: center; font: 19px/1.2 var(--hand); color: #e8dcc0; }
+  .snaps { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 12px; margin: 16px 0 6px; }
+  .snap { width: 132px; background: #f7f1e1; padding: 7px 7px 4px; box-shadow: 0 6px 14px rgba(0,0,0,.45); }
+  .snap canvas { width: 118px; height: 104px; display: block; }
+  .snap span { display: block; font: 16px/1.05 var(--hand); color: #2a3a7a; margin-top: 4px; min-height: 2.1em; }
+  .tally { margin: 12px auto 0; max-width: 360px; font: 600 14px/1.7 "Overpass Mono", monospace; }
+  .tally div { display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(243,236,214,.25); }
+  .tally .tot { font-size: 17px; color: #fbe77a; border: 0; margin-top: 4px; }
+  .album .btns { max-width: 360px; margin: 16px auto 0; }
+
+  .over { width: min(420px, calc(100vw - 32px)); box-sizing: border-box; padding: 20px; background: var(--cream); border-radius: 4px; box-shadow: 0 18px 40px rgba(0,0,0,.55); text-align: center; transform: rotate(-.6deg); }
+  .over h2 { margin: 0; font: italic 900 30px/1.02 var(--signf); text-transform: uppercase; color: var(--red); }
+  .over p { margin: 10px 0 0; font: 21px/1.2 var(--hand); color: #2a3a7a; }
+  .over canvas { width: 100%; height: 90px; margin-top: 10px; }
+  .over .btns { margin-top: 16px; }
+
+  @media (max-width: 420px) {
+    #hud { gap: 4px; padding-right: 8px; }
+    .dial { width: 46px; }
+    #clock { font-size: 13.5px; }
+    #money { font-size: 11.5px; }
+    #mute { width: 30px; height: 30px; }
+  }
+  /* phones held sideways: atlas on the left, then the car photo, then the deck or postcard */
+  body.short #app { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+  body.short #carside { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-rows: auto minmax(0, 1fr); }
+  body.short #hud { grid-column: 1 / -1; padding-left: 12px; }
+  body.short #photo { grid-column: 1; grid-row: 2; min-height: 0; margin: 6px 4px 8px 10px; padding: 6px 6px 22px; }
+  body.short #caption { font-size: 15px; bottom: 2px; }
+  body.short #stamp { bottom: 28px; font-size: 12px; }
+  body.short #deck { grid-column: 2; grid-row: 2; flex-direction: column; justify-content: flex-end; padding: 6px 10px 10px 6px; }
+  body.short #pull { width: auto; min-height: 64px; flex: none; }
+  body.short #tape { flex: none; }
+  body.short .atlasTitle { display: none; }
+  body.short #card { grid-column: 2; grid-row: 2; max-height: none; margin: 6px 10px 8px 6px; }
+  body.short #atlasHead { left: 60px; }
+  body.short.bd #photo { grid-column: 1 / -1; }
+  body.short.bd #deck { position: absolute; right: 18px; bottom: 34px; z-index: 3; padding: 0; }
+  body.short.bd #tape { display: none; }
+  body.short #toasts { width: 56%; }
+  @media (max-height: 640px) and (orientation: landscape) {
+    #hud { padding-top: 5px; padding-bottom: 5px; }
+    #photo { margin: 6px 10px 4px; padding: 6px 6px 22px; }
+    #caption { font-size: 17px; }
+    #deck { padding-bottom: 6px; }
+    #card { max-height: 62%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="atlas" aria-label="Road atlas">
+    <canvas id="mapc"></canvas>
+    <div id="atlasHead"><span class="atlasTitle">Family Road Atlas</span><span id="atlasHint"></span></div>
+    <button id="atlasClose" class="sign small">Back to the car <span class="arr">&#x2192;</span></button>
+    <div id="mapInfo" hidden></div>
+  </section>
+  <section id="carside">
+    <header id="hud">
+      <div class="dial" id="dFuel" title="Gas"><div class="face"><i class="needle"></i></div><span class="lo">E</span><span class="hi">F</span><b>FUEL</b></div>
+      <div class="dial" id="dFam" title="Family mood: if it hits empty, Dad turns the car around"><div class="face"><i class="needle"></i></div><span class="lo">&#x2639;</span><span class="hi">&#x263A;</span><b>FAMILY</b></div>
+      <div class="dial" id="dCar" title="The car's health"><div class="face"><i class="needle"></i></div><b>CAR</b></div>
+      <div class="odo"><div id="clock">DAY 1 &middot; 8:00 AM</div><div id="money">$260 &middot; 6 snacks</div></div>
+      <button id="mute" aria-label="Sound on or off">&#x266B;</button>
+    </header>
+    <div id="photo"><canvas id="carc"></canvas><div id="stamp"></div><div id="caption"></div></div>
+    <div id="deck">
+      <button id="tape" aria-label="Change the tape"><span class="cass" id="cass"></span><span class="tapetext"><b id="tapeName">No tape</b><small id="tapeWho">Tap to put a tape in</small></span></button>
+      <button id="pull"><span class="tri"></span><span id="pullLabel">PULL OVER</span><small id="pullSub">bathroom stop</small></button>
+    </div>
+    <div id="card" hidden></div>
+  </section>
+</div>
+<div id="toasts"></div>
+<div id="ring" hidden></div>
+<div id="coach" hidden></div>
+<div id="pcard" hidden></div>
+
+<div class="veil" id="title" hidden>
+  <div class="sheet cover">
+    <div class="kicker">1986 Family Road Atlas</div>
+    <div class="bigsign">
+      <div class="exit">EXIT 80</div>
+      <h1>ARE WE THERE YET?</h1>
+      <div class="miles">GRANDMA&rsquo;S HOUSE &nbsp;1,840 MI</div>
+    </div>
+    <canvas id="famc"></canvas>
+    <p class="tagline">Four days in a wood-panel wagon. Five people. One cooler. Grandma turns 80 on Sunday at 7.</p>
+    <div class="btns">
+      <button class="sign big" id="go">Load up the car <span class="arr">&#x2192;</span></button>
+    </div>
+    <button class="linkish" id="goSkip">Skip the tutorial</button>
+    <div class="rules">
+      <b>How it works</b>
+      <ul>
+        <li>Drag the family into seats. Who drives and who reads the map matters.</li>
+        <li>On the road: tap a hungry kid to pass a snack, change tapes, pull over for the bathroom, keep Kevin away from his sisters.</li>
+        <li>Pick each stop on the atlas: gas, diners, motels, the World&rsquo;s Largest Things.</li>
+        <li>Breakdowns: drag people onto what&rsquo;s broken.</li>
+      </ul>
+      <div class="keys" id="keysHelp">Keys: 1&ndash;5 snack &middot; T tape &middot; Space pull over &middot; M atlas</div>
+    </div>
+  </div>
+</div>
+<div class="veil" id="end" hidden></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

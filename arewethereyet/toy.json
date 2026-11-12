@@ -1,0 +1,9 @@
+{
+  "title": "Are We There Yet",
+  "blurb": "Four days to Grandma's in a 1986 wood-panel wagon: seat the family, pass back snacks, pick the tapes, fix the breakdowns and plan every stop on the atlas.",
+  "added": "2026-11-12",
+  "category": "games",
+  "tags": ["road trip", "management", "canvas", "game"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
