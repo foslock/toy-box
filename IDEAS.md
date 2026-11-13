@@ -29,7 +29,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 21. Moving Day
 - [x] 22. Poker Squares — [`fivebyfive/`](fivebyfive/)
 - [x] 23. High Tide — [`hightide/`](hightide/)
-- [ ] 24. Try Finger
+- [x] 24. Try Finger — [`tryfinger/`](tryfinger/)
 - [x] 25. Floodplain — [`floodplain/`](floodplain/)
 - [ ] 26. Still Life
 - [x] 27. Encore — [`encore/`](encore/)
@@ -259,8 +259,10 @@ A Defend Your Castle-style game at the beach: you guard a sandcastle through one
 
 The sand is a simple falling-sand simulation, so walls slump when wet, moats silt up, and the tide, which comes in a little further every wave, really erodes what you built, grain by grain. The day ends at sunset with the tide at its highest, and whatever castle is left is your score. Style: a bright, warm side-view beach in chunky pixel art, with sun sparkle on the water and gentle surf in the soundtrack.
 
-## 24. Try Finger
+## 24. Try Finger ✅
 *Borrows: Elden Ring's player messages · Twist: working out which messages are lies is the puzzle*
+
+**Built 2026-11-13 as [`tryfinger/`](tryfinger/).**
 
 A short, tough, side-view souls-like descent into a ruined castle, where the ground is covered in glowing messages supposedly left by other players, written in Elden Ring's message grammar ("Try jumping," "Hidden path ahead," "Be wary of right," "Treasure," "Liar ahead") with a rating count beside each. Some are honest and some are trolls. The invisible bridge really is there; the "treasure" is a drop into a pit; the "hidden path" is a mimic. Troll messages follow patterns you can learn if you pay attention, just like the fake players who wrote them.
 

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Try Finger</title>
+<meta name="description" content="A short side-view descent through a ruined castle, where the glowing messages on the floor are signed by other players and some of them lie.">
+<meta name="theme-color" content="#120f0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700&family=Grenze:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #120f0b; --ink2: #1c1914; --bone: #e9dfc6; --dim: #9c9178; --gold: #c9a865; --glow: #ff9a3c; --lie: #c4452c; --true: #d9c27c;
+    --goth: 'Grenze Gotisch', Georgia, serif; --gz: 'Grenze', Georgia, serif;
+    --top: max(8px, env(safe-area-inset-top)); --bot: max(10px, env(safe-area-inset-bottom));
+    --l: max(10px, env(safe-area-inset-left)); --r: max(10px, env(safe-area-inset-right));
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ink); color: var(--bone); font: 19px/1.3 var(--gz); overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+  canvas#cv { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  kbd { font: 600 15px/1 var(--gz); border: 1px solid var(--dim); border-bottom-width: 2px; padding: 2px 6px 1px; border-radius: 3px; white-space: nowrap; color: var(--bone); }
+
+  /* a wash of ink, feathered at the ends like a brush stroke */
+  .wash { background: linear-gradient(90deg, transparent, rgba(14,11,8,.92) 12%, rgba(14,11,8,.92) 88%, transparent); }
+
+  /* ---------- buttons: a brushed bar */
+  .btn { font: 600 22px/1 var(--gz); letter-spacing: .03em; padding: 12px 34px 13px; position: relative; min-height: 48px; color: var(--bone); }
+  .btn::before { content: ''; position: absolute; inset: 4px 0; background: #2a241b; z-index: -1;
+    clip-path: polygon(2% 12%, 30% 4%, 70% 9%, 98% 2%, 100% 50%, 97% 92%, 60% 97%, 25% 90%, 1% 96%, 0 50%); transition: background .15s; }
+  .btn:hover::before, .btn.hot::before { background: #4a3b24; }
+  .btn.main::before { background: #5c3f1d; } .btn.main:hover::before { background: #7a5426; }
+  .btn.quiet { font-size: 17px; color: var(--dim); padding: 10px 14px; }
+  .btn.quiet::before { display: none; } .btn.quiet:hover { color: var(--bone); }
+
+  /* ---------- HUD */
+  #hud { position: fixed; top: var(--top); left: calc(var(--l) + 56px); z-index: 5; pointer-events: none; }
+  .bar { display: block; height: 9px; margin: 6px 0 0; background: rgba(10,8,6,.7); position: relative; overflow: hidden;
+    clip-path: polygon(0 20%, 100% 0, 99% 100%, 1% 85%); }
+  .bar b { position: absolute; inset: 0 auto 0 0; transition: width .12s; }
+  #hpb { width: min(240px, 40vw); } #hpb b { background: linear-gradient(#9c3a24, #6e2314); }
+  #hpb .lag { background: #d9a36a; transition: width .7s .25s; }
+  #stb { width: min(190px, 32vw); height: 6px; } #stb b { background: linear-gradient(#d6c27e, #9c8648); }
+  #flasks { margin-top: 6px; display: flex; gap: 4px; align-items: center; font: 600 15px/1 var(--gz); color: var(--dim); }
+  #flasks i { width: 9px; height: 15px; background: var(--glow); border-radius: 4px 4px 3px 3px; box-shadow: 0 0 6px rgba(255,154,60,.6); }
+  #flasks i.used { background: #3a3024; box-shadow: none; }
+  #tr { position: fixed; top: var(--top); right: var(--r); z-index: 6; display: flex; gap: 6px; }
+  #tr button { font: 600 16px/1 var(--gz); padding: 9px 12px; color: var(--bone); background: rgba(14,11,8,.65); min-height: 40px; }
+  #tr button:hover { color: var(--glow); }
+  #bookBtn.ping { animation: ping 1s 3; }
+  @keyframes ping { 50% { color: var(--glow); text-shadow: 0 0 10px var(--glow); } }
+
+  /* ---------- the message card */
+  #card { position: fixed; left: 50%; top: calc(var(--top) + 64px); transform: translateX(-50%); z-index: 4; text-align: center; pointer-events: none;
+    width: min(620px, 92vw); padding: 12px 40px 10px; transition: opacity .2s; }
+  #card .txt { font: 400 clamp(22px, min(5vw, 6.5vh), 34px)/1.1 var(--gz); color: #ffd9a8; text-shadow: 0 0 14px rgba(255,154,60,.75); margin: 0; }
+  #card .by { font: italic 16px/1.3 var(--gz); color: var(--dim); margin: 6px 0 0; }
+  #card .by b { font-style: normal; font-weight: 600; color: var(--bone); }
+  #card .stamp { display: inline-block; font: 600 13px/1 var(--gz); letter-spacing: .12em; padding: 3px 7px 2px; margin-left: 8px; border: 1.5px solid currentColor; transform: rotate(-4deg); vertical-align: 1px; }
+  .stamp.lie { color: var(--lie); } .stamp.true { color: var(--true); }
+  #card.boss { top: auto; bottom: calc(var(--bot) + 56px); }
+
+  /* ---------- coach */
+  #coach { position: fixed; left: 50%; bottom: calc(var(--bot) + 18px); transform: translateX(-50%); z-index: 4; pointer-events: none;
+    width: min(560px, 92vw); padding: 10px 40px 11px; text-align: center; font: 19px/1.3 var(--gz); }
+  #coach em { font-style: normal; color: var(--glow); }
+  body.touch #coach, body.touch #boss { bottom: calc(var(--bot) + 6px); width: calc(100vw - 2 * (var(--l) + 196px)); max-width: 520px; font-size: 16px; padding: 8px 22px 9px; }
+  body.touch.portrait #coach { bottom: calc(var(--bot) + 200px); width: min(560px, 92vw); max-width: none; }
+  body.touch.portrait #boss { bottom: calc(var(--bot) + 182px); width: 86vw; max-width: none; }
+  body.touch #card.boss { top: calc(var(--top) + 64px); bottom: auto; }
+
+  #toasts { position: fixed; right: var(--r); top: calc(var(--top) + 52px); z-index: 4; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; }
+  .toast { padding: 8px 34px 8px 26px; font: 17px/1.25 var(--gz); max-width: min(380px, 70vw); text-align: right; animation: tin 5s forwards; }
+  .toast .stamp { display: inline-block; font: 600 12px/1 var(--gz); letter-spacing: .12em; padding: 3px 6px 2px; border: 1.5px solid currentColor; transform: rotate(-5deg); margin-left: 6px; }
+  .toast i { color: var(--dim); }
+  @keyframes tin { 0% { opacity: 0; transform: translateX(20px); } 6%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+  #banner { position: fixed; left: 0; right: 0; top: 34%; text-align: center; z-index: 3; pointer-events: none; font: 500 clamp(40px, 9vw, 72px)/1 var(--goth); color: var(--bone);
+    text-shadow: 0 0 30px rgba(0,0,0,.8); opacity: 0; }
+  #banner.show { animation: ban 3.2s forwards; }
+  #banner small { display: block; font: italic 18px/1 var(--gz); color: var(--gold); margin-top: 8px; }
+  @keyframes ban { 0% { opacity: 0; letter-spacing: .2em; } 20%, 70% { opacity: 1; letter-spacing: .04em; } 100% { opacity: 0; } }
+
+  #boss { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bot) + 14px); width: min(640px, 86vw); z-index: 4; pointer-events: none; text-align: left; }
+  #boss span { font: 500 20px/1 var(--goth); text-shadow: 0 0 8px #000; }
+  #boss i { display: block; height: 8px; margin-top: 5px; background: rgba(10,8,6,.75); position: relative; clip-path: polygon(0 10%, 100% 0, 99.5% 100%, .5% 90%); }
+  #boss b { position: absolute; inset: 0 auto 0 0; background: linear-gradient(#a33a20, #6a2010); transition: width .15s; }
+
+  /* ---------- touch */
+  #touch { position: fixed; inset: auto 0 0 0; height: 0; z-index: 5; display: none; }
+  body.touch #touch { display: block; }
+  body.touch:not(.inplay) #touch { display: none; }
+  #pad { position: fixed; left: var(--l); bottom: var(--bot); width: 170px; height: 120px; touch-action: none; }
+  #pad .side { position: absolute; top: 18px; width: 72px; height: 84px; display: grid; place-items: center; font: 30px/1 var(--gz); color: rgba(233,223,198,.75);
+    background: rgba(14,11,8,.5); border-radius: 10px; }
+  #pad .l { left: 0; } #pad .r { right: 0; }
+  #pad .side.on { background: rgba(201,168,101,.35); color: var(--bone); }
+  #padDown { position: fixed; left: calc(var(--l) + 62px); bottom: calc(var(--bot) + 126px); width: 46px; height: 38px; border-radius: 8px; background: rgba(14,11,8,.5); color: rgba(233,223,198,.7); font: 18px/1 var(--gz); touch-action: none; }
+  .tb { position: fixed; width: 64px; height: 64px; border-radius: 50%; background: rgba(14,11,8,.55); color: var(--bone); font: 600 14px/1 var(--gz); display: grid; place-items: center;
+    border: 1.5px solid rgba(201,168,101,.45); touch-action: none; }
+  .tb.on { background: rgba(201,168,101,.4); }
+  #tJump { right: var(--r); bottom: calc(var(--bot) + 6px); width: 78px; height: 78px; font-size: 16px; }
+  #tAtk { right: calc(var(--r) + 88px); bottom: calc(var(--bot) + 4px); }
+  #tRoll { right: calc(var(--r) + 14px); bottom: calc(var(--bot) + 92px); }
+  #tHeal { right: calc(var(--r) + 96px); bottom: calc(var(--bot) + 80px); width: 50px; height: 50px; color: var(--glow); }
+
+  /* ---------- screens */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: calc(var(--top) + 10px) var(--r) calc(var(--bot) + 10px) var(--l); background: rgba(12,10,7,.88); overflow-y: auto; }
+  .screen::before, .screen::after { content: ''; flex: 1 0 0; }
+  .rule { width: min(360px, 70vw); height: 2px; margin: 12px auto; background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: .6; }
+  #title { background: radial-gradient(ellipse at 50% 40%, rgba(12,10,7,.45), rgba(12,10,7,.92) 70%); }
+  #title h1 { font: 700 clamp(64px, 16vw, 132px)/.85 var(--goth); margin: 0; letter-spacing: .01em; text-shadow: 0 4px 30px rgba(0,0,0,.7); }
+  #title h1 em { font-style: normal; color: var(--glow); text-shadow: 0 0 24px rgba(255,154,60,.6); }
+  #title .sub { font: italic 22px/1.3 var(--gz); color: var(--gold); margin: 10px 0 2px; }
+  .menu { display: flex; flex-direction: column; gap: 12px; align-items: center; margin-top: 20px; }
+  .keys { font: 16px/1.9 var(--gz); color: var(--dim); margin-top: 18px; max-width: 560px; }
+  body.touch .keys .k { display: none; } body:not(.touch) .keys .t { display: none; }
+  .rec { font: italic 16px/1.4 var(--gz); color: var(--dim); margin-top: 10px; min-height: 1.4em; }
+
+  #fallen { background: rgba(12,10,7,.93); }
+  #fallen h2 { font: 700 clamp(48px, min(15vw, 15vh), 120px)/.9 var(--goth); margin: 0; color: #b8402a; letter-spacing: .03em; text-shadow: 0 0 40px rgba(120,20,10,.6); }
+  #fallen .cause { font: italic 21px/1.3 var(--gz); color: var(--dim); margin: 4px 0 0; }
+  #compose { margin-top: min(16px, 2vh); width: min(640px, 100%); opacity: 0; transition: opacity .5s; pointer-events: none; }
+  #compose.on { opacity: 1; pointer-events: auto; }
+  #compose h3 { font: 600 20px/1.2 var(--gz); margin: 0 0 8px; color: var(--bone); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 6px 0; }
+  .chip { font: 17px/1 var(--gz); padding: 9px 11px; background: #231d15; color: var(--bone); min-height: 38px; border-radius: 2px; }
+  .chip.on { background: #6a4a20; color: #ffe3b8; }
+  .chips.words .chip { font-size: 16px; padding: 8px 9px; }
+  #preview { font: 400 clamp(22px, min(5vw, 6vh), 32px)/1.15 var(--gz); color: #ffd9a8; text-shadow: 0 0 14px rgba(255,154,60,.7); margin: 8px 0 4px; min-height: 1.2em; }
+  #compose .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+
+  #book { justify-content: flex-start; }
+  #book::before { flex: 0 0 0; }
+  #book h2 { font: 700 46px/1 var(--goth); margin: 30px 0 0; }
+  #book .lead { font: italic 17px/1.35 var(--gz); color: var(--dim); margin: 6px 0 12px; max-width: 560px; }
+  .author { width: min(640px, 100%); text-align: left; padding: 12px 6px; border-top: 1px solid #3a3226; }
+  .author h4 { margin: 0; font: 600 21px/1.2 var(--gz); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .author h4 small { font: italic 15px/1.4 var(--gz); color: var(--dim); }
+  .author .rule2 { font: italic 16px/1.3 var(--gz); color: var(--gold); margin: 3px 0 0; }
+  .author ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 5px; }
+  .author li { font: 17px/1.3 var(--gz); }
+  .author li q { color: #ffd9a8; } .author li i { color: var(--dim); }
+  .author .stamp { display: inline-block; font: 600 11px/1 var(--gz); letter-spacing: .12em; padding: 3px 5px 2px; border: 1.5px solid currentColor; transform: rotate(-4deg); margin: 0 6px; }
+  .stamp.unk { color: var(--dim); border-style: dashed; }
+  #end h2 { font: 700 clamp(52px, 12vw, 100px)/.9 var(--goth); margin: 0; }
+  #end .stats { font: 19px/1.6 var(--gz); color: var(--bone); margin: 8px 0; }
+  #end .stats b { color: var(--glow); font-weight: 600; }
+  #endRules { width: min(640px, 100%); }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" hidden>
+  <i class="bar" id="hpb"><b class="lag"></b><b class="v"></b></i>
+  <i class="bar" id="stb"><b></b></i>
+  <div id="flasks"></div>
+</div>
+<div id="tr" hidden><button id="bookBtn" aria-label="Notebook">Notebook</button><button id="pauseBtn" aria-label="Pause">Pause</button></div>
+<div id="card" class="wash" hidden><p class="txt"></p><p class="by"></p></div>
+<div id="coach" class="wash" hidden></div>
+<div id="toasts"></div>
+<div id="banner"></div>
+<div id="boss" hidden><span></span><i><b></b></i></div>
+
+<div id="touch" hidden>
+  <div id="pad"><div class="side l">◀</div><div class="side r">▶</div></div>
+  <button id="padDown">▼</button>
+  <button class="tb" id="tJump">Jump</button>
+  <button class="tb" id="tAtk">Strike</button>
+  <button class="tb" id="tRoll">Roll</button>
+  <button class="tb" id="tHeal">Flask</button>
+</div>
+
+<section id="title" class="screen">
+  <h1>Try <em>Finger</em></h1>
+  <p class="sub">Every message is signed. Some of them lie.</p>
+  <div class="rule"></div>
+  <div class="menu">
+    <button class="btn main" id="contBtn" hidden>Continue the descent</button>
+    <button class="btn" id="newBtn">Begin the descent</button>
+    <button class="btn quiet" id="eraseBtn" hidden>Erase the messages you left</button>
+  </div>
+  <p class="keys">
+    <span class="k"><kbd>A</kbd> <kbd>D</kbd> walk · <kbd>Space</kbd> jump · <kbd>J</kbd> or click strike · <kbd>K</kbd> roll · <kbd>H</kbd> flask · <kbd>S</kbd> drop · <kbd>N</kbd> notebook</span>
+    <span class="t">Left pad to walk · Jump, Strike, Roll and Flask on the right · ▼ to drop through planks</span>
+  </p>
+  <p class="rec" id="rec"></p>
+</section>
+
+<section id="pause" class="screen" hidden>
+  <h2 style="font:700 54px/1 var(--goth);margin:0">Paused</h2>
+  <div class="rule"></div>
+  <div class="menu">
+    <button class="btn main" id="resumeBtn">Resume</button>
+    <button class="btn" id="pBookBtn">Notebook</button>
+    <button class="btn" id="soundBtn">Sound: on</button>
+    <button class="btn quiet" id="quitBtn">Back to the title</button>
+  </div>
+</section>
+
+<section id="book" class="screen" hidden>
+  <h2>Notebook</h2>
+  <p class="lead">Every writer keeps a habit. Watch what their messages led to, and learn whom to trust.</p>
+  <div id="authors"></div>
+  <div class="menu" style="margin:16px 0 20px"><button class="btn main" id="closeBook">Close</button></div>
+</section>
+
+<section id="fallen" class="screen" hidden>
+  <h2>Fallen</h2>
+  <p class="cause" id="cause"></p>
+  <div id="compose">
+    <h3>Leave a message where you fell?</h3>
+    <div class="chips" id="tpl"></div>
+    <div class="chips words" id="words"></div>
+    <p id="preview"></p>
+    <div class="row"><button class="btn main" id="writeBtn">Write it, and rise</button><button class="btn" id="riseBtn">Rise without a word</button></div>
+  </div>
+</section>
+
+<section id="end" class="screen" hidden>
+  <h2>The Bottom</h2>
+  <p class="sub" style="font:italic 21px/1.3 var(--gz);color:var(--gold);margin:8px 0 0">The hand is still. Its ink runs dry.</p>
+  <div class="stats" id="endStats"></div>
+  <div class="rule"></div>
+  <p class="lead" style="font:italic 17px/1.3 var(--gz);color:var(--dim);margin:0 0 6px">Their habits, written plainly at last:</p>
+  <div id="endRules"></div>
+  <div class="menu" style="margin:18px 0"><button class="btn main" id="againBtn">Descend again</button></div>
+</section>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

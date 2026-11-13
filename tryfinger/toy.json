@@ -1,0 +1,19 @@
+{
+  "title": "Try Finger",
+  "blurb": "A short descent through a ruined castle where every glowing floor message is signed by another player, and you have to learn which of them lie.",
+  "added": "2026-11-13",
+  "category": "games",
+  "tags": [
+    "platformer",
+    "souls-like",
+    "puzzle",
+    "game"
+  ],
+  "tape": "orange",
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 3000,
+    "query": "?demo"
+  }
+}
