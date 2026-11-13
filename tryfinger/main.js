@@ -58,7 +58,7 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k in held) held[k] = false; });
 addEventListener('blur', () => { for (const k in held) held[k] = false; for (const k in tHeld) tHeld[k] = false; });
-cv.addEventListener('mousedown', (e) => { unlock(); if (mode === 'play' && e.button === 0) presses.attack = true; });
+cv.addEventListener('mousedown', (e) => { unlock(); if (mode === 'play' && e.button === 0 && !touch) presses.attack = true; }); // on phones a stray tap on the scene is not a swing
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('touchstart', () => { if (!touch) setTouch(true); unlock(); }, { passive: true });
 
@@ -107,7 +107,7 @@ const COACH = [
   { id: 'fight', when: (g) => g.player.x > 14, done: (g) => g.player.x > 25.5 || !g.enemies.some(e => e.tag === 'hollow1' && e.state !== 'dead'),
     text: () => K('Strike with <em>J</em> or a click. <em>K</em> rolls you through its swing, untouchable.', '<em>Strike</em> it. <em>Roll</em> through its swing and it cannot touch you.') },
   { id: 'rest', when: (g) => g.player.x > 24, done: (g) => g.candles[0].lit,
-    text: () => 'Walk into the candle to rest. It heals you, refills your flasks, and brings the dead back.' },
+    text: () => 'Walk into the candle to rest. It heals you, refills your flasks, and is where you rise if you fall.' },
   { id: 'heal', when: (g) => g.candles[0].lit, done: () => coachT.heal > 5,
     text: () => K('Hurt? <em>H</em> drinks a flask. Candles refill them.', 'Hurt? <em>Flask</em> drinks one. Candles refill them.') },
   { id: 'liar', when: (g) => g.msgs.find(m => m.id === 'e').read, done: () => coachT.liar > 9 || bookOpened,
@@ -205,14 +205,15 @@ function openBook() {
   if (mode !== 'play' && mode !== 'pause') return;
   bookOpened = true; $('#bookBtn').classList.remove('ping');
   renderBook($('#authors'), false);
-  $('#pause').hidden = true; $('#book').hidden = false; mode = 'book'; sfx.ui();
+  $('#pause').hidden = true; $('#book').hidden = false; $('#coach').hidden = true; mode = 'book'; sfx.ui();
 }
 function closeBook() { $('#book').hidden = true; mode = 'play'; last = performance.now(); }
 
-function pause() { mode = 'pause'; $('#pause').hidden = false; $('#soundBtn').textContent = 'Sound: ' + (isMuted() ? 'off' : 'on'); }
+function pause() { mode = 'pause'; $('#pause').hidden = false; $('#coach').hidden = true; $('#soundBtn').textContent = 'Sound: ' + (isMuted() ? 'off' : 'on'); }
 function resume() { $('#pause').hidden = true; mode = 'play'; last = performance.now(); }
-$('#pauseBtn').onclick = () => { unlock(); if (mode === 'play') pause(); };
-$('#bookBtn').onclick = () => { unlock(); openBook(); };
+// blur, or Enter would press the still-focused button again once you're back in play
+$('#pauseBtn').onclick = () => { unlock(); $('#pauseBtn').blur(); if (mode === 'play') pause(); };
+$('#bookBtn').onclick = () => { unlock(); $('#bookBtn').blur(); openBook(); };
 $('#resumeBtn').onclick = resume;
 $('#pBookBtn').onclick = openBook;
 $('#closeBook').onclick = closeBook;
@@ -331,12 +332,12 @@ function newGame(fromSave) {
   game = new Game(s, ls.get(KEY.msgs, []), ls.get(KEY.stain));
   if (!fromSave) { game.stain = null; ls.del(KEY.stain); coachDone = new Set(); ls.set(KEY.coach, []); }
   coachT = {}; bookOpened = !fromSave ? false : bookOpened;
-  snap = true; hpLag = 100;
+  snap = true; hpLag = 100; dieT = 0; hitstop = 0; // a death left pending by quitting mid-fall must not follow you into the next run
 }
 function toTitle() {
   mode = 'title';
   for (const s of ['#pause', '#book', '#fallen', '#end']) $(s).hidden = true;
-  $('#title').hidden = false; $('#hud').hidden = true; $('#tr').hidden = true; $('#touch').hidden = true;
+  $('#title').hidden = false; $('#hud').hidden = true; $('#tr').hidden = true; $('#touch').hidden = true; $('#coach').hidden = true; $('#boss').hidden = true;
   const s = ls.get(KEY.save);
   $('#contBtn').hidden = !(s && !s.won);
   const mine = ls.get(KEY.msgs, []).length;

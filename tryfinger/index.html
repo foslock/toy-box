@@ -78,6 +78,9 @@
   .toast { padding: 8px 34px 8px 26px; font: 17px/1.25 var(--gz); max-width: min(380px, 70vw); text-align: right; animation: tin 5s forwards; }
   .toast .stamp { display: inline-block; font: 600 12px/1 var(--gz); letter-spacing: .12em; padding: 3px 6px 2px; border: 1.5px solid currentColor; transform: rotate(-5deg); margin-left: 6px; }
   .toast i { color: var(--dim); }
+  /* narrow or short screens: the card spans the top, so verdicts go under it (and only the newest when there's no height) */
+  @media (max-width: 1000px), (max-height: 500px) { #toasts { top: calc(var(--top) + 148px); } }
+  @media (max-height: 500px) { .toast:not(:last-child) { display: none; } }
   @keyframes tin { 0% { opacity: 0; transform: translateX(20px); } 6%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 
   #banner { position: fixed; left: 0; right: 0; top: 34%; text-align: center; z-index: 3; pointer-events: none; font: 500 clamp(40px, 9vw, 72px)/1 var(--goth); color: var(--bone);
@@ -101,6 +104,8 @@
   #pad .l { left: 0; } #pad .r { right: 0; }
   #pad .side.on { background: rgba(201,168,101,.35); color: var(--bone); }
   #padDown { position: fixed; left: calc(var(--l) + 62px); bottom: calc(var(--bot) + 126px); width: 46px; height: 38px; border-radius: 8px; background: rgba(14,11,8,.5); color: rgba(233,223,198,.7); font: 18px/1 var(--gz); touch-action: none; }
+  /* sideways phones: above the pad it sat on the character, so it goes beside the pad, under the floor line */
+  body.touch:not(.portrait) #padDown { left: calc(var(--l) + 176px); bottom: calc(var(--bot) + 80px); }
   .tb { position: fixed; width: 64px; height: 64px; border-radius: 50%; background: rgba(14,11,8,.55); color: var(--bone); font: 600 14px/1 var(--gz); display: grid; place-items: center;
     border: 1.5px solid rgba(201,168,101,.45); touch-action: none; }
   .tb.on { background: rgba(201,168,101,.4); }
@@ -136,7 +141,7 @@
   #preview { font: 400 clamp(22px, min(5vw, 6vh), 32px)/1.15 var(--gz); color: #ffd9a8; text-shadow: 0 0 14px rgba(255,154,60,.7); margin: 8px 0 4px; min-height: 1.2em; }
   #compose .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
 
-  #book { justify-content: flex-start; }
+  #book { justify-content: flex-start; background: rgba(12,10,7,.97); }
   #book::before { flex: 0 0 0; }
   #book h2 { font: 700 46px/1 var(--goth); margin: 30px 0 0; }
   #book .lead { font: italic 17px/1.35 var(--gz); color: var(--dim); margin: 6px 0 12px; max-width: 560px; }

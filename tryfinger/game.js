@@ -233,7 +233,7 @@ export class Game {
     p.hp -= dmg;
     this.ev('hurt', { x: p.x, y: p.y - 0.8, dmg, kind });
     if (p.hp <= 0) { this.killPlayer(kind === 'slam' ? 'crushed' : 'slain'); return true; }
-    p.state = 'hurt'; p.st = 0; p.inv = 0.75;
+    p.state = 'hurt'; p.st = 0; p.inv = 0.75; p.h = 1.4; // a hit mid-roll stands you back up
     const dir = Math.sign(p.x - fromX) || -p.face;
     p.vx = dir * 6; p.vy = -6;
     return true;
