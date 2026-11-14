@@ -55,7 +55,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 47. Plonk
 - [ ] 48. Jolly Cooperator
 - [x] 49. Chairlift — [`chairlift/`](chairlift/)
-- [ ] 50. Moonrise Manor
+- [x] 50. Moonrise Manor — [`moonrise/`](moonrise/)
 - [x] 51. Spaghetti Bridge — [`spaghetti/`](spaghetti/)
 - [x] 52. Are We There Yet — [`arewethereyet/`](arewethereyet/)
 - [x] 53. Puddle — [`puddle/`](puddle/)
@@ -473,8 +473,10 @@ A Mini Metro-style network game on a ski mountain. Lodges, car parks and hotels 
 
 Each week brings new pieces (a longer lift, a gondola, a snowcat to groom a run, a mountain restaurant that holds skiers for a while), and the weather changes the slopes. Several mountains to unlock with different shapes, and floodlit night skiing at the end of each day. Style: clean, minimalist graphics like a classic resort trail map, crisp contour lines, little dots of skiers streaming down the pistes, and a calm ambient soundtrack.
 
-## 50. Moonrise Manor
+## 50. Moonrise Manor ✅
 *Borrows: Werewolf/Mafia · Twist: you're the werewolf, and every lie you tell has to stay consistent*
+
+**Built 2026-11-14 as [`moonrise/`](moonrise/).** DOM + SVG, no canvas: cut-paper silhouette portraits in gilt ovals (eyes narrow and glow red as a guest comes to suspect you) and a 3×3 floor plan of the manor, moonlit at night and parchment at dinner. Eight guests over five nights. Each night you take a guest who is alone, from a room next door; at dinner everyone says where they were, honest guests name who was with them, Mrs Hobb hears through walls, Dr Quill names the beast's room a day late, and the dozing Colonel will vouch for you (until he remembers). Statements are the truth, a chosen room, *doubt* or *swear*, rather than free dialogue. Cut: fully painted portraits (silhouettes where only the eyes change), guests' private secrets you can expose, and the "careful lie / alibi" statement menu (your one lie per night is the room you claim).
 
 A social deduction game where you're the werewolf among eight dinner guests at a remote manor, over five nights. Each night you choose a victim. Each day at dinner, the guests share what they saw ("I heard the stairs creak at midnight"), accuse each other and vote someone out. You join in by choosing what to say from a set of statements: the truth, a careful lie, an alibi, an accusation. The guests are simple but sound reasoners who remember everything said and spot contradictions, so every lie you tell is something you have to keep consistent with.
 

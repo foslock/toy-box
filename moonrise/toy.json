@@ -1,0 +1,19 @@
+{
+  "title": "Moonrise Manor",
+  "blurb": "You are the werewolf at a five-night country-house dinner party, feeding by night and lying at dinner without contradicting anyone who was really there.",
+  "added": "2026-11-14",
+  "category": "games",
+  "tags": [
+    "social deduction",
+    "werewolf",
+    "puzzle",
+    "game"
+  ],
+  "tape": "red",
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 2500,
+    "query": "?demo"
+  }
+}
