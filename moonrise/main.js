@@ -243,6 +243,7 @@ function lurkNotes(r) {
   if (awake.length) notes.push(['bad', `${capital(listOf(awake))} ${awake.length > 1 ? 'are' : 'is'} awake in here, and will see you slip out at midnight.`]);
   else if (rep.colonel) notes.push(['ok', `The Colonel will doze off. Say at dinner that you were here, and he will swear to it.`]);
   if (rep.poet && !awake.length) notes.push(['ok', `Mr Lark is too drunk to notice you go.`]);
+  if (rep.mum.length && !awake.length) notes.push(['ok', `Lady Marrow will swear she was in the Conservatory, so she can't say she saw you here.`]);
   if (!rep.here.length) notes.push(['meh', `Empty. Nobody here can vouch for you.`]);
   if (rep.heardBy) notes.push(['meh', `Mrs Hobb, next door in the ${roomName(R.night(g).room.cook)}, will hear someone in here.`]);
   if (g.alive.includes('doctor') && ui.sel.victim !== 'doctor') notes.push(['meh', `Tomorrow Dr Quill will study the body. The day after, he names the room the beast came from.`]);
@@ -305,10 +306,12 @@ function claimNotes(room) {
     if (awake.length) notes.push(['bad', `${capital(listOf(awake.map(R.shortOf)))} saw you slip out, whatever you say.`]);
     if (here.includes('colonel')) notes.push(['ok', `The truth. The Colonel saw you come in and will swear you stayed.`]);
     else if (here.includes('poet')) notes.push(['meh', `The truth, but Mr Lark is too drunk to vouch for you.`]);
-    else notes.push(['meh', `The truth. Nobody can vouch for you, but nobody can say otherwise.`]);
+    else notes.push(['meh', awake.length ? `The truth, for what it's worth.` : `The truth. Nobody can vouch for you, but nobody can say otherwise.`]);
     if (doctorAlive) notes.push(['bad', `Tomorrow Dr Quill names this room as the one the beast came from.`]);
     if (room === RI.conserv && g.alive.includes('widow') && nt.room.widow !== RI.conserv) notes.push(['bad', `Lady Marrow will swear she was alone in here.`]);
   } else {
+    const saw = g.alive.filter(id => nt.room[id] === nt.lurk && !G[id].drunk && !G[id].sleeper && !(G[id].liar && nt.lurk !== RI.conserv));
+    if (saw.length) notes.push(['bad', `${capital(listOf(saw.map(R.shortOf)))} saw you slip out of the ${roomName(nt.lurk)}, whatever you say.`]);
     if (g.alive.includes('colonel') && nt.room.colonel === nt.lurk) notes.push(['bad', `The Colonel saw you come into the ${roomName(nt.lurk)}. He'll correct you.`]);
     const awake = honest.filter(id => id !== 'colonel');
     if (awake.length) notes.push(['bad', `${capital(listOf(awake.map(R.shortOf)))} ${awake.length > 1 ? 'were' : 'was'} in here, and will say you weren't.`]);
@@ -533,13 +536,15 @@ function portraitTap(id) {
 }
 
 addEventListener('keydown', e => {
-  if (!$('#title').hidden || !$('#end').hidden) return;
   const k = e.key;
   if (!$('#book').hidden) { if (k === 'Escape' || k === 'n' || k === 'N') { e.preventDefault(); closeBook(); } return; }
+  if (!$('#title').hidden || !$('#end').hidden) return;
   if (k === 'n' || k === 'N') { e.preventDefault(); openBook(); return; }
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (k === ' ' || k === 'Enter') {
-    if (e.target.closest && e.target.closest('button') && e.target !== document.body) return;  // the focused button handles it
+    // the focused button handles it, except a portrait you've already tapped: that would swallow the key
+    const fb = e.target.closest && e.target.closest('button');
+    if (fb && !(fb.classList.contains('pp') && !(ui.phase === 'vote' && fb.classList.contains('pickable') && ui.sel.vote !== fb.dataset.id))) return;
     e.preventDefault();
     if (e.repeat || performance.now() < (ui.keyLock || 0)) return;
     if (!$('#speech').hidden) return advance();
@@ -606,7 +611,7 @@ $('#bookBtn').addEventListener('click', openBook);
 $('#bookClose').addEventListener('click', closeBook);
 $('#book').addEventListener('click', e => { if (e.target.id === 'book') closeBook(); });
 function toggleMute() { snd.setOn(!snd.on); $('#muteBtn').classList.toggle('off', !snd.on); store.set('mm-mute', snd.on ? '0' : '1'); }
-$('#muteBtn').addEventListener('click', toggleMute);
+$('#muteBtn').addEventListener('click', e => { toggleMute(); if (e.detail) e.currentTarget.blur(); });
 if (store.get('mm-mute') === '1') { snd.on = false; $('#muteBtn').classList.add('off'); }
 addEventListener('pointerdown', () => { snd.init(); snd.resume(); }, { capture: true });
 addEventListener('keydown', () => { snd.init(); snd.resume(); }, { capture: true });

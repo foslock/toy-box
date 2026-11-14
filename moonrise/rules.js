@@ -175,10 +175,12 @@ export function lurkRooms(g, victim) {
 export function lurkReport(g, r) {
   const nt = night(g);
   const here = occupants(g, r);
-  const awake = here.filter(id => !G[id].sleeper && !G[id].drunk);
+  // Lady Marrow won't admit to the cellar, so she can't say she saw you leave it
+  const mum = here.filter(id => G[id].liar && r !== RI.conserv);
+  const awake = here.filter(id => !G[id].sleeper && !G[id].drunk && !mum.includes(id));
   const cookId = g.alive.includes('cook') ? 'cook' : null;
   const heardBy = cookId && adjacent(nt.room.cook, r) && !(nt.room.cook === r) ? 'cook' : null;
-  return { here, awake, colonel: here.includes('colonel'), poet: here.includes('poet'), heardBy };
+  return { here, awake, mum, colonel: here.includes('colonel'), poet: here.includes('poet'), heardBy };
 }
 
 export function hunt(g, lurk, victim) {

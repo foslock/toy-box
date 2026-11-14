@@ -212,7 +212,7 @@
   }
 
   /* ------------------------------------------------ coach (lessons) */
-  #coach { position: fixed; z-index: 40; width: min(340px, calc(100vw - 24px)); padding: 11px 13px 10px; background: var(--ink); color: var(--paper); border: 1.5px solid var(--gilt);
+  #coach { position: fixed; z-index: 40; box-sizing: border-box; width: min(369px, calc(100vw - 16px)); padding: 11px 13px 10px; background: var(--ink); color: var(--paper); border: 1.5px solid var(--gilt);
     box-shadow: 0 8px 22px rgba(0,0,0,.65); font-size: 17px; line-height: 1.3; pointer-events: none; transition: opacity .25s; }
   #coach p { margin: 0; }
   #coach p b { color: var(--candle); font-weight: normal; font-family: var(--sc); }
@@ -230,6 +230,8 @@
   .card h2 { margin: 0 0 6px; font: 30px/1.05 var(--sc); color: var(--blood); font-weight: normal; }
   .card h4 { margin: 14px 0 4px; font: 18px var(--sc); color: var(--blood); font-weight: normal; letter-spacing: .04em; border-bottom: 1px solid rgba(90,60,30,.35); }
   .card p { margin: 0 0 8px; font-size: 17px; }
+  #book { z-index: 35; }
+  @media (max-width: 800px), (max-height: 520px) { #book .card h2 { margin-left: 38px; } }
   .close { position: absolute; right: 10px; top: 8px; font: 28px/1 var(--fell); width: 40px; height: 40px; }
   table.nb { border-collapse: collapse; width: 100%; font-size: 15px; }
   table.nb th { font: 14px var(--sc); text-align: left; padding: 3px 4px; color: rgba(42,26,14,.7); font-weight: normal; }
