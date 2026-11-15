@@ -20,7 +20,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 12. Spire Keeper — [`spirekeeper/`](spirekeeper/)
 - [x] 13. Pop-Up — [`popup/`](popup/)
 - [x] 14. Hedges — [`hedges/`](hedges/)
-- [ ] 15. Lantern
+- [x] 15. Lantern — [`lantern/`](lantern/)
 - [x] 16. Pile-Up — [`pileup/`](pileup/)
 - [ ] 17. Glyphs
 - [x] 18. Needle — [`needle/`](needle/)
@@ -188,8 +188,10 @@ A Witness-style line puzzle game set in a formal garden seen from above. Each pu
 
 Around 50 panels across four or five garden rooms, each room introducing one symbol and then mixing it with the earlier ones, and a final panel that is the whole garden. A fountain lets you undo your last hedge so you can't soft-lock. Style: a crisp top-down formal garden (gravel paths, clipped yew, stone urns), lines that glow as you draw, soft wind and birdsong. No words anywhere.
 
-## 15. Lantern
+## 15. Lantern ✅
 *Borrows: Elden Ring Nightreign · Twist: you carry the shrinking circle*
+
+**Built 2026-11-15 as [`lantern/`](lantern/).** Shades only take damage inside light (your lantern or a chapel's); out in the dark your blade passes through them and they heal. Oil burns down the light all day and is also spent on Flare, a burst that scorches everything in your light. One 2:30 day, then the bell and a boss in whatever light you have left; a second day, then the last night and the Nightlord. Four weapons with passives, levelling at chapels, one Rekindle per run to retry a boss. Cut: the second and third characters and their ultimates, procedural churches/ruins beyond one map per seed, and the Night as a damaging zone you can walk into (the lamp is always around you; a dry lamp chills you instead). Style: scratchboard engraving, cream lines scratched out of black inside the light, faint cold blue outside.
 
 A compressed Nightreign: a top-down action roguelite where the safe zone is your lantern. Outside its circle of light, the Night hurts you. The lantern's oil burns down steadily and the circle shrinks with it. Each run is two "days" of about four minutes each. You race across a small, procedurally arranged map of ruins, camps and churches, clearing enemies for runes, weapons and oil, and when the oil runs out, night falls and you fight a boss in whatever light you have left. Survive both days and you face the final Nightlord.
 

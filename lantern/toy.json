@@ -1,0 +1,19 @@
+{
+  "title": "Lantern",
+  "blurb": "Two days and three nights on a haunted moor, where shadows can only be cut inside your lantern's light and the oil that feeds it is also your fire.",
+  "added": "2026-11-15",
+  "category": "games",
+  "tags": [
+    "action",
+    "roguelite",
+    "souls-like",
+    "game"
+  ],
+  "tape": "black",
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 2500,
+    "query": "?demo"
+  }
+}
