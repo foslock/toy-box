@@ -73,7 +73,8 @@
     #lamp { top: calc(var(--top) + 52px); left: auto; right: var(--r); transform: none; width: min(190px, 46vw); text-align: right; }
     #lamp .day { font-size: 12px; }
     #vitals { width: min(150px, calc(100vw - 260px)); }
-    #toasts { top: calc(var(--top) + 110px); }
+    body #toasts { top: calc(var(--top) + 110px); } /* 'body' so this beats the base #toasts rule further down */
+    body.touch #hud:has(#bossbar:not([hidden])) ~ #toasts { top: calc(var(--top) + 158px); }
     body.touch:not(.land) #coach { top: auto; bottom: calc(var(--bot) + 196px); }
     body.touch #hud #bossbar { top: calc(var(--top) + 112px); }
   }

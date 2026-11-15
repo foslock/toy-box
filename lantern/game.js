@@ -6,6 +6,7 @@ export const DAY_LEN = 150;          // seconds of daylight before the bell
 export const OIL_BURN_DAY = 100 / 150;
 export const OIL_BURN_NIGHT = 0.9;
 export const FLARE_COST = 12;
+const BUFFER = 0.22;        // a press made a moment too early still counts
 
 export function rng(seed) {
   let a = seed >>> 0;
@@ -21,14 +22,14 @@ export const lightFor = (oil) => oil <= 0 ? 52 : 70 + 190 * Math.sqrt(Math.min(1
 
 export const WEAPONS = {
   hatchet: { name: "Woodman's Hatchet", short: 'Hatchet', desc: 'Plain and honest. No passive.', passive: null,
-    light: { dmg: 13, reach: 50, arc: 1.7, wind: 0.09, act: 0.1, rec: 0.2, st: 14, step: 40 },
-    heavy: { dmg: 34, reach: 60, arc: 2.3, act: 0.14, rec: 0.36, st: 30, step: 70 } },
+    light: { dmg: 15, reach: 50, arc: 1.7, wind: 0.09, act: 0.1, rec: 0.2, st: 14, step: 40 },
+    heavy: { dmg: 38, reach: 60, arc: 2.3, act: 0.14, rec: 0.36, st: 30, step: 70 } },
   spear: { name: "Pilgrim's Spear", short: 'Spear', desc: 'Long and narrow. Each kill drips oil (+4).', passive: 'oil',
-    light: { dmg: 12, reach: 82, arc: 0.7, wind: 0.1, act: 0.1, rec: 0.22, st: 13, step: 30 },
-    heavy: { dmg: 30, reach: 104, arc: 0.8, act: 0.16, rec: 0.36, st: 28, step: 150 } },
+    light: { dmg: 13, reach: 82, arc: 0.7, wind: 0.1, act: 0.1, rec: 0.22, st: 13, step: 30 },
+    heavy: { dmg: 34, reach: 104, arc: 0.8, act: 0.16, rec: 0.36, st: 28, step: 150 } },
   sickle: { name: 'Moth Sickle', short: 'Sickle', desc: 'Quick little cuts. Every hit heals you a little.', passive: 'leech',
-    light: { dmg: 9, reach: 44, arc: 1.9, wind: 0.05, act: 0.08, rec: 0.13, st: 10, step: 30 },
-    heavy: { dmg: 24, reach: 52, arc: 2.6, act: 0.12, rec: 0.28, st: 24, step: 60 } },
+    light: { dmg: 11, reach: 44, arc: 1.9, wind: 0.05, act: 0.08, rec: 0.13, st: 10, step: 30 },
+    heavy: { dmg: 28, reach: 52, arc: 2.6, act: 0.12, rec: 0.28, st: 24, step: 60 } },
   greatsword: { name: 'Ember Greatsword', short: 'Greatsword', desc: 'Slow and wide. Hits set the Night alight.', passive: 'burn',
     light: { dmg: 20, reach: 66, arc: 2.5, wind: 0.2, act: 0.12, rec: 0.36, st: 22, step: 40 },
     heavy: { dmg: 52, reach: 76, arc: 3.3, act: 0.16, rec: 0.5, st: 38, step: 60 } },
@@ -211,6 +212,7 @@ export class Game {
       flasks: 3, maxFlasks: 3, oil: 100, runes: 0, level: 1, str: 1,
       weapon: 'hatchet', weapons: ['hatchet'],
       act: null, inv: 0, hurtT: 0, rollDir: 0, inGrace: -1, burnT: 0, swingId: 0,
+      buf: { roll: 0, flask: 0, flare: 0, attack: 0, heavy: 0 },
     };
     this.input = { mx: 0, my: 0, aim: null, attackDown: false, attackPressed: false, attackReleased: false, heavyPressed: false, roll: false, flask: false, flare: false };
     if (!this.tutorial) this.populate();
@@ -272,7 +274,7 @@ export class Game {
   step(dt) {
     this.events.length = this.events.length > 200 ? 0 : this.events.length;
     if (this.phase === 'won' || this.phase === 'dead') { this.phaseT += dt; this.tickFx(dt); return; }
-    if (this.hitstop > 0) { this.hitstop -= dt; this.clearPresses(); return; }
+    if (this.hitstop > 0) { this.hitstop -= dt; this.latch(); this.clearPresses(); return; }
     this.t += dt; this.phaseT += dt;
     const p = this.p;
 
@@ -306,6 +308,12 @@ export class Game {
       if (p.burnT > 0.5) { p.burnT = 0; this.hurtPlayer(this.phase === 'night' ? 3 : 2, null, true); }
     }
     this.clearPresses();
+  }
+  // remember presses for a moment, so one made during hit-stop, a flinch or the tail of a swing isn't lost
+  latch() {
+    const I = this.input, B = this.p.buf;
+    if (I.roll) B.roll = BUFFER; if (I.flask) B.flask = BUFFER; if (I.flare) B.flare = BUFFER;
+    if (I.attackPressed) { B.attack = BUFFER; B.heavy = 0; } if (I.heavyPressed) { B.heavy = BUFFER; B.attack = 0; }
   }
   clearPresses() { const i = this.input; i.attackPressed = i.attackReleased = i.heavyPressed = i.roll = i.flask = i.flare = false; }
   tickFx() {}
@@ -362,6 +370,9 @@ export class Game {
     p.stDelay = Math.max(0, p.stDelay - dt);
     if (p.stDelay <= 0 && (!p.act || p.act.type === 'drink')) p.st = Math.min(p.maxSt, p.st + 46 * dt);
     if (p.hp <= 0) return;
+    const B = p.buf;
+    for (const k in B) B[k] = Math.max(0, B[k] - dt);
+    this.latch();
     let mx = I.mx, my = I.my; const ml = hyp(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
     const W = WEAPONS[p.weapon];
     // aim
@@ -374,18 +385,22 @@ export class Game {
     // start actions
     const free = !a || (a.type === 'light' && a.t > a.wind + a.actT + a.rec * 0.5) || (a.type === 'heavy' && a.t > a.actT + a.rec * 0.6);
     if (p.hurtT > 0) { p.hurtT -= dt; }
-    else if (I.roll && (free || (a && a.type === 'charge')) && p.st > 0) {
+    else if (B.roll > 0 && (free || (a && a.type === 'charge')) && p.st > 0) {
+      B.roll = 0;
       const dir = ml > 0.2 ? Math.atan2(my, mx) : p.face;
       p.act = { type: 'roll', t: 0, dir }; p.st -= 25; p.stDelay = 0.55; p.face = dir; this.stats.rolls++;
       this.emit('roll');
-    } else if (I.flask && free && p.flasks > 0 && (!a || a.type !== 'drink')) {
+    } else if (B.flask > 0 && free && p.flasks > 0 && (!a || a.type !== 'drink')) {
+      B.flask = 0;
       p.act = { type: 'drink', t: 0, done: false }; p.flasks--;
       this.emit('drink');
-    } else if (I.flare && free && p.oil >= FLARE_COST && (!this.flareCd || this.t > this.flareCd)) {
+    } else if (B.flare > 0 && free && p.oil >= FLARE_COST && (!this.flareCd || this.t > this.flareCd)) {
+      B.flare = 0;
       this.doFlare();
-    } else if ((I.attackPressed || I.heavyPressed) && free && p.st > 0) {
+    } else if ((B.attack > 0 || B.heavy > 0) && free && p.st > 0) {
       p.face = aim;
-      if (I.heavyPressed) { p.act = { type: 'charge', t: 0, max: 0.6 }; }
+      const heavy = B.heavy > 0; B.attack = B.heavy = 0;
+      if (heavy) { p.act = { type: 'charge', t: 0, max: 0.6 }; }
       else p.act = { type: 'charge', t: 0, max: 0.6, tap: true };
     }
     const act = p.act;
@@ -439,8 +454,9 @@ export class Game {
       p.inGrace = gi;
       if (gi >= 0) {
         const g = map.graces[gi];
-        if (g.used !== this.day && !this.tutorial) { g.used = this.day; p.flasks = p.maxFlasks; this.emit('grace', { i: gi, refill: true }); }
-        else this.emit('grace', { i: gi, refill: false });
+        // the day's refill is only spent when there is something to fill
+        if (g.used !== this.day && !this.tutorial && p.flasks < p.maxFlasks) { g.used = this.day; p.flasks = p.maxFlasks; this.emit('grace', { i: gi, refill: true }); }
+        else this.emit('grace', { i: gi, refill: false, unspent: g.used !== this.day });
       }
     }
     // pick-ups
@@ -599,6 +615,7 @@ export class Game {
     this.embers--;
     const p = this.p;
     p.hp = p.maxHp; p.flasks = p.maxFlasks; p.st = p.maxSt; p.act = null; p.inv = 1.5; p.oil = Math.max(p.oil, 30);
+    for (const k in p.buf) p.buf[k] = 0;
     const B = BOSSES[this.day];
     this.foes = this.foes.filter(f => f.tut); this.shots = []; this.waves = []; this.eclipse = 0;
     this.toNight();
@@ -620,7 +637,7 @@ export class Game {
       f.lit = this.isLit(f.x, f.y, f.r * 0.5);
       if (f.lit && !wasLit) f.litT = 0; f.litT += dt;
       if (!f.lit && f.hp < f.maxHp && f.type !== 'dummy') f.hp = Math.min(f.maxHp, f.hp + 7 * dt);
-      if (f.burn > 0) { f.burn -= dt; f.hp -= 5 * dt; if (f.hp <= 0) { this.killFoe(f); continue; } }
+      if (f.burn > 0) { f.burn -= dt; f.hp -= 3 * dt; if (f.hp <= 0) { this.killFoe(f); continue; } }
       // knockback slide
       f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= Math.pow(0.002, dt); f.vy *= Math.pow(0.002, dt);
       const dx = p.x - f.x, dy = p.y - f.y, d = hyp(dx, dy), toP = Math.atan2(dy, dx);
@@ -754,7 +771,7 @@ export class Game {
     const b = this.boss, p = this.p, map = this.map;
     b.flash = Math.max(0, b.flash - dt);
     b.lit = this.isLit(b.x, b.y, b.r * 0.6);
-    if (b.burn > 0) { b.burn -= dt; b.hp -= 5 * dt; if (b.hp <= 0) { this.killFoe(b); return; } }
+    if (b.burn > 0) { b.burn -= dt; b.hp -= 3 * dt; if (b.hp <= 0) { this.killFoe(b); return; } }
     b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= Math.pow(0.001, dt); b.vy *= Math.pow(0.001, dt);
     b.poise = Math.max(0, b.poise - 12 * dt);
     if (b.eclipseHold > 0) { b.eclipseHold -= dt; this.eclipse = Math.min(1, this.eclipse + dt * 2); }

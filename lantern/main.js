@@ -41,10 +41,10 @@ const KEYS = {
 addEventListener('keydown', (e) => {
   unlock();
   const k = KEYS[e.code];
-  if (mode === 'title') { if (e.code === 'Enter') $('#startBtn').click(); return; }
+  if (mode === 'title') { if (e.code === 'Enter') { e.preventDefault(); $('#startBtn').click(); } return; }
   if (mode === 'pause') { if (e.code === 'Escape' || e.code === 'KeyP') resume(); return; }
-  if (mode === 'grace') { if (e.code === 'Escape' || e.code === 'Enter') closeGrace(); return; }
-  if (mode === 'end') { if (e.code === 'Enter') ($('#emberBtn').hidden ? $('#againBtn') : $('#emberBtn')).click(); return; }
+  if (mode === 'grace') { if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeGrace(); } return; } // preventDefault: Enter must not also press a focused level button
+  if (mode === 'end') { if (e.code === 'Enter') { e.preventDefault(); ($('#emberBtn').hidden ? $('#againBtn') : $('#emberBtn')).click(); } return; }
   if (mode !== 'play') return;
   if (e.code === 'Escape' || e.code === 'KeyP') { pause(); return; }
   if (e.code === 'Enter' && tut && tut.step === 7) { beginDay(); return; }
@@ -199,7 +199,7 @@ function showBest() {
   const b = ls.get('lantern.best', { stage: -1, wins: 0 });
   $('#best').textContent = b.wins ? `The Nightlord has fallen ${b.wins === 1 ? 'once' : b.wins + ' times'}` : b.stage >= 0 ? `Furthest: ${STAGES[b.stage]}` : '';
 }
-function stageOf() { if (g.phase === 'won') return 5; return g.day * 2 + (g.boss || g.phase === 'night' ? 1 : 0); }
+function stageOf() { if (g.phase === 'won') return 5; if (g.day >= 2) return 4; return g.day * 2 + (g.boss || g.phase === 'night' ? 1 : 0); }
 function saveBest(won) {
   const b = ls.get('lantern.best', { stage: -1, wins: 0 });
   b.stage = Math.max(b.stage, stageOf()); if (won) b.wins++;
@@ -208,11 +208,11 @@ function saveBest(won) {
 
 // grace sheet
 let graceIdx = -1;
-function openGrace(i, refill) {
+function openGrace(i, refill, unspent) {
   graceIdx = i; mode = 'grace'; resetHeld(); stickEnd();
   const gr = g.map.graces[i];
   $('#graceName').textContent = gr.name;
-  $('#graceLede').textContent = refill ? 'You kneel. Your flasks are full again.' : 'You have rested here today. The flasks fill once a day at each chapel.';
+  $('#graceLede').textContent = refill ? 'You kneel. Your flasks are full again.' : unspent ? 'Your flasks are full. This chapel will fill them once today, when you need it.' : 'You have rested here today. The flasks fill once a day at each chapel.';
   fillGrace(); $('#graceSheet').hidden = false;
 }
 function fillGrace() {
@@ -261,11 +261,12 @@ function showTut() {
 }
 $('#coach .go').addEventListener('click', beginDay);
 $('#skipTut').addEventListener('click', beginDay);
-function tutAdvance(n) { tut.step = n; tut.t = 0; tut.note = ''; showTut(); sfx.grace();
+function tutAdvance(n) { tut.step = n; tut.t = 0; tut.rollT = -9; tut.note = ''; showTut(); sfx.grace();
   if (n === 1 || n === 2) g.tutSpawn('dummy');
   if (n === 4) { g.tutSpawn('hound'); g.tutSpawn('hound'); g.tutSpawn('dummy'); }
   if (n === 5) g.tutSpawn('wisp');
-  if (n === 6) g.p.hp = Math.min(g.p.hp, g.p.maxHp - 40);
+  if (n === 4) g.p.oil = Math.max(g.p.oil, 40);       // enough oil left to try the flare
+  if (n === 6) { g.p.hp = Math.min(g.p.hp, g.p.maxHp - 40); g.p.flasks = Math.max(g.p.flasks, 1); } // and a flask to drink
 }
 function tutTick(dt) {
   tut.t += dt;
@@ -275,10 +276,16 @@ function tutTick(dt) {
   else if (tut.step === 3 && !alive) g.tutSpawn('dummy');
   else if (tut.step === 5 && !alive) tutAdvance(6);
   else if (tut.step === 2 && !alive) g.tutSpawn('dummy');
+  // rolling clear of a swing counts as well as rolling through it
+  if (tut.step === 2) for (const f of g.foes) {
+    if (f.tut && f.was === 'strike' && f.state === 'recover' && !f.hitDone && tut.t - (tut.rollT ?? -9) < 0.8) { tutAdvance(3); break; }
+    f.was = f.state;
+  }
   if (p.hp < 30 && tut.step < 6) p.hp = 30; // nobody dies in the lesson
 }
 function tutEvent(e) {
   if (!tut) return;
+  if (e.t === 'roll') tut.rollT = tut.t;
   if (tut.step === 2 && e.t === 'dodge') { tutAdvance(3); }
   else if (tut.step === 2 && e.t === 'hurt') { tut.note = 'Roll the moment it swings, not before.'; showTut(); }
   else if (tut.step === 1 && e.t === 'ghost') { tut.note = 'It was still in the dark. Wait for it to step into the light.'; showTut(); }
@@ -314,7 +321,7 @@ function onEvents() {
       case 'grace':
         if (g.tutorial) break;
         sfx.grace();
-        if (g.p.runes >= g.levelCost() && !g.boss && !bot) setTimeout(() => mode === 'play' && openGrace(e.i, e.refill), 250);
+        if (g.p.runes >= g.levelCost() && !g.boss && !bot) setTimeout(() => mode === 'play' && openGrace(e.i, e.refill, e.unspent), 250);
         else if (e.refill) toast(`<b>${g.map.graces[e.i].name}</b><br>Your flasks are full again.`);
         if (bot) botLevel(g, bot);
         break;
