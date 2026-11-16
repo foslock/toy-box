@@ -467,7 +467,9 @@ function hud() {
   if (!G) return;
   const v = G.vault;
   $('vname').innerHTML = `<span>${v.numeral}</span><em class="long" style="font-style:normal">${v.name}</em>`;
-  $('turns').innerHTML = `<b>${G.st.turns}</b> turn${G.st.turns === 1 ? '' : 's'} <small>· par ${v.par}</small>`;
+  // Alegreya's old-style zero reads as a letter o, so say "no turns" instead
+  const n = G.st.turns;
+  $('turns').innerHTML = n === 0 ? `<b>No</b> turns yet <small>· par ${v.par}</small>` : `<b>${n}</b> turn${n === 1 ? '' : 's'} <small>· par ${v.par}</small>`;
   $('carry').innerHTML = keySvg.repeat(G.st.keys) + (G.st.treasure ? gemSvg : '');
 }
 let lastBar = '';
