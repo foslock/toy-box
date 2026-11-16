@@ -92,15 +92,19 @@
   .vault b { font: 700 18px/1.1 var(--head); display: block; }
   .vault small { display: block; font-size: 14px; opacity: .8; }
   .vault .best { margin-left: auto; font: 700 14px/1.1 var(--head); text-align: right; white-space: nowrap; }
+  #restart { display: block; margin: 12px 0 0 auto; padding: 6px 2px; color: var(--terra); text-decoration: underline; font: 700 14px/1 var(--head); letter-spacing: .04em; }
+  #restart:focus-visible { outline: 3px dashed var(--gold); outline-offset: 2px; }
   .keys { font-size: 14px; opacity: .85; margin-top: 12px; line-height: 1.6; }
 
   @media (max-width: 560px) {
     #vname { font-size: 14px; padding: 5px 8px 6px; }
     #vname .long { display: none; }
+    #vname span { margin-right: 0; }
     #vname { flex: none; }
     #turns { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     #turns { font-size: 14px; padding: 5px 8px 6px; }
     #turns b { font-size: 16px; }
+    #carry { padding: 4px 5px; gap: 2px; flex: none; }
     .ibtn { width: 38px; height: 38px; }
     .card { padding: 18px 16px 14px; }
     .card h2 { font-size: 24px; }
@@ -109,6 +113,15 @@
     #coach { font-size: 15px; }
     .keys { display: none; }
   }
+  /* the narrowest phones: keep the turn count and par whole beside three buttons (after the block above, to win over it) */
+  @media (max-width: 430px) { #hud.carrying #turns small { display: none; } }
+  @media (max-width: 400px) {
+    #turns .yet { display: none; }
+    #hud { gap: 5px; }
+    #vname, #turns { padding-left: 6px; padding-right: 6px; }
+    .ibtn { width: 36px; height: 36px; }
+  }
+  @media (max-width: 370px) { .ibtn { width: 34px; height: 34px; } #carry { padding: 4px 3px; } #hud { padding-right: 6px; } }
 </style>
 </head>
 <body>
@@ -139,6 +152,7 @@
     <canvas id="titleArt" width="440" height="120"></canvas>
     <p class="lede">A vault laid out as a cube of rooms, three by three by three. Turnstones inside it spin and roll whole layers, like a puzzle cube. Line up the doors and ladders, carry the gold tessera from the centre room, and climb out.</p>
     <div id="vaults"></div>
+    <button id="restart" hidden></button>
     <p class="keys"><kbd>←↑↓→</kbd> or <kbd>WASD</kbd> walk · <kbd>Space</kbd> climb or swat · <kbd>Q</kbd> <kbd>E</kbd> turn · <kbd>Z</kbd> undo · <kbd>H</kbd> hint. On a phone, tap where you want to go.</p>
   </div>
 </div>

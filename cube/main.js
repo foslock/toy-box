@@ -19,6 +19,7 @@ const view = new View($('cv'));
 const sound = new Sound();
 sound.on = store.get('sound', true);
 let G = null;
+let live = false;                   // a vault is being played (not the idle board behind the first title, not a finished one)
 let hold = false;
 const STEP = 0.125;                 // seconds per tile
 const TURN_T = 1.15;
@@ -39,7 +40,7 @@ function newGame(vi) {
 
 function enterRoom(g, id, tile) {
   const p = g.p;
-  p.room = id; p.c = tile[0]; p.r = tile[1]; p.fx = p.c; p.fy = p.r; p.moving = false; p.path = []; p.exitDir = -1; p.entry = tile.slice();
+  p.room = id; p.c = tile[0]; p.r = tile[1]; p.fx = p.c; p.fy = p.r; p.moving = false; p.path = []; p.exitDir = -1; p.unlockAfter = false; p.entry = tile.slice();
   spawnBeetles(g);
   updateFlags(g);
 }
@@ -227,7 +228,7 @@ function undo(g) {
 }
 
 function win(g) {
-  g.won = true;
+  g.won = true; live = false;
   sound.win();
   const best = store.get('best', {});
   const prev = best[g.vault.id];
@@ -278,12 +279,22 @@ function tick(g, dt) {
     let dir = -1;
     if (tapDir >= 0) { dir = tapDir; tapDir = -1; }
     else if (held.length && performance.now() - held[held.length - 1].t > 190) dir = held[held.length - 1].d;
-    if (dir >= 0) { p.path = []; p.exitDir = -1; p.strike = null; tryStep(g, dir); }
+    if (dir >= 0) { p.path = []; p.exitDir = -1; p.strike = null; p.unlockAfter = false; tryStep(g, dir); }
     else if (p.path.length) {
       const [nc, nr] = p.path[0];
       const d = [0, 1, 2, 3].find(s => p.c + DX[s] === nc && p.r + DY[s] === nr);
       if (d == null || !tryStep(g, d)) { p.path = []; } else p.path.shift();
     } else if (p.exitDir >= 0) { const d = p.exitDir; p.exitDir = -1; tryStep(g, d); }
+    else if (p.unlockAfter) {
+      // walked up to this room's own grate: try the lock if we really are beside it
+      p.unlockAfter = false;
+      const rm = g.st.rooms[p.room];
+      if (rm.lock >= 0 && !(g.st.unlocked >> p.room & 1)) {
+        const [lc, lr] = M.featTile(g.st, p.room, DOOR_TILE[rm.lock]);
+        const d = [0, 1, 2, 3].find(s => p.c + DX[s] === lc && p.r + DY[s] === lr);
+        if (d != null) { p.face = d; tryUnlock(g, p.room); }
+      }
+    }
     else if (p.strike) {
       const b = p.strike; p.strike = null;
       if (g.beetles.includes(b)) {
@@ -343,6 +354,7 @@ addEventListener('keydown', (e) => {
   const cardUp = !$('card').hidden || !$('title').hidden;
   if (cardUp) {
     if (e.code === 'Escape' && !$('card').hidden && G && cardClosable) { closeCard(); e.preventDefault(); }
+    else if (e.code === 'Escape' && $('card').hidden && live) { $('title').hidden = true; e.preventDefault(); }   // back to the vault you were in
     // Enter / Space press the focused button (or the card's first) exactly once
     if ((e.code === 'Enter' || e.code === 'Space' || e.code === 'NumpadEnter') && !e.repeat) {
       e.preventDefault();
@@ -380,6 +392,7 @@ $('cv').addEventListener('pointerdown', (e) => {
 function tapRoom(g, c, r) {
   if (g.anim) return;
   const st = g.st, p = g.p, id = p.room;
+  p.unlockAfter = false;
   // outside the room: a doorway beyond the wall
   if (c < 0 || r < 0 || c >= RS || r >= RS) {
     let s = -1;
@@ -414,9 +427,9 @@ function tapRoom(g, c, r) {
   p.path = path; p.strike = null;
   p.exitDir = s >= 0 && st.rooms[id].doors[M.localSide(st, id, s)] ? s : -1;
   // a locked door tile can't be stood on: stop beside it and try the lock
+  // (the walk ends beside it, and tick tries the lock on arrival)
   const last = path[path.length - 1];
-  if (!M.walkable(st, id, last[0], last[1])) { path.pop(); p.exitDir = -1; p.unlockAfter = true; }
-  if (!path.length && p.unlockAfter) { p.unlockAfter = false; tryUnlock(g, id); }
+  if (last && !M.walkable(st, id, last[0], last[1])) { path.pop(); p.exitDir = -1; p.unlockAfter = true; }
 }
 
 // ---------------------------------------------------------------- buttons
@@ -447,8 +460,17 @@ function hint() {
 function giveHint() {
   if (!G || G.anim || G.won) return;
   const st = G.st;
+  // the search takes whatever is in walking distance for granted, so send the player for it first
+  const comp = M.reach(st, G.p.room);
+  let want = [...comp].sort((a, b) => a - b).find(id => st.rooms[id].key && !(st.keysTaken >> id & 1)), what = 'a key';
+  if (want == null && !st.treasure) { const t = st.rooms.find(r => r.treasure).id; if (comp.has(t)) { want = t; what = 'the gold tessera'; } }
+  if (want != null) {
+    G.hintRoom = want; G.hintT = 8;
+    toast(`${want === G.p.room ? 'This room has' : 'The flashing room has'} ${what}, and you can walk to it from here. Fetch it before turning anything.`, 5);
+    return;
+  }
   const r = solveFrom(st, G.p.room, 400000);
-  if (!r.ok) { toast('This arrangement is a long way round. Undo a few turns and look at the map again.'); return; }
+  if (!r.ok) { toast('This arrangement is a long way round. Undo a few turns and ask again, or start the vault over from the vault list.', 5); return; }
   const m = r.route[0];
   if (!m) {
     toast(st.treasure ? 'No more turns needed. Walk back to the sunlit room and climb out.' : 'No turns needed from here: everything you need is within walking distance.', 4);
@@ -469,8 +491,9 @@ function hud() {
   $('vname').innerHTML = `<span>${v.numeral}</span><em class="long" style="font-style:normal">${v.name}</em>`;
   // Alegreya's old-style zero reads as a letter o, so say "no turns" instead
   const n = G.st.turns;
-  $('turns').innerHTML = n === 0 ? `<b>No</b> turns yet <small>· par ${v.par}</small>` : `<b>${n}</b> turn${n === 1 ? '' : 's'} <small>· par ${v.par}</small>`;
+  $('turns').innerHTML = n === 0 ? `<b>No</b> turns<span class="yet"> yet</span> <small>· par ${v.par}</small>` : `<b>${n}</b> turn${n === 1 ? '' : 's'} <small>· par ${v.par}</small>`;
   $('carry').innerHTML = keySvg.repeat(G.st.keys) + (G.st.treasure ? gemSvg : '');
+  $('hud').classList.toggle('carrying', G.st.keys > 0 || G.st.treasure);   // narrow phones drop "· par" to make room
 }
 let lastBar = '';
 function bar() {
@@ -583,7 +606,7 @@ const INTRO = {
 
 function start(vi, resume) {
   tapDir = -1; held.length = 0;
-  G = newGame(vi);
+  G = newGame(vi); live = true;
   if (resume) {
     M.restoreArr(G.st, resume.arr);
     enterRoom(G, resume.room, [resume.c, resume.r]);
@@ -644,12 +667,18 @@ function openTitle() {
   VAULTS.forEach((v, i) => {
     const open = i === 0 || best[VAULTS[i - 1].id] != null || DEBUG;
     const b = document.createElement('button'); b.className = 'vault'; b.disabled = !open;
-    const resumeHere = cur && cur.vi === i;
+    const here = live && G.vi === i;               // the vault behind this list: carry on in place, lesson and undo intact
+    const resumeHere = here || (cur && cur.vi === i);
     const sub = i === 0 ? 'The lesson: one turnstone' : v.id === 'ii' ? 'Two turnstones' : v.id === 'iii' ? 'The mill wheel' : v.id === 'iv' ? 'The cross wheel' : 'Four turnstones, two keys';
     b.innerHTML = `<span class="num">${v.numeral}</span><span><b>${v.name}</b><small>${resumeHere ? 'Carry on where you left off' : open ? sub : 'Climb out of the vault before'}</small></span><span class="best">${best[v.id] != null ? `best ${best[v.id]}<br><small>par ${v.par}</small>` : `par ${v.par}`}</span>`;
-    b.onclick = () => { sound.init(); sound.resume(); start(i, resumeHere ? cur : null); };
+    b.onclick = () => { sound.init(); sound.resume(); if (here) { $('title').hidden = true; return; } start(i, resumeHere ? cur : null); };
     box.appendChild(b);
   });
+  // a way to begin the vault in progress again from its first arrangement
+  const ri = live ? G.vi : cur ? cur.vi : -1;
+  const turned = live ? G.st.turns : cur ? cur.arr.turns : 0;
+  $('restart').hidden = !(ri >= 0 && turned > 0);
+  if (ri >= 0) { $('restart').textContent = `Start ${VAULTS[ri].name} over`; $('restart').onclick = () => start(ri); }
   $('title').hidden = false;
   closeCard();
   requestAnimationFrame(drawTitleArt);
@@ -716,7 +745,8 @@ addEventListener('resize', () => layout());
 let last = performance.now();
 function frame(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
-  if (G && !hold) { tick(G, dt); if (tut.on) tut.ev(null); }
+  const reading = !$('card').hidden || !$('title').hidden;   // beetles wait while a card or the vault list is up
+  if (G && !hold && (!reading || G.anim)) { tick(G, dt); if (tut.on) tut.ev(null); }
   if (G) { view.draw(G, now / 1000); bar(); }
   requestAnimationFrame(frame);
 }
