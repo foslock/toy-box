@@ -59,7 +59,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 51. Spaghetti Bridge — [`spaghetti/`](spaghetti/)
 - [x] 52. Are We There Yet — [`arewethereyet/`](arewethereyet/)
 - [x] 53. Puddle — [`puddle/`](puddle/)
-- [ ] 54. Cube
+- [x] 54. Cube — [`cube/`](cube/) (Twenty-Seven Rooms)
 - [x] 55. Last Checkout — [`lastcheckout/`](lastcheckout/)
 - [x] 56. Conductor — [`conductor/`](conductor/)
 - [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
@@ -511,8 +511,10 @@ A small, dreamy fishing game where you fish in puddles after the rain. A city st
 
 Simple, satisfying fishing: cast, wait, watch the bobber, hook, and reel against something that pulls in its own way. Different puddles reflect different things, and the weather and the hour change what's there, with a quiet rhythm of walking between puddles under an umbrella. About 50 catches, a few of them rare. Style: wet, glossy, soft painterly 2D with gorgeous reflections and lamplight on rain, and a mellow lo-fi soundtrack under the rain.
 
-## 54. Cube
+## 54. Cube ✅
 *Borrows: Zelda dungeons, Rubik's Cube · Twist: the dungeon is a 3×3×3 cube of rooms you rotate*
+
+**Built 2026-11-16 as [`cube/`](cube/) (Twenty-Seven Rooms).** Five vaults (a hand-laid lesson, then four found by a seeded hill-climb over a turn-counting solver, par 5, 6, 8 and 9). Rooms are 2D top-down, set as a Roman floor mosaic; the map is the three floors laid side by side. Flat turnstones spin a floor (rooms turn with it); rolling turnstones turn a north–south or east–west slice like a mill wheel with the rooms kept level, so nothing ever ends up on its side. Cut: pits that become ladders, flooding, push blocks and combat beyond swatting beetles. Undo, and a hint that names the next turn.
 
 A Zelda-like dungeon where the whole dungeon is a 3×3×3 cube of rooms, and you can rotate any layer of it like a Rubik's Cube. Rotating a layer turns those nine rooms, and everything in them, so doors that led nowhere now open onto another room, a corridor ends up on its side so its pit becomes a ladder, or a flooded room pours into the one below. Inside the rooms you play top-down: walk, push blocks, pick up keys, fight a few simple enemies. Find the treasure in the centre room and get out.
 

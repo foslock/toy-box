@@ -1,0 +1,19 @@
+{
+  "title": "Twenty-Seven Rooms",
+  "blurb": "A dungeon built as a 3×3×3 cube of rooms, where turnstones inside spin and roll whole layers until the doors and ladders line up to the gold.",
+  "added": "2026-11-16",
+  "category": "games",
+  "tags": [
+    "mosaic",
+    "puzzle",
+    "dungeon",
+    "game"
+  ],
+  "tape": "orange",
+  "capture": {
+    "width": 1200,
+    "height": 900,
+    "wait": 2500,
+    "query": "?demo"
+  }
+}
