@@ -58,7 +58,8 @@ const KEYS = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA:
 addEventListener('keydown', (e) => {
   unlock();
   if (mode === 'title') { if (e.code === 'Enter') { e.preventDefault(); $('#startBtn').click(); } return; }
-  if (mode === 'card') { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); $('#cardGo').click(); } return; }
+  // the card arrives a beat after the curtain; keys before it (or a roll still being mashed) must not skip an act
+  if (mode === 'card') { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); if (!e.repeat && !$('#card').hidden && performance.now() - cardAt > 600) $('#cardGo').click(); } return; }
   if (mode === 'pause') { if (e.code === 'Escape' || e.code === 'KeyP') { e.preventDefault(); resume(); } else if (e.code === 'Enter') { e.preventDefault(); resume(); } return; }
   if (mode === 'end') { if (e.code === 'Enter') { e.preventDefault(); $('#againBtn').click(); } return; }
   if (mode !== 'play') return;
@@ -270,17 +271,19 @@ const TUT = [
   { name: 'II · Strike', text: () => `A straw dummy. Hit it three times: ${k('<kbd>J</kbd> or click', 'tap <em>Strike</em>')}. Keep pressing to chain a combo.`,
     setup() { ui.mark = null; tut.dummy = g.spawn('dummy', 330, 64, { noDrop: true }); tut.n = 0; }, on: (e) => { if (e.t === 'dummyHit') tut.n++; }, done: () => tut.n >= 3 },
   { name: 'III · Roll', text: () => `A prop soldier. When it raises its sword, the floor reddens where the blow will land. <em>Roll</em> just as it swings: ${k('<kbd>Space</kbd> or right-click', 'tap <em>Roll</em>')}. While you tumble, nothing can touch you.`,
-    setup() { tut.dummy.dead = true; tut.dummy.t = 9; g.p.dodged = 0; const f = g.spawn('prop', g.p.x + 52, g.p.y, { noDrop: false, look: 'prop' }); f.active = true; f.face = -1; tut.prop = f; },
+    setup() { tut.dummy.dead = true; tut.dummy.t = 9; g.p.dodged = 0; const side = g.p.x + 52 > g.len - 24 ? -1 : 1; const f = g.spawn('prop', g.p.x + 52 * side, g.p.y, { noDrop: false, look: 'prop' }); f.active = true; f.face = -side; tut.prop = f; },
     done: () => g.p.dodged >= 1, after() { tut.prop.dead = true; tut.prop.t = 0; } },
   { name: 'IV · Beckon', text: () => `Here is your <em>host</em>, the one who summoned you, dyed ${hostColour()}. They can't hear a word you say. <em>Beckon</em> them over: ${k('press <kbd>2</kbd> or click <em>Beckon</em> below', 'hold <em>Gesture</em>, slide to <em>Beckon</em>, let go')}.`,
     setup() { const h = g.h; h.present = true; h.x = Math.max(20, g.p.x - 230); h.y = 80; h.state = 'idle'; h.face = 1; g.say('hello', 3, true); },
     done: () => g.h.order?.g === 'beckon' && Math.hypot(g.h.x - g.p.x, g.h.y - g.p.y) < 60 },
   { name: 'V · Wait', text: () => tut.hung ? `Too late! They're hanging on by their fingertips. Stand beside them and <em>hold</em> ${k('<kbd>J</kbd>', '<em>Strike</em>')} to pull them up.` : `Oh dear. A glint beyond the trapdoor, and your host has seen it. Tell them to <em>Wait</em> before they walk straight in: ${k('<kbd>3</kbd>', '<em>Gesture</em> → <em>Wait</em>')}.`,
     setup() {
-      const h = g.h, x0 = Math.min(760, Math.max(h.x, g.p.x) + 110);
+      // the trapdoor opens ahead of you both; with no stage left on the right it opens behind instead, never underfoot
+      const h = g.h, far = Math.max(h.x, g.p.x), left = far + 110 > 760;
+      const x0 = left ? Math.min(h.x, g.p.x) - 170 : far + 110, lx = left ? x0 - 50 : x0 + 110;
       tut.pit = { x0, x1: x0 + 60, y0: 0, y1: D, on: true }; g.pits.push(tut.pit);
-      g.loot.push({ x: x0 + 110, y: h.y, kind: 'gem', id: 77, taken: false, glint: 0 });
-      h.order = null; h.script = { x: x0 + 110, y: h.y, speed: 26 };
+      g.loot.push({ x: lx, y: h.y, kind: 'gem', id: 77, taken: false, glint: 0 });
+      h.order = null; h.script = { x: lx, y: h.y, speed: 26 };
       g.say('loot', 3, true);
     },
     on: (e) => { if (e.t === 'hang') { tut.hung = true; showTut(); } },
@@ -465,7 +468,7 @@ function handle(e) {
 }
 
 // ------------------------------------------------------------------ curtains & cards
-let curtainTo = 0;
+let curtainTo = 0, cardAt = 0;
 function clearNotices() { $('#banner').hidden = true; $('#toasts').innerHTML = ''; }
 function closeCurtain() {
   mode = 'card'; curtainTo = 1; sfx.curtain(); resetHeld(); showControls();
@@ -487,10 +490,11 @@ function cardFor(act) {
   if (act === 1) lines.push('Archers in the wood. Stand between them and your host and the arrows hit you instead.');
   if (act === 2) lines.push('The keep is the last act. The king does not fight fair.');
   $('#cardNotes').innerHTML = lines.join('<br>');
-  $('#card').hidden = false;
+  $('#card').hidden = false; cardAt = performance.now();
   $('#cardGo').focus({ preventScroll: true });
 }
 $('#cardGo').addEventListener('click', () => {
+  if (mode !== 'card' || $('#card').hidden) return;
   $('#card').hidden = true;
   g.nextAct();
   R.bubble = null;

@@ -293,7 +293,12 @@ export class Game {
     const [b0, b1] = this.bounds;
     let nx = e.x + dx, ny = clamp(e.y + dy, 0, D);
     if (e.kind === 'player' || e.kind === 'host') nx = clamp(nx, b0, b1);
-    else nx = clamp(nx, 6, this.len - 6);
+    else {
+      nx = clamp(nx, 6, this.len - 6);
+      // once inside a locked arena a foe stays in it, so a knockback can't park it where the Shade can't follow
+      const L = this.lock;
+      if (L && e.x >= L.x0 + 6 && e.x <= L.x1 - 6) nx = clamp(nx, L.x0 + 6, L.x1 - 6);
+    }
     // already standing in the margin (knocked or pulled there)? then only the pit itself is off limits
     const m = this.inPit(e.x, e.y, 7) ? 0.5 : 7;
     if (avoid && this.inPit(nx, ny, m)) {
@@ -434,7 +439,16 @@ export class Game {
     for (const e of [this.p, this.h]) {
       if (e.kind === 'host' && !e.present) continue;
       const nx = clamp(e.x, b0 + 10, b1 - 10);
-      if (nx !== e.x) { e.x = nx; if (this.inPit(e.x, e.y, 8)) e.y = e.y > D / 2 ? D - 6 : 6; this.fx.push({ k: 'poof', x: e.x, y: e.y, t: 0 }); }
+      if (nx !== e.x) {
+        e.x = nx;
+        if (this.inPit(e.x, e.y, 8)) {
+          // the nearer strip of floor that is not trapdoor (a pit can reach the front or the back of the stage)
+          const ys = [D - 6, 6].filter((y) => !this.inPit(e.x, y, 8)).sort((a, b) => Math.abs(a - e.y) - Math.abs(b - e.y));
+          if (ys.length) e.y = ys[0];
+        }
+        if (e.kind === 'player') { e.lastSafe.x = e.x; e.lastSafe.y = e.y; }
+        this.fx.push({ k: 'poof', x: e.x, y: e.y, t: 0 });
+      }
     }
   }
   spawnSide(w, type, side) {
@@ -553,6 +567,7 @@ export class Game {
       p.hp -= 16; p.flash = 0.2; p.regenT = 4;
       this.fx.push({ k: 'drop', x: p.x, y: p.y, t: 0, who: 'player', life: 0.8 });
       p.x = p.lastSafe.x; p.y = p.lastSafe.y; p.state = 'idle'; p.iframe = 0.8; p.kb = 0;
+      if (p.hp <= 0 && (this.rehearsal || this.phase !== 'play')) p.hp = 1;
       if (p.hp <= 0) { p.hp = 0; p.dead = true; this.fail('You fell through the stage', 'player'); }
     } else if (!this.inPit(p.x, p.y, 26)) { p.lastSafe.x = p.x; p.lastSafe.y = p.y; }
   }
@@ -683,6 +698,8 @@ export class Game {
     h.atkCd -= dt;
     if (Math.abs(h.kb) > 1) { this.move(h, h.kb * dt * 6, 0, false); h.kb *= Math.exp(-dt * 9); } else h.kb = 0;
 
+    // the boss is down and the curtain is coming: nobody bleeds out or drops during the applause
+    if (this.phase === 'clearing' && (h.state === 'downed' || h.state === 'hanging')) h.t -= dt;
     if (h.state === 'downed') {
       if (p.state !== 'raise') h.raise = Math.max(0, h.raise - dt * 0.5);
       if (h.t > h.bleed) { if (this.rehearsal) { h.t = 0; return; } h.state = 'fallen'; h.t = 0; this.fail(`${d.name} bled out`, 'host'); }
@@ -997,9 +1014,11 @@ export class Game {
       { x: h.x, y: pit.y0 - 4, d: h.y - pit.y0 },
       { x: h.x, y: pit.y1 + 4, d: pit.y1 - h.y },
     ].filter((o) => o.y >= 0 && o.y <= D);
+    for (const o of opts) { o.x = clamp(o.x, ...this.bounds); o.y = clamp(o.y, 2, D - 2); }
     opts.sort((a, b) => a.d - b.d);
-    const e = opts[0];
-    h.hangX = clamp(e.x, ...this.bounds); h.hangY = clamp(e.y, 2, D - 2);
+    // an edge the arena lock clamps back over the trapdoor is no edge at all
+    const e = opts.find((o) => !this.inPit(o.x, o.y, 1)) || opts[0];
+    h.hangX = e.x; h.hangY = e.y;
     h.state = 'hanging'; h.t = 0; h.hangFor = this.rehearsal ? 30 : 4.5; h.order = null; h.raise = 0; h.kb = 0;
     this.ev('hang', {});
     this.say('hang', 3, true);

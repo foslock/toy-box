@@ -167,15 +167,16 @@
     .pitch { font-size: 16.5px; }
     .host canvas { width: 76px; height: 76px; }
     .host b { font-size: 17px; } .host i { font-size: 13px; }
-    #hostPlate { width: calc(100vw - 130px); padding: 6px 10px 7px; }
+    #hostPlate { width: calc(100vw - var(--l) - var(--r) - 160px); padding: 6px 10px 7px; }
+    .row { gap: 6px; } .rap { font-size: 13px; }
     #mePlate { top: calc(var(--top) + 74px); }
     .nm { font-size: 17px; } .nm i { font-size: 13px; }
-    #hTrust { flex-basis: 70px; }
+    #hTrust { flex: 0 1 70px; min-width: 44px; }
     #actLbl { display: none; }
   }
   body.tall #coach, body.tall #toasts { top: var(--stageB); }
   body.tall #coach { padding: 10px 14px 8px; } body.tall #coach .txt { font-size: 16.5px; line-height: 1.28; }
-  body.tall #banner { top: 16%; }
+  body.tall #banner { top: max(16%, calc(var(--top) + 184px)); }
   body.land #hostPlate { width: min(250px, 30vw); }
   body.land #mePlate { top: var(--top); left: auto; right: calc(var(--r) + 108px); width: min(150px, 18vw); }
   body.land #coach { top: calc(var(--top) + 4px); width: calc(100vw - min(250px, 30vw) - min(150px, 18vw) - 200px - var(--l) - var(--r)); min-width: 250px; max-width: 440px; left: calc(var(--l) + 62px + min(250px, 30vw) + (100vw - min(250px, 30vw) - min(150px, 18vw) - 180px - var(--l) - var(--r)) / 2); }
