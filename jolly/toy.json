@@ -1,0 +1,9 @@
+{
+  "title": "Jolly Cooperator",
+  "blurb": "A shadow-puppet co-op brawl where you're the summoned spirit, your host is hopeless, and the only way to talk is to point, beckon, wait, bow or spin.",
+  "added": "2026-11-19",
+  "category": "games",
+  "tags": ["shadow play", "co-op", "action", "game"],
+  "tape": "orange",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Jolly Cooperator</title>
+<meta name="description" content="A shadow-puppet co-op brawler. You are the summoned spirit; your host is hopeless; you can only talk in gestures.">
+<meta name="theme-color" content="#1c0f07">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700;800&family=Sorts+Mill+Goudy:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1c0f07; --ink2: #2b170b; --lamp: #f2c25c; --lamp2: #e3a14c; --paper: #f6e8c6; --dim: #b89a6a; --red: #b8301e; --light: #fff3d2;
+    --disp: 'Grenze Gotisch', 'Sorts Mill Goudy', Georgia, serif; --body: 'Sorts Mill Goudy', Georgia, serif;
+    --top: max(8px, env(safe-area-inset-top)); --bot: max(10px, env(safe-area-inset-bottom));
+    --l: max(10px, env(safe-area-inset-left)); --r: max(10px, env(safe-area-inset-right));
+    --dye: #2b7d71;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ink); color: var(--paper); font: 18px/1.35 var(--body); overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+  canvas#cv { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 2px solid var(--lamp); outline-offset: 3px; }
+  em { font-style: italic; color: var(--lamp); }
+  kbd { font: 700 15px/1 var(--body); font-variant: small-caps; letter-spacing: .04em; border: 1px solid rgba(242,194,92,.6); padding: 1px 6px 3px; border-radius: 3px; color: var(--paper); white-space: nowrap; background: rgba(0,0,0,.25); }
+
+  /* cut-leather panel: ink with a punched border that lets the lamp through */
+  .leather { background: var(--ink); position: relative; }
+  .leather::before { content: ''; position: absolute; inset: 4px; pointer-events: none; padding: 4px;
+    background: radial-gradient(circle, var(--lamp) 1.2px, transparent 1.7px) 0 0 / 9px 9px;
+    -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; opacity: .55; }
+
+  .btn { font: 700 22px/1 var(--disp); letter-spacing: .02em; padding: 12px 26px 14px; min-height: 50px; color: var(--lamp); background: var(--ink); border: 2px solid var(--lamp); border-radius: 2px 14px 2px 14px; transition: background .15s, color .15s; }
+  .btn:hover, .btn:focus-visible { background: var(--lamp); color: var(--ink); }
+  .btn.main { background: var(--lamp); color: var(--ink); box-shadow: 0 0 22px rgba(242,194,92,.45); }
+  .btn.main:hover { background: var(--light); }
+  .btn.quiet { border: 0; font: italic 18px/1 var(--body); color: var(--dim); padding: 10px 12px; min-height: 0; }
+  .btn.quiet:hover { color: var(--paper); background: none; }
+
+  /* ---------------- HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .plate { position: absolute; left: calc(var(--l) + 56px); padding: 8px 12px 9px; }
+  #hostPlate { top: var(--top); width: min(310px, calc(100vw - 150px)); }
+  #mePlate { top: calc(var(--top) + 86px); width: min(200px, 40vw); padding: 6px 12px 7px; }
+  .nm { font: 700 19px/1 var(--disp); color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
+  .nm i { font: italic 15px/1 var(--body); color: var(--dim); }
+  #mePlate .nm { font-size: 15px; margin-bottom: 4px; }
+  .bar { height: 11px; background: #0b0603; border: 1px solid rgba(246,232,198,.35); position: relative; overflow: hidden; }
+  .bar b { position: absolute; inset: 1px auto 1px 1px; transition: width .12s; }
+  .bar .lag { background: rgba(246,232,198,.4); transition: width .6s .25s; }
+  #hHp b.v { background: var(--dye); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+  #pHp b.v { background: var(--light); box-shadow: 0 0 6px rgba(255,240,200,.8); }
+  #pSt { height: 6px; margin-top: 3px; width: 82%; } #pSt b.v { background: var(--lamp2); }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  #flasks { display: flex; gap: 4px; }
+  #flasks i { width: 8px; height: 13px; border-radius: 4px 4px 2px 2px; background: var(--lamp2); border: 1px solid var(--lamp2); }
+  #flasks i.used { background: transparent; border-color: rgba(246,232,198,.3); }
+  .rap { font: italic 14px/1 var(--body); color: var(--dim); margin-left: auto; }
+  #hTrust { flex: 0 0 96px; height: 9px; }
+  #hTrust b.v { background: repeating-linear-gradient(90deg, var(--lamp) 0 17px, transparent 17px 19.2px); }
+  #hTrust.up { animation: glow .8s; }
+  @keyframes glow { 30% { box-shadow: 0 0 12px var(--lamp); } }
+  #topR { position: absolute; top: var(--top); right: var(--r); display: flex; gap: 8px; align-items: flex-start; pointer-events: auto; }
+  #actLbl { font: 700 17px/1.1 var(--disp); color: var(--paper); text-align: right; padding: 8px 6px 0; text-shadow: 0 1px 0 var(--ink), 0 0 8px var(--ink); }
+  #actLbl small { display: block; font: italic 14px/1 var(--body); color: var(--lamp); }
+  .ib { min-width: 44px; height: 44px; font: 700 17px/1 var(--disp); color: var(--lamp); background: var(--ink); border: 1px solid rgba(242,194,92,.5); border-radius: 2px 10px 2px 10px; }
+  .ib:hover { border-color: var(--lamp); }
+  #bossBar { position: absolute; left: 50%; transform: translateX(-50%); width: min(520px, 70vw); text-align: center; }
+  #bossName { font: 700 22px/1 var(--disp); color: var(--ink); text-shadow: 0 0 10px rgba(255,230,170,.9); margin-bottom: 4px; }
+  #bossBar .bar { height: 12px; border-color: var(--ink); border-width: 2px; }
+  #bossBar b.v { background: var(--ink); }
+  #bossBar .bar { background: rgba(246,232,198,.4); }
+  #bossBar .lag { background: var(--red); }
+
+  /* gesture bar (desktop) */
+  #gbar { position: fixed; left: 50%; bottom: calc(var(--bot) + 4px); transform: translateX(-50%); display: flex; gap: 6px; z-index: 6; padding: 6px 8px; }
+  #gbar button { width: 74px; padding: 3px 0 6px; display: flex; flex-direction: column; align-items: center; color: var(--paper); border-radius: 2px 10px 2px 10px; }
+  #gbar button:hover, #gbar button.hot { background: rgba(242,194,92,.18); }
+  #gbar canvas { width: 46px; height: 46px; display: block; }
+  #gbar span { font: 700 15px/1 var(--disp); margin-top: 1px; }
+  #gbar kbd { font-size: 12px; margin-top: 4px; padding: 0 5px 2px; }
+  #gbar button.flash { animation: gflash .6s; }
+  @keyframes gflash { 0% { background: var(--lamp); color: var(--ink); } }
+
+  /* touch */
+  #touchUI { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+  .tb { position: absolute; pointer-events: auto; border-radius: 50%; background: rgba(28,15,7,.78); border: 2px solid rgba(242,194,92,.7); color: var(--lamp); font: 700 17px/1 var(--disp); display: flex; align-items: center; justify-content: center; flex-direction: column; touch-action: none; }
+  .tb.on { background: var(--lamp); color: var(--ink); }
+  .tb small { font: italic 11px/1 var(--body); color: var(--dim); margin-top: 2px; }
+  #tStrike { width: 88px; height: 88px; right: calc(var(--r) + 12px); bottom: calc(var(--bot) + 14px); font-size: 21px; }
+  #tStrike.raise { background: var(--light); color: var(--ink); border-color: var(--light); box-shadow: 0 0 18px rgba(255,240,200,.9); }
+  #tRoll { width: 66px; height: 66px; right: calc(var(--r) + 112px); bottom: calc(var(--bot) + 10px); }
+  #tGest { width: 66px; height: 66px; right: calc(var(--r) + 24px); bottom: calc(var(--bot) + 116px); }
+  #tGest canvas { width: 40px; height: 40px; margin-top: -6px; }
+  #tGest span { font-size: 13px; margin-top: -3px; }
+  #stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 2px solid rgba(242,194,92,.55); background: rgba(28,15,7,.35); opacity: 0; transition: opacity .15s; }
+  #stick.on { opacity: 1; }
+  #stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(242,194,92,.85); }
+  #stickHint { position: absolute; left: calc(var(--l) + 18px); bottom: calc(var(--bot) + 26px); font: italic 15px/1.2 var(--body); color: var(--paper); text-shadow: 0 0 6px var(--ink), 0 1px 0 var(--ink); opacity: .85; max-width: 150px; }
+  #wheel { position: fixed; inset: 0; pointer-events: auto; z-index: 8; background: radial-gradient(circle at var(--wx) var(--wy), rgba(28,15,7,.45), rgba(28,15,7,.15) 200px, transparent 260px); touch-action: none; }
+  #wheel .pet { position: absolute; width: 76px; height: 82px; margin: -41px 0 0 -38px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; background: var(--ink); border: 2px solid rgba(242,194,92,.6); color: var(--paper); pointer-events: auto; }
+  #wheel .pet canvas { width: 48px; height: 48px; }
+  #wheel .pet span { font: 700 14px/1 var(--disp); margin-top: -2px; }
+  #wheel .pet.hot { background: var(--lamp); color: var(--ink); border-color: var(--light); }
+
+  /* coach */
+  #coach { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 132px); width: min(460px, calc(100vw - 24px)); z-index: 7; padding: 12px 18px 12px; pointer-events: none; }
+  #coach .step { font: 700 16px/1 var(--disp); color: var(--lamp); letter-spacing: .03em; margin-bottom: 4px; }
+  #coach .txt { font: 18px/1.32 var(--body); }
+  #coach .txt em { font-style: normal; }
+  #coach .row2 { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  #coach button { pointer-events: auto; }
+  #coach .go { font: 700 17px/1 var(--disp); color: var(--ink); background: var(--lamp); padding: 8px 14px 10px; border-radius: 2px 10px 2px 10px; }
+  #coach .skip { font: italic 15px/1 var(--body); color: var(--dim); padding: 8px 0; }
+  #coach.done { animation: pop .5s; }
+  @keyframes pop { 30% { transform: translateX(-50%) scale(1.04); } }
+
+  /* toasts and banner */
+  #toasts { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 132px); z-index: 7; width: min(420px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast { padding: 10px 16px 11px; font: 17px/1.3 var(--body); animation: tin .3s; }
+  .toast b { font: 700 17px/1 var(--disp); color: var(--lamp); }
+  @keyframes tin { from { opacity: 0; transform: translateY(-6px); } }
+  #banner { position: fixed; left: 0; right: 0; top: 38%; text-align: center; z-index: 7; pointer-events: none; color: var(--ink); }
+  #banner .big { font: 800 clamp(40px, 9vw, 76px)/1 var(--disp); text-shadow: 0 0 18px rgba(255,236,190,.9), 0 0 2px rgba(255,236,190,1); }
+  #banner .small { font: italic clamp(17px, 3vw, 24px)/1.2 var(--body); margin-top: 6px; color: var(--ink); text-shadow: 0 0 10px rgba(255,236,190,1); }
+  #banner.fade { animation: bfade 3s forwards; }
+  @keyframes bfade { 0% { opacity: 0; transform: scale(1.06); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* sheets */
+  .sheet { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: calc(var(--top) + 6px) var(--r) calc(var(--bot) + 6px) var(--l); overflow-y: auto; }
+  .sheet.dim { background: rgba(20,9,4,.55); }
+  .bill { width: min(640px, 100%); margin: auto; padding: 26px 30px 22px; text-align: center; }
+  .kick { font: italic 17px/1 var(--body); color: var(--dim); letter-spacing: .03em; }
+  h1 { font: 800 clamp(46px, 11vw, 82px)/0.95 var(--disp); color: var(--lamp); margin: 6px 0 4px; text-shadow: 0 0 24px rgba(242,194,92,.35); }
+  h2 { font: 800 clamp(36px, 8vw, 56px)/1 var(--disp); color: var(--lamp); margin: 4px 0 6px; }
+  .sub { font: italic 20px/1.2 var(--body); color: var(--paper); }
+  .rule { height: 10px; margin: 14px auto; width: 70%; background: radial-gradient(circle, var(--lamp) 1.5px, transparent 2px) 0 50% / 12px 10px repeat-x; opacity: .6; }
+  .pitch { font: 18px/1.4 var(--body); margin: 0 auto 4px; max-width: 520px; text-align: left; }
+  .castlbl { font: 700 18px/1 var(--disp); color: var(--dim); margin: 14px 0 8px; }
+  #cast { display: flex; gap: 10px; justify-content: center; }
+  .host { flex: 1 1 0; max-width: 180px; padding: 8px 6px 10px; border: 2px solid rgba(242,194,92,.25); border-radius: 2px 14px 2px 14px; color: var(--paper); display: flex; flex-direction: column; align-items: center; background: radial-gradient(ellipse at 50% 40%, rgba(242,194,92,.22), transparent 70%); }
+  .host canvas { width: 96px; height: 96px; }
+  .host b { font: 700 19px/1 var(--disp); margin-top: 2px; }
+  .host i { font: italic 14px/1.1 var(--body); color: var(--dim); margin-top: 2px; }
+  .host .won { font: italic 13px/1 var(--body); color: var(--lamp); margin-top: 4px; min-height: 13px; }
+  .host.sel { border-color: var(--lamp); background: radial-gradient(ellipse at 50% 40%, rgba(242,194,92,.55), rgba(242,194,92,.08) 75%); }
+  #hostBlurb { font: italic 17px/1.35 var(--body); color: var(--paper); min-height: 48px; margin: 10px auto 2px; max-width: 470px; }
+  #actPick { display: flex; gap: 6px; justify-content: center; align-items: center; margin: 6px 0 2px; font: italic 16px/1 var(--body); color: var(--dim); }
+  #actPick button { font: 700 17px/1 var(--disp); padding: 7px 12px 9px; border: 1px solid rgba(242,194,92,.35); border-radius: 2px 8px 2px 8px; color: var(--paper); }
+  #actPick button.sel { background: var(--lamp); color: var(--ink); border-color: var(--lamp); }
+  .acts { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; }
+  .keys { display: grid; grid-template-columns: auto auto; gap: 5px 12px; justify-content: center; text-align: left; font: 16px/1.25 var(--body); margin-top: 14px; color: var(--paper); }
+  .keys dt { text-align: right; } .keys dd { margin: 0; color: var(--dim); }
+  .notes { font: italic 18px/1.4 var(--body); margin: 8px auto; max-width: 480px; }
+  .note { font: italic 19px/1.4 var(--body); color: var(--ink); background: var(--paper); padding: 12px 18px; margin: 12px auto; max-width: 440px; transform: rotate(-1deg); clip-path: polygon(0 3%, 100% 0, 99% 50%, 100% 100%, 2% 97%, 0 60%); }
+  .tally { font: 17px/1.5 var(--body); color: var(--paper); }
+  .tally b { color: var(--lamp); font-weight: normal; font-style: italic; }
+  .reason { font: italic 20px/1.3 var(--body); color: var(--paper); }
+
+  @media (max-width: 640px) {
+    .bill { padding: 20px 16px 16px; }
+    .pitch { font-size: 16.5px; }
+    .host canvas { width: 76px; height: 76px; }
+    .host b { font-size: 17px; } .host i { font-size: 13px; }
+    #hostPlate { width: calc(100vw - 130px); padding: 6px 10px 7px; }
+    #mePlate { top: calc(var(--top) + 74px); }
+    .nm { font-size: 17px; } .nm i { font-size: 13px; }
+    #hTrust { flex-basis: 70px; }
+    #actLbl { display: none; }
+  }
+  body.tall #coach, body.tall #toasts { top: var(--stageB); }
+  body.tall #coach { padding: 10px 14px 8px; } body.tall #coach .txt { font-size: 16.5px; line-height: 1.28; }
+  body.tall #banner { top: 16%; }
+  body.land #hostPlate { width: min(250px, 30vw); }
+  body.land #mePlate { top: var(--top); left: auto; right: calc(var(--r) + 108px); width: min(150px, 18vw); }
+  body.land #coach { top: calc(var(--top) + 4px); width: calc(100vw - min(250px, 30vw) - min(150px, 18vw) - 200px - var(--l) - var(--r)); min-width: 250px; max-width: 440px; left: calc(var(--l) + 62px + min(250px, 30vw) + (100vw - min(250px, 30vw) - min(150px, 18vw) - 180px - var(--l) - var(--r)) / 2); }
+  body.land #toasts { top: calc(var(--top) + 4px); width: calc(100vw - min(250px, 30vw) - min(150px, 18vw) - 200px - var(--l) - var(--r)); min-width: 250px; max-width: 440px; left: calc(var(--l) + 62px + min(250px, 30vw) + (100vw - min(250px, 30vw) - min(150px, 18vw) - 180px - var(--l) - var(--r)) / 2); }
+  body.land .toast { font-size: 15px; padding: 8px 12px 9px; }
+  body.land .toast b { font-size: 15px; }
+  body.land #coach .txt { font-size: 16px; }
+  body.land #actLbl { display: none; }
+  body.land #tGest { bottom: calc(var(--bot) + 108px); }
+  body.land .bill { padding: 14px 18px 12px; }
+  body.land h1 { font-size: 44px; } body.land .pitch { display: none; }
+  body.land .host canvas { width: 64px; height: 64px; }
+  @media (max-height: 520px) { .keys { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" hidden>
+  <div id="hostPlate" class="plate leather">
+    <div class="nm"><span id="hName"></span> <i id="hEpi"></i></div>
+    <div class="bar" id="hHp"><b class="lag"></b><b class="v"></b></div>
+    <div class="row"><span id="flasks"></span><span class="rap">rapport</span><div class="bar" id="hTrust"><b class="v"></b></div></div>
+  </div>
+  <div id="mePlate" class="plate leather">
+    <div class="nm">You, the Shade</div>
+    <div class="bar" id="pHp"><b class="lag"></b><b class="v"></b></div>
+    <div class="bar" id="pSt"><b class="v"></b></div>
+  </div>
+  <div id="topR"><div id="actLbl"></div><button class="ib" id="muteBtn" aria-label="Sound"></button><button class="ib" id="pauseBtn" aria-label="Pause">❚❚</button></div>
+  <div id="bossBar" hidden><div id="bossName"></div><div class="bar"><b class="lag"></b><b class="v"></b></div></div>
+</div>
+
+<div id="gbar" class="leather" hidden></div>
+
+<div id="touchUI" hidden>
+  <div id="stickHint">Thumb down here and drag to walk</div>
+  <div id="stick"><i></i></div>
+  <button class="tb" id="tGest" aria-label="Gesture"><canvas width="80" height="80"></canvas><span>Gesture</span></button>
+  <button class="tb" id="tRoll">Roll</button>
+  <button class="tb" id="tStrike">Strike</button>
+</div>
+<div id="wheel" hidden></div>
+
+<div id="coach" class="leather" hidden><div class="step"></div><div class="txt"></div><div class="row2"><button class="skip" id="skipTut">Skip rehearsal</button><button class="go" id="coachGo" hidden>Raise the curtain</button></div></div>
+<div id="toasts"></div>
+<div id="banner" hidden></div>
+
+<div id="title" class="sheet">
+  <div class="bill leather">
+    <div class="kick">Tonight, behind the screen</div>
+    <h1>Jolly Cooperator</h1>
+    <div class="sub">a shadow play in three acts</div>
+    <div class="rule"></div>
+    <p class="pitch">Somebody in trouble has touched your summoning sign. You are a spirit cut from the lamp's own light, sent to see them through three acts. You can fight, but you cannot speak: only <em>point</em>, <em>beckon</em>, <em>wait</em>, <em>bow</em> and <em>spin</em>. Keep your host standing. If they fall, you go home.</p>
+    <div class="castlbl">Whose sign will you answer?</div>
+    <div id="cast"></div>
+    <div id="hostBlurb"></div>
+    <div id="actPick" hidden></div>
+    <div class="acts">
+      <button class="btn main" id="startBtn">Answer the summons</button>
+      <button class="btn quiet" id="rehBtn">Rehearse first</button>
+    </div>
+    <dl class="keys" id="keyList"></dl>
+  </div>
+</div>
+
+<div id="card" class="sheet" hidden>
+  <div class="bill leather">
+    <div class="kick" id="cardKick"></div>
+    <h2 id="cardTitle"></h2>
+    <div class="sub" id="cardSub"></div>
+    <div class="rule"></div>
+    <div class="notes" id="cardNotes"></div>
+    <div class="acts"><button class="btn main" id="cardGo">Raise the curtain</button></div>
+  </div>
+</div>
+
+<div id="pause" class="sheet dim" hidden>
+  <div class="bill leather">
+    <h2>Intermission</h2>
+    <div class="sub" id="pauseSub"></div>
+    <dl class="keys" id="keyList2"></dl>
+    <div class="acts">
+      <button class="btn main" id="resumeBtn">Back to the play</button>
+      <button class="btn" id="quitBtn">Leave the theatre</button>
+    </div>
+  </div>
+</div>
+
+<div id="end" class="sheet dim" hidden>
+  <div class="bill leather">
+    <div class="kick" id="endKick"></div>
+    <h2 id="endTitle"></h2>
+    <div class="reason" id="endReason"></div>
+    <div class="note" id="endNote"></div>
+    <div class="tally" id="endTally"></div>
+    <div class="acts">
+      <button class="btn main" id="againBtn"></button>
+      <button class="btn" id="otherBtn">Answer another sign</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

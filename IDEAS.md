@@ -53,7 +53,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 45. Heirloom
 - [ ] 46. Panto Horse
 - [ ] 47. Plonk
-- [ ] 48. Jolly Cooperator
+- [x] 48. Jolly Cooperator — [`jolly/`](jolly/)
 - [x] 49. Chairlift — [`chairlift/`](chairlift/)
 - [x] 50. Moonrise Manor — [`moonrise/`](moonrise/)
 - [x] 51. Spaghetti Bridge — [`spaghetti/`](spaghetti/)
@@ -459,8 +459,10 @@ GeoGuessr for a world that doesn't exist. Each round drops you somewhere on a pr
 
 You collect a postcard from each country that hints at one or two clues, but most of the learning should be the player noticing things. Five rounds a game, scored by distance, with a daily seed. Style: a soft, sunny, low-poly three.js world that's still richly detailed at street level (signs, cars, washing lines, letterboxes, plants), and a beautiful hand-drawn map to pin.
 
-## 48. Jolly Cooperator
+## 48. Jolly Cooperator ✅
 *Borrows: Elden Ring co-op · Twist: you're the summon, the host is a hapless AI player, and you can only talk in gestures*
+
+**Built 2026-11-19 as [`jolly/`](jolly/).** Played side-on as a belt-scroller rather than top-down, because it's staged as a shadow-puppet theatre: foes are black leather, the host is dyed translucent leather on rods, and you're a puppet cut from the lamp's light. Three acts (chapel, thornwood, ash keep), each with two or three locked waves, floor notes the host obeys, bait loot and a boss (Bell-Warden, Briar Hound, Cinder King). Three hosts: Ser Wendel (panic-drinks, rolls blind), Gorm (greedy, never waits), Dame Plume (chases hats). Five gestures on a bar (desktop) or a press-and-slide wheel (phones); a rapport meter sets how often they're heeded. Downed hosts and ledge-hangers are raised by holding Strike. An eight-step rehearsal teaches it all. Cut: messages written by the host on the ground, outfits beyond Plume's hat, and the trust-scaled "host learns your habits" idea.
 
 You're a summoned spirit in an Elden Ring-style world, and your host is a well-meaning but hopeless AI player. You can fight (top-down: attack, dodge, stamina, a few spells), but a boss only counts if the host survives it. If the host dies, you're dismissed and the attempt ends. The host has a real player's bad habits: heals at the worst moment, rolls off ledges, chases loot into ambushes, spams one attack, gets greedy. You can't talk, only use the game's gestures (point, beckon, wait, bow, a celebratory spin), which the host sometimes heeds, trusting you more each time your advice pays off.
 
