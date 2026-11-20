@@ -18,6 +18,8 @@ let Q = [];            // beats still to show
 let cur = null;        // the beat on show
 let anchors = {};
 let fresh = new Set(); // glyphs seen for the first time on the current line
+let convo = null;      // who or what was tapped to start the lines on show
+let noteN = S.notes.length;
 
 function load() {
   if (DEMO) return null;
@@ -53,7 +55,9 @@ function drawHud() {
   const p = PLACES[S.place];
   $('#place').innerHTML = p.name.split(' ').map((g) => tile(g)).join('') + `<b>${esc(p.title)}</b>`;
   const inv = $('#inv'); const had = new Set($$('span', inv).map((e) => e.dataset.i));
-  inv.innerHTML = Object.entries(S.inv).filter(([, n]) => n > 0).map(([k]) => `<span data-i="${k}" title="${k === 'sun' ? 'a little sun pendant' : k === 'water' ? 'a jug of water' : k === 'coin' ? 'a coin' : 'a loaf of bread'}">${itemIcon(k)}</span>`).join('');
+  const shown = { ...S.inv };
+  for (const b of Q) if (b.t === 'act') { if (b.to === 'you') shown[b.item]--; if (b.from === 'you') shown[b.item]++; }
+  inv.innerHTML = Object.entries(shown).filter(([, n]) => n > 0).map(([k]) => `<span data-i="${k}" title="${k === 'sun' ? 'a little sun pendant' : k === 'water' ? 'a jug of water' : k === 'coin' ? 'a coin' : 'a loaf of bread'}">${itemIcon(k)}</span>`).join('');
   for (const e of $$('span', inv)) if (!had.has(e.dataset.i)) e.classList.add('pop');
   $('#bJournal .dot').hidden = !world.readyPages().length;
   $('#bMute').innerHTML = snd.isMuted()
@@ -124,14 +128,31 @@ function showBeat(b) {
   }
   decorate(b);
 }
-function idle() { Q = []; showBeat({ t: 'idle' }); }
+function idle() { dropQ(); convo = null; showBeat({ t: 'idle' }); }
+function noteToast() { if (S.notes.length > noteN) toast('New note: ' + S.notes[0]); noteN = S.notes.length; }
+// walking away mid-conversation: the lines still count as heard, and whatever they set in motion still happens
+function dropQ(quiet) {
+  const rest = Q; Q = [];
+  if (!rest.length) return;
+  let redraw = false, end = false;
+  for (const b of rest) {
+    if ((b.t === 'say' || b.t === 'ask') && b.who !== 'you') world.see(b.w, b.who);
+    else if (b.t === 'fx') { redraw = true; if (b.fx === 'end') end = true; }
+  }
+  save();
+  if (quiet) return;
+  if (redraw) drawScene();
+  drawHud();
+  if (end) setTimeout(showEnd, 300);
+  noteToast();
+}
+addEventListener('pagehide', () => dropQ(true));
 
 function advance() {
   while (Q.length) {
     const b = Q.shift();
     if (b.t === 'fx') { runFx(b.fx); if (b.fx === 'end') return; continue; }
     fresh = new Set();
-    const notesBefore = S.notes.length;
     if (b.t === 'say' || b.t === 'ask') {
       if (b.who !== 'you') for (const g of world.see(b.w, b.who)) fresh.add(g);
       snd.speak(b.who, b.w);
@@ -142,7 +163,7 @@ function advance() {
     }
     showBeat(b);
     drawHud();
-    if (S.notes.length > notesBefore) toast('New note: ' + S.notes[0]);
+    if (!Q.some((q) => q.t !== 'fx')) noteToast();
     tutEvent(b.t === 'ask' ? 'ask:' + b.who : b.t === 'say' ? 'say:' + b.who : b.t);
     save();
     return;
@@ -159,12 +180,14 @@ function play(beats) { Q = beats.slice(); if (!Q.length) return; advance(); }
 // tapping a person, sign, signpost or the well
 function activate(id) {
   snd.audioOn();
+  // tapping whoever is mid-sentence again is "go on", not "start over"
+  if (Q.length && id === convo) { advance(); return; }
+  dropQ(); convo = id;
   if (id.startsWith('x-')) {
     const ex = PLACES[S.place].exits.find((e) => e.id === id);
     if (!ex) return;
     const w = ex.sign.split(' ');
     fresh = new Set(world.see(w, 'sign'));
-    Q = [];
     showBeat({ t: 'sign', w, exit: ex.to, src: id });
     snd.sfx('tap'); drawHud(); save();
     return;
@@ -172,7 +195,6 @@ function activate(id) {
   if (SIGNS[id]) {
     const w = SIGNS[id].split(' ');
     fresh = new Set(world.see(w, 'sign'));
-    Q = [];
     showBeat({ t: 'sign', w, src: id });
     snd.sfx('tap'); drawHud(); save();
     tutEvent('sign');
@@ -213,6 +235,7 @@ let cardG = null;
 function openCard(g) {
   snd.audioOn(); snd.sfx('page');
   cardG = g;
+  $('#toast').classList.remove('on');
   const lk = S.locked[g];
   $('#card .big').classList.toggle('lk', !!lk);
   $('#card .big use').setAttribute('href', '#g-' + g);
@@ -235,7 +258,7 @@ function closeCard() {
   if ($('#card').hidden) return;
   $('#card').hidden = true;
   if (cur) showBeat(cur);
-  drawHud();
+  drawHud(); fitStage();
   if (!$('#journal').hidden) renderJournal();
   if (!$('#composer').hidden) renderComposer();
   if (S.tut === 2) { S.tut = 3; save(); }
@@ -250,6 +273,7 @@ function openComposer() {
   if (!cur || cur.t !== 'ask') return;
   snd.audioOn(); snd.sfx('page');
   askBeat = cur; sentence = [];
+  $('#toast').classList.remove('on');
   if (S.tut <= 4) S.tut = 5;
   $('#composer').hidden = false;
   renderComposer(); tutRender();
@@ -282,6 +306,7 @@ let jTab = 'pages', jPage = null, placed = {}, sel = null, wrongs = {};
 function openJournal(tab) {
   snd.audioOn(); snd.sfx('page');
   if (tab) jTab = tab;
+  $('#toast').classList.remove('on');
   const ready = world.readyPages();
   if (ready.length && (!jPage || S.solved[jPage])) jPage = ready[0].id;
   if (!jPage) jPage = PAGES[0].id;
@@ -295,7 +320,7 @@ function closeJournal() {
   $('#journal').hidden = true; sel = null;
   if (S.tut === 8) { S.tut = 9; save(); }
   if (cur) showBeat(cur);
-  drawHud(); tutRender();
+  drawHud(); fitStage(); tutRender();
 }
 function renderJournal() {
   $$('#journal .tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.tab === jTab));
@@ -409,13 +434,17 @@ $$('#journal .tab').forEach((t) => t.addEventListener('click', () => { jTab = t.
 function showTitle() {
   const started = Object.keys(S.seen).length > 0;
   $('#bStart').textContent = started ? 'Carry on' : 'Step ashore';
-  $('#bNew').hidden = !started;
+  $('#bNew').hidden = !started; $('#bNew').textContent = 'Start over'; newArmed = 0;
   $('#title').hidden = false;
   setTimeout(() => $('#bStart').focus(), 50);
 }
-$('#bStart').addEventListener('click', () => { snd.audioOn(); snd.setPlace(S.place); $('#title').hidden = true; tutRender(); });
-$('#bNew').addEventListener('click', () => { restart(); $('#title').hidden = true; snd.audioOn(); tutRender(); });
+$('#bStart').addEventListener('click', () => { snd.audioOn(); snd.setPlace(S.place); $('#title').hidden = true; tutRender(); if (S.ended && !S.endSeen) showEnd(); });
+let newArmed = 0;
+$('#bNew').addEventListener('click', (e) => {
+  if (Date.now() - newArmed > 3000) { newArmed = Date.now(); e.target.textContent = 'Tap again to wipe my notebook'; return; }
+  restart(); $('#title').hidden = true; snd.audioOn(); tutRender(); });
 function showEnd() {
+  S.endSeen = true; save();
   const n = Object.keys(S.locked).length, seen = Object.keys(S.seen).length;
   const mins = Math.max(1, Math.round((Date.now() - S.t0) / 60000));
   $('#endline').innerHTML = tile('sun', '', 'span') + tile('good', '', 'span');
@@ -432,7 +461,8 @@ $('#bRestart').addEventListener('click', (e) => {
 });
 $('#bSkipTut').addEventListener('click', () => { S.tut = 99; save(); $('#menu').hidden = true; tutRender(); });
 function restart() {
-  world = new World(newState()); S = world.s; placed = {}; wrongs = {}; jPage = null; sel = null;
+  Q = []; convo = null;
+  world = new World(newState()); S = world.s; placed = {}; wrongs = {}; jPage = null; sel = null; noteN = S.notes.length;
   cur = null; save(); drawScene(); drawHud(); idle(); tutRender();
 }
 $('#bJournal').addEventListener('click', () => openJournal());
@@ -453,6 +483,7 @@ function toast(t) {
 // ---------- keys ----------
 addEventListener('keydown', (e) => {
   const open = (id) => !$('#' + id).hidden;
+  if (e.defaultPrevented) return; // Enter in the guess box already closed the card
   if (e.target.tagName === 'INPUT' && e.key !== 'Escape' && e.key !== 'Enter') return;
   if (open('title')) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (document.activeElement.closest('#title button') || $('#bStart')).click(); } return; }
   if (open('end')) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (document.activeElement.closest('#end button') || $('#bWander')).click(); } return; }
@@ -475,7 +506,15 @@ addEventListener('keydown', (e) => {
   if (k === 'r' || k === 'R') return openComposer();
   if (k === 'Enter' || k === ' ') {
     const f = document.activeElement;
-    if (f && f.dataset && f.dataset.hit) { e.preventDefault(); activate(f.dataset.hit); return; }
+    if (f && f.dataset && f.dataset.hit) {
+      // a clicked person keeps focus, so Space must still mean "next line", "reply" or "walk on"
+      e.preventDefault();
+      const id = f.dataset.hit;
+      if (!Q.length && id === convo && cur && cur.t === 'ask') openComposer();
+      else if (cur && cur.exit && cur.src === id) go(cur.exit);
+      else activate(id);
+      return;
+    }
     if (f && f.closest('button') && f !== document.body) { e.preventDefault(); f.click(); return; }
     e.preventDefault();
     if (Q.length) advance(); else if (cur && cur.t === 'ask') openComposer(); else if (cur && cur.exit) go(cur.exit);
