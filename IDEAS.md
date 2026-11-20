@@ -22,7 +22,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 14. Hedges — [`hedges/`](hedges/)
 - [x] 15. Lantern — [`lantern/`](lantern/)
 - [x] 16. Pile-Up — [`pileup/`](pileup/)
-- [ ] 17. Glyphs
+- [x] 17. Glyphs — [`glyphs/`](glyphs/) (Sun Good)
 - [x] 18. Needle — [`needle/`](needle/)
 - [x] 19. Ladder — [`ladder/`](ladder/)
 - [ ] 20. Chat Dungeon
@@ -206,8 +206,10 @@ A launch-and-upgrade game like Learn to Fly: fling a hapless penguin off a ramp 
 
 One launch per in-game day, and the goal is to cross 20 km of tundra to the ocean. The landscape should have features that matter (a crevasse, a ski jump, an ice shelf, a seal colony that bounces you) and a strip map at the top showing all your past wrecks. Style: clean flat-vector winter illustration, a jaunty soundtrack, crunchy impacts, slow motion on the big bounces. One tap to launch; drag to steer in flight.
 
-## 17. Glyphs
+## 17. Glyphs ✅
 *Borrows: Chants of Sennaar, Tunic · Twist: you learn a whole language from one small town's daily life*
+
+**Built 2026-11-20 as [`glyphs/`](glyphs/) (Sun Good).** 28 glyphs rather than 40, five places and seven townsfolk, about 20 minutes rather than 45. Isometric SVG dioramas; no ambient soundtrack beyond plucked notes and wind.
 
 A language-deciphering puzzle game in the style of Chants of Sennaar. You arrive in a small walled town where nobody speaks your language; everyone speaks and writes in a glyph script, from conversations to shop signs. You keep a notebook where you can write your guess of each glyph's meaning beside it. Once you've seen a glyph in a few contexts, a journal page of drawings lets you confirm three or four at once by matching them to pictures, and if they're all right, they lock in and get translated everywhere.
 

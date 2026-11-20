@@ -1,0 +1,9 @@
+{
+  "title": "Sun Good",
+  "blurb": "Washed up in a seaside town that speaks only in glyphs, you listen, guess, settle marks in your sketchbook and talk your way out the upper gate.",
+  "added": "2026-11-20",
+  "category": "games",
+  "tags": ["language", "puzzle", "isometric", "game"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
