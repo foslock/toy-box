@@ -172,7 +172,7 @@ function refreshCoach() { coachCur = null; }
 const COG = (on) => `<span class="cog${on ? '' : ' empty'}"><svg viewBox="-12 -12 24 24"><path d="${cogPath()}" fill="${on ? '#c9a24c' : '#7a6a4a'}" stroke="#6a4f1e" stroke-width="1"/><circle r="3" fill="#efe3c2"/></svg></span>`;
 let cogD = null;
 function cogPath() { if (cogD) return cogD; let d = ''; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, r = i % 2 ? 7.5 : 10; d += (i ? 'L' : 'M') + (Math.cos(a) * r).toFixed(2) + ' ' + (Math.sin(a) * r).toFixed(2); } return (cogD = d + 'Z'); }
-let hudKey = '';
+let hudKey = '', toastKey = '';
 function updateHud() {
   const p = game.p, mx = game.maxHp();
   const k = `${p.hp}/${mx}/${game.medals.size}`;
@@ -185,7 +185,10 @@ function updateHud() {
   if (boss && boss.state !== 'intro' && boss.hp > 0) { b.hidden = false; b.querySelector('span').textContent = L.BOSSES[boss.kind].name; b.querySelector('b').style.width = (boss.hp / boss.max * 100) + '%'; }
   else b.hidden = true;
   const n = game.near.note, ne = $('#note');
-  if (n && mode === 'play') { if (ne.dataset.t !== n.t) { ne.textContent = n.t; ne.dataset.t = n.t; sfx.page(); } ne.hidden = false; } else { ne.hidden = true; ne.dataset.t = ''; }
+  if (n && mode === 'play' && !boss) { if (ne.dataset.t !== n.t) { ne.textContent = n.t; ne.dataset.t = n.t; sfx.page(); } ne.hidden = false; } else { ne.hidden = true; ne.dataset.t = ''; }
+  // toasts sit under whatever else is at the top: a note tag or the boss bar
+  const tk = (ne.hidden ? '' : ne.dataset.t) + '|' + b.hidden + '|' + vw;
+  if (tk !== toastKey) { toastKey = tk; const over = !ne.hidden ? ne : !b.hidden ? b : null; $('#toast').style.top = over ? (over.offsetTop + over.offsetHeight + 10) + 'px' : ''; }
   $('#tDash').hidden = !game.has.has('key');
   $('#tShrink').hidden = !game.has.has('thimble');
   $('#tShrink').textContent = game.p.small ? 'Grow' : 'Shrink';
@@ -252,7 +255,7 @@ function handleEvents() {
       case 'roar': sfx.roar(); break;
       case 'crash': sfx.crash(); break;
       case 'spit': sfx.spit(); break;
-      case 'ending': setTimeout(showEnding, 1500); save(); break;
+      case 'ending': save(); endingSoon(); break;
     }
   }
   game.ev.length = 0;
@@ -289,8 +292,15 @@ function muteLabel() { $('#muteBtn').innerHTML = isMuted() ? '<span class="w">Mu
 $('#muteBtn').addEventListener('click', (e) => { unlock(); toggleMute(); e.currentTarget.blur(); });
 muteLabel();
 
+// the ending waits for play: a pause, the house view or a card in the way holds it back, and a save that never saw it shows it on Carry on
+function endingSoon() {
+  setTimeout(function go() {
+    if (!game || !game.flags.vacuum || game.flags.ended || mode === 'title') return;
+    if (mode === 'play') showEnding(); else setTimeout(go, 400);
+  }, 1500);
+}
 function showEnding() {
-  mode = 'ending'; $('#ending').hidden = false; clearHeld();
+  mode = 'ending'; $('#ending').hidden = false; clearHeld(); game.flags.ended = true; save();
   const mins = Math.max(1, Math.round(game.time / 60));
   $('#stats').innerHTML = `Wound down and up again in <b>${mins} minute${mins === 1 ? '' : 's'}</b><br>Medals: <b>${game.medals.size} of ${L.MEDALS.length}</b> &middot; Spare springs: <b>${game.springs.size} of ${L.SPRINGS.length}</b><br>Ran down <b>${game.deaths === 0 ? 'never' : game.deaths === 1 ? 'once' : game.deaths + ' times'}</b>`;
   const best = ls.get(KEY.best, null);
@@ -333,6 +343,7 @@ function start(fresh) {
   const r = game.roomAt(game.p.x, game.p.y - 0.7);
   if (r) { game.room = r; if (!game.visited.has(r.id)) { game.visited.add(r.id); } banner(r.name, ROOMSUB[r.id]); }
   unlock();
+  if (game.flags.vacuum && !game.flags.ended) endingSoon();
 }
 $('#newBtn').addEventListener('click', () => start(true));
 $('#contBtn').addEventListener('click', () => start(false));

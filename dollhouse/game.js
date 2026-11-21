@@ -160,6 +160,11 @@ export class Game {
       if (!this.visited.has(r.id)) { this.visited.add(r.id); this.ev.push({ t: 'room', id: r.id, first: true }); }
       else this.ev.push({ t: 'room', id: r.id });
     }
+    // walk out on a boss (the kitchen window, mid cat fight) and it stands down; it starts afresh when you come back
+    if (this.boss && this.boss.state !== 'dying' && this.room && this.room.id !== L.BOSSES[this.boss.kind].room) {
+      this.bossAway = (this.bossAway || 0) + dt;
+      if (this.bossAway > 1.2) { this.boss = null; this.bossAway = 0; this.rebuildMap(); this.ev.push({ t: 'bossleft' }); }
+    } else this.bossAway = 0;
   }
 
   updatePlayer(dt, inp) {
@@ -176,8 +181,12 @@ export class Game {
     // shrink / grow
     if (inp.shrink && this.has.has('thimble')) {
       if (!p.small) { this.setSize(true); this.ev.push({ t: 'shrink' }); this.tutor.shrink = (this.tutor.shrink || 0) + 1; }
-      else if (!this.boxSolid(p.x - BIG.w / 2, p.y - BIG.h, p.x + BIG.w / 2, p.y)) { this.setSize(false); this.ev.push({ t: 'grow' }); }
-      else this.ev.push({ t: 'noroom' });
+      else {
+        // a small soldier can stand closer to a wall than a big one fits: shuffle sideways to make room
+        const fit = [0, 0.13, -0.13].find(o => !this.boxSolid(p.x + o - BIG.w / 2, p.y - BIG.h, p.x + o + BIG.w / 2, p.y));
+        if (fit !== undefined) { p.x += fit; this.setSize(false); this.ev.push({ t: 'grow' }); }
+        else this.ev.push({ t: 'noroom' });
+      }
     }
     // dash
     if (inp.dash && this.has.has('key') && p.dashCool <= 0 && p.dashT <= 0 && (p.grounded || p.airDash || p.climb)) {
@@ -589,7 +598,7 @@ class Cat {
   }
   hurts(pb) {
     for (const w of this.paws) if (w.s === 'slam' && overlap(pb, this.pawBox(w))) return Math.sign((pb[0] + pb[2]) / 2 - w.x) || 1;
-    if (this.tail && overlap(pb, [this.tail.x - 0.2, 35.15, this.tail.x + 4.4, 36])) return -1;
+    if (this.tail && overlap(pb, [this.tail.x + 0.3, 35.15, this.tail.x + 3.9, 36])) return -1;
     return 0;
   }
 }
@@ -615,7 +624,7 @@ class Vacuum {
         if (want !== this.dir) { this.turnT += dt; if (this.turnT > 1.0) { this.dir = want; this.turnT = 0; } } else this.turnT = 0;
         this.x = clamp(this.x + this.dir * sp * dt, 2.3, 20.7);
         suck(this.hp <= 5 ? 6.5 : 5);
-        if (this.hp <= 5) { this.spit -= dt; if (this.spit <= 0 && g.enemies.filter(e => e.k === 'bunny' && e.spat && !e.dead).length < 3) {
+        if (this.hp <= 5) { this.spit -= dt; if (this.spit <= 0 && !g.solid(Math.floor(this.x + this.dir * 1.4), 35) && g.enemies.filter(e => e.k === 'bunny' && e.spat && !e.dead).length < 3) {
           this.spit = 4.5; g.enemies.push({ id: 900 + g.enemies.length, k: 'bunny', spat: true, x: this.x + this.dir * 1.4, y: 36, hx: this.x, hy: 36, hp: 1, dir: this.dir, t: 0, flash: 0, kb: this.dir * 5 }); g.ev.push({ t: 'spit' }); } }
         break;
       }
