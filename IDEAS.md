@@ -45,7 +45,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 37. Hotline
 - [x] 38. Regulars — [`regulars/`](regulars/)
 - [x] 39. Crossfire — [`crossfire/`](crossfire/)
-- [ ] 40. Dollhouse
+- [x] 40. Dollhouse — [`dollhouse/`](dollhouse/)
 - [x] 41. Shared Deck — [`harrowing/`](harrowing/)
 - [x] 42. Come Bye — [`comebye/`](comebye/)
 - [ ] 43. Floppy
@@ -401,7 +401,7 @@ A Worms-style artillery game where both teams take their turns at the same time.
 
 Destructible terrain, wind, two teams of three, a CPU opponent with a few personalities (cautious, reckless, sneaky), and hotseat for two on one device with a pass screen between them. Weapons that make the simultaneity interesting: a shield bubble that pops one incoming shell, a flare that reveals where the enemy aimed last turn, a decoy, a slow mortar that lands next round. Style: a hand-inked newspaper comic, crosshatched and two-colour, with sound-effect lettering (KA-BLAM) for impacts.
 
-## 40. Dollhouse
+## 40. Dollhouse ✅
 *Borrows: Hollow Knight, Metroid · Twist: the whole metroidvania is one screen, and it's a dollhouse*
 
 A metroidvania that fits on a single screen. The whole world is a big Victorian dollhouse seen from its open side, and you're a tiny wind-up tin soldier who starts in the attic. Everything is visible from the start (the kitchen, the nursery, the cellar, the grandfather clock in the hall, the garden out back), but you can't get to most of it yet. Each ability you find opens new ways through the same rooms: a key that winds you up for a dash, a paper umbrella to float, magnet boots for the iron stove, a shrinking spell for mouse holes, a music box that wakes the other toys. Bosses include the jack-in-the-box, the cat and the vacuum cleaner.

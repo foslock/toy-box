@@ -1,0 +1,9 @@
+{
+  "title": "Dollhouse",
+  "blurb": "A tin soldier winds himself up in the attic of a Victorian dollhouse and finds a key, a parasol, magnet boots and a thimble to reach every room of it.",
+  "added": "2026-11-21",
+  "category": "games",
+  "tags": ["metroidvania", "platformer", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
