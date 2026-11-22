@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Panto Horse</title>
+<meta name="description" content="Work both halves of a pantomime horse, one thumb each, through a parade, a dressage test, a steeplechase and the Grand Panto Derby at a village show.">
+<meta name="theme-color" content="#f1e6cf">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Holtwood+One+SC&family=Zilla+Slab:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f1e6cf; --paper2: #e7d9bc; --cream: #fbf4e2; --ink: #221d1a; --red: #c8432b; --red2: #9c3020; --mustard: #e0a82e; --green: #4c7a3d; --blue: #3e6d8f;
+    --wood: 'Holtwood One SC', 'Rockwell', Georgia, serif; --slab: 'Zilla Slab', 'Rockwell', Georgia, serif;
+    --top: max(8px, env(safe-area-inset-top)); --bot: max(10px, env(safe-area-inset-bottom));
+    --l: max(10px, env(safe-area-inset-left)); --r: max(10px, env(safe-area-inset-right));
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 18px/1.35 var(--slab); overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  [hidden] { display: none !important; }
+  canvas#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #pad { position: fixed; inset: 0; z-index: 2; touch-action: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+  kbd { font: 600 15px/1 var(--slab); border: 2px solid var(--ink); border-bottom-width: 4px; padding: 3px 7px 1px; border-radius: 4px; background: var(--cream); white-space: nowrap; display: inline-block; }
+
+  /* the printed bill: cream card, a heavy rule and a thin one */
+  .bill { background: var(--cream); border: 3px solid var(--ink); box-shadow: 6px 7px 0 var(--ink); position: relative; }
+  .bill::before { content: ''; position: absolute; inset: 6px; border: 1px solid var(--ink); pointer-events: none; }
+  .btn { font: 19px/1 var(--wood); letter-spacing: .02em; color: var(--cream); background: var(--red); border: 3px solid var(--ink); padding: 12px 20px 11px; min-height: 50px;
+    box-shadow: 3px 4px 0 var(--ink); transition: transform .06s, box-shadow .06s; }
+  .btn:hover { background: #d34f36; } .btn:active { transform: translate(3px, 4px); box-shadow: 0 0 0 var(--ink); }
+  .btn.alt { background: var(--cream); color: var(--ink); }
+  .btn.alt:hover { background: #fff8e8; }
+  .btn.green { background: var(--green); }
+  .link { font: italic 17px/1.2 var(--slab); text-decoration: underline; text-underline-offset: 3px; padding: 10px 6px; color: var(--ink); }
+  .link:hover { color: var(--red); }
+
+  /* ---------- the programme */
+  #prog { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: calc(var(--top) + 54px) var(--r) calc(var(--bot) + 12px) var(--l); overflow-y: auto; }
+  #prog .bill { width: min(560px, 100%); padding: 22px 26px 20px; text-align: center; margin: auto; }
+  .kicker { font: 600 13px/1.25 var(--slab); letter-spacing: .16em; text-transform: uppercase; }
+  #prog h1 { font: 400 clamp(44px, 11vw, 74px)/0.9 var(--wood); margin: 8px 0 4px; color: var(--red); text-shadow: 3px 3px 0 var(--ink); letter-spacing: -.01em; }
+  #prog .sub { font: italic 18px/1.3 var(--slab); margin: 4px 0 12px; }
+  .rule { height: 0; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); padding-top: 2px; margin: 10px 0; }
+  #classes { list-style: none; margin: 0; padding: 0; text-align: left; }
+  #classes li + li { border-top: 1px dashed var(--ink); }
+  #classes button { display: grid; grid-template-columns: 54px 1fr 44px; gap: 10px; align-items: center; width: 100%; padding: 9px 4px; text-align: left; min-height: 58px; }
+  #classes button:hover .cname { color: var(--red); }
+  #classes button[disabled] { opacity: .45; cursor: default; }
+  .cnum { font: 13px/1.1 var(--wood); text-align: center; border: 2px solid var(--ink); padding: 5px 2px 3px; background: var(--paper); }
+  .cname { font: 18px/1.1 var(--wood); display: block; }
+  .cblurb { font: italic 15px/1.25 var(--slab); display: block; margin-top: 3px; }
+  .rosette { width: 40px; height: 52px; display: block; }
+  .rosette.none { opacity: .18; }
+  #controlsNote { font: 15px/1.4 var(--slab); margin-top: 12px; }
+  #unlockAll { margin-top: 2px; }
+  #progFoot { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+  /* ---------- HUD */
+  #hud { position: fixed; z-index: 5; top: var(--top); left: calc(var(--l) + 54px); right: var(--r); display: flex; align-items: flex-start; gap: 8px; pointer-events: none; }
+  .tag { background: var(--cream); border: 2.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 7px 12px 6px; font: 15px/1.05 var(--wood); }
+  #evTag { max-width: 46vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #status { font: 600 15px/1.1 var(--slab); white-space: nowrap; }
+  @media (max-width: 560px) { #evTag { display: none; } #status { font-size: 14px; padding: 7px 9px 6px; } #clock { font-size: 19px; min-width: 80px; } }
+  #status b { color: var(--red); }
+  #hudR { margin-left: auto; display: flex; gap: 8px; align-items: flex-start; pointer-events: auto; }
+  #clock { background: var(--ink); color: var(--cream); font: 22px/1 var(--wood); padding: 8px 12px 6px; min-width: 92px; text-align: center; box-shadow: 3px 3px 0 var(--red); font-variant-numeric: tabular-nums; }
+  #seam { margin-top: 5px; display: flex; gap: 2px; justify-content: center; }
+  #seam i { width: 11px; height: 11px; display: block; position: relative; }
+  #seam i::before, #seam i::after { content: ''; position: absolute; left: 50%; top: 0; width: 2.5px; height: 13px; background: var(--ink); transform: rotate(45deg); }
+  #seam i::after { transform: rotate(-45deg); }
+  #seam i.gone::before, #seam i.gone::after { background: var(--red); opacity: .35; }
+  #seam.warn i:not(.gone)::before, #seam.warn i:not(.gone)::after { background: var(--red); }
+  .round { width: 44px; height: 44px; border: 2.5px solid var(--ink); background: var(--cream); box-shadow: 2px 3px 0 var(--ink); display: grid; place-items: center; }
+  .round svg { width: 22px; height: 22px; }
+  .round:active { transform: translate(2px, 3px); box-shadow: none; }
+
+  /* the coach card for the paddock lesson */
+  #coach { position: fixed; z-index: 4; left: 50%; top: calc(var(--top) + 64px); transform: translateX(-50%) rotate(-.6deg); width: min(520px, calc(100vw - 24px)); padding: 12px 18px 12px; text-align: center; pointer-events: none;
+    background: var(--cream); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); font: 18px/1.32 var(--slab); }
+  #coach .step { font: 12px/1 var(--wood); color: var(--red); letter-spacing: .06em; display: block; margin-bottom: 5px; }
+  #coach.pop { animation: pop .35s; }
+  @keyframes pop { 0% { transform: translateX(-50%) scale(.92) rotate(-.6deg); } 60% { transform: translateX(-50%) scale(1.03) rotate(-.6deg); } }
+  #coach .hint { display: block; margin-top: 6px; font: italic 600 16px/1.25 var(--slab); color: var(--red); }
+
+  /* the tannoy */
+  #tannoy { position: fixed; z-index: 4; left: 50%; transform: translateX(-50%); bottom: calc(var(--bot) + 14px); width: min(560px, calc(100vw - 24px)); pointer-events: none; text-align: center; opacity: 0; transition: opacity .2s; }
+  #tannoy.on { opacity: 1; }
+  #tannoy .who { display: inline-block; font: 11px/1 var(--wood); letter-spacing: .08em; background: var(--ink); color: var(--cream); padding: 5px 9px 3px; }
+  #tannoy .say { display: block; background: var(--cream); border: 2.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); padding: 8px 14px 7px; font: italic 600 19px/1.25 var(--slab); }
+
+  /* thumb pads on touch screens, key reminders on desktop */
+  .thumb { position: fixed; z-index: 3; bottom: calc(var(--bot) + 10px); width: 118px; height: 118px; border-radius: 50%; pointer-events: none;
+    display: grid; place-items: center; text-align: center; background: var(--cream); border: 3px solid var(--ink); box-shadow: 4px 5px 0 var(--ink); font: 13px/1.05 var(--wood); transition: transform .05s; }
+  .thumb small { display: block; font: italic 600 13px/1.1 var(--slab); margin-top: 3px; letter-spacing: 0; }
+  .thumb svg { position: absolute; inset: -9px; width: calc(100% + 18px); height: calc(100% + 18px); }
+  .thumb circle.charge { fill: none; stroke: var(--red); stroke-width: 6; stroke-dasharray: 0 999; transform: rotate(-90deg); transform-origin: 50% 50%; }
+  .thumb.down { transform: translate(3px, 4px); box-shadow: 1px 1px 0 var(--ink); background: var(--mustard); }
+  .thumb.hup { background: var(--red); color: var(--cream); }
+  .thumb.ready { background: #f3d28b; }
+  #tBack { left: calc(var(--l) + 8px); }
+  #tFront { right: calc(var(--r) + 8px); }
+  body:not(.touch) .thumb { width: auto; height: auto; border-radius: 0; padding: 9px 12px 7px; bottom: calc(var(--bot) + 12px); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  body:not(.touch) .thumb small { display: none; }
+  body:not(.touch) .thumb svg { display: none; }
+  body.touch .kb { display: none; }
+  body:not(.touch) .tp { display: none; }
+  body.touch #tannoy { bottom: calc(var(--bot) + 140px); }
+  @media (orientation: landscape) and (max-height: 500px) {
+    body.touch #tannoy { bottom: calc(var(--bot) + 10px); width: calc(100vw - 2 * (var(--l) + 150px)); }
+    body.touch #tannoy .say { font-size: 16px; padding: 6px 10px; }
+    .thumb { width: 104px; height: 104px; }
+    #coach { top: calc(var(--top) + 56px); font-size: 15px; line-height: 1.25; padding: 7px 12px; left: auto; right: var(--r); transform: rotate(-.6deg); width: min(400px, 46vw); }
+    #coach.pop { animation: none; }
+    .sheet .bill { padding: 12px 18px 12px; }
+    .sheet h2 { font-size: 22px; margin: 2px 0 4px; }
+    #resRosette { width: 52px; height: 68px; }
+    #resStats { font-size: 15px; line-height: 1.35; margin-top: 4px; }
+    #resNote { font-size: 15px; }
+    .row { margin-top: 8px; }
+    #howList { font-size: 15px; } #howList li { margin: 2px 0; }
+    #prog .bill { padding: 14px 20px 12px; }
+    #prog h1 { font-size: 40px; } #prog h1 br { display: none; }
+    #prog .sub { margin-bottom: 6px; font-size: 16px; }
+    #classes button { min-height: 48px; padding: 6px 4px; }
+  }
+
+  #banner { position: fixed; z-index: 6; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; font: clamp(34px, 9vw, 72px)/1 var(--wood); color: var(--red); text-shadow: 3px 3px 0 var(--ink); opacity: 0; }
+  #banner.show { animation: ban 1.6s forwards; }
+  #banner small { display: block; font: italic 600 20px/1.3 var(--slab); color: var(--ink); text-shadow: none; margin-top: 8px; }
+  @keyframes ban { 0% { opacity: 0; transform: scale(.85); } 12%, 70% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+  #replayTag { position: fixed; z-index: 6; top: calc(var(--top) + 62px); left: 50%; transform: translateX(-50%) rotate(-2deg); pointer-events: none; text-align: center; }
+  #replayTag b { display: inline-block; font: 26px/1 var(--wood); background: var(--red); color: var(--cream); padding: 10px 16px 7px; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); animation: blink 1s steps(2) infinite; }
+  #replayTag small { display: inline-block; margin-top: 8px; font: italic 600 15px/1 var(--slab); background: var(--cream); border: 2px solid var(--ink); padding: 5px 9px 4px; }
+  @keyframes blink { 50% { background: var(--ink); } }
+
+  /* ---------- sheets: results and pause */
+  .sheet { position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center; padding: calc(var(--top) + 50px) var(--r) var(--bot) var(--l); background: rgba(241,230,207,.55); overflow-y: auto; }
+  .sheet .bill { width: min(460px, 100%); padding: 22px 24px 20px; text-align: center; margin: auto; }
+  .sheet h2 { font: 30px/1 var(--wood); margin: 6px 0 8px; }
+  .sheet p { margin: 8px 0; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  #resRosette { width: 96px; height: 126px; margin: 4px auto 0; display: block; }
+  #resStats { list-style: none; padding: 0; margin: 10px 0 0; font: 17px/1.5 var(--slab); }
+  #resStats b { font-weight: 700; }
+  #resNote { font: italic 17px/1.3 var(--slab); }
+  #howList { text-align: left; padding-left: 20px; margin: 6px 0; font: 17px/1.4 var(--slab); }
+  #howList li { margin: 5px 0; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="pad"></div>
+
+<div id="hud" hidden>
+  <div class="tag" id="evTag">The Steeplechase</div>
+  <div class="tag" id="status" hidden></div>
+  <div id="hudR">
+    <div>
+      <div id="clock">0:00.0</div>
+      <div id="seam" title="Stitches left in the costume"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <button class="round" id="muteBtn" aria-label="Sound off"><svg viewBox="0 0 24 24" fill="none" stroke="#221d1a" stroke-width="2.4" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#221d1a"/><path id="muteWave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></button>
+    <button class="round" id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 24 24" fill="#221d1a"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></button>
+  </div>
+</div>
+
+<div id="coach" hidden><span class="step">Lesson 1 of 8</span><span id="coachText"></span><span class="hint" id="coachHint" hidden></span></div>
+<div id="tannoy"><span class="who">Major Pip · on the tannoy</span><span class="say" id="tannoyText"></span></div>
+<div id="banner"></div>
+<div id="replayTag" hidden><b>ACTION REPLAY</b><small>tap or press any key to skip</small></div>
+
+<div class="thumb" id="tBack" hidden><svg viewBox="0 0 136 136"><circle class="charge" cx="68" cy="68" r="64"/></svg><span><kbd class="kb">A</kbd> <span>BACK<br class="tp"> END</span><small>left thumb</small></span></div>
+<div class="thumb" id="tFront" hidden><svg viewBox="0 0 136 136"><circle class="charge" cx="68" cy="68" r="64"/></svg><span><span>FRONT<br class="tp"> END</span> <kbd class="kb">L</kbd><small>right thumb</small></span></div>
+
+<div id="prog">
+  <div class="bill">
+    <div class="kicker">Lower Bramble Agricultural Show · Ring Two</div>
+    <h1>Panto<br>Horse</h1>
+    <div class="sub">The Pantomime Horse Classes. Two people, one costume, and a rosette if you’re lucky.</div>
+    <div class="rule"></div>
+    <ul id="classes"></ul>
+    <div class="rule"></div>
+    <div id="controlsNote"></div>
+    <div id="progFoot"><button class="link" id="howBtn">How to play</button><button class="link" id="unlockAll" hidden>I know what I’m doing: open every class</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="results" hidden>
+  <div class="bill">
+    <div class="kicker" id="resKicker">Class 4 · The Steeplechase</div>
+    <svg id="resRosette" viewBox="0 0 80 104"></svg>
+    <h2 id="resTitle">First Place</h2>
+    <div id="resNote"></div>
+    <ul id="resStats"></ul>
+    <div class="row">
+      <button class="btn" id="againBtn">Go again</button>
+      <button class="btn green" id="nextBtn">Next class</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="link" id="bestBtn">Watch the best wipeout</button>
+      <button class="link" id="progBtn">Back to the programme</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="pause" hidden>
+  <div class="bill">
+    <h2>Hold your horse</h2>
+    <p id="pauseNote">The ring steward has stopped the clock.</p>
+    <div class="row"><button class="btn" id="resumeBtn">Carry on</button><button class="btn alt" id="restartBtn">Start again</button></div>
+    <div class="row" style="margin-top:6px"><button class="link" id="pauseProgBtn">Back to the programme</button><button class="link" id="pauseHowBtn">How to play</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="how" hidden>
+  <div class="bill">
+    <h2>How to work a horse</h2>
+    <ol id="howList">
+      <li><b>One thumb each end.</b> <span class="tp">Left thumb</span><span class="kb"><kbd>A</kbd></span> is the back end, <span class="tp">right thumb</span><span class="kb"><kbd>L</kbd></span> the front end. Every tap is one step.</li>
+      <li><b>Keep them in step:</b> back, front, back, front. Let one end run off and the costume stretches and rips. Let them bunch up and the back headbutts the front.</li>
+      <li><b>Hold, then let go, to hop.</b> Hop the front end first. The back end can’t see, so it hops when the front shouts “Ready… Hup!”</li>
+      <li><b>Don’t mash.</b> Tap while a hoof is still in the air and you trip over your own feet.</li>
+      <li>Go over and you start again from the last flag. The clock keeps running.</li>
+    </ol>
+    <div class="row"><button class="btn" id="howOk">Righto</button></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "planck": "https://cdn.jsdelivr.net/npm/planck@1.5.0/dist/planck.mjs" } }
+</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

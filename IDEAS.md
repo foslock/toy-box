@@ -51,7 +51,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [ ] 43. Floppy
 - [x] 44. Conga — [`conga/`](conga/)
 - [ ] 45. Heirloom
-- [ ] 46. Panto Horse
+- [x] 46. Panto Horse — [`pantohorse/`](pantohorse/)
 - [ ] 47. Plonk
 - [x] 48. Jolly Cooperator — [`jolly/`](jolly/)
 - [x] 49. Chairlift — [`chairlift/`](chairlift/)
@@ -447,8 +447,10 @@ A tactile three.js puzzle box in the manner of The Room. An old wooden box inher
 
 About five layers and an hour of play, with a hint that gets more specific the longer you're stuck. Everything works with natural gestures (drag to turn the box, pinch to look closer, drag to slide or rotate a part), and every click and grind should sound wonderfully mechanical. Style: photoreal wood, brass and leather under a warm lamp, with a shallow depth of field.
 
-## 46. Panto Horse
+## 46. Panto Horse ✅
 *Borrows: QWOP, Baby Steps · Twist: you're both halves of a pantomime horse*
+
+**Built 2026-11-22 as [`pantohorse/`](pantohorse/).** Not full QWOP: one button per half (tap = a stride, hold and let go = a hop), driving a hand-rolled stepping model with a wobble that tips over; the planck.js ragdoll only takes over for the wipeout. Five classes (a paddock lesson, parade, dressage, steeplechase, a four-horse Derby against bot-driven rivals) in a linocut show-poster look. An action replay plays after the first or a spectacular wipeout, and the best one of each go can be rewatched from the rosette card; best wipeouts aren't kept between visits.
 
 A QWOP-style physics comedy where you play both halves of a pantomime horse costume: the front person (head and front legs) and the back person (back legs, bent double, can't see a thing). On a phone, each thumb runs one half; on desktop, two sets of keys. Each half walks its own pair of legs, and the costume between them pulls, stretches and tears if they get out of step. Get through a steeplechase, a dressage test, a village parade and finally the big race.
 

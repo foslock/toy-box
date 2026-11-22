@@ -1,0 +1,9 @@
+{
+  "title": "Panto Horse",
+  "blurb": "Work both halves of a pantomime horse, one thumb each, through a village parade, a dressage test, a steeplechase and the Grand Panto Derby.",
+  "added": "2026-11-22",
+  "category": "games",
+  "tags": ["physics", "two thumbs", "game", "sound"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 2500, "query": "?demo" }
+}
