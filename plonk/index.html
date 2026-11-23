@@ -83,6 +83,8 @@
   #coach .row button { pointer-events: auto; }
   #coach .row .btn { padding: 7px 12px; font-size: 12px; }
   #coach.low { top: auto; bottom: calc(86px + env(safe-area-inset-bottom)); }
+  /* keep notes clear of the mute and menu buttons down the right edge */
+  @media (max-width: 600px) { #coach:not(.low) { left: 12px; transform: none; width: calc(100vw - 80px); } }
   kbd { font-family: Jost, sans-serif; font-weight: 600; font-size: 12px; border: 1.5px solid var(--ink); border-bottom-width: 3px; border-radius: 3px; padding: 0 5px; background: #fff8e8; }
 
   /* Sheets */
@@ -152,6 +154,8 @@
     .result-sheet { width: min(420px, 56vw); }
     .postcard { grid-template-columns: 1.15fr 1fr; }
     .postcard .pic { border-bottom: 0; border-right: 2px solid var(--ink); }
+    /* the note column can be taller than a 16:9 picture: fill the cell so the greeting stays on the photo */
+    .postcard canvas { height: 100%; aspect-ratio: auto; object-fit: cover; }
     .postcard .back { grid-template-columns: 1fr; }
     .postcard .stamp { display: none; }
     .postcard .note { font-size: 14.5px; }

@@ -112,9 +112,10 @@ export class MapView {
     this.clamp();
   }
   fit() {
-    // tall screens start a little closer in, so the continent fills the width
-    const z = this.h > this.w * 1.2 ? this.minZ * 1.3 : this.minZ;
-    this.cam = { x: KMW * 0.47, y: KMH / 2, z }; this.clamp(); this.dirty = true;
+    // tall screens start a little closer in, so the continent (land spans ~30-1290 km) fills the width without losing a coast
+    const tall = this.h > this.w * 1.2;
+    const z = tall ? Math.max(this.minZ, this.w / (KMW * 0.965)) : this.minZ;
+    this.cam = { x: KMW * (tall ? 0.5 : 0.47), y: KMH / 2, z }; this.clamp(); this.dirty = true;
   }
   frame(points, pad = 60, inset = { r: 0, b: 0 }) {
     // fit a set of km points into the part of the map not covered by a card
@@ -122,7 +123,7 @@ export class MapView {
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const vw = Math.max(120, this.w - inset.r), vh = Math.max(120, this.h - inset.b);
     const z = Math.min((vw - pad * 2) / Math.max(60, x1 - x0), (vh - pad * 2) / Math.max(60, y1 - y0));
-    const zz = Math.max(this.minZ, Math.min(this.maxZ * 0.6, z));
+    const zz = Math.max(this.minZ, Math.min(this.maxZ * 0.4, z));
     this.cam = { x: (x0 + x1) / 2 + inset.r / 2 / zz, y: (y0 + y1) / 2 + inset.b / 2 / zz, z: zz };
     this.dirty = true;
   }
