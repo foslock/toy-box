@@ -52,7 +52,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 44. Conga — [`conga/`](conga/)
 - [ ] 45. Heirloom
 - [x] 46. Panto Horse — [`pantohorse/`](pantohorse/)
-- [ ] 47. Plonk
+- [x] 47. Plonk — [`plonk/`](plonk/)
 - [x] 48. Jolly Cooperator — [`jolly/`](jolly/)
 - [x] 49. Chairlift — [`chairlift/`](chairlift/)
 - [x] 50. Moonrise Manor — [`moonrise/`](moonrise/)
@@ -456,8 +456,10 @@ A QWOP-style physics comedy where you play both halves of a pantomime horse cost
 
 Ragdoll physics that makes failure hilarious: the halves falling in different directions, the costume splitting to show the two people inside, the crowd reacting. Short courses with checkpoints, medals for times, and a replay of the best wipeout on each course. Style: a jolly English country show with bunting, a cheap horse costume with a goofy face, and an over-excited commentator in the captions.
 
-## 47. Plonk
+## 47. Plonk ✅
 *Borrows: GeoGuessr · Twist: an invented continent with consistent rules you learn as you play*
+
+**Built 2026-11-23 as [`plonk/`](plonk/).** 2D canvas rather than three.js: the street view is a flat, screen-printed travel-poster panorama with a perspective camera, a skyline ray-cast from the real heightmap and 3D-projected houses, cars and signs. Four countries (Norrow, Calimbe, Dastra, Sulei), each with its own invented script, drive side, road lines, verge posts, poles, roofs, sign colours and plate colours; biomes follow latitude, altitude and a rain shadow. Signposts name real towns with real distances, and the map labels towns only in their own scripts. Walk up and down the road, but no junctions. Daily seed of five rounds plus free roam; a six-step lesson; one postcard per country. Cut: per-country number formats, side roads, washing lines and letterboxes.
 
 GeoGuessr for a world that doesn't exist. Each round drops you somewhere on a procedurally generated continent in a street-level view you can look around, and you place a pin on the map where you think you are. The continent has consistent rules you pick up the way a real GeoGuessr player learns bollards and road lines: three or four countries, each with its own script on signs, road markings, roof shapes, side of the road and style of telegraph pole; biomes that follow latitude and altitude; a foggy coast and a desert in the rain shadow of a mountain range.
 

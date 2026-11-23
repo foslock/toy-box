@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Plonk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Jost:wght@400;500;600&family=Kalam:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3ecdc; --paper2: #e9dfc8; --ink: #2a2f3a; --red: #c8452f; --mustard: #e2b13c; --teal: #2f6f6a; --sky: #8fbfe0;
+    --shadow: 3px 3px 0 rgba(42,47,58,0.9);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #8fbfe0; color: var(--ink); font-family: Jost, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; }
+  #pano { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #pano.drag { cursor: grabbing; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .btn {
+    border: 2px solid var(--ink); background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: 3px;
+    font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 14px; box-shadow: var(--shadow);
+  }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(42,47,58,0.9); }
+  .btn.red { background: var(--red); border-color: var(--ink); }
+  .btn.ghost { background: var(--paper); color: var(--ink); }
+  .btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+  .btn:focus-visible, .ico:focus-visible { outline: 3px solid var(--mustard); outline-offset: 2px; }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #compass { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: min(340px, 52vw); height: 34px; background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; overflow: hidden; box-shadow: var(--shadow); }
+  #compass canvas { width: 100%; height: 100%; display: block; }
+  #chip { position: absolute; top: 12px; right: 12px; background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; padding: 5px 10px 4px; text-align: right; box-shadow: var(--shadow); line-height: 1.15; }
+  #chip .k { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.7; }
+  #chip .v { font-family: "Young Serif", Georgia, serif; font-size: 18px; }
+  .ico { width: 44px; height: 44px; border: 2px solid var(--ink); background: var(--paper); border-radius: 3px; display: grid; place-items: center; font-size: 22px; line-height: 1; box-shadow: var(--shadow); padding: 0; }
+  .ico:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(42,47,58,0.9); }
+  .ico svg { width: 22px; height: 22px; }
+  #zoomers { position: absolute; left: 12px; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; }
+  #tools { position: absolute; right: 12px; top: 66px; display: flex; flex-direction: column; gap: 8px; }
+  #mapbtn { position: absolute; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom)); display: none; padding: 14px 22px; font-size: 16px; }
+
+  /* Map */
+  #mapbox { position: fixed; right: 14px; bottom: 14px; width: 300px; height: 252px; background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; box-shadow: 4px 4px 0 rgba(42,47,58,0.9); display: flex; flex-direction: column; transition: width .18s ease, height .18s ease; z-index: 5; }
+  #mapbox.hot { width: min(600px, 62vw); height: min(470px, 70vh); }
+  #mapbox.big { width: min(1020px, calc(100vw - 28px)); height: min(760px, calc(100vh - 90px)); }
+  #mapbox .bar { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-bottom: 2px solid var(--ink); background: var(--paper2); }
+  #mapbox .bar .t { flex: 1; font-family: "Young Serif", Georgia, serif; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mapbox .bar .ico { width: 32px; height: 32px; font-size: 18px; box-shadow: none; }
+  #mapwrap { position: relative; flex: 1; min-height: 0; }
+  #mapcv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  #mapzoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  #mapzoom .ico { width: 34px; height: 34px; font-size: 19px; box-shadow: 2px 2px 0 rgba(42,47,58,0.9); }
+  #mapbox .foot { display: flex; gap: 8px; padding: 7px; border-top: 2px solid var(--ink); background: var(--paper2); }
+  #mapbox .foot .btn { flex: 1; padding: 9px 10px; }
+  #mapbox #back { display: none; }
+  #mapbox.result .foot, #mapbox.result #mapbig, #mapbox.result #mapclose { display: none; }
+  #mapbox.result { inset: 0; width: auto; height: auto; right: 0; bottom: 0; border: 0; box-shadow: none; border-radius: 0; z-index: 8; }
+  #mapbox.result .bar { padding-left: 64px; }
+  #mapbox.hidden { display: none; }
+
+  @media (max-width: 759px), (hover: none) {
+    #mapbox { display: none; }
+    #mapbox.open, #mapbox.result { display: flex; inset: 0; width: auto; height: auto; right: 0; bottom: 0; border: 0; box-shadow: none; border-radius: 0; z-index: 8; }
+    #mapbox.open .bar { padding-left: 64px; }
+    #mapbox #back { display: block; }
+    #mapbox #mapbig { display: none; }
+    #mapbox .foot { padding-bottom: calc(7px + env(safe-area-inset-bottom)); }
+    #mapbox .foot .btn { padding: 13px 10px; font-size: 15px; }
+    #mapbtn { display: block; }
+    #mapbox.hot { width: auto; height: auto; }
+  }
+
+  /* Coach notes */
+  #coach { position: fixed; left: 50%; top: 60px; transform: translateX(-50%); width: min(440px, calc(100vw - 24px)); background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; box-shadow: var(--shadow); padding: 11px 14px 12px; z-index: 12; pointer-events: none; display: none; }
+  #coach.on { display: block; }
+  #coach .step { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--red); font-weight: 600; }
+  #coach p { margin: 3px 0 0; font-size: 15px; line-height: 1.4; }
+  #coach .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+  #coach .row button { pointer-events: auto; }
+  #coach .row .btn { padding: 7px 12px; font-size: 12px; }
+  #coach.low { top: auto; bottom: calc(86px + env(safe-area-inset-bottom)); }
+  kbd { font-family: Jost, sans-serif; font-weight: 600; font-size: 12px; border: 1.5px solid var(--ink); border-bottom-width: 3px; border-radius: 3px; padding: 0 5px; background: #fff8e8; }
+
+  /* Sheets */
+  #veil { position: fixed; inset: 0; background: rgba(42,47,58,0.35); z-index: 20; display: none; align-items: center; justify-content: center; padding: 16px; touch-action: auto; }
+  #veil.on { display: flex; }
+  #veil.clear { background: transparent; pointer-events: none; align-items: flex-end; }
+  #veil.clear .sheet { pointer-events: auto; }
+  .sheet { background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; box-shadow: 6px 6px 0 rgba(42,47,58,0.9); width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 22px 22px 20px; position: relative; }
+  .sheet h1 { font-family: "Young Serif", Georgia, serif; font-weight: 400; font-size: 64px; line-height: 0.95; margin: 0; letter-spacing: 0.01em; }
+  .sheet h2 { font-family: "Young Serif", Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 4px; }
+  .sheet .kicker { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--red); }
+  .sheet p { font-size: 15.5px; line-height: 1.45; margin: 10px 0; }
+  .sheet .btns { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .sheet .btns.row { flex-direction: row; flex-wrap: wrap; }
+  .sheet .btns.row .btn { flex: 1; }
+  .sheet .small { font-size: 13px; opacity: 0.75; }
+  .stripe { height: 10px; margin: 18px -22px -20px; background: repeating-linear-gradient(90deg, var(--red) 0 22px, var(--mustard) 22px 44px, var(--teal) 44px 66px, var(--ink) 66px 88px); }
+  .title-sheet { width: min(500px, 100%); }
+  .title-sheet .sub { font-family: "Young Serif", Georgia, serif; font-size: 19px; line-height: 1.3; margin: 10px 0 4px; }
+  .result-sheet { width: min(520px, 100%); margin-bottom: env(safe-area-inset-bottom); }
+  .big-num { font-family: "Young Serif", Georgia, serif; font-size: 42px; line-height: 1; }
+  .meter { height: 12px; border: 2px solid var(--ink); border-radius: 2px; background: #fff8e8; margin: 8px 0 4px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--red); width: 0; transition: width .7s ease; }
+  .stats { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+  .stats .k { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.7; }
+  table.log { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0; }
+  table.log td { padding: 6px 4px; border-bottom: 1.5px dashed rgba(42,47,58,0.35); }
+  table.log td:last-child { text-align: right; font-weight: 600; }
+
+  /* Postcards */
+  .postcard { background: #fbf6ea; border: 2px solid var(--ink); border-radius: 2px; display: grid; grid-template-columns: 1fr; gap: 0; box-shadow: 4px 4px 0 rgba(42,47,58,0.9); transform: rotate(-1.2deg); margin: 8px 2px 6px; }
+  .postcard .pic { position: relative; border-bottom: 2px solid var(--ink); }
+  .postcard canvas { width: 100%; aspect-ratio: 16 / 9; display: block; }
+  .postcard .greet { position: absolute; left: 10px; bottom: 8px; font-family: "Young Serif", Georgia, serif; font-size: 26px; color: #fbf6ea; text-shadow: 2px 2px 0 var(--ink); line-height: 1; }
+  .postcard .greet small { display: block; font-family: Jost, sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; text-shadow: 1px 1px 0 var(--ink); margin-bottom: 2px; }
+  .postcard .back { padding: 10px 12px 12px; display: grid; grid-template-columns: 1fr 64px; gap: 10px; }
+  .postcard .note { font-family: Kalam, cursive; font-size: 16px; line-height: 1.35; color: #2b3b6b; }
+  .postcard .stamp { width: 64px; height: 76px; border: 2px dashed var(--ink); display: grid; place-items: center; text-align: center; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; padding: 4px; }
+  .postcard .stamp b { display: block; font-family: "Young Serif", Georgia, serif; font-weight: 400; font-size: 13px; letter-spacing: 0; text-transform: none; }
+  .album { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .postcard.locked { filter: grayscale(1) opacity(0.45); }
+  .postcard.locked .note { color: var(--ink); font-family: Jost, sans-serif; font-size: 14px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; margin-top: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 14px; border: 1.5px solid var(--ink); display: inline-block; }
+
+  @media (max-width: 520px) {
+    .sheet { padding: 18px 16px 16px; }
+    .stripe { margin: 16px -16px -16px; }
+    .sheet h1 { font-size: 54px; }
+    #compass { top: 12px; left: 66px; transform: none; width: calc(100vw - 66px - 120px); }
+    #chip .v { font-size: 16px; }
+    #coach { top: 58px; }
+  }
+  @media (max-height: 480px) {
+    .sheet h1 { font-size: 40px; }
+    .sheet { padding: 14px 16px; }
+    .sheet p { margin: 6px 0; }
+    .sheet .btns { margin-top: 10px; }
+    #coach { top: 54px; }
+    .title-sheet .btns { flex-direction: row; flex-wrap: wrap; }
+    .title-sheet .btns .btn { flex: 1 1 40%; }
+    #coach { width: min(520px, calc(100vw - 140px)); padding: 8px 12px 9px; }
+    #coach p { font-size: 14px; }
+    #coach.low { left: 12px; transform: none; width: min(320px, 42vw); bottom: 64px; }
+    #veil.clear { justify-content: flex-end; }
+    .result-sheet { width: min(420px, 56vw); }
+    .postcard { grid-template-columns: 1.15fr 1fr; }
+    .postcard .pic { border-bottom: 0; border-right: 2px solid var(--ink); }
+    .postcard .back { grid-template-columns: 1fr; }
+    .postcard .stamp { display: none; }
+    .postcard .note { font-size: 14.5px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="pano"></canvas>
+<div id="hud">
+  <div id="compass"><canvas id="compcv"></canvas></div>
+  <div id="chip"><div class="k" id="chipk">Round 1 of 5</div><div class="v" id="chipv">0</div></div>
+  <div id="tools">
+    <button class="ico" id="mute" aria-label="Sound on or off"></button>
+    <button class="ico" id="menu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+  </div>
+  <div id="zoomers">
+    <button class="ico" id="zin" aria-label="Zoom in">+</button>
+    <button class="ico" id="zout" aria-label="Zoom out">−</button>
+  </div>
+  <button class="btn red" id="mapbtn">Map &amp; guess</button>
+</div>
+<div id="mapbox" class="dock">
+  <div class="bar"><span class="t" id="maptitle">Where are you?</span><button class="ico" id="mapbig" aria-label="Bigger map">⤢</button></div>
+  <div id="mapwrap">
+    <canvas id="mapcv"></canvas>
+    <div id="mapzoom"><button class="ico" id="mzin" aria-label="Zoom map in">+</button><button class="ico" id="mzout" aria-label="Zoom map out">−</button></div>
+  </div>
+  <div class="foot"><button class="btn ghost" id="back">Back to the road</button><button class="btn red" id="guess" disabled>Place a pin</button></div>
+</div>
+<div id="coach"><div class="step" id="coachstep"></div><p id="coachtext"></p><div class="row" id="coachrow"></div></div>
+<div id="veil"><div class="sheet" id="sheet"></div></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

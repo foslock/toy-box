@@ -1,0 +1,10 @@
+{
+  "title": "Plonk",
+  "blurb": "GeoGuessr for a continent that doesn't exist. Read the road lines, roofs, poles and invented scripts, then plonk a pin. Four countries, one daily trip.",
+  "added": "2026-11-23",
+  "category": "games",
+  "tags": ["geography", "guessing", "canvas", "game"],
+  "tape": "teal",
+  "loader": true,
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
+}
