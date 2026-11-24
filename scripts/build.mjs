@@ -275,7 +275,7 @@ const opening = slug => `
 </script>
 `;
 
-// The thumb on a card's vote button and on the pill that sorts by votes, and the triangle beside a card's play count.
+// The thumb on a card's vote button and on the pill that sorts by votes, and the triangle that goes with plays.
 const THUMB = '<svg class="thumb" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5 7.2 7.8 1.6c1.2 0 1.9.9 1.7 2L9.1 6h3.6c.9 0 1.5.8 1.3 1.7l-.9 4.8c-.1.8-.8 1.3-1.6 1.3H5z"/><path d="M2 7.2h3v6.6H2z"/></svg>';
 
 const PLAY = '<svg class="play" viewBox="0 0 10 10" aria-hidden="true" fill="currentColor"><path d="M1.6.9v8.2a.5.5 0 0 0 .8.4l6.2-4.1a.5.5 0 0 0 0-.8L2.4.5a.5.5 0 0 0-.8.4z"/></svg>';
@@ -331,6 +331,7 @@ const html = readFileSync(join(SITE, 'index.html'), 'utf8')
   .replace('<!--HEADER_TAPE-->', tape('Toy Box', 'tape--xl'))
   .replace('<!--COUNT-->', count)
   .replace('<!--THUMB-->', THUMB)
+  .replace('<!--PLAY-->', PLAY)
   .replace('<!--TOYS-->', toys.map(card).join('') || '\n      <li class="empty">No toys yet — add a folder with a toy.json.</li>');
 writeFileSync(join(DIST, 'index.html'), html);
 

@@ -80,7 +80,7 @@ Screenshots are taken locally and committed, so the Render build never needs a b
 
 ## Order, votes, plays and New badges
 
-The board opens with the most upvoted toys first (ties go newest first), and **Newest** switches it to date order. The order and the search ride in the address: `/?sort=new&q=cards`.
+The board opens with the most upvoted toys first. **Most played** and **Newest** switch it to those orders; ties go newest first. The order and the search ride in the address: `/?sort=played&q=cards` (or `sort=new`).
 
 A visitor can upvote each toy once per day (UTC). A visitor is a random id in a cookie their first vote sets; it's only sent to `/api`. As a backstop against cleared cookies, one network address can add at most 20 votes to a toy in a day. That tally is kept in memory, and addresses aren't stored. The home page remembers the last counts it saw, so it opens in order at once, and it still works if the vote service is away: no thumbs and newest first on a first visit, the last known order after that.
 

@@ -111,6 +111,7 @@
   .pill[aria-pressed="true"] { color: var(--card); background: var(--ink); }
   .pill:disabled { opacity: .55; cursor: default; color: var(--ink-3); transform: none; }
   .pill .thumb { width: 13px; height: 13px; margin: -2px 7px -1px -2px; vertical-align: -1px; }
+  .pill .play { width: 9px; height: 9px; margin: 0 7px 0 -1px; }
   .pill:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 
   /* ---- search: a round button after the pills that opens into a text field ---- */
@@ -142,18 +143,22 @@
   .bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 clamp(16px, 2.5vw, 24px); }
   .bar-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .disclaimer-btn { margin-left: auto; }
-  /* on phones it all sits on one line, in fewer words; the order pills make way for an open search */
-  @media (max-width: 640px) {
+  /* on small screens it all sits on one line, in fewer words; the order pills make way for an open search */
+  @media (max-width: 740px) {
     .bar .long { display: none; }
     .bar, .bar-left { flex-wrap: nowrap; }
     .bar-left { flex: 1; min-width: 0; }
-    .bar-left:has(.search.open) .order { display: none; }
     .search.open { width: 100%; max-width: 260px; }
   }
-  @media (max-width: 380px) {
-    .bar, .bar-left, .order { gap: 7px; }
-    .bar .pill { padding-inline: 10px; font-size: 11px; letter-spacing: .05em; }
+  @media (min-width: 521px) and (max-width: 740px) { .bar-left:has(.search.open) .order { display: none; } }
+  /* on phones the order pills get a line to themselves, above the search and the disclaimer */
+  @media (max-width: 520px) {
+    .bar { flex-wrap: wrap; }
+    .bar-left { display: contents; }
+    .order { flex: 0 0 100%; }
+    .search.open { flex: 1; }
   }
+  @media (max-width: 340px) { .bar .pill { padding-inline: 12px; letter-spacing: .06em; } }
   .modal {
     max-width: min(480px, calc(100vw - 32px)); padding: 26px 26px 22px; border: 0; border-radius: 22px;
     color: var(--ink); background: var(--card); box-shadow: 0 0 0 1px var(--card-edge), var(--shadow-lift);
@@ -267,6 +272,7 @@
       <div class="bar-left">
         <div class="order" role="group" aria-label="Order the board by">
           <button class="pill" type="button" data-order="top" aria-pressed="true"><!--THUMB-->Top<span class="long"> voted</span></button>
+          <button class="pill" type="button" data-order="played" aria-pressed="false"><!--PLAY--><span class="long">Most </span>Played</button>
           <button class="pill" type="button" data-order="new" aria-pressed="false">Newest</button>
         </div>
         <div class="search" role="search">
@@ -319,7 +325,7 @@
       })();
       // The board's order, its votes and New badges, and the search box. The board is built newest first; most upvoted
       // first is the order it opens in, with ties left newest first. The search matches every word typed against each
-      // toy's title, tags and category. Order and search ride in the address (?sort=new&q=cards), so they're still there
+      // toy's title, tags and category. Order and search ride in the address (?sort=played&q=cards), so they're still there
       // coming back from a toy, and a link can open on them.
       (() => {
         const pills = [...document.querySelectorAll('.pill[data-order]')], byDate = [...document.querySelectorAll('.board .toy')];
@@ -382,7 +388,7 @@
           none.textContent = q ? `Nothing on the board matches \u201c${q}\u201d.` : 'Nothing here yet.';
           clear.hidden = !q;
           const url = new URL(location.href);
-          if (order === 'new') url.searchParams.set('sort', 'new'); else url.searchParams.delete('sort');
+          if (order !== 'top') url.searchParams.set('sort', order); else url.searchParams.delete('sort');
           if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
           history.replaceState(null, '', url);
           // re-hang and swing only when the cards on the board, or their order, actually changed
@@ -391,14 +397,16 @@
         }
         // Puts the cards in the chosen order.
         function arrange() {
-          const n = t => votes?.counts[t.dataset.slug] || 0;
-          const next = order === 'top' ? [...byDate].sort((a, b) => n(b) - n(a)) : byDate;
+          const totals = { top: votes?.counts, played: votes?.plays }[order];
+          const n = t => totals?.[t.dataset.slug] || 0;
+          const next = totals ? [...byDate].sort((a, b) => n(b) - n(a)) : byDate;
           if (next.some((t, i) => t !== toys[i])) { toys = next; board.append(...toys); }
-          // With no votes to go by, newest first is all there is.
-          const top = votes || !asked ? order === 'top' : false;
+          // With no counts to go by, newest first is all there is.
+          const away = asked && !votes;
           for (const p of pills) {
-            p.setAttribute('aria-pressed', String((p.dataset.order === 'top') === top));
-            if (p.dataset.order === 'top') { p.disabled = asked && !votes; p.title = p.disabled ? 'Votes aren\u2019t loading right now' : ''; }
+            p.setAttribute('aria-pressed', String(p.dataset.order === (away ? 'new' : order)));
+            p.disabled = away && p.dataset.order !== 'new';
+            p.title = p.disabled ? 'Counts aren\u2019t loading right now' : '';
           }
         }
         for (const p of pills) p.addEventListener('click', () => { order = p.dataset.order; arrange(); show(); });
@@ -522,14 +530,14 @@
         dlg.querySelector('.pill').addEventListener('click', () => dlg.close());
         dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); }); // backdrop click
         const params = new URLSearchParams(location.search);
-        if (params.get('sort') === 'new') order = 'new';
+        if (pills.some(p => p.dataset.order === params.get('sort'))) order = params.get('sort');
         input.value = params.get('q') || '';
         if (input.value) open(false);
         // A first visit has no votes to go by yet, so the board waits for them, but not for long. After that, an answer
         // that changes the order only moves the cards if nobody has started looking through them.
         let touched = false;
         for (const type of ['pointerdown', 'keydown', 'wheel', 'scroll']) addEventListener(type, () => { touched = true; }, { once: true, passive: true, capture: true });
-        const waiting = order === 'top' && !votes;
+        const waiting = order !== 'new' && !votes;
         board.classList.toggle('waiting', waiting);
         badge(); tally(); arrange(); show();
         const answered = ask(window.toyboxVotes);
