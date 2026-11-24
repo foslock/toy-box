@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Sonar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&family=Cutive+Mono&family=Reenie+Beanie&family=Stardos+Stencil:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root { --hot: #ffd9c2; --red: #ff5a3c; --dim: #b9604a; --ink: #2b0705; --paper: #cf7a66; --edge: #8d3a28; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #120403; color: var(--hot); font-family: B612, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+  button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+  [hidden] { display: none !important; }
+  #room { position: fixed; inset: 0; background-color: #2e110e; }
+  #room::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 60% at 50% 34%, rgba(255,80,50,.16), rgba(10,0,0,.35) 60%, rgba(5,0,0,.82)); opacity: var(--lamp, 1); }
+  #lampdim { position: fixed; inset: 0; background: #0a0000; opacity: 0; pointer-events: none; z-index: 20; }
+  #flash { position: fixed; inset: 0; background: #fff3e6; opacity: 0; pointer-events: none; z-index: 21; }
+
+  #con { position: absolute; inset: 0; display: grid; gap: 8px; z-index: 1; padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); transform: translate(var(--sx,0), var(--sy,0)); }
+  #top { grid-area: top; display: flex; align-items: center; gap: 6px; padding-left: 54px; height: 50px; justify-content: space-between; }
+  .cnt { display: flex; gap: 8px; align-items: center; }
+  .cnt label { font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--dim); display: block; text-align: center; line-height: 1; margin-bottom: 3px; }
+  .drum { font: 700 18px/1 "B612 Mono", monospace; background: linear-gradient(#0b0202, #2c0c08 45%, #2c0c08 55%, #0b0202); border: 1.5px solid var(--edge); padding: 5px 5px 4px; border-radius: 2px; color: #fff3e6; letter-spacing: .04em; }
+  .sm { border: 1.5px solid var(--edge); background: #230b08; width: 44px; height: 44px; border-radius: 3px; padding: 0; display: grid; place-items: center; color: var(--hot); flex: none; }
+  .sm svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; }
+  #tape { grid-area: tape; background: linear-gradient(#d48670, #c46f5b); color: var(--ink); font: 15px/1.25 "Cutive Mono", "Courier New", monospace; padding: 7px 12px 7px 20px; min-height: 84px; display: flex; flex-direction: column; justify-content: center; position: relative; box-shadow: 0 2px 8px #000a; font-weight: 700; -webkit-text-stroke: .25px var(--ink); }
+  #tape::before { content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 5px; background: radial-gradient(circle, #2b0705 2px, transparent 2.4px) 0 0 / 5px 9px; }
+  #tape b { font: 700 9px/1 B612, sans-serif; letter-spacing: .08em; -webkit-text-stroke: 0; margin-bottom: 3px; }
+  #tape.warn { background: linear-gradient(#ffb59a, #f58a6a); }
+  #tape .skip { position: absolute; right: 4px; top: 2px; border: 0; background: none; font: 700 10px B612, sans-serif; text-decoration: underline; color: var(--ink); padding: 4px 6px; -webkit-text-stroke: 0; }
+  #scopebox { grid-area: scope; position: relative; min-width: 0; min-height: 0; display: grid; place-items: center; }
+  #scope { width: var(--ss, 300px); height: var(--ss, 300px); display: block; cursor: grab; touch-action: none; }
+  #deck { grid-area: deck; display: grid; grid-template-columns: 112px 1fr; gap: 10px; min-height: 0; }
+  #lever { position: relative; border: 1.5px solid var(--edge); border-radius: 4px; background: linear-gradient(90deg, #1a0705, #2a0e0a); touch-action: none; cursor: pointer; min-height: 190px; }
+  #lever .slot { position: absolute; left: 24px; top: 9%; bottom: 9%; width: 10px; background: #060101; border-radius: 5px; box-shadow: inset 0 2px 4px #000, 0 0 0 1px #5c2418; }
+  #lever .n { position: absolute; left: 56px; right: 2px; font-size: 11px; font-weight: 700; transform: translateY(-50%); color: var(--dim); border: 0; background: none; text-align: left; padding: 8px 0; pointer-events: none; }
+  #lever .n.on { color: #fff3e6; }
+  #lever .n::before { content: ''; position: absolute; left: -14px; top: 50%; width: 9px; height: 2px; background: currentColor; }
+  #lever .knob { position: absolute; left: 7px; width: 44px; height: 34px; margin-top: -17px; border-radius: 7px; background: linear-gradient(#ff8a66, #b5331c 45%, #7a1b0c); border: 2px solid #2b0705; box-shadow: 0 4px 8px #000b; transition: top .12s; }
+  #lever .knob::after { content: ''; position: absolute; inset: 8px 8px; border-top: 2px solid #2b070588; border-bottom: 2px solid #2b070588; }
+  #right { display: grid; grid-template-rows: minmax(54px, 84px) 1fr; gap: 8px; min-height: 0; min-width: 0; }
+  #gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-width: 0; }
+  #gauges canvas { width: 100%; height: 100%; min-width: 0; min-height: 0; }
+  #btns { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; min-height: 0; }
+  .b { border: 2px solid #120403; outline: 1.5px solid var(--edge); border-radius: 5px; background: linear-gradient(#4b1a12, #2a0d09); font-weight: 700; font-size: 13px; letter-spacing: .03em; position: relative; min-height: 46px; box-shadow: 0 4px 0 #0b0202, inset 0 1px 0 #ffffff22; padding: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+  .b { color: var(--hot); }
+  .b small { font-size: 10px; font-weight: 400; color: #e6a48f; }
+  .b:active, .b.dn { transform: translateY(3px); box-shadow: 0 1px 0 #0b0202; }
+  .b.big { background: linear-gradient(#ff7a56, #c43a20 50%, #8e200f); color: #fff6ee; font-size: 17px; }
+  .b.big small { color: #ffe0d0; }
+  .b.lit, .b.lit small { color: var(--ink); }
+  .b.lit { background: linear-gradient(#ffe9d8, #ffb48f); color: var(--ink); }
+  .b:disabled { filter: brightness(.55) saturate(.8); cursor: default; }
+  .b:focus-visible, .sm:focus-visible { outline: 3px solid #fff3e6; }
+  .hl { animation: hl 1s infinite alternate; }
+  @keyframes hl { from { box-shadow: 0 0 0 0 #ffd9c200; } to { box-shadow: 0 0 0 5px #ffd9c2, 0 0 22px 6px #ff5a3c; } }
+  #winch { position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%); padding: 0 22px; min-height: 52px; z-index: 3; font-size: 16px; white-space: nowrap; }
+  #winch:active { transform: translateX(-50%) translateY(3px); }
+  /* the print in its tray */
+  #tray { position: absolute; left: 50%; top: 50%; width: calc(var(--ss) * .62); transform: translate(-50%, -50%) rotate(-1.5deg); z-index: 4; background: #170504; border: 3px solid #6e2c1e; padding: 8px; border-radius: 6px; box-shadow: 0 10px 30px #000d, inset 0 0 18px #000; cursor: pointer; }
+  #tray .wet { position: relative; background: #a33a28; overflow: hidden; }
+  #tray canvas { display: block; width: 100%; }
+  #tray .wet::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 40%, #ffd9c233 48%, transparent 56%) 0 0 / 260% 100%; animation: slosh 3s ease-in-out infinite alternate; mix-blend-mode: screen; }
+  #tray.done .wet::after { display: none; }
+  @keyframes slosh { from { background-position: 0 0; } to { background-position: 100% 0; } }
+  #tray .cap { font: 19px/1.05 "Reenie Beanie", cursive; color: var(--hot); padding: 5px 2px 0; min-height: 26px; }
+  #pb { grid-column: span 2; }
+  #dry { display: none; position: relative; flex-wrap: wrap; align-content: flex-start; justify-content: space-between; flex: 1; min-height: 0; gap: 8px; padding: 14px 10px 10px; background: #1c0806; border-top: 2px solid #8d3a28; overflow: hidden; align-items: flex-start; cursor: pointer; }
+  #dry img { width: calc(50% - 6px); border: 4px solid #f1d9cd; border-bottom-width: 12px; transform: rotate(var(--r)); box-shadow: 0 4px 12px #000; }
+  #dry::after { content: ''; position: absolute; inset: 0; background: #e8533a; mix-blend-mode: multiply; pointer-events: none; }
+  #dry p { color: #b9604a; font: 20px "Reenie Beanie", cursive; margin: 6px; }
+  /* chart */
+  #chartbox { display: flex; flex-direction: column; background: #a9543f; box-shadow: 0 8px 30px #000c; min-height: 0; min-width: 0; color: var(--ink); }
+  #chartwrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  #chart { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  #chartbar { display: flex; gap: 8px; align-items: center; padding: 8px; background: #3a120c; color: var(--hot); min-height: 62px; }
+  #chartinfo { flex: 1; font-size: 12px; line-height: 1.3; min-width: 0; }
+  #chartinfo b { font-family: "B612 Mono", monospace; font-size: 14px; color: #fff3e6; }
+  #chartbar .b { padding: 0 12px; min-height: 44px; }
+  #zooms { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  #chartx { display: none; }
+  /* sheets */
+  .sheet { position: fixed; inset: 0; z-index: 30; background: radial-gradient(ellipse at 50% 25%, #3a0d07e8, #0a0101f6 75%); display: flex; align-items: center; justify-content: center; padding: 14px; overflow: auto; touch-action: pan-y; }
+  .sheet > div { margin: auto; max-width: 620px; width: 100%; }
+  .slip { background: linear-gradient(#d88d77, #bf6b57); color: var(--ink); padding: 20px 22px; box-shadow: 0 14px 40px #000c; position: relative; }
+  .slip h2 { font: 700 30px/1 "Stardos Stencil", serif; margin: 0 0 10px; }
+  .slip p { font: 16px/1.42 "Cutive Mono", monospace; -webkit-text-stroke: .25px var(--ink); margin: 0 0 10px; }
+  .slip .prt { display: grid; grid-template-columns: 132px 1fr; gap: 12px; margin: 10px 0; align-items: center; }
+  .slip .prt img { width: 100%; display: block; border: 4px solid #f1d9cd; }
+  .slip .prt p { margin: 0; }
+  .row { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .row .b { flex: 1 1 130px; min-height: 50px; padding: 0 12px; }
+  #title .plate { text-align: center; padding: 26px 18px 30px; position: relative; background: linear-gradient(160deg, #6b2013, #3c0f08 60%, #270805); border: 2px solid #8d3a28; box-shadow: inset 0 0 60px #0009, 0 20px 60px #000; }
+  #title .plate i { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #c9674c, #3c0f08 70%); box-shadow: 0 2px 3px #000; }
+  #title h1 { font: 700 clamp(74px, 21vw, 150px)/.9 "Stardos Stencil", serif; margin: 4px 0 10px; color: #f7c7ae; letter-spacing: .02em; text-shadow: 0 -1px 0 #0008; }
+  #title .sub { font-size: 14px; line-height: 1.5; margin: 0 auto 18px; max-width: 400px; color: #f0b7a1; }
+  #title .row { justify-content: center; max-width: 430px; margin: 0 auto; }
+  #title .foot { font-size: 12px; color: #d98b73; margin: 14px 0 0; }
+  #gal .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+  #gal .p { background: #f1d9cd; padding: 7px 7px 4px; color: var(--ink); font: 19px/1.05 "Reenie Beanie", cursive; transform: rotate(var(--r)); box-shadow: 0 5px 16px #000b; }
+  #gal .p img { width: 100%; display: block; margin-bottom: 4px; }
+  #gal > div { max-width: 900px; }
+  #gal h2 { font: 700 30px "Stardos Stencil", serif; margin: 0 0 12px 56px; }
+  kbd { font: 700 13px "B612 Mono", monospace; border: 1.5px solid var(--ink); padding: 0 5px; border-radius: 3px; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 14px; line-height: 1.35; margin: 0 0 8px; } dt { font-weight: 700; } dd { margin: 0; }
+
+  @media (max-width: 480px) { .slip .prt { grid-template-columns: 1fr; gap: 8px; margin: 0 0 18px; } }
+  /* portrait phones */
+  #con { grid-template: "top" 50px "tape" auto "scope" auto "deck" minmax(0, 1fr) / minmax(0, 1fr); }
+  @media (max-width: 999px), (max-height: 599px) {
+    #chartbox { position: fixed; inset: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); z-index: 12; }
+    #chartbox:not(.open) { display: none; }
+    #chartx { display: grid; }
+  }
+  @media (orientation: landscape) and (max-height: 599px) {
+    #con { grid-template: "top scope tape" 50px "left scope tape" minmax(0,1fr) "left scope deck" minmax(0, 1.35fr) / minmax(0, 1fr) auto minmax(0, 1fr); }
+    #top { padding-left: 54px; } #top .cnt { gap: 3px; } .drum { font-size: 14px; padding: 4px 3px; }
+    #deck { display: contents; } #lever { grid-area: left; min-height: 0; margin-right: 92px; } #right { grid-area: deck; grid-template-rows: 1fr; }
+    #gauges { position: absolute; left: calc(max(8px, env(safe-area-inset-left)) + (100% - var(--ss) - 32px) / 2 - 92px); top: 64px; bottom: 8px; width: 88px; grid-template: repeat(3, 1fr) / 1fr; }
+    #tape { grid-area: tape; overflow: hidden; font-size: 13px; align-self: stretch; padding: 6px 8px 6px 18px; } #btns .b { min-height: 40px; } .b.big { font-size: 15px; }
+    #menu { width: 38px; height: 38px; }
+  }
+  @media (min-width: 1000px) and (min-height: 600px) {
+    #con { gap: 14px; padding: 12px 16px 16px; grid-template: "top tape chart" 60px "deck scope chart" minmax(0, 1fr) / 224px minmax(0, 1fr) minmax(340px, 31vw); }
+    #top { justify-content: flex-start; } #top .cnt { gap: 5px; } .drum { font-size: 16px; padding: 5px 4px 4px; }
+    #menu { position: absolute; right: 16px; top: 12px; z-index: 13; }
+    #tape { font-size: 16px; min-height: 0; }
+    #deck { grid-template: auto minmax(0, 1fr) / 1fr; } #lever { order: 2; min-height: 0; }
+    #right { grid-template-rows: 84px auto; } #btns .b { min-height: 56px; } #cb { display: none; }
+    #chartbox { grid-area: chart; border: 1.5px solid var(--edge); margin-top: 58px; } #chartbar { min-height: 84px; }
+    #btns #pb { grid-column: auto; }
+    #chartwrap { flex: 0 0 auto; aspect-ratio: 1; } #dry { display: flex !important; }
+  }
+  @media (max-height: 700px) and (orientation: portrait) { #gauges { display: grid; } #right { grid-template-rows: 52px 1fr; } .b { min-height: 36px; font-size: 12px; } .b.big { font-size: 14px; } #lever { min-height: 150px; } #tape { min-height: 74px; font-size: 13px; } }
+  @media (max-width: 370px) { .drum { font-size: 15px; padding: 4px 3px; } .cnt { gap: 4px; } }
+</style>
+</head>
+<body>
+<div id="room"></div>
+<main id="con">
+  <div id="top">
+    <div class="cnt">
+      <div><label>EAST</label><div class="drum" id="dE">500</div></div>
+      <div><label>NORTH</label><div class="drum" id="dN">500</div></div>
+      <div><label>HEAD</label><div class="drum" id="dH">055</div></div>
+    </div>
+    <button class="sm" id="menu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+  <div id="tape" aria-live="polite"><b></b><span></span></div>
+  <div id="scopebox"><canvas id="scope" aria-label="Sonar scope and compass ring"></canvas>
+    <div id="tray" hidden><div class="wet"><canvas width="480" height="360"></canvas></div><div class="cap"></div></div>
+    <button class="b lit" id="winch" hidden>Winch up</button>
+  </div>
+  <div id="deck">
+    <div id="lever" role="slider" aria-label="Throttle"><div class="slot"></div><div class="knob"></div></div>
+    <div id="right">
+      <div id="gauges"><canvas id="gA"></canvas><canvas id="gH"></canvas><canvas id="gN"></canvas></div>
+      <div id="btns">
+        <button class="b big" id="ping">PING</button>
+        <button class="b big" id="shot">SHUTTER</button>
+        <button class="b" id="drop">Rattle<small></small></button>
+        <button class="b" id="cb">Chart</button>
+        <button class="b" id="pb">Prints</button>
+      </div>
+    </div>
+  </div>
+  <section id="chartbox">
+    <div id="chartwrap"><canvas id="chart"></canvas><div id="zooms"><button class="sm" id="chartx" aria-label="Close chart"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button><button class="sm" id="zin" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><button class="sm" id="zout" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button></div></div>
+    <div id="chartbar"><div id="chartinfo"></div><button class="b" id="steer">Steer</button></div><div id="dry"></div>
+  </section>
+</main>
+<div id="lampdim"></div><div id="flash"></div>
+<div class="sheet" id="title"><div><div class="plate"><i style="left:8px;top:8px"></i><i style="right:8px;top:8px"></i><i style="left:8px;bottom:8px"></i><i style="right:8px;bottom:8px"></i>
+  <h1>SONAR</h1>
+  <p class="sub">A sealed craft in a lake under the ice. No window. A chart, a compass, a camera, and a ping that shows you the dark for a moment. You are not the only one who hears it.</p>
+  <div class="row"><button class="b big" id="go">Lower away</button><button class="b" id="over" hidden>Start over</button><button class="b" id="how0">How it works</button></div>
+  <p class="foot">Best with headphones, in the dark.</p>
+</div></div></div>
+<div class="sheet" id="sheet" hidden><div></div></div>
+<div class="sheet" id="gal" hidden><div></div></div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

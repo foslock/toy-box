@@ -1,0 +1,9 @@
+{
+  "title": "Sonar",
+  "blurb": "Pilot a windowless craft under the ice by ping and compass. Photograph six marks on the chart, and keep the noise down: something is listening.",
+  "added": "2026-11-24",
+  "category": "games",
+  "tags": ["horror", "navigation", "sound", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 4500, "query": "?demo" }
+}

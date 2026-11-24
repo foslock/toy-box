@@ -36,7 +36,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 28. Dam Day — [`damday/`](damday/)
 - [x] 29. Liar's Table — [`liars/`](liars/)
 - [x] 30. Customs of the Dead — [`customs/`](customs/)
-- [ ] 31. Sonar
+- [x] 31. Sonar — [`sonar/`](sonar/)
 - [x] 32. Snowball — [`snowball/`](snowball/)
 - [x] 33. Invader — [`invader/`](invader/)
 - [x] 34. Night Bus — [`nightbus/`](nightbus/)
@@ -324,8 +324,10 @@ Papers, Please at the gate to the afterlife. You're a customs clerk in a cramped
 
 Spread a small story over ten days: a soul who keeps coming back, a smuggler, a bribe, a supervisor with an agenda, and a few endings. Keep the interface tactile: papers you drag across the desk, a rulebook you cross-reference by clicking two matching details, a big satisfying stamp. Style: a muted, Soviet-poster-meets-Día-de-Muertos palette in chunky pixel art, with the booth window looking out on the queue of souls.
 
-## 31. Sonar
+## 31. Sonar ✅
 *Borrows: Iron Lung · Twist: you can only see by pinging, and something else can hear you*
+
+**Built 2026-11-24 as [`sonar/`](sonar/).** An under-ice lake, six marks and a seventh nobody drew. Pings light the scope, pencil the chart and fix your position; photos are WebGL raymarches of the real map that develop in a tray. The thing hunts by noise, learns your ping, and later your telephone. Lost craft become wrecks you can take the film back from. Style: everything under a red safelight (crackle enamel, paper tape, grease pencil, stencil). Cut: the three.js interior and CRT fuzz, in favour of a flat instrument console that fits a phone.
 
 *Note: [Echo](echo/) (built 2026-10-01) already does seeing by sound pulses. To keep Sonar distinct, lean on the chart navigation, the slow photographs and the thing that hunts your ping.*
 
