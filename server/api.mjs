@@ -1,8 +1,9 @@
-// The home page's upvotes and play counts, as a request handler:
+// The home page's upvotes, play counts and view count, as a request handler:
 //
-//   GET  /api/votes        → { counts: { cave: 12, … }, plays: { cave: 340, … }, mine: ["cave"], resetsIn: 43200000 }
+//   GET  /api/votes        → { counts: { cave: 12, … }, plays: { cave: 340, … }, views: 5120, mine: ["cave"], resetsIn: 43200000 }
 //   POST /api/votes/cave   → { toy: "cave", count: 13, resetsIn: 43200000 }
 //   POST /api/plays/cave   → { toy: "cave", count: 341 }
+//   POST /api/views        → { count: 5121 }
 //
 // A visitor can upvote each toy once per UTC day. `mine` is what they've upvoted today, and `resetsIn` is how many
 // milliseconds until they can again. A visitor is a random id in a cookie, set by their first vote and not before.
@@ -10,8 +11,9 @@
 // kept in memory, and no address is ever stored.
 //
 // A toy's page reports a play when it loads, unless that browser loaded the same toy in the last half hour (see
-// build.mjs), so nothing here needs to know who's playing. The same tally keeps a script from running a count up, and
-// crawlers that run the page aren't players.
+// build.mjs), so nothing here needs to know who's playing. Every page reports a view of the site the same way, with
+// five minutes between. The same tally keeps a script from running a count up, and crawlers that run the page aren't
+// players or viewers.
 import { randomUUID } from 'node:crypto';
 
 const COOKIE = 'toybox_visitor', COOKIE_AGE = 400 * 24 * 3600;   // seconds; as long as browsers allow
@@ -21,7 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const BOT = /(?<!cu)bot\b|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit/i;
 const COUNTS_FOR = 5000;   // ms one look at the counts is good for
 
-export function createApi({ store, slugs, perAddress = 20, playsPerAddress = 100, now = Date.now }) {
+export function createApi({ store, slugs, perAddress = 20, playsPerAddress = 100, viewsPerAddress = 1000, now = Date.now }) {
   const known = new Set(slugs);
   const today = () => new Date(now()).toISOString().slice(0, 10), resetsIn = () => DAY - now() % DAY;
 
@@ -49,26 +51,27 @@ export function createApi({ store, slugs, perAddress = 20, playsPerAddress = 100
       res.end(JSON.stringify(body));
     };
     const pathname = req.url.split('?')[0];
-    const m = pathname.match(/^\/api\/(?:votes|(votes|plays)\/([a-z0-9_-]+))\/?$/);
+    const m = pathname.match(/^\/api\/(?:(votes|plays)\/([a-z0-9_-]+)|(votes|views))\/?$/);
     if (!m) return send(404, { error: 'not found' });
-    const [, kind, toy] = m;
-    if (req.method !== (toy ? 'POST' : 'GET')) return send(405, { error: 'method not allowed' }, { Allow: toy ? 'POST' : 'GET' });
+    const kind = m[1] || m[3], toy = m[2], reading = kind === 'votes' && !toy, method = reading ? 'GET' : 'POST';
+    if (req.method !== method) return send(405, { error: 'method not allowed' }, { Allow: method });
     if (toy && !known.has(toy)) return send(404, { error: 'no such toy' });
-    // Another site's page can't vote or play on a visitor's behalf.
-    if (toy && !['same-origin', 'none', undefined].includes(req.headers['sec-fetch-site'])) return send(403, { error: 'these come from the site itself' });
+    // Another site's page can't vote, play or view on a visitor's behalf.
+    if (!reading && !['same-origin', 'none', undefined].includes(req.headers['sec-fetch-site'])) return send(403, { error: 'these come from the site itself' });
 
     const id = cookie(req, COOKIE), visitor = id && UUID.test(id) ? id : null;
     try {
-      if (!toy) {
+      if (reading) {
         const [all, mine] = await Promise.all([readCounts(), visitor ? store.votedOn(visitor, today()) : []]);
         const object = totals => Object.fromEntries([...totals].filter(([t]) => known.has(t)));
-        return send(200, { counts: object(all.votes), plays: object(all.plays), mine: mine.filter(t => known.has(t)), resetsIn: resetsIn() });
+        return send(200, { counts: object(all.votes), plays: object(all.plays), views: all.views, mine: mine.filter(t => known.has(t)), resetsIn: resetsIn() });
       }
-      const spot = tallied(addressOf(req), kind, toy, kind === 'votes' ? perAddress : playsPerAddress);
-      if (kind === 'plays') {
+      const spot = tallied(addressOf(req), kind, toy, { votes: perAddress, plays: playsPerAddress, views: viewsPerAddress }[kind]);
+      if (kind !== 'votes') {
         // One that doesn't count isn't a mistake: the page has nothing to do about it.
-        if (!spot.full && !BOT.test(req.headers['user-agent'] || '')) { await store.play(toy, today()); spot.add(); counts = null; }
-        return send(200, { toy, count: (await readCounts()).plays.get(toy) || 0 });
+        if (!spot.full && !BOT.test(req.headers['user-agent'] || '')) { await (kind === 'plays' ? store.play(toy, today()) : store.view(today())); spot.add(); counts = null; }
+        const all = await readCounts();
+        return send(200, kind === 'plays' ? { toy, count: all.plays.get(toy) || 0 } : { count: all.views });
       }
       if (spot.full) return send(429, { error: 'too many votes from this address today' }, { 'Retry-After': Math.ceil(resetsIn() / 1000) });
       const who = visitor || randomUUID();

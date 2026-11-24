@@ -1,8 +1,8 @@
-// Where the votes and plays are kept: Postgres on the live site, or memory for local preview.
+// Where the votes, plays and views are kept: Postgres on the live site, or memory for local preview.
 //
 // There's one vote per toy, visitor and day, so a second that day changes nothing however it arrives. Plays are just a
-// number per toy and day, with nothing about who played. Days are UTC dates ("2026-11-24"), and visitors are the random
-// ids the API hands out in a cookie.
+// number per toy and day, and views a number per day, with nothing about whose they were. Days are UTC dates
+// ("2026-11-24"), and visitors are the random ids the API hands out in a cookie.
 
 const DEFAULT_SCHEMA = 'toy_box';
 
@@ -18,7 +18,7 @@ function cleanSchema(raw) {
 const sslFor = url => /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false };
 
 export async function pgStore({ url, schema: rawSchema }) {
-  const schema = cleanSchema(rawSchema), votes = `${schema}.votes`, plays = `${schema}.plays`;
+  const schema = cleanSchema(rawSchema), votes = `${schema}.votes`, plays = `${schema}.plays`, views = `${schema}.views`;
   const { default: pg } = await import('pg');   // only here, so local preview runs without it installed
   const pool = new pg.Pool({ connectionString: url, ssl: sslFor(url), max: 4, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000, statement_timeout: 5000 });
   pool.on('error', e => console.warn('[db] idle connection lost:', e.message));
@@ -42,18 +42,23 @@ export async function pgStore({ url, schema: rawSchema }) {
       plays integer NOT NULL,
       PRIMARY KEY (toy, day)
     );
+    CREATE TABLE IF NOT EXISTS ${views} (
+      day   date    PRIMARY KEY,
+      views integer NOT NULL
+    );
   `).then(() => console.log(`[db] connected, schema "${schema}" ready`), e => { made = null; throw e; });
 
   return {
-    // Both totals, by toy.
+    // Votes and plays by toy, and views altogether.
     async counts() {
       await ready();
       const total = async sql => new Map((await pool.query(sql)).rows.map(r => [r.toy, r.n]));
-      const [v, p] = await Promise.all([
+      const [v, p, seen] = await Promise.all([
         total(`SELECT toy, count(*)::int AS n FROM ${votes} GROUP BY toy`),
         total(`SELECT toy, sum(plays)::int AS n FROM ${plays} GROUP BY toy`),
+        pool.query(`SELECT coalesce(sum(views), 0)::int AS n FROM ${views}`),
       ]);
-      return { votes: v, plays: p };
+      return { votes: v, plays: p, views: seen.rows[0].n };
     },
     async votedOn(visitor, day) {
       await ready();
@@ -70,21 +75,27 @@ export async function pgStore({ url, schema: rawSchema }) {
       await ready();
       await pool.query(`INSERT INTO ${plays} AS p (toy, day, plays) VALUES ($1, $2, 1) ON CONFLICT (toy, day) DO UPDATE SET plays = p.plays + 1`, [toy, day]);
     },
+    async view(day) {
+      await ready();
+      await pool.query(`INSERT INTO ${views} AS v (day, views) VALUES ($1, 1) ON CONFLICT (day) DO UPDATE SET views = v.views + 1`, [day]);
+    },
     close: () => pool.end(),
   };
 }
 
 export function memoryStore() {
+  let views = 0;
   const rows = new Set(), plays = new Map(), key = (...parts) => parts.join(' ');   // "toy day visitor"; none of them has a space
   return {
     async counts() {
       const n = new Map();
       for (const r of rows) { const toy = r.split(' ')[0]; n.set(toy, (n.get(toy) || 0) + 1); }
-      return { votes: n, plays: new Map(plays) };
+      return { votes: n, plays: new Map(plays), views };
     },
     async votedOn(visitor, day) { return [...rows].map(r => r.split(' ')).filter(r => r[1] === day && r[2] === visitor).map(r => r[0]); },
     async add(toy, visitor, day) { const k = key(toy, day, visitor), fresh = !rows.has(k); rows.add(k); return fresh; },
     async play(toy) { plays.set(toy, (plays.get(toy) || 0) + 1); },
+    async view() { views++; },
     async close() {},
   };
 }

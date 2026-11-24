@@ -275,6 +275,26 @@ const opening = slug => `
 </script>
 `;
 
+// The home page and every toy page report a view of the site, for the count in the home page's footer, unless this
+// browser loaded any of them in the last five minutes. Every load starts the five minutes over. As with plays, the time
+// is kept in this browser and nothing about the visitor is sent, and one that keeps nothing isn't counted. The home page
+// shows the answer.
+const VIEW_GAP = 5 * 60 * 1000;
+const viewing = `
+<script>
+(() => {
+  const note = () => {
+    try {
+      const since = Date.now() - localStorage.getItem('toybox-viewed');
+      localStorage.setItem('toybox-viewed', Date.now());
+      if (!(since >= 0 && since < ${VIEW_GAP})) window.toyboxView = fetch('/api/views', { method: 'POST', keepalive: true }).catch(() => null);
+    } catch {}
+  };
+  if (document.prerendering) document.addEventListener('prerenderingchange', note, { once: true }); else note();
+})();
+</script>
+`;
+
 // The thumb on a card's vote button and on the pill that sorts by votes, and the triangle that goes with plays.
 const THUMB = '<svg class="thumb" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5 7.2 7.8 1.6c1.2 0 1.9.9 1.7 2L9.1 6h3.6c.9 0 1.5.8 1.3 1.7l-.9 4.8c-.1.8-.8 1.3-1.6 1.3H5z"/><path d="M2 7.2h3v6.6H2z"/></svg>';
 
@@ -319,7 +339,7 @@ for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
   versionScripts(join(DIST, t.slug), t.entry);
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
-  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + opening(t.slug) + analytics);
+  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + viewing + opening(t.slug) + analytics);
   if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
@@ -327,6 +347,7 @@ for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f),
 const count = `${toys.length} ${toys.length === 1 ? 'toy' : 'toys'} on the board`;
 const html = readFileSync(join(SITE, 'index.html'), 'utf8')
   .replace('<!--SHARE_TAGS-->', shareTags({ title: 'Toy Box', description: 'A pegboard of small, self-contained browser experiments.', path: '', image: HOME_IMAGE, alt: 'TOY BOX on a red label-maker tape, stuck to a pegboard' }).trim())
+  .replace('<!--VIEWING-->', () => viewing.trim())
   .replace('<!--ANALYTICS-->', () => analytics.trim())
   .replace('<!--HEADER_TAPE-->', tape('Toy Box', 'tape--xl'))
   .replace('<!--COUNT-->', count)

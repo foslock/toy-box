@@ -11,7 +11,7 @@ toy-box/
 │   └── og.jpg            link-preview image, made by `npm run og`
 ├── site/                 home page template, favicon and the home page's link-preview image
 ├── scripts/              build, screenshot and local-server scripts (no dependencies)
-├── server/               the vote service: upvotes and play counts, kept in Postgres
+├── server/               the vote service: upvotes, play counts and the view count, kept in Postgres
 └── render.yaml           Render Blueprint
 ```
 
@@ -78,7 +78,7 @@ The `?.` keeps the toy working when it's opened straight from its folder, where 
 
 Screenshots are taken locally and committed, so the Render build never needs a browser. The build adds Open Graph tags to the home page and every toy page, pointing at `https://theboxof.toys`; a toy without an `og.jpg` uses the home page's image.
 
-## Order, votes, plays and New badges
+## Order, votes, plays, views and New badges
 
 The board opens with the most upvoted toys first. **Most played** and **Newest** switch it to those orders; ties go newest first. The order and the search ride in the address: `/?sort=played&q=cards` (or `sort=new`).
 
@@ -88,7 +88,9 @@ Toys added in the last week carry a New badge until the visitor opens them. Each
 
 Each card also shows how many times its toy has been played. A toy's page reports a play when it loads, from the board or straight from its link, unless the same browser loaded that toy in the last 30 minutes. Every load starts the 30 minutes over, so sitting on refresh is one play, and coming back later the same day is another. The browser keeps its own times (`toybox-loads`, in the same script), so nothing about the player is sent. Crawlers aren't counted, and one address can add at most 100 plays to a toy in a day.
 
-The counts are in the `toy_box` schema of the Postgres database the other projects share (`card-clash-db`). `votes (toy, visitor, day, created_at)` has a row per vote, and its key `(toy, day, visitor)` is what makes it one a day. `plays (toy, day, plays)` is a running total per toy and day. The service creates them on first start.
+The footer counts views of the site, starting from when the counter was added. The home page and every toy page report one when they load, unless the same browser loaded any of them in the last 5 minutes, kept in `localStorage` the same way (`toybox-viewed`). One address can add at most 1,000 a day.
+
+The counts are in the `toy_box` schema of the Postgres database the other projects share (`card-clash-db`). `votes (toy, visitor, day, created_at)` has a row per vote, and its key `(toy, day, visitor)` is what makes it one a day. `plays (toy, day, plays)` is a running total per toy and day, and `views (day, views)` one per day. The service creates them on first start.
 
 ## Analytics
 

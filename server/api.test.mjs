@@ -22,7 +22,7 @@ async function start(store, opts = {}) {
       if (set) jar = set.split(';')[0];
       return { status: res.status, set, body: await res.json(), headers: res.headers };
     };
-    return { get: () => call('GET', '/api/votes'), vote: toy => call('POST', `/api/votes/${toy}`), play: toy => call('POST', `/api/plays/${toy}`), call };
+    return { get: () => call('GET', '/api/votes'), vote: toy => call('POST', `/api/votes/${toy}`), play: toy => call('POST', `/api/plays/${toy}`), view: () => call('POST', '/api/views'), call };
   };
   return { clock, visitor, stop: () => { server.close(); server.closeAllConnections(); } };
 }
@@ -75,6 +75,20 @@ for (const [name, make] of stores) describe(`votes in ${name}`, () => {
     } finally { api.stop(); }
   });
 
+  test('views add up across days', async () => {
+    api = await start(store);
+    try {
+      const a = api.visitor();
+      assert.equal((await a.get()).body.views, 0);
+      const r = await a.view();
+      assert.deepEqual([r.status, r.body, r.set], [200, { count: 1 }, null], 'nobody gets a cookie for looking');
+      await Promise.all(Array.from({ length: 10 }, () => a.view()));
+      api.clock.t += 24 * 3600 * 1000;
+      assert.equal((await api.visitor().view()).body.count, 12);
+      assert.equal((await a.get()).body.views, 12);
+    } finally { api.stop(); }
+  });
+
   test('votes at the same moment count once', async () => {
     api = await start(store);
     try {
@@ -96,7 +110,11 @@ test('what it turns away', async () => {
     assert.equal((await a.call('GET', '/api/plays/cave')).status, 405);
     assert.equal((await a.call('POST', '/api/plays')).status, 404);
     assert.equal((await a.call('POST', '/api/PLAYS/cave')).status, 404);
+    assert.equal((await a.call('GET', '/api/views')).status, 405);
+    assert.equal((await a.call('POST', '/api/views/cave')).status, 404);
     assert.equal((await api.visitor({ 'sec-fetch-site': 'cross-site' }).play('cave')).status, 403);
+    assert.equal((await api.visitor({ 'sec-fetch-site': 'cross-site' }).view()).status, 403);
+    assert.equal((await api.visitor({ 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }).view()).body.count, 0);
     assert.equal((await api.visitor({ 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' }).play('cave')).body.count, 0, 'crawlers are not players');
     assert.equal((await a.call('GET', '/api/other')).status, 404);
     assert.equal((await a.call('GET', '//')).status, 404);
@@ -121,18 +139,20 @@ test('one address can only add so many votes to a toy in a day', async () => {
 });
 
 test('one address can only add so many plays to a toy in a day, and that is apart from its votes', async () => {
-  const api = await start(memoryStore(), { perAddress: 2, playsPerAddress: 3 });
+  const api = await start(memoryStore(), { perAddress: 2, playsPerAddress: 3, viewsPerAddress: 4 });
   try {
     const a = api.visitor({ 'x-forwarded-for': '203.0.113.5' });
     for (let i = 0; i < 6; i++) assert.equal((await a.play('cave')).status, 200);
     assert.equal((await a.get()).body.plays.cave, 3);
+    for (let i = 0; i < 6; i++) assert.equal((await a.view()).status, 200);
+    assert.equal((await a.get()).body.views, 4);
     assert.equal((await a.vote('cave')).body.count, 1);
   } finally { api.stop(); }
 });
 
 test('a database that is down is a 503, and recovers', async () => {
   const good = memoryStore(), down = async () => { throw new Error('connection refused'); };
-  const store = { counts: down, votedOn: down, add: down, play: down };
+  const store = { counts: down, votedOn: down, add: down, play: down, view: down };
   const api = await start(store), log = console.error;
   console.error = () => {};
   try {
@@ -140,6 +160,7 @@ test('a database that is down is a 503, and recovers', async () => {
     assert.equal((await a.get()).status, 503);
     assert.equal((await a.vote('cave')).status, 503);
     assert.equal((await a.play('cave')).status, 503);
+    assert.equal((await a.view()).status, 503);
     Object.assign(store, good);
     assert.equal((await a.vote('cave')).status, 200);
     assert.deepEqual((await a.get()).body.counts, { cave: 1 });
