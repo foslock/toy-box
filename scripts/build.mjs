@@ -3,7 +3,7 @@
 import { rmSync, mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, sep, posix } from 'node:path';
 import { createHash } from 'node:crypto';
-import { ROOT, CATEGORIES, loadToys } from './lib/toys.mjs';
+import { ROOT, loadToys } from './lib/toys.mjs';
 import { esc, tape, tapeColor } from './lib/tape.mjs';
 
 const DIST = join(ROOT, 'dist');
@@ -249,6 +249,22 @@ const analytics = String.raw`
 </style>
 `;
 
+// Every toy page notes that it's been opened, so the home page can take the New badge off its card.
+const markOpened = slug => `
+<script>
+(() => {
+  try {
+    const opened = JSON.parse(localStorage.getItem('toybox-opened')) || [];
+    if (!opened.includes(${JSON.stringify(slug)})) localStorage.setItem('toybox-opened', JSON.stringify([...opened, ${JSON.stringify(slug)}]));
+  } catch {}
+})();
+</script>
+`;
+
+// The thumb on a card's vote button and on the pill that sorts by votes.
+const THUMB = '<svg class="thumb" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5 7.2 7.8 1.6c1.2 0 1.9.9 1.7 2L9.1 6h3.6c.9 0 1.5.8 1.3 1.7l-.9 4.8c-.1.8-.8 1.3-1.6 1.3H5z"/><path d="M2 7.2h3v6.6H2z"/></svg>';
+
+// The vote button and the New badge start hidden; the page's script shows them.
 function card(t, i) {
   const color = tapeColor(t, i);
   const href = encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry));
@@ -257,15 +273,19 @@ function card(t, i) {
     : `<div class="shot shot--blank" aria-hidden="true"><span>${esc(initials(t.title))}</span></div>`;
   const meta = [t.added ? `<time datetime="${esc(t.added)}">${month(t.added)}</time>` : '', ...t.tags.map(x => `<span>${esc(x)}</span>`)].filter(Boolean).join('');
   return `
-      <li class="toy"${t.category ? ` data-category="${t.category}"` : ''} data-search="${esc([t.title, ...t.tags].join(' ').toLowerCase())}" style="--tape:${color};--letters:${[...String(t.title)].length}">
-        <a href="${href}">
-          ${shot}
-          <div class="card-body">
-            <h2>${tape(t.title)}</h2>
-            <p class="blurb">${esc(t.blurb)}</p>
-            ${meta ? `<p class="meta">${meta}</p>` : ''}
-          </div>
-        </a>
+      <li class="toy" data-slug="${esc(t.slug)}"${t.added ? ` data-added="${esc(t.added)}"` : ''} data-search="${esc([t.title, ...t.tags, t.category || ''].join(' ').toLowerCase())}" style="--tape:${color};--letters:${[...String(t.title)].length}">
+        <div class="card">
+          <a href="${href}">
+            ${shot}
+            <span class="new" hidden>New</span>
+            <div class="card-body">
+              <h2>${tape(t.title)}</h2>
+              <p class="blurb">${esc(t.blurb)}</p>
+              <p class="meta">${meta}</p>
+            </div>
+          </a>
+          <button class="vote" type="button" aria-label="Upvote ${esc(t.title)}" aria-pressed="false" hidden>${THUMB}<span class="votes"></span></button>
+        </div>
       </li>`;
 }
 
@@ -281,30 +301,25 @@ for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
   versionScripts(join(DIST, t.slug), t.entry);
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
-  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + analytics);
+  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + markOpened(t.slug) + analytics);
   if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });
 
 const count = `${toys.length} ${toys.length === 1 ? 'toy' : 'toys'} on the board`;
-// A pill above the board for each category some toy is in; the page's own script does the filtering.
-const cats = Object.keys(CATEGORIES).filter(c => toys.some(t => t.category === c));
-const filters = cats.length ? `<div class="filters" role="group" aria-label="Show only">${cats.map(c =>
-  `<button class="pill" type="button" data-category="${c}" aria-pressed="false">${esc(CATEGORIES[c])}</button>`).join('')}</div>` : '';
 const html = readFileSync(join(SITE, 'index.html'), 'utf8')
   .replace('<!--SHARE_TAGS-->', shareTags({ title: 'Toy Box', description: 'A pegboard of small, self-contained browser experiments.', path: '', image: HOME_IMAGE, alt: 'TOY BOX on a red label-maker tape, stuck to a pegboard' }).trim())
   .replace('<!--ANALYTICS-->', () => analytics.trim())
   .replace('<!--HEADER_TAPE-->', tape('Toy Box', 'tape--xl'))
   .replace('<!--COUNT-->', count)
-  .replace('<!--FILTERS-->', filters)
+  .replace('<!--THUMB-->', THUMB)
   .replace('<!--TOYS-->', toys.map(card).join('') || '\n      <li class="empty">No toys yet — add a folder with a toy.json.</li>');
 writeFileSync(join(DIST, 'index.html'), html);
 
 // A full stop, question or exclamation mark followed by more words means a second sentence.
 const wordy = toys.filter(t => /[.!?]["')\]]*\s+\S/.test(String(t.blurb).trim())).map(t => t.slug);
-const missing = toys.filter(t => !t.hasPreview).map(t => t.slug), unshared = toys.filter(t => !existsSync(join(t.dir, 'og.jpg'))).map(t => t.slug), unsorted = toys.filter(t => !t.category).map(t => t.slug);
+const missing = toys.filter(t => !t.hasPreview).map(t => t.slug), unshared = toys.filter(t => !existsSync(join(t.dir, 'og.jpg'))).map(t => t.slug);
 console.log(`Built ${count} → dist/`);
 if (missing.length) console.log(`No preview image yet for: ${missing.join(', ')} — run \`npm run shots\`.`);
 if (unshared.length) console.log(`No share image yet for: ${unshared.join(', ')} — run \`npm run og -- ${unshared.join(' ')}\`; their links show the home page's for now.`);
 if (wordy.length) console.log(`Blurb runs past one sentence for: ${wordy.join(', ')} — the cards are small; keep each to one.`);
-if (unsorted.length) console.log(`No category yet for: ${unsorted.join(', ')} — they only show with no filter on. Set "category" in toy.json.`);

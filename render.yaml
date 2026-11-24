@@ -1,5 +1,6 @@
 # Render Blueprint: New → Blueprint → pick this repo.
 services:
+  # The site
   - type: web
     runtime: static
     name: toy-box
@@ -9,3 +10,34 @@ services:
       - path: /*
         name: X-Content-Type-Options
         value: nosniff
+    routes:
+      # Votes (below), under the site's own address. This must be that service's onrender.com name.
+      - type: rewrite
+        source: /api/*
+        destination: https://theboxoftoys-api.onrender.com/api/*
+
+  # The vote service (server/)
+  - type: web
+    runtime: node
+    name: theboxoftoys-api
+    plan: starter
+    buildCommand: npm ci --prefix server
+    startCommand: node server/index.mjs
+    healthCheckPath: /healthz
+    # It reads toy.json files to know which toys can be voted for.
+    buildFilter:
+      paths:
+        - server/**
+        - scripts/lib/**
+        - "*/toy.json"
+    envVars:
+      - key: NODE_VERSION
+        value: 24.14.1
+      # Set the value in the Render dashboard: the internal connection string of card-clash-db, the Postgres instance
+      # decks-and-hexes declares (`fromDatabase` only works for databases in this same file). The internal string only
+      # resolves from the database's own region.
+      - key: DATABASE_URL
+        sync: false
+      # Sharing that database is safe: the votes live in this Postgres schema, which the service creates on first start.
+      - key: DB_SCHEMA
+        value: toy_box

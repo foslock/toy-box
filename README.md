@@ -11,6 +11,7 @@ toy-box/
 │   └── og.jpg            link-preview image, made by `npm run og`
 ├── site/                 home page template, favicon and the home page's link-preview image
 ├── scripts/              build, screenshot and local-server scripts (no dependencies)
+├── server/               the vote service: upvotes, kept in Postgres
 └── render.yaml           Render Blueprint
 ```
 
@@ -41,9 +42,9 @@ toy-box/
 |---|---|---|---|
 | `title` | yes | | Name on the card's label |
 | `blurb` | yes | | One sentence under the label. The cards are small, four to a row, so keep it to about 25 words |
-| `added` | no | | `YYYY-MM-DD`. Cards are sorted newest first |
-| `position` | no | | Pins the card to that spot on the board (`1` is the first card) instead of sorting it by date |
-| `category` | no | | Which filter pill above the board shows it: `games` or `ambient`. A toy without one only shows when no filter is on |
+| `added` | no | | `YYYY-MM-DD`. What **Newest** sorts by, and what gives the card its New badge for its first week |
+| `position` | no | | Pins the card to that spot in the **Newest** order (`1` is the first card) instead of sorting it by date |
+| `category` | no | | `games` or `ambient`. The search box finds toys by it |
 | `tags` | no | `[]` | Short words shown along the bottom of the card |
 | `tape` | no | rotates | Label color: `red`, `blue`, `green`, `teal`, `purple`, `orange`, `black`, or a `#rrggbb` hex |
 | `entry` | no | `index.html` | The page to link to, if it isn't `index.html` |
@@ -70,11 +71,22 @@ The `?.` keeps the toy working when it's opened straight from its folder, where 
 | Command | What it does |
 |---|---|
 | `npm run build` | Writes the site to `dist/`: every toy folder (with a Home button added to its page) plus the generated home page. Stops with a clear message if a `toy.json` is invalid |
-| `npm run dev` | Builds, then serves `dist/` locally (`PORT` overrides 5173) |
+| `npm run dev` | Builds, then serves `dist/` locally with the vote API beside it (`PORT` overrides 5173). Votes last until it stops, unless `DATABASE_URL` is set |
+| `npm test --prefix server` | Tests the vote service (after `npm ci --prefix server`). Set `TEST_DATABASE_URL` to run them on a real Postgres too, in a throwaway schema |
 | `npm run shots` | Captures previews for toys that don't have one yet. Name toys to re-capture them (`npm run shots -- cave`), or pass `--all`. Needs Node 22+ and Chrome (set `CHROME_PATH` if Chrome isn't found) |
 | `npm run og` | Draws the link-preview images: `site/og.png` (the TOY BOX label on the pegboard) and every toy's `og.jpg`. Name toys to redraw just those (`npm run og -- cave`). Same needs as `shots` |
 
 Screenshots are taken locally and committed, so the Render build never needs a browser. The build adds Open Graph tags to the home page and every toy page, pointing at `https://theboxof.toys`; a toy without an `og.jpg` uses the home page's image.
+
+## Order, votes and New badges
+
+The board opens with the most upvoted toys first (ties go newest first), and **Newest** switches it to date order. The order and the search ride in the address: `/?sort=new&q=cards`.
+
+A visitor can upvote each toy once per day (UTC). A visitor is a random id in a cookie their first vote sets; it's only sent to `/api`. As a backstop against cleared cookies, one network address can add at most 20 votes to a toy in a day. That tally is kept in memory, and addresses aren't stored. The home page remembers the last counts it saw, so it opens in order at once, and it still works if the vote service is away: no thumbs and newest first on a first visit, the last known order after that.
+
+Toys added in the last week carry a New badge until the visitor opens them. Each toy's page notes its own opening in `localStorage` (`toybox-opened`, added by the build), so it counts however they got there.
+
+The votes are in the `toy_box` schema of the Postgres database the other projects share (`card-clash-db`), in one table: `votes (toy, visitor, day, created_at)`, whose key `(toy, day, visitor)` is what makes it one a day. The service creates both on first start.
 
 ## Analytics
 
@@ -82,6 +94,8 @@ The build also adds Google Analytics (`G-YPR5S60RRR`) to the home page and every
 
 ## Deploy on Render
 
-In the Render dashboard choose **New → Blueprint** and pick this repo. `render.yaml` creates a static site that runs `npm run build` and publishes `dist/`. Pushes to `main` redeploy automatically.
+In the Render dashboard choose **New → Blueprint** and pick this repo. `render.yaml` creates two services: a static site that runs `npm run build` and publishes `dist/`, and the vote service in `server/`, which the site passes `/api/*` on to. Pushes to `main` redeploy automatically (the vote service only when something it reads has changed).
+
+The vote service needs one value set in its **Environment** page: `DATABASE_URL`, the **internal** connection string of `card-clash-db`. It must be in that database's region. If Render gives the service another address than `theboxoftoys-api.onrender.com`, put that one in the `/api/*` rewrite in `render.yaml`.
 
 For a few minutes after a deploy, Render's CDN can still serve the previous copy of a file. The build keeps that from mixing old and new modules: it versions each toy's scripts by content, so a toy page's `<script src>`s and every import of the toy's own modules ask for `file.js?v=<hash>`. It does this by adding the entries to the page's import map, or adding an import map if the page has none. A toy only needs to import its own files by relative path, as they all do already. Workers aren't covered: a script started with `new Worker(...)` loads by its plain name.

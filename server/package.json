@@ -1,0 +1,16 @@
+{
+  "name": "toy-box-api",
+  "private": true,
+  "type": "module",
+  "description": "Counts the home page's upvotes, in Postgres.",
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

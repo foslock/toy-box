@@ -7,8 +7,8 @@ export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 const DEFAULTS = { entry: 'index.html', preview: 'preview.webp', tags: [], loader: false };
 export const CAPTURE_DEFAULTS = { width: 1200, height: 900, scale: 1, wait: 2500, selector: null, query: '' };
-// The home page's filters, in the order their pills appear. A toy picks one with "category".
-export const CATEGORIES = { games: 'Games', ambient: 'Ambient' };
+// What kind of toy it is ("category" in toy.json). The home page's search finds toys by it.
+export const CATEGORIES = ['games', 'ambient'];
 
 export function loadToys() {
   const toys = [], problems = [];
@@ -28,13 +28,13 @@ export function loadToys() {
     if (toy.added && !/^\d{4}-\d{2}-\d{2}$/.test(toy.added)) problems.push(`${d.name}/toy.json "added" should look like 2026-09-23`);
     if (toy.position !== undefined && !(Number.isInteger(toy.position) && toy.position >= 1)) problems.push(`${d.name}/toy.json "position" should be a whole number from 1`);
     if (typeof toy.loader !== 'boolean') problems.push(`${d.name}/toy.json "loader" should be true or false`);
-    if (toy.category !== undefined && !Object.hasOwn(CATEGORIES, toy.category)) problems.push(`${d.name}/toy.json "category" should be one of ${Object.keys(CATEGORIES).join(', ')}`);
+    if (toy.category !== undefined && !CATEGORIES.includes(toy.category)) problems.push(`${d.name}/toy.json "category" should be one of ${CATEGORIES.join(', ')}`);
     if (toy.share !== undefined && !(typeof toy.share?.y === 'number' && toy.share.y >= 0 && toy.share.y <= 100)) problems.push(`${d.name}/toy.json "share" should look like { "y": 30 }, with y from 0 (top) to 100 (bottom)`);
     if (!existsSync(join(toy.dir, toy.entry))) problems.push(`${d.name}/${toy.entry} not found (set "entry" in toy.json if the page has another name)`);
     toy.hasPreview = existsSync(join(toy.dir, toy.preview));
     toys.push(toy);
   }
-  // Newest first, then alphabetical.
+  // Newest first, then alphabetical. The home page starts from this order and puts the most upvoted first itself.
   toys.sort((a, b) => String(b.added || '').localeCompare(String(a.added || '')) || String(a.title).localeCompare(String(b.title)));
   // Then any toy with a "position" is moved to that spot on the board (1 is the first card).
   const pinned = toys.filter(t => Number.isInteger(t.position) && t.position >= 1).sort((a, b) => a.position - b.position);

@@ -13,10 +13,12 @@ const TYPES = {
   '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.mp4': 'video/mp4', '.webm': 'video/webm',
 };
 
-export function serve(root, port = 0) {
+// With `api`, that handler answers everything under /api/ (see dev.mjs).
+export function serve(root, port = 0, api = null) {
   const base = normalize(root.endsWith(sep) ? root : root + sep);
   const server = createServer((req, res) => {
     const raw = new URL(req.url, 'http://localhost').pathname;
+    if (api && raw.startsWith('/api/')) { api(req, res).catch(e => { console.error(e); if (!res.headersSent) res.writeHead(500); res.end(); }); return; }
     let file = normalize(join(base, decodeURIComponent(raw)));
     if (!file.startsWith(base) && file + sep !== base) { res.writeHead(403).end(); return; }
     try {
