@@ -11,7 +11,7 @@ toy-box/
 │   └── og.jpg            link-preview image, made by `npm run og`
 ├── site/                 home page template, favicon and the home page's link-preview image
 ├── scripts/              build, screenshot and local-server scripts (no dependencies)
-├── server/               the vote service: upvotes, kept in Postgres
+├── server/               the vote service: upvotes and play counts, kept in Postgres
 └── render.yaml           Render Blueprint
 ```
 
@@ -42,10 +42,10 @@ toy-box/
 |---|---|---|---|
 | `title` | yes | | Name on the card's label |
 | `blurb` | yes | | One sentence under the label. The cards are small, four to a row, so keep it to about 25 words |
-| `added` | no | | `YYYY-MM-DD`. What **Newest** sorts by, and what gives the card its New badge for its first week |
+| `added` | no | | `YYYY-MM-DD`. Shown on the card. What **Newest** sorts by, and what gives the card its New badge for its first week |
 | `position` | no | | Pins the card to that spot in the **Newest** order (`1` is the first card) instead of sorting it by date |
 | `category` | no | | `games` or `ambient`. The search box finds toys by it |
-| `tags` | no | `[]` | Short words shown along the bottom of the card |
+| `tags` | no | `[]` | Short words the search box finds the toy by. They aren't shown on the card |
 | `tape` | no | rotates | Label color: `red`, `blue`, `green`, `teal`, `purple`, `orange`, `black`, or a `#rrggbb` hex |
 | `entry` | no | `index.html` | The page to link to, if it isn't `index.html` |
 | `preview` | no | `preview.webp` | Card image file. If it's missing, the card shows a striped placeholder with the toy's initials |
@@ -78,7 +78,7 @@ The `?.` keeps the toy working when it's opened straight from its folder, where 
 
 Screenshots are taken locally and committed, so the Render build never needs a browser. The build adds Open Graph tags to the home page and every toy page, pointing at `https://theboxof.toys`; a toy without an `og.jpg` uses the home page's image.
 
-## Order, votes and New badges
+## Order, votes, plays and New badges
 
 The board opens with the most upvoted toys first (ties go newest first), and **Newest** switches it to date order. The order and the search ride in the address: `/?sort=new&q=cards`.
 
@@ -86,7 +86,9 @@ A visitor can upvote each toy once per day (UTC). A visitor is a random id in a 
 
 Toys added in the last week carry a New badge until the visitor opens them. Each toy's page notes its own opening in `localStorage` (`toybox-opened`, added by the build), so it counts however they got there.
 
-The votes are in the `toy_box` schema of the Postgres database the other projects share (`card-clash-db`), in one table: `votes (toy, visitor, day, created_at)`, whose key `(toy, day, visitor)` is what makes it one a day. The service creates both on first start.
+Each card also shows how many times its toy has been played. A toy's page reports a play when it loads, from the board or straight from its link, unless the same browser loaded that toy in the last 30 minutes. Every load starts the 30 minutes over, so sitting on refresh is one play, and coming back later the same day is another. The browser keeps its own times (`toybox-loads`, in the same script), so nothing about the player is sent. Crawlers aren't counted, and one address can add at most 100 plays to a toy in a day.
+
+The counts are in the `toy_box` schema of the Postgres database the other projects share (`card-clash-db`). `votes (toy, visitor, day, created_at)` has a row per vote, and its key `(toy, day, visitor)` is what makes it one a day. `plays (toy, day, plays)` is a running total per toy and day. The service creates them on first start.
 
 ## Analytics
 

@@ -2,7 +2,7 @@
   "name": "toy-box-api",
   "private": true,
   "type": "module",
-  "description": "Counts the home page's upvotes, in Postgres.",
+  "description": "Counts the toys' upvotes and plays, in Postgres.",
   "scripts": {
     "start": "node index.mjs",
     "test": "node --test"

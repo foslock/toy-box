@@ -9,7 +9,7 @@ import { esc, tape, tapeColor } from './lib/tape.mjs';
 const DIST = join(ROOT, 'dist');
 const SITE = join(ROOT, 'site');
 
-const month = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+const date = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const initials = title => String(title).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
 
 // Every toy page gets a small Home button in its top-left corner, added here so toys don't each carry one.
@@ -249,29 +249,44 @@ const analytics = String.raw`
 </style>
 `;
 
-// Every toy page notes that it's been opened, so the home page can take the New badge off its card.
-const markOpened = slug => `
+// Every toy page notes that it's been opened, so the home page can take the New badge off its card, and reports a play
+// to the vote service, however the visitor got there. Loading the same toy again within half an hour isn't another play,
+// and starts that half hour over, so sitting on refresh counts once; coming back later counts again. The time is kept in
+// this browser and nothing about the visitor is sent. A page the browser only prepared in advance waits until it's seen.
+const PLAY_GAP = 30 * 60 * 1000;
+const opening = slug => `
 <script>
 (() => {
-  try {
-    const opened = JSON.parse(localStorage.getItem('toybox-opened')) || [];
-    if (!opened.includes(${JSON.stringify(slug)})) localStorage.setItem('toybox-opened', JSON.stringify([...opened, ${JSON.stringify(slug)}]));
-  } catch {}
+  const toy = ${JSON.stringify(slug)};
+  const recall = key => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
+  const keep = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; } };
+  const note = () => {
+    try {
+      const opened = recall('toybox-opened') || [];
+      if (!opened.includes(toy)) keep('toybox-opened', [...opened, toy]);
+      const loads = recall('toybox-loads') || {}, since = Date.now() - loads[toy];
+      loads[toy] = Date.now();
+      // in a browser that keeps nothing every load would look like the first, so none of them count
+      if (keep('toybox-loads', loads) && !(since >= 0 && since < ${PLAY_GAP})) fetch('/api/plays/' + toy, { method: 'POST', keepalive: true }).catch(() => {});
+    } catch {}
+  };
+  if (document.prerendering) document.addEventListener('prerenderingchange', note, { once: true }); else note();
 })();
 </script>
 `;
 
-// The thumb on a card's vote button and on the pill that sorts by votes.
+// The thumb on a card's vote button and on the pill that sorts by votes, and the triangle beside a card's play count.
 const THUMB = '<svg class="thumb" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5 7.2 7.8 1.6c1.2 0 1.9.9 1.7 2L9.1 6h3.6c.9 0 1.5.8 1.3 1.7l-.9 4.8c-.1.8-.8 1.3-1.6 1.3H5z"/><path d="M2 7.2h3v6.6H2z"/></svg>';
 
-// The vote button and the New badge start hidden; the page's script shows them.
+const PLAY = '<svg class="play" viewBox="0 0 10 10" aria-hidden="true" fill="currentColor"><path d="M1.6.9v8.2a.5.5 0 0 0 .8.4l6.2-4.1a.5.5 0 0 0 0-.8L2.4.5a.5.5 0 0 0-.8.4z"/></svg>';
+
+// The counts and the New badge start hidden; the page's script shows them.
 function card(t, i) {
   const color = tapeColor(t, i);
   const href = encodeURIComponent(t.slug) + '/' + (t.entry === 'index.html' ? '' : encodeURI(t.entry));
   const shot = t.hasPreview
     ? `<div class="shot"><img src="${encodeURIComponent(t.slug)}/${encodeURI(t.preview)}" alt="Screenshot of ${esc(t.title)}" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async"></div>`
     : `<div class="shot shot--blank" aria-hidden="true"><span>${esc(initials(t.title))}</span></div>`;
-  const meta = [t.added ? `<time datetime="${esc(t.added)}">${month(t.added)}</time>` : '', ...t.tags.map(x => `<span>${esc(x)}</span>`)].filter(Boolean).join('');
   return `
       <li class="toy" data-slug="${esc(t.slug)}"${t.added ? ` data-added="${esc(t.added)}"` : ''} data-search="${esc([t.title, ...t.tags, t.category || ''].join(' ').toLowerCase())}" style="--tape:${color};--letters:${[...String(t.title)].length}">
         <div class="card">
@@ -281,10 +296,13 @@ function card(t, i) {
             <div class="card-body">
               <h2>${tape(t.title)}</h2>
               <p class="blurb">${esc(t.blurb)}</p>
-              <p class="meta">${meta}</p>
+              <p class="meta">${t.added ? `<time datetime="${esc(t.added)}">${date(t.added)}</time>` : ''}</p>
             </div>
           </a>
-          <button class="vote" type="button" aria-label="Upvote ${esc(t.title)}" aria-pressed="false" hidden>${THUMB}<span class="votes"></span></button>
+          <div class="counts">
+            <span class="plays" hidden>${PLAY}<span class="n"></span></span>
+            <button class="vote" type="button" aria-label="Upvote ${esc(t.title)}" aria-pressed="false" hidden>${THUMB}<span class="votes"></span></button>
+          </div>
         </div>
       </li>`;
 }
@@ -301,7 +319,7 @@ for (const t of toys) {
   cpSync(t.dir, join(DIST, t.slug), { recursive: true, filter: src => !src.endsWith('toy.json') });
   versionScripts(join(DIST, t.slug), t.entry);
   addHomeButton(join(DIST, t.slug, t.entry), t.entry.split('/').length);
-  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + markOpened(t.slug) + analytics);
+  addToHead(join(DIST, t.slug, t.entry), toyShareTags(t) + opening(t.slug) + analytics);
   if (t.loader) addLoader(join(DIST, t.slug, t.entry));
 }
 for (const f of readdirSync(SITE)) if (f !== 'index.html') cpSync(join(SITE, f), join(DIST, f), { recursive: true });

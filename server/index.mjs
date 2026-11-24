@@ -1,4 +1,4 @@
-// The vote service behind theboxof.toys/api (see render.yaml). Needs DATABASE_URL; PORT and DB_SCHEMA are optional.
+// The vote service (upvotes and play counts) behind theboxof.toys/api (see render.yaml). Needs DATABASE_URL; PORT and DB_SCHEMA are optional.
 import { createServer } from 'node:http';
 import { loadToys } from '../scripts/lib/toys.mjs';
 import { createApi } from './api.mjs';
