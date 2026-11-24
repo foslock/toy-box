@@ -103,7 +103,9 @@
   #gal .p { background: #f1d9cd; padding: 7px 7px 4px; color: var(--ink); font: 19px/1.05 "Reenie Beanie", cursive; transform: rotate(var(--r)); box-shadow: 0 5px 16px #000b; }
   #gal .p img { width: 100%; display: block; margin-bottom: 4px; }
   #gal > div { max-width: 900px; }
-  #gal h2 { font: 700 30px "Stardos Stencil", serif; margin: 0 0 12px 56px; }
+  #gal h2 { font: 700 30px "Stardos Stencil", serif; margin: 0 0 12px; } #gal { padding-top: 62px; }
+  @media (max-width: 760px) { .sheet { padding-top: 58px; } }
+  @media (max-height: 440px) { #title { padding: 10px 62px; } #title .plate { padding: 12px 18px 14px; } #title h1 { font-size: 72px; } #title .sub { margin-bottom: 12px; } #title .foot { margin-top: 10px; } }
   kbd { font: 700 13px "B612 Mono", monospace; border: 1.5px solid var(--ink); padding: 0 5px; border-radius: 3px; }
   dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 14px; line-height: 1.35; margin: 0 0 8px; } dt { font-weight: 700; } dd { margin: 0; }
 
@@ -134,6 +136,7 @@
     #btns #pb { grid-column: auto; }
     #chartwrap { flex: 0 0 auto; aspect-ratio: 1; } #dry { display: flex !important; }
   }
+  @media (min-width: 1000px) and (max-width: 1190px) and (min-height: 600px) { #con { grid-template-areas: "top tape tape" "deck scope chart"; } #tape { margin-right: 58px; } #chartbox { margin-top: 0; } }
   @media (max-height: 700px) and (orientation: portrait) { #gauges { display: grid; } #right { grid-template-rows: 52px 1fr; } .b { min-height: 36px; font-size: 12px; } .b.big { font-size: 14px; } #lever { min-height: 150px; } #tape { min-height: 74px; font-size: 13px; } }
   @media (max-width: 370px) { .drum { font-size: 15px; padding: 4px 3px; } .cnt { gap: 4px; } }
 </style>

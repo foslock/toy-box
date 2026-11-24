@@ -90,10 +90,10 @@ export class Game {
   lose(why) {
     if (!this.live) return;
     this.live = false; this.losses++; this.lostWhy = why;
-    if (this.shot.length) this.wrecks.push({ x: this.x, y: this.y, no: this.no, film: this.shot.slice() });
-    else this.wrecks.push({ x: this.x, y: this.y, no: this.no, film: [] });
+    const film = this.shot.slice(); this.shot = [];
+    this.wrecks = this.wrecks.filter(w => !w.done); this.wrecks.push({ x: this.x, y: this.y, no: this.no, film });
     while (this.wrecks.length > 4) { const i = this.wrecks.findIndex(w => !w.film.length); this.wrecks.splice(Math.max(0, i), 1); }
-    this.ev('lost', { why, no: this.no }); this.no++;
+    this.ev('lost', { why, no: this.no, film: film.length }); this.no++;
   }
 
   // --- sound in the water
@@ -143,7 +143,7 @@ export class Game {
     // wreck film
     for (const w of this.wrecks) if (!w.done && Math.hypot(w.x - this.x, w.y - this.y) < 20 && Math.abs(this.v) < 3.4) {
       w.done = true; const got = w.film.filter(m => !this.delivered.includes(m) && !this.shot.includes(m)); this.shot.push(...got); this.ev('salvage', { no: w.no, got });
-      if (got.includes('G')) this.callT = 14;
+      if (got.includes('G')) this.callT = 24;
     }
     this.thing(dt);
     if (this.live && this.shot.includes('G')) this.falseCalls(dt);
@@ -209,12 +209,13 @@ export class Game {
     const c = this.c, dmg = 40; this.hull -= dmg; this.ev('strike', { dmg });
     const a = brg(this.x - c.x, this.y - c.y); this.h += .5; this.v = -2; this.x += Math.sin(a) * 4; this.y += Math.cos(a) * 4;
     c.st = 'flee'; c.rest = 4; c.t = 0;
-    const s = EMPTY_SPOTS.slice().sort((p, q) => Math.hypot(q.x - this.x, q.y - this.y) - Math.hypot(p.x - this.x, p.y - this.y)); { const m = s[s.length - 4]; this.goto(m.x, m.y); }
+    const off = p => Math.abs(Math.hypot(p.x - this.x, p.y - this.y) - 160), m = EMPTY_SPOTS.slice().sort((p, q) => off(p) - off(q))[0]; // backs off, but not far
+    this.goto(m.x, m.y);
     if (this.hull <= 0) this.lose('it');
   }
   falseCalls(dt) {
     if (Math.hypot(this.x - HOME.x, this.y - HOME.y) > 110) { this.callT -= dt; if (this.callT <= 0 && this.calls < 6) { this.callT = 24; this.ev('falsecall', { n: this.calls++ }); } }
-    if (Math.hypot(this.x - FALSE_HOME.x, this.y - FALSE_HOME.y) < 26) this.lose('false');
+    if (this.calls && Math.hypot(this.x - FALSE_HOME.x, this.y - FALSE_HOME.y) < 26) this.lose('false');
   }
   // what the hydrophone gives you with the engine stopped
   listen() {

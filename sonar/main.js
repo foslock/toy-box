@@ -47,7 +47,7 @@ const STEPS = [
   { text: 'Morning, No. 7. Can you hear me? You steer with the brass slider on the ring. Drag it round to 055.', hl: 'bug', ok: () => Math.abs(wrap(g.course - .97)) < .13 },
   { text: "There's no window, so ask the water. Press PING and watch the walls come back.", hl: '#ping', ok: t => t.pings > 0 },
   { text: () => desk() ? 'That ping pencilled the echoes on your chart and fixed your position. Tap mark A on the chart.' : 'That ping pencilled the echoes on your chart and fixed your position. Open the chart.', hl: () => desk() ? 'A' : $('#chartbox').classList.contains('open') ? 'A' : '#cb', ok: t => t.sel === 'A' },
-  { text: 'Good. Steer sets the ring to that bearing, 056 for mark A. Do that, then push the lever to HALF.', hl: () => !desk() && $('#chartbox').classList.contains('open') ? '#steer' : '#lever', ok: () => g.thr >= 3 && Math.abs(wrap(g.course - .97)) < .2 },
+  { text: 'Good. Steer sets the ring to that bearing, 056 for mark A. Do that, then push the lever to HALF.', hl: () => !desk() && $('#chartbox').classList.contains('open') ? '#steer' : '#lever', ok: () => g.thr >= 3 && Math.abs(wrap(g.course - .97)) < .2 || Math.hypot(g.x - A.x, g.y - A.y) < 46 },
   { text: 'Mark A is at 614 E 578 N. Watch the counters climb and ping when you want to look.', ok: () => Math.hypot(g.x - A.x, g.y - A.y) < 46 },
   { text: 'Close now. Pull the lever to STOP. She takes a moment to lose way.', hl: '#lever', ok: () => g.thr === STOP && Math.abs(g.v) < 1.5 },
   { text: () => { const d = Math.hypot(g.x - A.x, g.y - A.y), b = brg(A.x - g.x, A.y - g.y), off = Math.abs(wrap(b - g.h)); return d > 33 ? `Still ${Math.round(d)} m off and the flash only carries 30. CREEP closer on ${deg(b)}.` : off > .35 ? `The camera looks where the nose points. Turn to ${deg(b)} to face the mark.` : "She's in front of you. Press SHUTTER."; }, hl: () => { const d = Math.hypot(g.x - A.x, g.y - A.y), off = Math.abs(wrap(brg(A.x - g.x, A.y - g.y) - g.h)); return d > 33 ? '#lever' : off > .35 ? 'bug' : '#shot'; }, ok: () => g.shot.includes('A') },
@@ -118,9 +118,9 @@ function drain() {
     case 'stir': { const b = brg(g.c.x - g.x, g.c.y - g.y); snd.call(rel(b), Math.max(.2, 1 - e.d / 280)); if (!tut) say('Hydrophone', `Something turned, bearing ${deg(b)}.`); break; }
     case 'hunt': { const b = brg(g.c.x - g.x, g.c.y - g.y); snd.call(rel(b), 1); say('Hydrophone', `It heard you. Bearing ${deg(b)} and closing. Get off this spot, then go quiet.`, { warn: 1, now: 1 }); break; }
     case 'loses': say('Hydrophone', 'It has lost interest.'); break;
-    case 'feel': snd.feel(); dimT = 8; shake = .5; say('Hull', g.thr === STOP ? 'It is on the hull. Touch nothing.' : 'It is on the hull. STOP THE ENGINE.', { warn: 1, now: 1 }); buzz(60); break;
+    case 'feel': cb.classList.remove('open'); snd.feel(); dimT = 8; shake = .5; say('Hull', g.thr === STOP ? 'It is on the hull. Touch nothing.' : 'It is on the hull. STOP THE ENGINE.', { warn: 1, now: 1 }); buzz(60); break;
     case 'leaves': say('Hull', 'It lets go.', { now: 1 }); snd.creak(); break;
-    case 'strike': snd.strike(); shake = 1.6; flash(.25); dimT = 2; buzz([120, 60, 200]); say('Hull', g.hull > 0 ? `Struck. Hull at ${Math.max(0, Math.round(g.hull))}. It will be back.` : 'The plates are going.', { warn: 1, now: 1 }); break;
+    case 'strike': cb.classList.remove('open'); snd.strike(); shake = 1.6; flash(.25); dimT = 2; buzz([120, 60, 200]); say('Hull', g.hull > 0 ? `Struck. Hull at ${Math.max(0, Math.round(g.hull))}. It will be back.` : 'The plates are going.', { warn: 1, now: 1 }); break;
     case 'mimic': scope.mimic(e); snd.mimic(rel(e.b), Math.max(.15, 1 - e.d / 230)); if (!g.mimicSaid) { g.mimicSaid = 1; say('Log', 'That was not my ping.'); } break;
     case 'decoy': { const d = Math.hypot(e.x - g.x, e.y - g.y); snd.decoy(rel(brg(e.x - g.x, e.y - g.y)), Math.max(.1, 1 - d / 200)); break; }
     case 'drop': snd.clunk(2); say('Log', 'Rattle away. It starts in four seconds.'); break;
@@ -136,7 +136,7 @@ const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch { }
 function flash(a) { const f = $('#flash'); f.style.transition = 'none'; f.style.opacity = a; requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transition = 'opacity .5s'; f.style.opacity = 0; })); }
 
 let dryN = -1;
-function dry() { const el = $('#dry'); if (tray && !tray.lamp) return; const k = prints.length ? prints.length + prints[prints.length - 1].cap : 0; if (k === dryN) return; dryN = k; el.innerHTML = prints.length ? prints.slice(-4).reverse().map((p, i) => `<img alt="" src="${p.img}" style="--r:${[-1.5, 1, 1.2, -.8][i]}deg">`).join('') : '<p>No prints on the line yet.</p>'; }
+function dry() { const el = $('#dry'); if (tray && !tray.lamp) return; const k = prints.length ? prints.length + prints[prints.length - 1].img : 0; if (k === dryN) return; dryN = k; el.innerHTML = prints.length ? prints.slice(-4).reverse().map((p, i) => `<img alt="" src="${p.img}" style="--r:${[-1.5, 1, 1.2, -.8][i]}deg">`).join('') : '<p>No prints on the line yet.</p>'; }
 $('#dry').onclick = () => { if (live()) gallery(); };
 // ---------- sheets
 const sheetEl = $('#sheet');
@@ -171,8 +171,7 @@ function onLost(e) {
   snd.lost(); endTut(); ls2 = null; finishPrints(); running = false; dimT = 3; store();
   const [t, x] = LOSS[e.why]; let extra = '';
   if (e.why === 'false') { const cv = cam.expose({ x: FALSE_HOME.x - 8, y: FALSE_HOME.y, h: 1.3, kind: 'G', m: { x: FALSE_HOME.x + 14, y: FALSE_HOME.y + 3, rot: 0 }, it: { x: FALSE_HOME.x + 3, y: FALSE_HOME.y + 2, h: 1.3 + Math.PI }, seed: 5 }); extra = prt(cv.toDataURL('image/jpeg', .82), CAPTION.false); }
-  const w = g.wrecks[g.wrecks.length - 1];
-  setTimeout(() => sheet(`<h2>${t}</h2><p>${x}</p>${extra}<p>${w && w.film.length ? `No. ${e.no} went down with ${w.film.length === 1 ? 'a print' : w.film.length + ' prints'} aboard. The wreck is on your chart. Pass slowly within 20 m to take the film.` : `No. ${e.no} had no film aboard.`}</p>`, [[`Lower No. ${g.no}`, nextDive, 1]]), 2200);
+    setTimeout(() => sheet(`<h2>${t}</h2><p>${x}</p>${extra}<p>${e.film ? `No. ${e.no} went down with ${e.film === 1 ? 'a print' : e.film + ' prints'} aboard. The wreck is on your chart. Pass slowly within 20 m to take the film.` : `No. ${e.no} had no film aboard.`}</p>`, [[`Lower No. ${g.no}`, nextDive, 1]]), 2200);
 }
 function ending() {
   const cv = cam.expose({ x: 500, y: 500, h: .6, cy: -3.8, pitch: .24, ghost: 0, kind: 'S', m: { x: 507, y: 510, rot: .9 }, seed: 21 });
@@ -201,7 +200,7 @@ $('#over').onclick = () => { const b = $('#over'); if (!b.dataset.sure) { b.data
 $('#how0').onclick = () => sheet(HOW(), [['Back', closeSheet, 1]]);
 
 // ---------- controls
-const act = { ping: () => live() && g.ping(), shot: () => { if (live()) { if (!g.shoot() && tray && !tray.lamp) say('Log', 'The last print is still in the tray.'); } }, drop: () => live() && g.drop(), winch: () => live() && g.winch() };
+const act = { ping: () => live() && g.ping(), shot: () => { if (live()) { if (!g.shoot() && tray && !tray.lamp) say('Log', 'The last print is still in the tray.'); } }, drop: () => live() && g.drop(), winch: () => live() && !$('#winch').hidden && g.winch() };
 const live = () => running && g.live && sheetEl.hidden;
 for (const k of ['ping', 'shot', 'drop']) $('#' + k).addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); act[k](); drain(); });
 for (const k of ['ping', 'shot', 'drop']) $('#' + k).addEventListener('click', e => { if (e.detail === 0) { act[k](); } });
@@ -244,7 +243,7 @@ const held = {};
 addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const open = !$('#gal').hidden ? $('#gal') : !sheetEl.hidden ? sheetEl : !$('#title').hidden ? $('#title') : null;
-  if (open) { if (['Enter', 'Space'].includes(e.code)) { e.preventDefault(); if (e.repeat || (open === sheetEl && performance.now() - sheetAt < 600)) return; const f = document.activeElement; (f && open.contains(f) && f.tagName === 'BUTTON' ? f : open.querySelector('.b.big') || open.querySelector('.b')).click(); } if (e.code === 'Escape' && open === $('#gal')) open.querySelector('.row .b').click(); return; }
+  if (open) { if (['Enter', 'Space'].includes(e.code)) { e.preventDefault(); if (e.repeat || (open === sheetEl && performance.now() - sheetAt < 600)) return; const f = document.activeElement; (f && open.contains(f) && f.tagName === 'BUTTON' ? f : open.querySelector('.b.big') || open.querySelector('.b')).click(); } if (e.code === 'Escape') { const b = open.querySelector(open === $('#gal') ? '.row .b' : '.b.big'); if (b && ['Back', 'Carry on'].includes(b.textContent) && open !== $('#title')) b.click(); } return; }
   if (!running) return;
   const k = e.code; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(k)) e.preventDefault();
   held[k] = true; if (e.repeat) return;
