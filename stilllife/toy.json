@@ -1,0 +1,9 @@
+{
+  "title": "Still Life",
+  "blurb": "Four frozen photographs of a 1926 wedding where everyone is up to something: search their pockets, collect words, and fill in what really happened.",
+  "added": "2026-11-25",
+  "category": "games",
+  "tags": ["mystery", "deduction", "puzzle", "art deco"],
+  "tape": "teal",
+  "capture": { "width": 1200, "height": 900, "wait": 3500, "query": "?demo" }
+}

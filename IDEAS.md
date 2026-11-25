@@ -31,7 +31,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 23. High Tide — [`hightide/`](hightide/)
 - [x] 24. Try Finger — [`tryfinger/`](tryfinger/)
 - [x] 25. Floodplain — [`floodplain/`](floodplain/)
-- [ ] 26. Still Life
+- [x] 26. Still Life — [`stilllife/`](stilllife/)
 - [x] 27. Encore — [`encore/`](encore/)
 - [x] 28. Dam Day — [`damday/`](damday/)
 - [x] 29. Liar's Table — [`liars/`](liars/)
@@ -281,8 +281,10 @@ An Into the Breach-style tactics puzzle where you command the river, not the arm
 
 Everything is perfect information: the raiders show exactly where they'll move and strike next turn, as in Into the Breach, and you win a level by getting through a few turns with the village standing. About twenty levels across a year of seasons (spring melt, summer drought, autumn storms, winter ice), each season adding one tool. Style: a small, hand-painted isometric diorama, soft and clay-textured, with water that ripples and floods convincingly.
 
-## 26. Still Life
+## 26. Still Life ✅
 *Borrows: The Case of the Golden Idol, Return of the Obra Dinn · Twist: the whole crime is one frozen second at a wedding*
+
+**Built 2026-11-25 as [`stilllife/`](stilllife/).** Four photographs (landing stage, lobby, the frozen reception, breakfast), twelve characters, 59 things to look at and 87 blanks over 14 pages. A page checks itself once every blank is filled and only says whether one or two, or more, are wrong. The first photograph is the lesson. Style: a flat-colour 1926 poster, drawn entirely as SVG from posed figures. Cut: a cumulative who's-who across scenes (known names simply carry over), and blanks only take their own sort of word.
 
 A Golden Idol-style deduction puzzle set in one frozen moment: a wedding reception at a lakeside hotel in 1926, stopped the second the cake hits the floor and the lights go out. You explore the frozen scene, look into guests' pockets and letters, read the seating plan, the menu and the band's setlist, and collect key words (names, objects, verbs). Then you fill in a report full of blanks (who is who, who swapped the place cards, who cut the lights and why) by dragging words into them. The game only confirms answers once you have about three blanks right, so you can't brute-force it.
 
