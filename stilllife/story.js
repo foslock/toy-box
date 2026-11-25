@@ -97,7 +97,7 @@ export const CHAPTERS = [
     pym: { head: 'On his feet, pointing at the fuse cupboard', text: 'He came to look at pearls. He was given a seat by the kitchen and has witnessed electricity instead.',
       docs: [{ k: 'note', t: 'His notebook', b: 'Promised: the lady’s right hand. Given: table two, behind a pillar, with a view of a cupboard. Somebody does not want me near those pearls. 9.41: waiter at cupboard. Why?' }] },
     pymcard: { head: 'A place card: “Mr Pym”', text: 'Standing at table two, where the plan has somebody else. A thumb has left a green smudge on one corner of the [[placecards|place card]].' },
-    krause: { head: 'Hands up, watch out', text: 'He is thinking about the price of a seven-tier cake.',
+    krause: { head: 'Hands up, watch out', text: 'He is thinking about the price of a four-tier cake.',
       docs: [{ k: 'letter', ink: 'black', t: 'A note to a guest, not yet delivered', b: 'Sir Augustus,\nAs you asked, I left the ballroom open for you at six, and looked away. No charge, this once. A.K.' }] },
     odette: { head: 'Still holding the handle', text: 'Three days of sugar work, and she had nearly got it there.',
       docs: [{ k: 'note', t: 'Kitchen order', b: 'Wheel in cake 9.40, through the middle of the room, SLOWLY.\nBride cuts at 9.50.\nNobody will be running about. I have asked.' }] },

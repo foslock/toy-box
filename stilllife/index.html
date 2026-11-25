@@ -30,7 +30,7 @@ h1,h2,h3,.btn,.lab { font-family:Federo, 'Goudy Bookletter 1911', serif; font-we
 #top > div { flex:1; min-width:0; }
 .ico { width:44px; height:44px; display:grid; place-items:center; background:var(--gold); border:3px solid var(--ink); color:var(--ink); flex:none; }
 .ico svg { width:24px; height:24px; fill:none; stroke:var(--ink); stroke-width:2.6; stroke-linejoin:round; stroke-linecap:round; }
-#stage { position:relative; overflow:hidden; background:#2a2240; touch-action:none; cursor:grab; min-height:0; }
+#stage { position:relative; overflow:hidden; overflow:clip; background:#2a2240; touch-action:none; cursor:grab; min-height:0; }
 #stage.drag { cursor:grabbing; }
 #pic { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; overflow:hidden; pointer-events:none; }
 #marks { position:absolute; inset:0; pointer-events:none; }
@@ -125,12 +125,13 @@ h1,h2,h3,.btn,.lab { font-family:Federo, 'Goudy Bookletter 1911', serif; font-we
 }
 @media (orientation:landscape) and (max-height:560px) {
   body { font-size:17px; } #top { min-height:54px; } #top h2 { font-size:21px; } #top p { font-size:15px; } #tabs button { min-height:38px; } #page { padding:8px 12px; } #page h3 { font-size:21px; padding-right:80px; } #page .txt { font-size:18px; line-height:1.85; margin:2px 0; }
-  .full { padding-top:14px; padding-bottom:14px; } .sheet { padding:24px 28px; } .sheet h2 { font-size:28px; } .sheet p { font-size:18px; margin-bottom:10px; }
+  .full { padding-left:64px; padding-top:14px; padding-bottom:14px; } .sheet { padding:24px 28px; } .sheet h2 { font-size:28px; } .sheet p { font-size:18px; margin-bottom:10px; }
   #tray { max-height:44%; padding:5px 8px; } #kinds { margin-bottom:4px; } #kinds button { min-height:28px; border-width:2px; border-bottom-width:4px; padding:0; font-size:15px; } .wd { min-height:34px; font-size:16px; padding:2px 8px; } .face svg { max-width:90px; } .face .bl { max-width:96px; min-height:38px; font-size:14px; min-width:0; } .face .bl:disabled { font-size:14px; min-height:38px; } .stamp { font-size:18px; }
   #app { grid-template-columns:minmax(0,1fr) clamp(300px, 42vw, 420px); } #coach { font-size:17px; padding:7px 12px 7px 50px; bottom:8px; } #coach::before { width:28px; height:28px; left:11px; top:9px; } #card { padding:6px; } #card .hd { padding-top:14px; } #card .hd svg { width:62px; height:68px; } #card .hd h3 { font-size:21px; }
   #title { place-items:center end; } #title .box { align-self:center; margin:0 24px 0 0; width:min(380px, 52%); padding:24px; } #title h1 { font-size:50px; } #title p { margin:6px 0 12px; font-size:18px; }
 }
-@media (max-width:859px) and (orientation:portrait) {
+@media (max-width:859px) and (orientation:portrait), (max-width:859px) and (min-height:560.02px) {
+  #top h2 { font-size:clamp(16px, calc(6.5vw - 4.4px), 25px); }
   #top p { white-space:normal; line-height:1.05; font-size:15px; }
   #app.rep { grid-template-rows:auto minmax(0,24fr) minmax(0,76fr) auto; } #app.rep #report { grid-row:3; }
   .ends { grid-template-columns:1fr; } .sheet { padding:26px 24px; }

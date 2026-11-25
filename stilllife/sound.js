@@ -3,7 +3,7 @@ let ctx, out, musicG, on = true, timer = null, bar = 0;
 export function setOn(v) { on = v; if (out) out.gain.setTargetAtTime(v ? 0.8 : 0, ctx.currentTime, 0.05); }
 export function wake() {
   if (!ctx) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; ctx = new A(); out = ctx.createGain(); out.gain.value = on ? 0.8 : 0; out.connect(ctx.destination); musicG = ctx.createGain(); musicG.gain.value = 0.5; musicG.connect(out); }
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx.state !== 'running') ctx.resume();
 }
 const hz = (m) => 440 * 2 ** ((m - 69) / 12);
 function tone(t, f, d, g, type = 'sine', dest = out, a = 0.005) {
@@ -48,7 +48,7 @@ function playBar() {
   bar++;
 }
 export function music(v) {
-  if (!ctx) return;
+  if (!ctx || (v && timer)) return;
   clearInterval(timer); timer = null;
   if (v) { playBar(); timer = setInterval(() => { if (!document.hidden) playBar(); }, 1560); }
 }

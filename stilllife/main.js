@@ -45,6 +45,8 @@ function zoomAt(px, py, k) { const [x, y] = toWorld(px, py), o = cam.k; cam.k = 
 let lastSize = [0, 0];
 new ResizeObserver(() => { if (!SC || !stage.clientWidth) return; const w = stage.clientWidth, h = stage.clientHeight; if (w === lastSize[0] && h === lastSize[1]) return; const first = !lastSize[0]; lastSize = [w, h]; const f = fit(); if (first) resetCam(); else { cam.k = Math.max(f.cover, Math.min(cam.k, f.cover * 1.6)); place(); } }).observe(stage);
 
+stage.addEventListener('scroll', () => { stage.scrollLeft = stage.scrollTop = 0; });
+
 // ---------- pointer ----------
 const pts = new Map(); let moved = 0, pinch = null;
 stage.addEventListener('pointerdown', (e) => {
@@ -76,7 +78,7 @@ function marks() {
   for (const s of SC.spots) {
     const b = document.createElement('button'), sp = C.spots[s.id], left = wordsIn(sp).some((w) => !has(w));
     b.className = 'mk ' + (!seen().includes(s.id) ? '' : left ? 'part' : 'done'); b._x = s.m[0]; b._y = s.m[1]; b.dataset.id = s.id; b.innerHTML = '<i></i>'; b.setAttribute('aria-label', sp.head);
-    b.onclick = () => openSpot(s.id); box.append(b);
+    b.onclick = () => openSpot(s.id); b.onfocus = () => glide(s.m[0], s.m[1]); box.append(b);
   }
   coachMark(); place();
 }
@@ -107,7 +109,8 @@ function closeCard() {
   if (!cardId) return; cardId = null; $('card').hidden = true; sfx.close(); marks(); coach();
   if (S.ch === 0 && S.tut === 2 && seen().length >= 2) tut(3);
   if (S.ch === 0 && S.tut === 3 && seen().length >= 5) tut(4);
-  if (lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
+  const back = lastFocus?.dataset.id ? document.querySelector(`.mk[data-id="${lastFocus.dataset.id}"]`) : lastFocus;
+  if (back?.isConnected) back.focus({ preventScroll: true });
 }
 function take(w) {
   if (has(w)) { toast('Already in the notebook'); return; }
@@ -122,7 +125,10 @@ function blank(i, w, st, small) {
   const a = answers(C.pages[page])[i], k = WORDS[a][0], v = st.fill[i];
   return `<button class="bl ${k} ${sel === i && !st.ok ? 'sel' : ''}" data-i="${i}" ${st.ok ? 'disabled' : ''}>${v ? WORDS[v][1] : `<span class="e">${{ name: small ? 'who?' : 'who', thing: 'what', deed: 'did what', fact: 'which' }[k]}</span>`}</button>`;
 }
+// the report is redrawn whole, so remember which of its buttons the keyboard was on
+function focusKey() { const b = document.activeElement?.closest('#report button'); if (!b) return ''; const k = ['w', 'i', 'p', 'k'].find((q) => b.dataset[q] != null); return k ? `#${b.parentElement.closest('[id]').id} [data-${k}="${b.dataset[k]}"]` : `#${b.id}`; }
 function report() {
+  const fk = focusKey();
   const p = C.pages[page], st = pst(page), nOk = C.pages.filter((_, i) => pst(i).ok).length, all = nOk === C.pages.length;
   $('tabs').innerHTML = C.pages.map((q, i) => `<button class="${i === page ? 'on' : ''} ${pst(i).ok ? 'ok' : ''}" data-p="${i}" aria-label="Page ${i + 1}: ${q.title}">${['One', 'Two', 'Three', 'Four'][i]}${pst(i).ok ? ' ✓' : ''}</button>`).join('');
   let i = 0, h = `<h3>${p.title}</h3>`;
@@ -142,6 +148,7 @@ function report() {
   const list = (kind === 'name' ? S.names : got().filter((w) => WORDS[w][0] === kind));
   $('words').innerHTML = list.length ? list.map((w) => `<button class="wd ${kind} ${st.fill.includes(w) ? 'used' : ''}" data-w="${w}">${WORDS[w][1]}</button>`).join('') : `<p>None yet. Look around the photograph and tap the underlined words.</p>`;
   const open = $('report').classList.contains('open');
+  if (fk) (document.querySelector(fk + ':not(:disabled)') || document.querySelector('#page .btn') || document.querySelector('#words .wd'))?.focus({ preventScroll: true });
   $('bRep').textContent = open ? 'Back to the photograph' : `The report (${nOk} of ${C.pages.length})`;
 }
 function select(i) { const st = pst(page); if (st.ok) return; sel = i; kind = WORDS[answers(C.pages[page])[i]][0]; msg = ''; if (st.fill[i]) { st.fill[i] = null; sfx.close(); } if (S.ch === 0 && S.tut <= 5) tut(6); report(); save(); }
@@ -179,17 +186,19 @@ $('kinds').onclick = (e) => { const b = e.target.closest('button'); if (b) { kin
 let drag = null;
 // the click a browser makes after the tap that opened a card must not act on the card
 $('card').addEventListener('click', (e) => { if (e.isTrusted && performance.now() - cardAt < 250) { e.stopPropagation(); e.preventDefault(); } }, true);
-$('words').addEventListener('pointerdown', (e) => { const b = e.target.closest('.wd'); if (!b) return; drag = { w: b.dataset.w, b, x: e.clientX, y: e.clientY, id: e.pointerId, on: false, ok: e.pointerType === 'mouse' }; if (!drag.ok) drag.t = setTimeout(() => { if (drag) { drag.ok = true; startGhost(drag.x, drag.y); } }, 260); });
+$('words').addEventListener('pointerdown', (e) => { const b = e.target.closest('.wd'); if (!b) return; if (drag) { clearTimeout(drag.t); drag.g?.remove(); } drag = { w: b.dataset.w, b, x: e.clientX, y: e.clientY, id: e.pointerId, on: false, ok: e.pointerType === 'mouse' }; if (!drag.ok) drag.t = setTimeout(() => { if (drag) { drag.ok = true; startGhost(drag.x, drag.y); } }, 260); });
 function startGhost(x, y) { drag.on = true; const g = drag.b.cloneNode(true); g.classList.add('ghost'); document.body.append(g); drag.g = g; g.style.left = x + 'px'; g.style.top = y + 'px'; }
 addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.id) return; const d = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
+  if (d > 8) drag.mv = true;
   if (!drag.on) { if (d > 8) { if (drag.ok) startGhost(e.clientX, e.clientY); else { clearTimeout(drag.t); drag = null; } } if (!drag || !drag.on) return; }
   drag.g.style.left = e.clientX + 'px'; drag.g.style.top = e.clientY + 'px';
   const o = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bl'); document.querySelectorAll('.bl.over').forEach((q) => q !== o && q.classList.remove('over')); o?.classList.add('over');
 });
 $('words').addEventListener('touchmove', (e) => { if (drag?.on) e.preventDefault(); }, { passive: false });
+$('words').addEventListener('contextmenu', (e) => e.preventDefault());
 let justDragged = 0;
-const drop = (e) => { if (!drag || e.pointerId !== drag.id) return; clearTimeout(drag.t); const d = drag; drag = null; d.g?.remove(); if (!d.on) return; justDragged = performance.now(); if (e.type === 'pointercancel') return; const o = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bl:not(:disabled)'); if (o) put(d.w, +o.dataset.i); };
+const drop = (e) => { if (!drag || e.pointerId !== drag.id) return; clearTimeout(drag.t); const d = drag; drag = null; d.g?.remove(); if (!d.on) return; justDragged = performance.now(); if (e.type === 'pointercancel') return; if (!d.mv) { put(d.w); return; } const o = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bl:not(:disabled)'); if (o) put(d.w, +o.dataset.i); };
 addEventListener('pointerup', drop); addEventListener('pointercancel', drop);
 $('words').onclick = (e) => { const b = e.target.closest('.wd'); if (b && performance.now() - justDragged > 120) { wake(); put(b.dataset.w); } };
 function toggleReport(v) { const o = v ?? !$('report').classList.contains('open'); if (o && cardId) closeCard(); $('report').classList.toggle('open', o); $('app').classList.toggle('rep', o); if (o && S.ch === 0 && (S.tut === 4 || S.tut === 3)) tut(5); if (o && sel < 0) goPage(page); else report(); coach(); sfx.open(); }
@@ -230,7 +239,7 @@ function album() {
   const inGame = !$('app').hidden;
   sheet(`<h2>The album</h2><div class="album">${CHAPTERS.map((c, i) => { const sc = SCENES[c.id], un = i === 0 || S.done.includes(CHAPTERS[i - 1].id); return `<button data-i="${i}" ${un ? '' : 'disabled'}><svg viewBox="${(sc.w - 1800) / 2} 0 1800 1000" preserveAspectRatio="xMidYMid slice">${un ? (thumbs[i] ??= sc.draw()) : `<path d="M700 300h400v400h-400z" fill="none" stroke="${INK}" stroke-width="20"/><text x="900" y="570" font-size="200" text-anchor="middle" font-family="Federo">${c.num}</text>`}</svg>${c.num}. ${c.title}<small>${S.done.includes(c.id) ? 'Confirmed' : un ? 'On the desk' : 'Not developed yet'}</small></button>`; }).join('')}</div>
     <div class="row"><button class="btn" id="bk">${inGame ? 'Back to the photograph' : 'Back'}</button>${S.done.length === 4 ? '<button class="btn plain" id="af">Afterwards</button>' : ''}<button class="lnk" id="rs">Start over</button></div>`, (o) => {
-    o.querySelectorAll('.album button').forEach((b) => { b.onclick = () => { const i = +b.dataset.i; if (inGame && i === S.ch) { o.hidden = true; place(); } else setChapter(i); }; });
+    o.querySelectorAll('.album button').forEach((b) => { b.onclick = () => { const i = +b.dataset.i; if (inGame && i === S.ch) { o.hidden = true; place(); return; } music(true); if (S.seen[CHAPTERS[i].id]) setChapter(i); else chapterCard(i); }; });
     o.querySelector('#bk').onclick = () => { o.hidden = true; if (!inGame) title(); };
     const a = o.querySelector('#af'); if (a) a.onclick = ending;
     const r = o.querySelector('#rs'); r.onclick = () => { if (!r.dataset.sure) { r.dataset.sure = 1; r.textContent = 'Tap again to burn the album'; return; } const m = S.mute; S = { ...fresh(), mute: m }; save(); o.hidden = true; $('app').hidden = true; title(); };
@@ -257,6 +266,7 @@ addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+if (S.tut === 7) S.tut = 8;
 if (Q.has('demo')) {
   S.done = ['landing', 'lobby']; S.tut = 9; S.names = ['honoria', 'teddy', 'hugo', 'pym', 'emil', 'iris', 'augustus', 'odette', 'krause', 'julian', 'dolly']; S.got.ballroom = ['fuse', 'lakestars', 'pulled', 'insurance', 'snatch', 'pearls', 'cake'];
   S.known = [...S.names]; S.seen.ballroom = ['emil', 'fuse', 'plan', 'teddy', 'odette'];
