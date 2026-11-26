@@ -25,7 +25,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 17. Glyphs — [`glyphs/`](glyphs/) (Sun Good)
 - [x] 18. Needle — [`needle/`](needle/)
 - [x] 19. Ladder — [`ladder/`](ladder/)
-- [ ] 20. Chat Dungeon
+- [x] 20. Chat Dungeon — [`chatdungeon/`](chatdungeon/)
 - [ ] 21. Moving Day
 - [x] 22. Poker Squares — [`fivebyfive/`](fivebyfive/)
 - [x] 23. High Tide — [`hightide/`](hightide/)
@@ -231,8 +231,10 @@ A Foddian climbing game where your only tool is a long wooden ladder. You're a s
 
 One continuous hand-built route with no checkpoints, about an hour to the top for a good player. Controls should be learnable in ten seconds and work with one finger on a phone. Save your high point, and at the end of each session show a replay of your worst fall with a deadpan sports-commentator caption, for streamers to clip. Style: a hazy, sun-faded 2D side view with a light painterly touch, and a painter whose gentle little animations make every fall sadder.
 
-## 20. Chat Dungeon
+## 20. Chat Dungeon ✅
 *Borrows: Twitch-integrated games · Twist: the stream's chat is the dungeon master*
+
+**Built 2026-11-26 as [`chatdungeon/`](chatdungeon/).** Five floors of four rooms (floor 5 is a shrine and the Ban Ogre boss) in a 2D canvas, with eleven simulated regulars and read-only Twitch chat over the anonymous IRC websocket. No `!vote` streamer override, no OBS-only layout mode; a six-step tutorial runs as a "pre-stream" warm-up.
 
 A roguelite made to be played on a Twitch stream, where chat is the dungeon master. The streamer plays a short top-down dungeon crawl (rooms, enemies, loot, a boss on floor 5), and chat changes the game as it goes by typing commands: !spawn goblin, !trap, !bless, !curse, !vote left or right at forks. Chat earns a shared pool of mischief over time and every command spends some of it. Anything a chatter spawns wears their username, so the streamer knows who to blame. Connect read-only to a channel's chat from the title screen using Twitch's anonymous IRC websocket, so there's no login or backend; if that's no longer possible, say so and lean on the simulated chat.
 

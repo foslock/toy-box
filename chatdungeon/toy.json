@@ -1,0 +1,9 @@
+{
+  "title": "Chat Dungeon",
+  "blurb": "A dungeon crawl where chat is the dungeon master, spending a shared jar of mischief on monsters with their names on, traps, curses and every door.",
+  "added": "2026-11-26",
+  "category": "games",
+  "tags": ["roguelite", "dungeon", "twitch", "chat", "action", "canvas", "game"],
+  "tape": "red",
+  "capture": { "width": 1200, "height": 900, "wait": 3200, "query": "?demo" }
+}

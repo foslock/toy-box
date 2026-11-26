@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Chat Dungeon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1d1029; --cream: #fff4dc; --pink: #ff4f8b; --yellow: #ffd23f; --teal: #2ec4b6; --purple: #7b4bff; --bg: #2b1740; --panel: #21122f; --chatw: 330px; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--cream); font: 400 16px/1.3 "Atkinson Hyperlegible", system-ui, sans-serif; overflow: hidden;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; -webkit-text-size-adjust: 100%;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,244,220,.07) 1.5px, transparent 0); background-size: 22px 22px; }
+  [hidden] { display: none !important; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: 0; padding: 0; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+  .bung { font-family: Bungee, system-ui, sans-serif; font-weight: 400; letter-spacing: .02em; }
+
+  /* ---------- layout: game left, chat right; stacked on tall screens */
+  #app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--chatw); grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "hud chat" "stage chat"; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #hud { grid-area: hud; display: flex; align-items: center; gap: 10px; padding: 8px 10px 6px 62px; min-height: 48px; box-sizing: border-box; min-width: 0; }
+  #stage { grid-area: stage; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
+  #c { display: block; border: 4px solid var(--ink); border-radius: 6px; box-shadow: 6px 6px 0 rgba(0,0,0,.45); background: var(--ink); touch-action: none; }
+  #chat { grid-area: chat; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-left: 4px solid var(--ink); }
+  #controls { grid-row: 2; grid-column: 1 / -1; position: relative; pointer-events: none; display: none; z-index: 4; }
+  body.touch #controls { display: block; }
+  body.touch #feed { padding-bottom: 108px; }
+
+  @media (max-aspect-ratio: 1/1), (max-width: 700px) and (max-aspect-ratio: 4/3) {
+    #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "hud" "stage" "chat" "pad"; }
+    #chat { border-left: 0; border-top: 4px solid var(--ink); }
+    #stage { padding: 0 6px; }
+    body.touch #controls { grid-area: pad; height: 168px; pointer-events: none; }
+    body.touch #feed { padding-bottom: 8px; }
+    #joy { width: 58% !important; }
+    @media (max-height: 700px) { body.touch #controls { height: 140px; } #tbA { bottom: 22px; } #tbB { bottom: 12px; } }
+    #jar .costs { display: none; }
+  }
+  @media (max-height: 520px) and (min-aspect-ratio: 1/1) { :root { --chatw: 230px; } #hud { min-height: 40px; padding-top: 4px; padding-bottom: 2px; } #jar .costs { display: none; } .m { font-size: 14px !important; } }
+  @media (min-width: 1300px) { :root { --chatw: 360px; } }
+
+  /* ---------- HUD */
+  #hearts { display: flex; gap: 2px; flex: none; }
+  #hearts svg { width: 26px; height: 24px; display: block; }
+  #where { min-width: 0; flex: 1 1 auto; }
+  #where .a { font-family: Bungee, sans-serif; font-size: 17px; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--yellow); text-shadow: 2px 2px 0 var(--ink); }
+  #where .b { font-size: 13px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #relics { display: flex; gap: 4px; flex: none; }
+  #relics canvas { width: 28px; height: 28px; background: var(--cream); border: 3px solid var(--ink); border-radius: 8px; box-sizing: border-box; }
+  #hudbtns { display: flex; gap: 6px; flex: none; }
+  .ib { width: 40px; height: 40px; border-radius: 10px; background: var(--cream); color: var(--ink); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); display: grid; place-items: center; box-sizing: border-box; }
+  .ib svg { width: 20px; height: 20px; }
+  .ib:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  #skipTut { font-family: Bungee, sans-serif; font-size: 12px; padding: 0 10px; height: 40px; border-radius: 10px; background: var(--purple); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); box-sizing: border-box; }
+  #curseTag { flex: none; font-family: Bungee, sans-serif; font-size: 12px; background: #b14bff; color: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  @media (max-width: 560px) {
+    #hud { gap: 6px; padding-right: 6px; } #hearts svg { width: 19px; height: 18px; } #where .a { font-size: 14px; } #where .b { font-size: 12px; }
+    #relics canvas { width: 22px; height: 22px; border-width: 2px; border-radius: 6px; } .ib, #skipTut { height: 36px; } .ib { width: 36px; }
+    #curseTag { display: none !important; }
+  }
+
+  /* ---------- chat */
+  #chathd { padding: 10px 12px 8px; border-bottom: 3px solid var(--ink); background: #2c1840; }
+  #chathd .row1 { display: flex; align-items: center; gap: 8px; }
+  #chathd .t { font-family: Bungee, sans-serif; font-size: 16px; }
+  #chathd .src { font-size: 13px; opacity: .8; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #ff2d55; box-shadow: 0 0 0 2px var(--ink); flex: none; animation: blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  #jar { margin-top: 8px; }
+  #jar .lab { display: flex; justify-content: space-between; font-family: Bungee, sans-serif; font-size: 12px; color: var(--yellow); }
+  #jar .bar { margin-top: 3px; height: 16px; border: 3px solid var(--ink); border-radius: 6px; background: #170c22; position: relative; overflow: hidden; }
+  #jar .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: repeating-linear-gradient(-45deg, #ff4f8b 0 8px, #ff79a6 8px 16px); border-right: 3px solid var(--ink); }
+  #jar .ticks { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(5% - 2px), rgba(29,16,41,.6) calc(5% - 2px) 5%); }
+  #jar .costs { margin-top: 5px; font-size: 12px; opacity: .75; line-height: 1.35; }
+  #jar .costs b { color: var(--cream); font-weight: 700; }
+  #jar.flash .bar { animation: jarflash .5s 3; }
+  @keyframes jarflash { 50% { box-shadow: 0 0 0 4px var(--yellow); } }
+  #feed { flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 6px 10px 8px; gap: 3px; min-height: 0;
+    mask-image: linear-gradient(transparent 0, #000 40px); -webkit-mask-image: linear-gradient(transparent 0, #000 40px); }
+  .m { font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; animation: pop .18s ease-out; }
+  .m b { font-weight: 700; }
+  .m .cmd { display: inline-block; font-weight: 700; background: var(--cream); color: var(--ink); border-radius: 5px; padding: 0 5px; margin-left: 2px; box-shadow: 2px 2px 0 var(--ink); }
+  .m .cmd.no { background: #5a4a6a; color: #cfc3dc; text-decoration: line-through; box-shadow: none; }
+  .m .why { font-size: 12px; opacity: .7; margin-left: 4px; }
+  .m .cost { font-family: Bungee, sans-serif; font-size: 11px; color: var(--pink); margin-left: 4px; }
+  .m.sys { font-family: Bungee, sans-serif; font-size: 12px; color: var(--ink); background: var(--yellow); border: 3px solid var(--ink); border-radius: 6px; padding: 3px 7px; align-self: flex-start; box-shadow: 2px 2px 0 var(--ink); }
+  .m.sys.good { background: #7ee05a; } .m.sys.bad { background: #ff5d8f; } .m.sys.info { background: #6fb8ff; }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } }
+  @media (max-aspect-ratio: 1/1), (max-width: 700px) and (max-aspect-ratio: 4/3) { #chathd { padding: 6px 10px 6px; } #jar { margin-top: 4px; } .m { font-size: 15px; } }
+
+  /* ---------- touch controls */
+  #joy { position: absolute; left: 0; top: 0; bottom: 0; width: calc((100% - var(--chatw)) * .7); pointer-events: auto; touch-action: none; }
+  #joyBase, #joyKnob { position: absolute; border-radius: 50%; border: 3px solid var(--ink); pointer-events: none; transform: translate(-50%, -50%); }
+  #joyBase { width: 104px; height: 104px; background: rgba(255,244,220,.16); }
+  #joyKnob { width: 50px; height: 50px; background: var(--cream); box-shadow: 3px 3px 0 var(--ink); }
+  #joyHint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: Bungee, sans-serif; font-size: 12px; opacity: .45; text-align: center; pointer-events: none; white-space: nowrap; }
+  .tb { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; border: 4px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); display: grid; place-items: center; font-family: Bungee, sans-serif; color: var(--ink); }
+  .tb svg { width: 46%; height: 46%; }
+  .tb.down { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+  #tbA { width: 86px; height: 86px; right: 18px; bottom: 26px; background: var(--pink); }
+  #tbB { width: 62px; height: 62px; right: 118px; bottom: 16px; background: var(--teal); }
+  #tbA span, #tbB span { position: absolute; bottom: -19px; font-size: 10px; color: var(--cream); text-shadow: 1px 1px 0 var(--ink); }
+  @media (min-aspect-ratio: 1/1) { body.touch #joyHint { display: none; } #tbA { width: 78px; height: 78px; right: 14px; bottom: 14px; } #tbB { width: 58px; height: 58px; right: 104px; bottom: 12px; } #tbA span, #tbB span { display: none; } }
+
+  /* ---------- tutorial coach and banners over the stage */
+  #coach { grid-area: stage; align-self: start; justify-self: center; margin-top: 8px; position: relative; z-index: 6; transform: rotate(-.6deg); width: min(430px, calc(100% - 24px)); box-sizing: border-box; pointer-events: none;
+    background: var(--cream); color: var(--ink); border: 4px solid var(--ink); border-radius: 10px; box-shadow: 5px 5px 0 var(--ink); padding: 8px 12px 9px; font-size: 17px; line-height: 1.25; transition: opacity .2s, transform .2s; }
+  #coach .k { font-family: Bungee, sans-serif; font-size: 11px; color: var(--purple); }
+  #coach kbd { font: 700 13px "Atkinson Hyperlegible", sans-serif; background: var(--ink); color: var(--cream); border-radius: 4px; padding: 0 5px; }
+  #coach.off { opacity: 0; transform: translateY(-8px); }
+  #coach.low { align-self: end; margin-bottom: 8px; }
+  /* phones: the note sits over the chat feed, so the room stays clear */
+  @media (max-aspect-ratio: 1/1), (max-width: 700px) and (max-aspect-ratio: 4/3) { #coach, #coach.low { grid-area: chat; align-self: start; margin-top: 74px; font-size: 15px; padding: 6px 10px 7px; } }
+  @media (max-height: 520px) and (min-aspect-ratio: 1/1) { #coach, #coach.low { grid-area: chat; align-self: start; margin-top: 64px; width: calc(100% - 14px); font-size: 14px; padding: 5px 8px 6px; } }
+  #banner { position: absolute; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-2deg); pointer-events: none; text-align: center; transition: opacity .3s, transform .3s; }
+  #banner .t { font-family: Bungee, sans-serif; font-size: clamp(22px, 5vw, 44px); line-height: 1; color: var(--yellow); background: var(--ink); padding: 8px 18px 6px; border-radius: 8px; white-space: nowrap; box-shadow: 5px 5px 0 rgba(0,0,0,.4); }
+  #banner .s { display: inline-block; margin-top: 8px; font-weight: 700; font-size: 16px; background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 6px; padding: 2px 10px; }
+  #banner.off { opacity: 0; transform: translate(-50%, -50%) rotate(-2deg) scale(.85); }
+
+  /* ---------- sheets */
+  .veil { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 14px; box-sizing: border-box; background: rgba(20,9,30,.62); overflow: auto; }
+  .card { position: relative; background: var(--cream); color: var(--ink); border: 5px solid var(--ink); border-radius: 14px; box-shadow: 9px 9px 0 var(--ink); padding: 20px 22px 18px;
+    width: min(460px, calc(100vw - 40px)); box-sizing: border-box; max-height: calc(100dvh - 40px); overflow: auto; }
+  .card h1 { margin: 0; font-family: Bungee, sans-serif; font-weight: 400; font-size: clamp(40px, 11vw, 60px); line-height: .9; }
+  .card h1 .w1 { display: inline-block; background: var(--pink); color: var(--cream); padding: 6px 10px 2px; border: 4px solid var(--ink); border-radius: 8px; transform: rotate(-3deg); box-shadow: 4px 4px 0 var(--ink); -webkit-text-stroke: 1.5px var(--ink); }
+  .card h1 .w2 { display: inline-block; margin-top: 6px; background: var(--yellow); padding: 6px 10px 2px; border: 4px solid var(--ink); border-radius: 8px; transform: rotate(2deg); box-shadow: 4px 4px 0 var(--ink); }
+  .card h2 { margin: 0 0 6px; font-family: Bungee, sans-serif; font-weight: 400; font-size: 28px; line-height: 1.05; }
+  .card p { margin: 10px 0 0; font-size: 17px; }
+  .card .tag { font-size: 19px; font-weight: 700; margin-top: 14px; }
+  .small { font-size: 14px; opacity: .8; }
+  .btns { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .btn { min-height: 50px; padding: 8px 16px; border-radius: 10px; border: 4px solid var(--ink); background: var(--cream); color: var(--ink); font-family: Bungee, sans-serif; font-size: 18px; box-shadow: 4px 4px 0 var(--ink); }
+  .btn.go { background: var(--pink); color: #fff; -webkit-text-stroke: .6px var(--ink); font-size: 22px; }
+  .btn.alt { background: #6fb8ff; }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+  .linky { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; font-size: 15px; margin-top: 12px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  #twitch { margin-top: 12px; padding: 12px; border: 3px dashed var(--ink); border-radius: 10px; }
+  #twitch input { flex: 1 1 140px; min-width: 0; height: 44px; border: 3px solid var(--ink); border-radius: 8px; padding: 0 10px; background: #fff; color: var(--ink); font-weight: 700; font-size: 17px; -webkit-user-select: text; user-select: text; }
+  #twitch .btn { min-height: 44px; font-size: 15px; }
+  #tStatus { margin-top: 8px; font-size: 14px; font-weight: 700; }
+  label.chk { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 15px; }
+  label.chk input { width: 20px; height: 20px; accent-color: var(--pink); }
+  .cmds { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin-top: 10px; font-size: 15px; }
+  .cmds code { font: 700 14px "Atkinson Hyperlegible", sans-serif; background: var(--ink); color: var(--cream); border-radius: 5px; padding: 1px 6px; white-space: nowrap; align-self: start; }
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; margin-top: 10px; font-size: 16px; }
+  .stats b { font-family: Bungee, sans-serif; font-weight: 400; }
+  .awards { margin-top: 12px; display: grid; gap: 8px; }
+  .award { border: 3px solid var(--ink); border-radius: 10px; padding: 6px 10px; background: #fff; box-shadow: 3px 3px 0 var(--ink); }
+  .award .k { font-family: Bungee, sans-serif; font-size: 11px; color: var(--purple); }
+  .award .n { font-weight: 700; font-size: 18px; }
+  .award .d { font-size: 14px; opacity: .8; }
+  .best { margin-top: 10px; font-size: 15px; font-weight: 700; }
+  .stamp { position: absolute; right: 12px; top: 12px; font-family: Bungee, sans-serif; font-size: 12px; color: #fff; background: #ff2d55; border: 3px solid var(--ink); border-radius: 6px; padding: 2px 8px; transform: rotate(6deg); display: flex; gap: 6px; align-items: center; }
+  .stamp .dot { width: 8px; height: 8px; background: #fff; }
+
+  body.demo #hudbtns, body.demo #coach { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div id="hearts" aria-label="Hearts"></div>
+    <div id="where"><div class="a" id="whereA">Chat Dungeon</div><div class="b" id="whereB"></div></div>
+    <div id="curseTag" hidden></div>
+    <div id="relics"></div>
+    <div id="hudbtns">
+      <button id="skipTut" hidden>Skip tutorial</button>
+      <button class="ib" id="bSound" aria-label="Sound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path id="sndWave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+      <button class="ib" id="bPause" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="4.5" width="4.5" height="15" rx="1"/><rect x="14" y="4.5" width="4.5" height="15" rx="1"/></svg></button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <canvas id="c"></canvas>
+    <div id="banner" class="off"><div class="t" id="banT"></div><div class="s" id="banS"></div></div>
+  </main>
+
+  <aside id="chat">
+    <div id="chathd">
+      <div class="row1"><span class="dot"></span><span class="t">Chat</span><span class="src" id="src">simulated chat</span></div>
+      <div id="jar">
+        <div class="lab"><span>Mischief jar</span><span id="jarN">0 / 20</span></div>
+        <div class="bar"><div class="fill" id="jarFill"></div><div class="ticks"></div></div>
+        <div class="costs"><b>!spawn</b> bat 2 · goblin 3 · slime 3 · skeleton 4 &nbsp;<b>!trap</b> 3 &nbsp;<b>!bless</b> 5 &nbsp;<b>!curse</b> 6</div>
+      </div>
+    </div>
+    <div id="feed" aria-live="off"></div>
+  </aside>
+
+  <div id="coach" class="off" role="status"><div class="k" id="coachK">tutorial</div><div id="coachT"></div></div>
+
+  <div id="controls">
+    <div id="joy"><div id="joyHint">drag here<br>to walk</div><div id="joyBase" hidden></div><div id="joyKnob" hidden></div></div>
+    <button class="tb" id="tbB" aria-label="Dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h10M10 6l6 6-6 6M19 5v14"/></svg><span>dash</span></button>
+    <button class="tb" id="tbA" aria-label="Swing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4H20v5.5L9.5 20 4 14.5z" fill="#fff4dc"/><path d="M7 12l5 5M4 20l2.5-2.5"/></svg><span>swing</span></button>
+  </div>
+</div>
+
+<div class="veil" id="title" hidden>
+  <div class="card">
+    <div class="stamp"><span class="dot"></span>LIVE</div>
+    <h1><span class="w1">Chat</span><br><span class="w2">Dungeon</span></h1>
+    <p class="tag">You crawl the dungeon. Chat is the dungeon master.</p>
+    <p>Chat spends a shared jar of mischief to spawn monsters (with their names on), set traps, curse you, bless you, and vote on every door. Five floors. One Ban Ogre.</p>
+    <div class="best" id="best"></div>
+    <div class="btns">
+      <button class="btn go" id="bGo">Go live</button>
+      <div class="small" id="firstNote" style="margin-top:-4px">First time? A one-minute warm-up comes first.</div>
+      <button class="btn" id="bTut">Tutorial</button>
+    </div>
+    <button class="linky" id="bReal">Play with a real Twitch chat…</button>
+    <div id="twitch" hidden>
+      <div class="small">Reads a channel's chat anonymously. Nothing is posted and there's no login. Viewers type <b>!spawn goblin</b>, <b>!trap</b>, <b>!curse</b>, <b>!bless</b>, and <b>!left</b> / <b>!right</b> at the doors.</div>
+      <div class="row" style="margin-top:10px"><input id="chan" placeholder="channel name" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="25"><button class="btn" id="bConnect">Connect</button></div>
+      <label class="chk"><input type="checkbox" id="keepSim"> Keep the simulated regulars too</label>
+      <div id="tStatus"></div>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="pause" hidden>
+  <div class="card">
+    <h2>Be right back</h2>
+    <p class="small" id="pauseWhere"></p>
+    <div class="btns"><button class="btn go" id="bResume">Resume</button></div>
+    <h2 style="margin-top:18px;font-size:20px">How to play</h2>
+    <p id="howKeys"></p>
+    <h2 style="margin-top:14px;font-size:20px">What chat can type</h2>
+    <div class="cmds">
+      <code>!spawn bat</code><span>2 mischief. Fast, fragile, flappy.</span>
+      <code>!spawn goblin</code><span>3. Winds up, then lunges. Sidestep it.</span>
+      <code>!spawn slime</code><span>3. Hops. Splits in two when it pops.</span>
+      <code>!spawn skeleton</code><span>4. Keeps its distance and shoots. Swat the arrows.</span>
+      <code>!trap</code><span>3. Spikes where you're standing in a second.</span>
+      <code>!curse</code><span>6. Fog, buttered floor, or backwards controls.</span>
+      <code>!bless</code><span>5. Heals a heart, or gives a shield if you're full.</span>
+      <code>!left !right</code><span>Free. Votes on the next door.</span>
+    </div>
+    <p class="small">Doors stay locked while anything's alive, chat's monsters included. Every kill puts a little mischief in the jar.</p>
+    <div class="btns"><button class="btn" id="bRestart">Restart run</button><button class="btn alt" id="bQuit">End stream (title)</button></div>
+  </div>
+</div>
+
+<div class="veil" id="end" hidden>
+  <div class="card">
+    <h2 id="endT">Stream over</h2>
+    <p id="endS" class="small"></p>
+    <div class="stats" id="endStats"></div>
+    <div class="awards" id="awards"></div>
+    <div class="btns"><button class="btn go" id="bAgain">Go live again</button><button class="btn" id="bTitle">Title</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
