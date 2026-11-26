@@ -154,6 +154,21 @@
   .award .k { font-family: Bungee, sans-serif; font-size: 11px; color: var(--purple); }
   .award .n { font-weight: 700; font-size: 18px; }
   .award .d { font-size: 14px; opacity: .8; }
+  /* phones held sideways: the end card goes two-up so its buttons stay on screen */
+  @media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+    #end .card { width: min(720px, calc(100vw - 40px)); padding: 12px 18px 14px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-content: start;
+      grid-template-areas: "t a" "s a" "st a" "b a"; }
+    #endT { grid-area: t; font-size: 22px; } #endS { grid-area: s; margin-top: 2px; } #endStats { grid-area: st; font-size: 14px; margin-top: 6px; }
+    #awards { grid-area: a; align-self: start; margin-top: 2px; } #end .btns { grid-area: b; flex-direction: row; margin-top: 10px; } #end .btn { flex: 1; min-height: 44px; font-size: 16px; }
+    /* and the title too, so Go live isn't below the fold */
+    #title .card { width: min(760px, calc(100vw - 40px)); padding: 14px 20px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; align-content: start; }
+    #title h1 { grid-area: 1 / 1; font-size: 34px; } #title .tag { grid-area: 2 / 1; font-size: 16px; margin-top: 8px; }
+    #title .card > p:not(.tag) { grid-area: 3 / 1 / span 3; font-size: 15px; margin-top: 6px; }
+    #title .best { grid-area: 1 / 2; align-self: end; margin: 0 0 8px; } #title .btns { grid-area: 2 / 2 / span 2; margin-top: 0; align-self: start; }
+    #bReal { grid-area: 4 / 2; justify-self: start; margin-top: 8px; } #twitch { grid-area: 5 / 2; }
+  }
+  /* the Home button sits in the top-left corner: keep tall cards below it */
+  @media (max-aspect-ratio: 1/1) { .veil { padding-top: 62px; } .card { max-height: calc(100dvh - 76px); } }
   .best { margin-top: 10px; font-size: 15px; font-weight: 700; }
   .stamp { position: absolute; right: 12px; top: 12px; font-family: Bungee, sans-serif; font-size: 12px; color: #fff; background: #ff2d55; border: 3px solid var(--ink); border-radius: 6px; padding: 2px 8px; transform: rotate(6deg); display: flex; gap: 6px; align-items: center; }
   .stamp .dot { width: 8px; height: 8px; background: #fff; }

@@ -70,6 +70,8 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => { keys.clear(); inp.mouseDown = false; inp.aHeld = false; endJoy(); });
+// leaving the tab pauses, so a live Twitch chat can't spend the jar on you while the game is frozen
+document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && (mode === 'play' || mode === 'tut') && game && !game.over && !DEMO && !AUTO) togglePause(); });
 const cv = $('c');
 cv.addEventListener('pointerdown', (e) => {
   sound.init();
