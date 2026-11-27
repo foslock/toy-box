@@ -48,7 +48,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 40. Dollhouse — [`dollhouse/`](dollhouse/)
 - [x] 41. Shared Deck — [`harrowing/`](harrowing/)
 - [x] 42. Come Bye — [`comebye/`](comebye/)
-- [ ] 43. Floppy
+- [x] 43. Floppy — [`floppy/`](floppy/)
 - [x] 44. Conga — [`conga/`](conga/)
 - [ ] 45. Heirloom
 - [x] 46. Panto Horse — [`pantohorse/`](pantohorse/)
@@ -430,8 +430,10 @@ A sheepdog trial game. You steer the dog by dragging where it should run, and a 
 
 A season of trials across different fields (a hillside, a field with a stream, a windy moor, a foggy morning) with different flocks (nervous lambs, an old ram who won't be hurried), judges who score each phase as at a real trial, and a dog whose trust in you grows. Style: soft, painterly British countryside with drystone walls and long shadows, sheep like funny little cotton balls, and the whistle calls of real commands ("come bye," "away to me").
 
-## 43. Floppy
+## 43. Floppy ✅
 *Borrows: The Beginner's Guide, The Stanley Parable · Twist: a big sibling's homemade games from 1992 to 2001, found in a shoebox*
+
+**Built 2026-11-27 as [`floppy/`](floppy/).**
 
 A narrative game told through the little games someone made as a kid. You've found a shoebox of floppy disks in your parents' attic: games your older sibling made between the ages of 10 and 19, from 1992 to 2001. Put a disk in the old PC and you play it: a guess-the-number game in QBasic, a text adventure about the family dog, a maze, a racing game with a broken lap counter, an unfinished RPG, something strange and sad. Between and around the games, your sibling's notes (disk labels, README files, comments in code you can open) tell you what was going on in their life when they made each one.
 

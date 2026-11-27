@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Floppy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Reenie+Beanie&family=Covered+By+Your+Grace&family=Silkscreen&display=block" rel="stylesheet">
+<style>
+  :root { --wood: #3a2618; --beige: #d8cfb8; --beige2: #bfb497; --ink: #1d1a16; --pencil: #3b3a40; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #140d08; color: var(--ink); }
+  body { font-family: 'Reenie Beanie', cursive; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  /* the attic: rafters in the dark, warm lamp pool on the desk */
+  #attic { position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 38%, rgba(255,196,120,.32), rgba(255,170,90,.08) 55%, transparent 75%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 2px, transparent 2px 140px),
+      linear-gradient(180deg, #1b120b 0%, #2a1b10 55%, #3d2817 56%, #34210f 100%); }
+  #attic::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(180deg, transparent 0 22px, rgba(0,0,0,.18) 22px 24px); mix-blend-mode: multiply; opacity: .5; }
+
+  #desk { position: fixed; inset: 0; display: grid; gap: 10px; padding: 12px; padding-top: max(12px, env(safe-area-inset-top));
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "mon box" "drive box" "note box"; align-items: start; justify-items: center;
+    max-width: 1220px; margin: 0 auto; padding-left: 64px; }
+
+  /* monitor */
+  #mon { grid-area: mon; width: min(100%, calc((100vh - 230px) * 1.333 + 56px)); background: linear-gradient(160deg, #e6decb, var(--beige) 40%, var(--beige2));
+    border-radius: 18px 18px 22px 22px; padding: 26px 28px 34px; position: relative;
+    box-shadow: inset 0 2px 0 #fff8, inset 0 -6px 12px #0002, 0 16px 30px #000a; }
+  #mon::after { content: 'HALE·PC'; position: absolute; left: 30px; bottom: 9px; font: 9px Silkscreen; color: #7a705c; letter-spacing: 2px; }
+  #led { position: absolute; right: 34px; bottom: 12px; width: 10px; height: 5px; border-radius: 2px; background: #3ae36a; box-shadow: 0 0 6px #3ae36a; }
+  #glass { position: relative; border-radius: 14px; overflow: hidden; background: #050505; aspect-ratio: 8 / 5;
+    box-shadow: 0 0 0 6px #2b2a27, inset 0 0 30px #000; }
+  #scr { width: 100%; height: 100%; display: block; image-rendering: pixelated; filter: saturate(1.08) contrast(1.05) blur(.25px); touch-action: none; cursor: pointer; }
+  #glass::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+    background: repeating-linear-gradient(180deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); }
+  #glass::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: radial-gradient(ellipse 120% 95% at 50% 50%, transparent 62%, rgba(0,0,0,.55) 100%),
+      linear-gradient(160deg, rgba(255,255,255,.07), transparent 35%); }
+
+  /* the case: floppy drive + eject */
+  #drive { grid-area: drive; width: min(100%, 560px); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 9px 14px;
+    background: linear-gradient(180deg, #ddd5c0, #c4b99d); border-radius: 6px; box-shadow: inset 0 1px 0 #fff8, 0 8px 18px #0008; }
+  #slot { flex: 1; height: 26px; border-radius: 3px; background: #2a2723; position: relative; overflow: hidden;
+    box-shadow: inset 0 3px 6px #000; display: flex; align-items: center; justify-content: center; }
+  #slot span { font: 9px Silkscreen; color: #8d8470; letter-spacing: 1px; }
+  #slot .in { position: absolute; left: 50%; top: 2px; width: 70%; height: 22px; transform: translateX(-50%); border-radius: 2px;
+    font: 14px 'Covered By Your Grace'; display: flex; align-items: center; justify-content: center; color: #f4eedc; }
+  #dled { width: 12px; height: 6px; border-radius: 2px; background: #3a2a14; }
+  #dled.on { background: #ffb020; box-shadow: 0 0 8px #ffb020; }
+  .cap { font: 10px Silkscreen; color: #2c2a26; background: linear-gradient(180deg, #f2ecdc, #d2c8ae); border: 0; border-radius: 5px;
+    box-shadow: 0 3px 0 #8c8168, 0 4px 6px #0006; padding: 9px 10px 7px; cursor: pointer; letter-spacing: .5px; touch-action: none; }
+  .cap:active, .cap.down { transform: translateY(2px); box-shadow: 0 1px 0 #8c8168, 0 2px 3px #0006; }
+  .cap:focus-visible { outline: 2px solid #ffb020; outline-offset: 2px; }
+
+  /* keypad */
+  #pad { display: flex; flex-direction: column; gap: 7px; align-items: center; margin-top: 10px; }
+  #pad .row { display: flex; gap: 7px; justify-content: center; }
+  #pad .cap { min-width: 46px; height: 40px; font-size: 12px; }
+  #pad .cap.wide { min-width: 84px; }
+  #legend { font: 18px VT323; color: #c8b998; margin-top: 6px; text-align: center; min-height: 18px; }
+
+  /* pencil note (tutorial + asides) */
+  #note { grid-area: note; width: min(100%, 520px); display: flex; justify-content: center; pointer-events: none; }
+  #note .paper { pointer-events: auto; background: #f3ecd6; color: var(--pencil); font-size: 24px; line-height: 1.05; padding: 10px 16px 9px;
+    transform: rotate(-1deg); box-shadow: 0 6px 14px #0008; max-width: 100%;
+    background-image: repeating-linear-gradient(180deg, transparent 0 23px, #b9cde0 23px 24px); }
+  #note .paper[hidden] { display: none; }
+  #note button { pointer-events: auto; }
+
+  /* the shoebox */
+  #box { grid-area: box; width: 100%; background: linear-gradient(180deg, #b8875a, #9c6c42); border-radius: 4px; padding: 30px 12px 14px; position: relative;
+    box-shadow: inset 0 0 0 3px #8a5c35, inset 0 8px 18px #0005, 0 14px 26px #000b; }
+  #box::before { content: 'MAGS — DISKS — KEEP OUT!!!'; position: absolute; top: 4px; left: 12px; right: 12px; text-align: center;
+    font: 20px 'Covered By Your Grace'; color: #2a1a10; white-space: nowrap; overflow: hidden; }
+  #disks { display: grid; grid-template-columns: repeat(2, auto); gap: 12px; }
+  #disks .disk { height: min(138px, calc((100vh - 118px) / 4)); }
+  .disk { position: relative; aspect-ratio: 1 / 1.03; border-radius: 4px 12% 4px 4px; border: 0; padding: 0; cursor: pointer;
+    box-shadow: inset 0 0 0 1px #0004, 0 4px 8px #0007; transition: transform .15s; font: inherit; color: var(--ink); }
+  .disk::before { /* metal shutter */ content: ''; position: absolute; top: 0; left: 26%; width: 48%; height: 33%;
+    background: linear-gradient(90deg, #8d9197, #d9dde2 40%, #9fa3a9); border-radius: 0 0 2px 2px; }
+  .disk::after { /* hub hole marks */ content: ''; position: absolute; top: 9%; left: 58%; width: 8%; height: 14%; background: #333; border-radius: 1px; }
+  .disk .lab { position: absolute; left: 9%; right: 9%; bottom: 7%; height: 54%; background: #f7f3e6; border-radius: 2px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Covered By Your Grace'; line-height: 1;
+    background-image: repeating-linear-gradient(180deg, transparent 0 11px, #d6c9ad 11px 12px); padding: 2px; overflow: hidden; }
+  .disk { container-type: inline-size; }
+  .disk .lab b { font-weight: normal; font-size: 15cqi; white-space: nowrap; }
+  .disk .lab i { font-style: normal; font-size: 11.5cqi; white-space: nowrap; }
+  .disk .tick { position: absolute; right: 6%; top: 36%; font: 26px 'Reenie Beanie'; color: #f4f0e4; text-shadow: 0 0 2px #000; display: none; }
+  .disk.played .tick { display: block; }
+  .disk.inslot { opacity: .25; transform: scale(.94); }
+  .disk.hl { outline: 3px dashed #ffd27a; outline-offset: 3px; animation: bob 1s ease-in-out infinite; }
+  .disk.sealed .lab::after { content: ''; position: absolute; left: -10%; right: -10%; top: 40%; height: 18%; background: rgba(240,230,180,.7); transform: rotate(-12deg); box-shadow: 0 1px 2px #0003; }
+  .disk.wobble { animation: wob .4s; }
+  @keyframes bob { 50% { transform: translateY(-4px); } }
+  @keyframes wob { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+  .hlbox { outline: 3px dashed #ffd27a; outline-offset: 4px; }
+
+  #mute { font-size: 9px; padding: 9px 7px 7px; }
+
+  /* cards: the lid (title) and the ending */
+  .card { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(10,6,3,.72); overflow: auto; }
+  .card[hidden] { display: none; }
+  .lid { width: min(560px, 100%); background: linear-gradient(180deg, #c2915f, #a97a4b); border-radius: 6px; padding: 26px 22px 22px; position: relative;
+    box-shadow: inset 0 0 0 4px #8d6038, 0 20px 50px #000; text-align: center; margin: auto; }
+  .lid h1 { font: 54px 'Covered By Your Grace'; margin: 0; color: #20140b; line-height: .95; transform: rotate(-2deg); }
+  .lid .sub { font: 22px 'Covered By Your Grace'; color: #3a2414; margin: 4px 0 12px; }
+  .sticky { background: #fbe98a; color: #2d2a22; font-size: 27px; line-height: 1.02; padding: 14px 16px; text-align: left; transform: rotate(1.5deg);
+    box-shadow: 0 8px 16px #0006; margin: 10px auto 18px; max-width: 400px; }
+  .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btns .cap { font-size: 13px; padding: 12px 16px 10px; }
+  .end { width: min(520px, 100%); background: #f3ecd6; color: var(--pencil); padding: 22px 22px 18px; font-size: 28px; line-height: 1.05; box-shadow: 0 20px 50px #000; margin: auto;
+    background-image: repeating-linear-gradient(180deg, transparent 0 27px, #b9cde0 27px 28px); }
+  .end h2 { font: 40px 'Covered By Your Grace'; margin: 0 0 6px; color: #20203a; }
+  .end p { margin: 0 0 12px; }
+
+  /* phones held upright */
+  @media (max-width: 760px) and (orientation: portrait) {
+    #desk { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; grid-template-areas: "mon" "drive" "note" "box"; gap: 8px; padding: 8px; padding-top: max(58px, env(safe-area-inset-top)); overflow-y: auto; height: 100%; }
+    #mon { width: 100%; padding: 12px 12px 22px; border-radius: 12px; }
+    #mon::after { left: 14px; bottom: 5px; font-size: 7px; }
+    #led { right: 16px; bottom: 7px; }
+    #glass { border-radius: 9px; box-shadow: 0 0 0 4px #2b2a27, inset 0 0 20px #000; }
+    #drive { flex-wrap: wrap; padding: 7px 10px; }
+    #pad { width: 100%; margin-top: 4px; gap: 6px; }
+    #pad .row { gap: 6px; }
+    #pad .cap { min-width: 0; flex: 1; height: 42px; }
+    #pad .row { width: 100%; }
+    #legend { display: none; }
+    #box { padding: 28px 8px 8px; }
+    #disks { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    #disks .disk { height: auto; }
+    #note .paper { font-size: 22px; }
+  }
+  /* phones held sideways */
+  @media (max-height: 520px) and (orientation: landscape) {
+    #desk { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "mon drive" "mon note" "mon box"; gap: 6px; padding: 6px; padding-left: max(60px, env(safe-area-inset-left)); }
+    #mon { width: min(calc((100vh - 12px - 28px) * 1.6 + 24px), 60vw); padding: 10px 12px 18px; border-radius: 10px; }
+    #mon::after, #led { display: none; }
+    #glass { border-radius: 8px; box-shadow: 0 0 0 3px #2b2a27; }
+    #drive { width: 100%; padding: 5px 8px; flex-wrap: wrap; gap: 6px; }
+    #slot { height: 22px; }
+    #pad { width: 100%; margin-top: 2px; gap: 5px; }
+    #pad .row { width: 100%; gap: 5px; }
+    #pad .cap { flex: 1; min-width: 0; height: 32px; padding: 6px 4px 4px; }
+    #legend { display: none; }
+    #note .paper { font-size: 19px; padding: 5px 10px; }
+    #box { padding: 22px 6px 6px; } #box::before { font-size: 15px; top: 2px; }
+    #disks { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    #disks .disk { height: auto; }
+    .disk { aspect-ratio: 1.15 / 1; }
+    .disk .lab { height: 58%; }
+  }
+  /* tablets held upright: box goes under, one row of disks */
+  @media (min-width: 761px) and (max-width: 1100px) and (orientation: portrait) {
+    #desk { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; grid-template-areas: "mon" "drive" "note" "box"; overflow-y: auto; height: 100%; padding-top: 60px; padding-left: 12px; }
+    #mon { width: min(100%, 760px); }
+    #disks { grid-template-columns: repeat(8, 1fr); }
+    #disks .disk { height: auto; }
+    #box { width: min(100%, 760px); }
+  }
+</style>
+</head>
+<body>
+<div id="attic"></div>
+<div id="desk">
+  <div id="mon"><div id="glass"><canvas id="scr" aria-label="The computer screen"></canvas></div><div id="led"></div></div>
+  <div id="drive">
+    <div id="dled"></div>
+    <div id="slot"><span>3½" DRIVE A:</span></div>
+    <button class="cap" id="eject">EJECT</button>
+    <button class="cap" id="mute" aria-label="Sound on or off">SOUND ON</button>
+    <div id="pad" style="flex-basis:100%"></div>
+    <div id="legend" style="flex-basis:100%"></div>
+  </div>
+  <div id="note"><div class="paper" id="notep" hidden></div></div>
+  <div id="box"><div id="disks"></div></div>
+</div>
+
+<div class="card" id="title" hidden>
+  <div class="lid">
+    <h1>MAGS<br>DISKS</h1>
+    <div class="sub">KEEP OUT!!! (this means you)</div>
+    <div class="sticky">Found these clearing the attic for the move. Thought you should have them.<br>Dad's old computer still works, just about.<br>— Mum x</div>
+    <div class="btns" id="titlebtns"></div>
+  </div>
+</div>
+<div class="card" id="ending" hidden>
+  <div class="end" id="endin"></div>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

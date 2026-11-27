@@ -1,0 +1,9 @@
+{
+  "title": "Floppy",
+  "blurb": "A shoebox of floppy disks: the games your big sister made from age 10 to 19. Play them all, read her notes, and find out what she was going through.",
+  "added": "2026-11-27",
+  "category": "games",
+  "tags": ["story", "narrative", "retro", "dos", "qbasic", "pixel", "minigames", "game"],
+  "tape": "purple",
+  "capture": { "width": 1200, "height": 900, "wait": 3500, "query": "?demo" }
+}
