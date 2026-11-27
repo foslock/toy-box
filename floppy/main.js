@@ -368,12 +368,12 @@ function tutEvent(ev, arg) {
   if (t === 1 && ev === 'insert' && arg === 'guess') advance(2);
   else if (t === 2 && ev === 'view' && arg === 'README.TXT') advance(3);
   else if (t === 3 && ev === 'closeview') advance(4);
-  else if (t === 4 && ev === 'run' && arg === 'guess') advance(5);
+  else if (t >= 2 && t <= 4 && ev === 'run' && arg === 'guess') advance(5);   // ran the game before reading: fine
   else if (t === 5 && (ev === 'done' || ev === 'exit')) advance(6);
-  else if (t === 6 && ev === 'eject') { save.tut = 7; persist(); clearNote(); note(`Six more disks, 1993 to 2000. The last one is taped shut. Mags wrote <i>play the others first!</i>`, 7); highlight(); }
-  else if (t >= 2 && t <= 6 && ev === 'eject') { save.tut = 1; persist(); showTut(); }
+  else if (t >= 2 && t <= 6 && ev === 'eject') { if (save.played.guess) finishTut(); else { save.tut = 1; persist(); showTut(); } }
   else if (t === 3 && ev === 'view') {}
 }
+function finishTut() { save.tut = 7; persist(); clearNote(); note(`Six more disks, 1993 to 2000. The last one is taped shut. Mags wrote <i>play the others first!</i>`, 7); highlight(); }
 function advance(n) { save.tut = n; persist(); showTut(); }
 function showTut() {
   const t = save.tut;
@@ -391,8 +391,19 @@ function highlight() {
 function showTitle() {
   const b = $('titlebtns'); b.innerHTML = '';
   const started = save.tut > 0 || Object.keys(save.played).length;
-  const add = (txt, fn) => { const x = document.createElement('button'); x.className = 'cap'; x.textContent = txt; x.addEventListener('click', () => { initAudio(); fn(); }); b.appendChild(x); };
-  if (started) { add('CARRY ON', () => { $('title').hidden = true; showTut(); }); add('START OVER', () => { save = load(); localStorage.removeItem(KEY); save = load(); save.tut = 1; persist(); $('title').hidden = true; eject(true); refreshBox(); showTut(); }); }
+  const add = (txt, fn) => { const x = document.createElement('button'); x.className = 'cap'; x.textContent = txt; x.addEventListener('click', () => { initAudio(); fn(x); }); b.appendChild(x); };
+  if (started) {
+    add('CARRY ON', () => {
+      $('title').hidden = true;
+      // a reload empties the drive, so a tutorial step about the disk in it no longer makes sense
+      if (save.tut >= 2 && save.tut <= 6) { if (save.played.guess) { finishTut(); return; } save.tut = 1; persist(); }
+      showTut();
+    });
+    add('START OVER', (x) => {
+      if (!x.dataset.sure) { x.dataset.sure = 1; x.textContent = coarse ? 'SURE? TAP AGAIN' : 'SURE? CLICK AGAIN'; return; }
+      localStorage.removeItem(KEY); save = load(); save.tut = 1; persist(); $('title').hidden = true; eject(true); refreshBox(); showTut();
+    });
+  }
   else add('LIFT THE LID', () => { save.tut = 1; persist(); $('title').hidden = true; showTut(); });
   $('title').hidden = false;
   setTimeout(() => b.querySelector('.cap')?.focus(), 50);
