@@ -243,6 +243,9 @@ function tutTick() {
   const t = G.tut; if (!t) return;
   const w = G.w;
   const puff = w.creatures.find((x) => x.k.tut && x.sp === 'puffwick'), moss = w.creatures.find((x) => x.k.tut && x.sp === 'mossback');
+  // until the lesson's first take is in, the bird only pauses briefly between preens, so the two
+  // seconds the card asks for always catch it doing something (it used to sit idle for up to 4 s)
+  if (t.i <= 2 && !puff.beh) puff.next = Math.min(puff.next, 0.3);
   const st = frameStats(w.frame, boxOf(w, puff));
   const ok = [
     () => st && st.vis >= 0.85,
@@ -327,6 +330,9 @@ window.addEventListener('keydown', (e) => {
   if (e.defaultPrevented) return;
   initAudio(); G.lastTouch = false; app.classList.add('mouse');
   const onSheet = !!sheets.firstChild;
+  // a key still held from the trip (Space to film) auto-repeats: never let that click through the
+  // cutting room, the whole screening and the results into the next reel
+  if (e.repeat && (G.mode === 'screen' || onSheet)) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') e.preventDefault(); return; }
   if (G.mode === 'screen') {
     if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') { e.preventDefault(); skipSeg(); }
     else if (e.code === 'Escape') { e.preventDefault(); endScreening(); }
@@ -607,7 +613,9 @@ function drawScreen() {
   ctx.fillStyle = '#0d0a07'; ctx.fillRect(0, 0, W, H);
   const s = SC && SC.segs[SC.i]; if (!s) return;
   const subsH = Math.max(110, H * 0.2);
-  let tw = Math.min(W - 24, (H - subsH - 40) * 16 / 9); let th = tw * 9 / 16;
+  // short landscape screens keep Voice/Skip in the top-right corner, beside the picture
+  const side = app.classList.contains('squat') ? $('#scrctl').offsetWidth + 24 : 12;
+  let tw = Math.min(W - 2 * side, (H - subsH - 40) * 16 / 9); let th = tw * 9 / 16;
   const tx = (W - tw) / 2, ty = Math.max(14, (H - subsH - th) / 2 + 4);
   $('#subs').style.top = (ty + th + 16) + 'px';
   const weave = Math.floor(performance.now() / 83);

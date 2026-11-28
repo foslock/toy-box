@@ -177,6 +177,41 @@ h1, h2, h3, .serif { font-family:'Young Serif', Georgia, serif; font-weight:400;
 #subs { position:absolute; left:50%; transform:translateX(-50%); width:min(760px, calc(100% - 28px)); text-align:center; color:#f2e8cf; font:clamp(17px, 2.4vw, 22px)/1.4 'Young Serif', Georgia, serif; text-shadow:0 1px 2px #000; min-height:3em; }
 #scrctl { position:absolute; right:max(12px, env(safe-area-inset-right)); bottom:max(12px, env(safe-area-inset-bottom)); display:flex; gap:8px; pointer-events:auto; }
 #scrctl button { background:rgba(244,236,216,.92); border:2px solid var(--ink); padding:6px 12px; font-weight:700; font-size:15px; min-height:44px; }
+.squat #scrctl { top:max(12px, env(safe-area-inset-top)); bottom:auto; flex-direction:column; align-items:stretch; }
+
+/* the cutting room keeps its Screen button in view however many takes there are */
+#cutting .takes { max-height:max(150px, calc(100vh - 300px)); max-height:max(150px, calc(100dvh - 300px)); overflow:auto; padding:10px 10px 4px 2px; margin-right:-8px; }
+.portrait #cutting .takes { grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; max-height:max(150px, calc(100vh - 350px)); max-height:max(150px, calc(100dvh - 350px)); }
+.portrait .take { font-size:12.5px; } .portrait .take .lab b { font-size:14px; }
+.portrait #results .big { font-size:36px; } .portrait #results table { font-size:13.5px; }
+
+/* phones held sideways: every card fits the short screen */
+.squat .sheet { padding:max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(64px, calc(env(safe-area-inset-left) + 60px)); }
+.squat .board { padding:12px 16px 14px; }
+.squat .board h2 { font-size:24px; }
+.squat .board p { margin:6px 0; }
+.squat .btns { margin-top:10px; gap:8px; }
+.squat .btn { min-height:42px; padding:6px 12px; font-size:15px; }
+.squat .toggles { margin-top:6px; }
+.squat #title .board { width:min(700px, 100%); padding-top:12px; }
+.squat #title h1 { font-size:42px; }
+.squat #title .kick { font-size:12px; }
+.squat #title .toggles button { padding:3px 2px; }
+.squat #title .btns { margin-top:8px; }
+.squat #title .sub { font-size:16px; margin-top:2px; }
+.squat #title p { font-size:14px; line-height:1.3; }
+.squat #title .credit { margin-top:6px; font-size:13px; line-height:1.35; }
+.squat .can { min-height:72px; padding:6px 8px; } .squat .can .disc { width:46px; height:46px; }
+.squat #reels .grid { margin-top:8px; gap:8px; }
+.squat #cutting .note { margin:4px 0; font-size:14px; }
+.squat #cutting .takes { grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); max-height:max(120px, calc(100vh - 202px)); max-height:max(120px, calc(100dvh - 202px)); margin-top:4px; }
+.squat #results .board { width:min(820px, 100%); display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:20px; align-items:start; }
+.squat #results .board > * { grid-column:1; }
+.squat #results .board > table { grid-column:2; grid-row:1 / span 5; margin-top:4px; font-size:13.5px; align-self:center; }
+.squat #results .big { font-size:34px; }
+.squat #results .quote { font-size:18px; margin-top:4px; }
+.squat #results .new { font-size:13px; line-height:1.35; margin-top:6px; }
+.squat #results .board > .btns { grid-column:1 / -1; margin-top:8px; }
 </style>
 </head>
 <body>
