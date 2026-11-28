@@ -65,7 +65,7 @@ Each idea borrows the core of a game you like and adds one twist. The twist is s
 - [x] 57. Poltergeist — [`poltergeist/`](poltergeist/)
 - [x] 58. Unlocked — [`unlocked/`](unlocked/)
 - [x] 59. Reef — [`reef/`](reef/)
-- [ ] 60. Documentary
+- [x] 60. Documentary — [`upriver/`](upriver/)
 - [x] 61. Midnight Golf — [`midnightgolf/`](midnightgolf/)
 
 ---
@@ -581,8 +581,10 @@ A calm Islanders-style placement game where you rebuild a coral reef on a bare p
 
 Mid-game threats keep it from being purely zen: a warm-water bleaching event that drains the colour from corals that aren't shaded, a crown-of-thorns starfish, a storm. A reef log records every species you've attracted. Style: a beautiful, sunlit three.js underwater diorama with caustics, swaying coral and lively fish, viewed from a gentle orbit camera. Tap to place on phones.
 
-## 60. Documentary
+## 60. Documentary ✅
 *Borrows: Pokémon Snap · Twist: a narrator writes the nature documentary from your footage*
+
+**Built 2026-11-28 as [`upriver/`](upriver/).** Four reels (misty wood, reed marsh, glow caves, the river at night) rather than five or six, 12 species with 3 behaviours each (36 in the field guide) rather than 30 species, and 2D canvas rather than three.js: a cut-paper diorama with layered parallax card, hard paper shadows and brass split-pin joints. You aim a viewfinder over the drifting scene, zoom, and hold to roll from a 90-second reel; fruit, a whistle and bubbles land where the frame points. Each take is judged on what was happening, size, centring and steadiness; the best five (re-pickable in a cutting room) are screened as a grainy film with narration that gets more wonderful with better footage, read aloud by the browser's voice if it has one, and a TV critic's star rating. Cut: the orchestral score is a synthesised string pad and harp; one fixed route per reel, no branching.
 
 A Pokémon Snap-style on-rails photography game where you're the camera operator on a nature documentary. A little boat drifts down a river through a strange, lush valley, and you film the creatures: aim, zoom and hold record to capture clips. Throw fruit, play a whistle or blow bubbles to coax out behaviours (feeding, courtship, a squabble, a lullaby). At the end of each trip your best clips are cut into a short documentary, and a calm, Attenborough-ish narrator (on-screen text, perhaps read aloud with the browser's speech) narrates it. The better your footage (rarer behaviours, better framing), the more wonderful the narration.
 

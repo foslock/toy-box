@@ -1,0 +1,9 @@
+{
+  "title": "Upriver",
+  "blurb": "Film strange river creatures from a drifting boat, coax out their habits with fruit, a whistle and bubbles, and a narrator turns your best takes into a nature documentary.",
+  "added": "2026-11-28",
+  "category": "games",
+  "tags": ["canvas", "photography", "nature documentary", "cut paper", "game"],
+  "tape": "green",
+  "capture": { "width": 1200, "height": 900, "wait": 3000, "query": "?demo" }
+}
